@@ -191,7 +191,7 @@ module elm_driver
   use NitrifDenitrifMod        , only : NitrifDenitrifParamsInst
   use SoilLittDecompMod        , only : cndecompparamsinst
   use AllocationMod            , only : AllocParamsInst
-  use LandunitDataType         , only : lun_ef, lun_es, lun_ws, lun_wf
+  use LandunitDataType         , only : lun_ef, lun_es, lun_ws 
 
   use NitrogenDynamicsMod, only : CNNDynamicsParamsInst
   use dynSubgridControlMod , only : dyn_subgrid_control_inst
