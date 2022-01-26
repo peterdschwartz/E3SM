@@ -19,10 +19,11 @@ module decompInitMod
   use ColumnType      , only : col_pp                
   use FatesInterfaceTypesMod, only : fates_maxElementsPerSite
   use VegetationType  , only : veg_pp                
-  use decompMod
+  use decompMod  
   use mct_mod  
   use topounit_varcon   , only : max_topounits, has_topounit
-  use domainMod         , only: ldomain
+  use domainMod         , only : ldomain
+  use decompMod         , only : procinfo
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -772,6 +773,7 @@ contains
        icols       = allvecg(cid,clev)  ! number of all clump cid columns (over all processors)
        ipfts       = allvecg(cid,plev)  ! number of all clump cid pfts (over all processors)
        icohorts    = allvecg(cid,hlev)  ! number of all clump cid cohorts (over all processors)
+
 
        !--- overall total ---
        numg = numg + icells         ! total number of gridcells

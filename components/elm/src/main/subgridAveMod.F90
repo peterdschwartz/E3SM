@@ -23,8 +23,9 @@ module subgridAveMod
   implicit none
   save
 
-  integer, parameter :: unity = 0, urbanf = 1, urbans = 2
-  integer, parameter :: natveg = 3, veg =4, ice=5, nonurb=6, lake=7
+  integer, public, parameter :: unity = 1, natveg = 2, veg = 3
+  integer, public, parameter :: ice = 4, nonurb = 5, lake = 6
+  integer, public, parameter :: urbanf = 2, urbans = 3
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: p2c   ! Perform an average pfts to columns
@@ -44,7 +45,7 @@ module subgridAveMod
      module procedure p2c_1d
      module procedure p2c_1d_gpu
      module procedure p2c_2d
-     module procedure p2c_2d_gpu
+   !   module procedure p2c_2d_gpu
      module procedure p2c_1d_filter
      module procedure p2c_2d_filter
   end interface
@@ -101,13 +102,25 @@ module subgridAveMod
     module procedure create_scale_c2l_gpu
   end interface
 
-
+  public :: p2c_1d_filter_parallel
+  public :: p2c_1d_parallel 
+  public :: p2c_2d_parallel
+  public :: c2g_1d_parallel
+  !
+  public :: initialize_scale_l2g_lookup
+  public :: initialize_scale_c2l
   !
   ! !PRIVATE MEMBER FUNCTIONS:
   private :: build_scale_l2g
   private :: create_scale_l2g_lookup
   private :: build_scale_l2t
   private :: create_scale_l2t_lookup
+
+  ! New arrays created to stop unnecessary calls for fixed scaling quantities
+  real(r8), allocatable, private :: main_scale_l2g_lookup(:,:) !dimensions (scale_type, lun_pp%itype)
+  !$acc declare create(main_scale_l2g_lookup(:,:))
+  real(r8), allocatable, private :: main_scale_c2l(:,:) ! dimensions = (col, scale_type) 
+  !$acc declare create(main_scale_c2l(:,:))
   
   ! WJS (10-14-11): TODO:
   !
@@ -135,6 +148,7 @@ contains
     ! Averaging is only done for points that are not equal to "spval".
     !
     ! !ARGUMENTS:
+      !$acc routine seq 
     type(bounds_type), intent(in) :: bounds
     real(r8), intent(in)  :: parr( bounds%begp: )         ! patch array
     real(r8), intent(out) :: carr( bounds%begc: )         ! column array
@@ -142,23 +156,9 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: p,c,index                       ! indices
-    real(r8) :: scale_p2c(bounds%begp:bounds%endp) ! scale factor for column->landunit mapping
-    logical  :: found                              ! temporary for error check
-    real(r8) :: sumwt(bounds%begc:bounds%endc)     ! sum of weights
+    logical  :: found                           ! temporary for error check
+    real(r8) :: sumwt(bounds%begc:bounds%endc)  ! sum of weights
     !------------------------------------------------------------------------
-
-    ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(parr) == (/bounds%endp/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(carr) == (/bounds%endc/)), errMsg(__FILE__, __LINE__))
-
-    if (p2c_scale_type == 'unity') then
-       do p = bounds%begp,bounds%endp
-          scale_p2c(p) = 1.0_r8
-       end do
-    else
-      write(iulog,*)'p2c_2d error: scale type ',p2c_scale_type,' not supported'
-      call endrun(msg=errMsg(__FILE__, __LINE__))
-    end if
 
     carr(bounds%begc:bounds%endc) = spval
     sumwt(bounds%begc:bounds%endc) = 0._r8
@@ -167,11 +167,12 @@ contains
           if (parr(p) /= spval) then
              c = veg_pp%column(p)
              if (sumwt(c) == 0._r8) carr(c) = 0._r8
-             carr(c) = carr(c) + parr(p) * scale_p2c(p) * veg_pp%wtcol(p)
+             carr(c) = carr(c) + parr(p) * veg_pp%wtcol(p)
              sumwt(c) = sumwt(c) + veg_pp%wtcol(p)
           end if
        end if
     end do
+    
     found = .false.
     do c = bounds%begc,bounds%endc
        if (sumwt(c) > 1.0_r8 + 1.e-6_r8) then
@@ -181,12 +182,9 @@ contains
           carr(c) = carr(c)/sumwt(c)
        end if
     end do
-    if (found) then
-      write(iulog,*)'p2c_1d error: sumwt is greater than 1.0'
-      call endrun(decomp_index=index, elmlevel=namec, msg=errMsg(__FILE__, __LINE__))
-    end if
 
   end subroutine p2c_1d
+
   !-----------------------------------------------------------------------
   subroutine p2c_1d_gpu (bounds, parr, carr, p2c_scale_type)
     !$acc routine seq
@@ -202,20 +200,9 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: p,c,index                       ! indices
-    real(r8) :: scale_p2c(bounds%begp:bounds%endp) ! scale factor for column->landunit mapping
     logical  :: found                              ! temporary for error check
     real(r8) :: sumwt(bounds%begc:bounds%endc)     ! sum of weights
     !------------------------------------------------------------------------
-
-    ! Enforce expected array sizes
-
-    if (p2c_scale_type == unity) then
-       do p = bounds%begp,bounds%endp
-          scale_p2c(p) = 1.0_r8
-       end do
-    else
-       stop
-    end if
 
     carr(bounds%begc:bounds%endc) = spval
     sumwt(bounds%begc:bounds%endc) = 0._r8
@@ -224,7 +211,7 @@ contains
           if (parr(p) /= spval) then
              c = veg_pp%column(p)
              if (sumwt(c) == 0._r8) carr(c) = 0._r8
-             carr(c) = carr(c) + parr(p) * scale_p2c(p) * veg_pp%wtcol(p)
+             carr(c) = carr(c) + parr(p) * veg_pp%wtcol(p)
              sumwt(c) = sumwt(c) + veg_pp%wtcol(p)
           end if
        end if
@@ -244,6 +231,62 @@ contains
 
   end subroutine p2c_1d_gpu
 
+  subroutine p2c_1d_parallel (bounds, parr, carr, p2c_scale_type, para)
+   ! !DESCRIPTION:
+   ! Perfrom subgrid-average from pfts to columns.
+   ! Averaging is only done for points that are not equal to "spval".
+   !
+   ! !ARGUMENTS:
+   type(bounds_type), intent(in) :: bounds
+   real(r8), intent(in)  :: parr( bounds%begp: )   ! patch array
+   real(r8), intent(out) :: carr(1:)   ! column array
+   integer, intent(in) :: p2c_scale_type ! scale type
+   logical, intent(in) :: para 
+   !
+   ! !LOCAL VARIABLES:
+   integer  :: p,c,index                       ! indices
+   logical  :: found                              ! temporary for error check
+   real(r8) :: sumwt, sum_arr !(bounds%begc:bounds%endc)     ! sum of weights
+   !------------------------------------------------------------------------
+
+   !$acc parallel loop independent gang worker default(present) private(sumwt,sum_arr)
+   do c = bounds%begc, bounds%endc
+      sumwt = 0._r8
+      sum_arr = 0._r8
+      !$acc loop vector reduction(+:sumwt)
+      do p = col_pp%pfti(c), col_pp%pftf(c)
+         if (veg_pp%active(p) .and. veg_pp%wtcol(p) /= 0._r8) then
+            if (parr(p) /= spval) then
+               
+               sum_arr = sum_arr + parr(p) * veg_pp%wtcol(p)
+               sumwt = sumwt + veg_pp%wtcol(p)
+            end if
+         end if
+      end do
+      carr(c) = sum_arr ! is this an issue for not being spval anymore?
+      if(sumwt > 1.0_r8 + 1.e-6_r8 ) then 
+         stop "Error p2c_1d sumwts > 1"
+      elseif(sumwt /= 0._r8) then 
+         carr(c) = carr(c)/sumwt
+      elseif(sumwt == 0._r8) then 
+         carr(c) = spval 
+      end if 
+   end do 
+   
+   ! found = .false.
+   ! do c = bounds%begc,bounds%endc
+   !    if (sumwt(c) > 1.0_r8 + 1.e-6_r8) then
+   !       found = .true.
+   !       index = c
+   !    else if (sumwt(c) /= 0._r8) then
+   !       carr(c) = carr(c)/sumwt(c)
+   !    end if
+   ! end do
+   ! if (found) then
+   !   stop
+   ! end if
+ end subroutine p2c_1d_parallel 
+
   !-----------------------------------------------------------------------
   subroutine p2c_2d (bounds, num2d, parr, carr, p2c_scale_type)
     !
@@ -260,23 +303,9 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: j,p,c,index                         ! indices
-    real(r8) :: scale_p2c(bounds%begp:bounds%endp)     ! scale factor for column->landunit mapping
     logical  :: found                                  ! temporary for error check
     real(r8) :: sumwt(bounds%begc:bounds%endc)         ! sum of weights
     !------------------------------------------------------------------------
-
-    ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(parr) == (/bounds%endp, num2d/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(carr) == (/bounds%endc, num2d/)), errMsg(__FILE__, __LINE__))
-
-    if (p2c_scale_type == 'unity') then
-       do p = bounds%begp,bounds%endp
-          scale_p2c(p) = 1.0_r8
-       end do
-    else
-       write(iulog,*)'p2c_2d error: scale type ',p2c_scale_type,' not supported'
-       call endrun(msg=errMsg(__FILE__, __LINE__))
-    end if
 
     carr(bounds%begc : bounds%endc, :) = spval
     do j = 1,num2d
@@ -286,7 +315,7 @@ contains
              if (parr(p,j) /= spval) then
                 c = veg_pp%column(p)
                 if (sumwt(c) == 0._r8) carr(c,j) = 0._r8
-                carr(c,j) = carr(c,j) + parr(p,j) * scale_p2c(p) * veg_pp%wtcol(p)
+                carr(c,j) = carr(c,j) + parr(p,j) * veg_pp%wtcol(p)
                 sumwt(c) = sumwt(c) + veg_pp%wtcol(p)
              end if
           end if
@@ -300,17 +329,13 @@ contains
              carr(c,j) = carr(c,j)/sumwt(c)
           end if
        end do
-       if (found) then
-          write(iulog,*)'p2c_2d error: sumwt is greater than 1.0 at c= ',index,' lev= ',j
-          call endrun(decomp_index=index, elmlevel=namec, msg=errMsg(__FILE__, __LINE__))
-       end if
+
     end do
   end subroutine p2c_2d
 
 
   !-----------------------------------------------------------------------
-  subroutine p2c_2d_gpu (bounds, num2d, parr, carr, p2c_scale_type)
-    !$acc routine seq
+  subroutine p2c_2d_parallel(bounds, num2d, parr, carr)
     ! !DESCRIPTION:
     ! Perfrom subgrid-average from landunits to gridcells.
     ! Averaging is only done for points that are not equal to "spval".
@@ -320,50 +345,90 @@ contains
     integer           , intent(in)  :: num2d                     ! size of second dimension
     real(r8)          , intent(in)  :: parr( bounds%begp: , 1: ) ! patch array
     real(r8)          , intent(out) :: carr( bounds%begc: , 1: ) ! column array
-    integer           , intent(in) :: p2c_scale_type ! unity = 0, urbanf = 1, urbans = 2
     !
     ! !LOCAL VARIABLES:
-    integer  :: j,p,c,index                         ! indices
-    real(r8) :: scale_p2c(bounds%begp:bounds%endp)     ! scale factor for column->landunit mapping
-    logical  :: found                                  ! temporary for error check
-    real(r8) :: sumwt(bounds%begc:bounds%endc)         ! sum of weights
+    integer  :: j,p,c,index                      ! indices
+    real(r8), parameter :: scale_p2c = 1.0_r8    ! scale factor for column->landunit mapping
+    logical  :: found                            ! temporary for error check
+    real(r8) :: sumwt(bounds%begc:bounds%endc)   ! sum of weights
+    real(r8) :: sum1 
     !------------------------------------------------------------------------
 
-    if (p2c_scale_type == unity) then
-       do p = bounds%begp,bounds%endp
-          scale_p2c(p) = 1.0_r8
-       end do
-    else
-      stop
-    end if
+    !$acc enter data create(&
+    !$acc sumwt(:), &
+    !$acc sum1)
 
-    carr(bounds%begc : bounds%endc, :) = spval
-    do j = 1,num2d
-       sumwt(bounds%begc : bounds%endc) = 0._r8
-       do p = bounds%begp,bounds%endp
-          if (veg_pp%active(p) .and. veg_pp%wtcol(p) /= 0._r8) then
-             if (parr(p,j) /= spval) then
-                c = veg_pp%column(p)
-                if (sumwt(c) == 0._r8) carr(c,j) = 0._r8
-                carr(c,j) = carr(c,j) + parr(p,j) * scale_p2c(p) * veg_pp%wtcol(p)
-                sumwt(c) = sumwt(c) + veg_pp%wtcol(p)
-             end if
-          end if
-       end do
-       found = .false.
-       do c = bounds%begc,bounds%endc
-          if (sumwt(c) > 1.0_r8 + 1.e-6_r8) then
-             found = .true.
-             index = c
-          else if (sumwt(c) /= 0._r8) then
-             carr(c,j) = carr(c,j)/sumwt(c)
-          end if
-       end do
-       if (found) then
-         stop
-       end if
+    !$acc parallel loop independent gang worker default(present) private(sum1)
+    do c = bounds%begc, bounds%endc 
+      sum1 = 0._r8 
+      !$acc loop vector reduction(+:sum1)
+      do p = col_pp%pfti(c), col_pp%pftf(c) 
+         if (veg_pp%active(p) .and. veg_pp%wtcol(p) /= 0._r8 .and. parr(p,j) /= spval) then
+            sum1 = sum1 + veg_pp%wtcol(p)
+         end if 
+      end do
+      if(sum1 > 1.0_r8 + 1.e-6_r8) stop  
+      sumwt(c) = sum1 
     end do
-  end subroutine p2c_2d_gpu
+
+    ! carr(bounds%begc : bounds%endc, :) = spval
+    !$acc parallel loop independent gang worker default(present) private(sum1)
+    do j = 1,num2d
+      do c = bounds%begc,bounds%endc
+            sum1 = 0._r8 
+         do p = col_pp%pfti(c), col_pp%pftf(c) 
+            if (veg_pp%active(p) .and. veg_pp%wtcol(p) /= 0._r8 .and. parr(p,j) /= spval) then
+                sum1 = sum1 + parr(p,j) * veg_pp%wtcol(p)
+            end if
+         end do
+         carr(c,j) = sum1
+         if(sumwt(c) /= 0._r8) then 
+            carr(c,j) = carr(c,j)/sumwt(c)
+         end if 
+      end do 
+    end do 
+
+    !$acc exit data delete(&
+    !$acc sumwt(:), &
+    !$acc sum1)
+
+  end subroutine p2c_2d_parallel
+
+
+  !-----------------------------------------------------------------------
+  subroutine p2c_1d_filter_parallel( numfc, filterc,  pftarr, colarr)
+    !
+    ! !DESCRIPTION:
+    ! perform pft to column averaging for single level pft arrays
+    ! Note: pftarr and colarr are the entire array for a processor
+    !      not divisble by clumps
+    !
+    ! !ARGUMENTS:
+    integer , intent(in)  :: numfc
+    integer , intent(in)  :: filterc(numfc)
+    real(r8), intent(in)  :: pftarr(:)
+    real(r8), intent(out) :: colarr(:)
+
+    ! !LOCAL VARIABLES:
+    integer :: fc,c,p  ! indices
+    real(r8) :: sum1
+    !-----------------------------------------------------------------------
+
+    ! Enforce expected array sizes
+
+    !$acc parallel loop independent gang worker private(c,sum1) &
+    !$acc default(present) create(sum1)
+    do fc = 1,numfc
+       c = filterc(fc)
+       sum1 = 0._r8
+       !$acc loop vector reduction(+:sum1)
+       do p = col_pp%pfti(c), col_pp%pftf(c)
+          if (veg_pp%active(p)) sum1 = sum1 + pftarr(p) * veg_pp%wtcol(p)
+       end do
+       colarr(c) = sum1
+    end do
+
+end subroutine p2c_1d_filter_parallel
 
   !-----------------------------------------------------------------------
   subroutine p2c_1d_filter (bounds, numfc, filterc,  pftarr, colarr)
@@ -378,14 +443,10 @@ contains
     integer , intent(in)  :: filterc(numfc)
     real(r8), intent(in)  :: pftarr( bounds%begp: )
     real(r8), intent(out) :: colarr( bounds%begc: )
-    !type(column_physical_properties) , target :: col_pp
 
-    ! !LOCAL VARIABLES:
+       ! !LOCAL VARIABLES:
     integer :: fc,c,p  ! indices
     !-----------------------------------------------------------------------
-
-    ! Enforce expected array sizes
-
     do fc = 1,numfc
        c = filterc(fc)
        colarr(c) = 0._r8
@@ -447,8 +508,6 @@ contains
     real(r8) :: scale_c2l(bounds%begc:bounds%endc) ! scale factor for column->landunit mapping
     !------------------------------------------------------------------------
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(parr) == (/bounds%endp/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(larr) == (/bounds%endl/)), errMsg(__FILE__, __LINE__))
 
     call create_scale_c2l(bounds,c2l_scale_type,scale_c2l(bounds%begc:bounds%endc))
 
@@ -457,8 +516,8 @@ contains
           scale_p2c(p) = 1.0_r8
        end do
     else
-       write(iulog,*)'p2l_1d error: scale type ',p2c_scale_type,' not supported'
-       call endrun(msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2l_1d error: scale type ',p2c_scale_type,' not supported'
+       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     larr(bounds%begl : bounds%endl) = spval
@@ -484,8 +543,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*)'p2l_1d error: sumwt is greater than 1.0 at l= ',index
-       call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2l_1d error: sumwt is greater than 1.0 at l= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine p2l_1d
@@ -514,8 +573,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(parr) == (/bounds%endp, num2d/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(larr) == (/bounds%endl, num2d/)), errMsg(__FILE__, __LINE__))
     
     call create_scale_c2l(bounds,c2l_scale_type,scale_c2l(bounds%begc:bounds%endc))
 
@@ -525,8 +582,8 @@ contains
           scale_p2c(p) = 1.0_r8
        end do
     else
-      write(iulog,*)'p2l_2d error: scale type ',p2c_scale_type,' not supported'
-      call endrun(msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2l_2d error: scale type ',p2c_scale_type,' not supported'
+       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     larr(bounds%begl : bounds%endl, :) = spval
@@ -553,8 +610,8 @@ contains
           end if
        end do
        if (found) then
-          write(iulog,*)'p2l_2d error: sumwt is greater than 1.0 at l= ',index,' j= ',j
-          call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+          !#py write(iulog,*)'p2l_2d error: sumwt is greater than 1.0 at l= ',index,' j= ',j
+          !#py !#py call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -595,8 +652,8 @@ contains
           scale_p2c(p) = 1.0_r8
        end do
     else
-       write(iulog,*)'p2g_1d error: scale type ',c2l_scale_type,' not supported'
-       call endrun(msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2g_1d error: scale type ',c2l_scale_type,' not supported'
+       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     garr(bounds%begg : bounds%endg) = spval
@@ -623,8 +680,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*)'p2g_1d error: sumwt is greater than 1.0 at g= ',index
-       call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2g_1d error: sumwt is greater than 1.0 at g= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine p2g_1d
@@ -646,75 +703,23 @@ contains
     !  !LOCAL VARIABLES:
     integer  :: p,c,l,g,index                   ! indices
     logical  :: found                              ! temporary for error check
-    real(r8) :: scale_p2c(bounds%begp:bounds%endp) ! scale factor
-    real(r8) :: scale_c2l(bounds%begc:bounds%endc) ! scale factor
-    real(r8) :: scale_l2g(bounds%begl:bounds%endl) ! scale factor
+    real(r8),parameter :: scale_p2c = 1._r8 ! scale factor
+    real(r8) :: scale_c2l ! scale factor
+    real(r8) :: scale_l2g ! scale factor
     real(r8) :: sumwt(bounds%begg:bounds%endg)     ! sum of weights
     !------------------------------------------------------------------------
-
-    call build_scale_l2g_gpu(bounds, l2g_scale_type, &
-         scale_l2g)
-
-    if (c2l_scale_type == unity) then
-       do c = bounds%begc,bounds%endc
-          scale_c2l(c) = 1.0_r8
-       end do
-    else if (c2l_scale_type == urbanf) then
-       do c = bounds%begc,bounds%endc
-          l = col_pp%landunit(c)
-          if (lun_pp%urbpoi(l)) then
-             if (col_pp%itype(c) == icol_sunwall) then
-                scale_c2l(c) = 3.0 * lun_pp%canyon_hwr(l)
-             else if (col_pp%itype(c) == icol_shadewall) then
-                scale_c2l(c) = 3.0 * lun_pp%canyon_hwr(l)
-             else if (col_pp%itype(c) == icol_road_perv .or. col_pp%itype(c) == icol_road_imperv) then
-                scale_c2l(c) = 3.0_r8
-             else if (col_pp%itype(c) == icol_roof) then
-                scale_c2l(c) = 1.0_r8
-             end if
-          else
-             scale_c2l(c) = 1.0_r8
-          end if
-       end do
-    else if (c2l_scale_type == urbans) then
-       do c = bounds%begc,bounds%endc
-          l = col_pp%landunit(c)
-          if (lun_pp%urbpoi(l)) then
-             if (col_pp%itype(c) == icol_sunwall) then
-                scale_c2l(c) = (3.0 * lun_pp%canyon_hwr(l)) / (2.*lun_pp%canyon_hwr(l) + 1.)
-             else if (col_pp%itype(c) == icol_shadewall) then
-                scale_c2l(c) = (3.0 * lun_pp%canyon_hwr(l)) / (2.*lun_pp%canyon_hwr(l) + 1.)
-             else if (col_pp%itype(c) == icol_road_perv .or. col_pp%itype(c) == icol_road_imperv) then
-                scale_c2l(c) = 3.0 / (2.*lun_pp%canyon_hwr(l) + 1.)
-             else if (col_pp%itype(c) == icol_roof) then
-                scale_c2l(c) = 1.0_r8
-             end if
-          else
-             scale_c2l(c) = 1.0_r8
-          end if
-       end do
-    else
-       print *, 'p2g_1d error: scale type ',c2l_scale_type,' not supported'
-    end if
-
-    if (p2c_scale_type == unity) then
-       do p = bounds%begp,bounds%endp
-          scale_p2c(p) = 1.0_r8
-       end do
-    else
-       print *, 'p2g_1d error: scale type ',c2l_scale_type,' not supported'
-    end if
-
     garr(bounds%begg : bounds%endg) = spval
     sumwt(bounds%begg : bounds%endg) = 0._r8
     do p = bounds%begp,bounds%endp
        if (veg_pp%active(p) .and. veg_pp%wtgcell(p) /= 0._r8) then
           c = veg_pp%column(p)
           l = veg_pp%landunit(p)
-          if (parr(p) /= spval .and. scale_c2l(c) /= spval .and. scale_l2g(l) /= spval) then
+          scale_l2g = main_scale_l2g_lookup(l2g_scale_type,lun_pp%itype(l))
+          scale_c2l = main_scale_c2l(c,c2l_scale_type)
+          if (parr(p) /= spval .and. scale_c2l /= spval .and. scale_l2g /= spval) then
              g = veg_pp%gridcell(p)
              if (sumwt(g) == 0._r8) garr(g) = 0._r8
-             garr(g) = garr(g) + parr(p) * scale_p2c(p) * scale_c2l(c) * scale_l2g(l) * veg_pp%wtgcell(p)
+             garr(g) = garr(g) + parr(p) * scale_p2c * scale_c2l * scale_l2g * veg_pp%wtgcell(p)
              sumwt(g) = sumwt(g) + veg_pp%wtgcell(p)
           end if
        end if
@@ -761,8 +766,6 @@ contains
     real(r8) :: sumwt(bounds%begg:bounds%endg)         ! sum of weights
     !------------------------------------------------------------------------
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(parr) == (/bounds%endp, num2d/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(garr) == (/bounds%endg, num2d/)), errMsg(__FILE__, __LINE__))
 
     call build_scale_l2g(bounds, l2g_scale_type, &
          scale_l2g)
@@ -774,8 +777,8 @@ contains
           scale_p2c(p) = 1.0_r8
        end do
     else
-       write(iulog,*)'p2g_2d error: scale type ',c2l_scale_type,' not supported'
-       call endrun(msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2g_2d error: scale type ',c2l_scale_type,' not supported'
+       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     garr(bounds%begg : bounds%endg, :) = spval
@@ -803,8 +806,8 @@ contains
           end if
        end do
        if (found) then
-          write(iulog,*)'p2g_2d error: sumwt gt 1.0 at g/sumwt = ',index,sumwt(index)
-          call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+          !#py write(iulog,*)'p2g_2d error: sumwt gt 1.0 at g/sumwt = ',index,sumwt(index)
+          !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -881,10 +884,8 @@ contains
           end if
        end do
     else
-#ifndef _OPENACC
-       write(iulog,*)'p2g_2d error: scale type ',c2l_scale_type,' not supported'
-       call endrun(msg=errMsg(__FILE__, __LINE__))
-#endif 
+       !write(iulog,*)'p2g_2d error: scale type ',c2l_scale_type,' not supported'
+       !call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     if (p2c_scale_type == unity) then
@@ -892,10 +893,8 @@ contains
           scale_p2c(p) = 1.0_r8
        end do
     else
-#ifndef _OPENACC
-       write(iulog,*)'p2g_2d error: scale type ',c2l_scale_type,' not supported'
-       call endrun(msg=errMsg(__FILE__, __LINE__))
-#endif 
+       !write(iulog,*)'p2g_2d error: scale type ',c2l_scale_type,' not supported'
+       !call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     garr(bounds%begg : bounds%endg, :) = spval
@@ -951,8 +950,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(carr) == (/bounds%endc/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(larr) == (/bounds%endl/)), errMsg(__FILE__, __LINE__))
 
     call create_scale_c2l(bounds, c2l_scale_type, scale_c2l(bounds%begc:bounds%endc))
 
@@ -978,8 +975,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*)'c2l_1d error: sumwt is greater than 1.0 at l= ',index
-       call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'c2l_1d error: sumwt is greater than 1.0 at l= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine c2l_1d
@@ -1006,8 +1003,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(carr) == (/bounds%endc, num2d/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(larr) == (/bounds%endl, num2d/)), errMsg(__FILE__, __LINE__))
 
     call create_scale_c2l(bounds, c2l_scale_type, &
          scale_c2l(bounds%begc:bounds%endc))
@@ -1035,12 +1030,13 @@ contains
           end if
        end do
        if (found) then
-        write(iulog,*)'c2l_2d error: sumwt is greater than 1.0 at l= ',index,' lev= ',j
-        call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+        !#py write(iulog,*)'c2l_2d error: sumwt is greater than 1.0 at l= ',index,' lev= ',j
+        !#py !#py call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
   end subroutine c2l_2d
+
   !-----------------------------------------------------------------------
   subroutine c2g_1d(bounds, carr, garr, c2l_scale_type, l2g_scale_type)
     ! !DESCRIPTION:
@@ -1081,6 +1077,7 @@ contains
        end if
     end do
     found = .false.
+    
     do g = bounds%begg, bounds%endg
        if (sumwt(g) > 1.0_r8 + 1.e-6_r8) then
           found = .true.
@@ -1090,8 +1087,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*)'c2g_1d error: sumwt is greater than 1.0 at g= ',index
-       call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'c2g_1d error: sumwt is greater than 1.0 at g= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine c2g_1d
@@ -1112,25 +1109,23 @@ contains
     ! !LOCAL VARIABLES:
     integer  :: c,l,g,index                     ! indices
     logical  :: found                              ! temporary for error check
-    real(r8) :: scale_c2l(bounds%begc:bounds%endc) ! scale factor
-    real(r8) :: scale_l2g(bounds%begl:bounds%endl) ! scale factor
+    real(r8) :: scale_c2l ! scale factor
+    real(r8) :: scale_l2g ! scale factor
     real(r8) :: sumwt(bounds%begg:bounds%endg)     ! sum of weights
     !------------------------------------------------------------------------
-
-    call build_scale_l2g_gpu(bounds, l2g_scale_type, &
-         scale_l2g)
-
-    call create_scale_c2l_gpu(bounds,c2l_scale_type, scale_c2l)
-
+   
     garr(bounds%begg : bounds%endg) = spval
     sumwt(bounds%begg : bounds%endg) = 0._r8
+
     do c = bounds%begc,bounds%endc
        if (col_pp%active(c) .and. col_pp%wtgcell(c) /= 0._r8) then
           l = col_pp%landunit(c)
-          if (carr(c) /= spval .and. scale_c2l(c) /= spval .and. scale_l2g(l) /= spval) then
-             g = col_pp%gridcell(c)
+          scale_l2g = main_scale_l2g_lookup(l2g_scale_type,lun_pp%itype(l))
+          scale_c2l = main_scale_c2l(c,c2l_scale_type)
+          if (carr(c) /= spval .and. scale_c2l /= spval .and. scale_l2g /= spval) then
+            g = col_pp%gridcell(c)
              if (sumwt(g) == 0._r8) garr(g) = 0._r8
-             garr(g) = garr(g) + carr(c) * scale_c2l(c) * scale_l2g(l) * col_pp%wtgcell(c)
+             garr(g) = garr(g) + carr(c) * scale_c2l * scale_l2g * col_pp%wtgcell(c)
              sumwt(g) = sumwt(g) + col_pp%wtgcell(c)
           end if
        end if
@@ -1144,14 +1139,71 @@ contains
           garr(g) = garr(g)/sumwt(g)
        end if
     end do
-    if (found) then
-#ifndef _OPENACC            
-        write(iulog,*) 'c2g_1d error: sumwt is greater than 1.0 at g= ',index
-        call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
-#endif 
-    end if
 
   end subroutine c2g_1d_gpu
+
+  
+  subroutine c2g_1d_parallel(bounds, carr, garr, c2l_scale_type, l2g_scale_type,para)
+   ! !DESCRIPTION:
+   ! Perfrom subgrid-average from columns to gridcells.
+   ! Averaging is only done for points that are not equal to "spval".
+   !
+   use GridcellType , only : grc_pp 
+   ! !ARGUMENTS:
+   type(bounds_type), intent(in) :: bounds
+   real(r8), intent(in)  :: carr( bounds%begc: )  ! input column array
+   real(r8), intent(out) :: garr( bounds%begg: )  ! output gridcell array
+   integer , intent(in) :: c2l_scale_type  !! unity = 1, urbanf = 2, urbans = 3
+   integer , intent(in) :: l2g_scale_type  !!natveg = 2, veg =3, ice=4, nonurb=5, lake=6
+   logical, intent(in) :: para
+   !
+   ! !LOCAL VARIABLES:
+   integer  :: c,l,g,index,fc  ! indices
+   logical  :: found        ! temporary for error check
+   real(r8) :: scale_c2l  ! scale factor ! now using main_scale_c2l
+   real(r8) :: scale_l2g  ! scale factor
+   real(r8) :: sumwt   ! sum of weights
+   real(r8) :: sum_g 
+   !- -----------------------------------------------------------------------
+   ! note : scale_l2g(l) = main_scale_l2g_lookup(TYPE,lun_pp%itype(l))
+   !        main_scale_c2l(cols, c2l_scale_type)
+   !$acc enter data create(&
+   !$acc sumwt, &
+   !$acc sum_g)
+
+   !$acc parallel loop independent gang worker default(present) private(sumwt,sum_g) copyin(c2l_scale_type)
+   do g = bounds%begg,bounds%endg
+      sumwt = 0._r8
+      sum_g = 0._r8
+      !$acc loop reduction(+:sumwt,sum_g) private(l,scale_l2g,scale_c2l,c)
+      do fc = 1, grc_pp%ncolumns(g)
+         c = grc_pp%cols(g,fc)  
+         if (col_pp%active(c) .and. col_pp%wtgcell(c) /= 0._r8) then
+            l = col_pp%landunit(c)
+            scale_l2g = main_scale_l2g_lookup(l2g_scale_type,lun_pp%itype(l))
+            scale_c2l = main_scale_c2l(c,c2l_scale_type)
+            if (carr(c) /= spval .and. scale_c2l /= spval .and. scale_l2g /= spval) then
+               sum_g = sum_g + carr(c) * scale_c2l * scale_l2g * col_pp%wtgcell(c)
+               sumwt = sumwt + col_pp%wtgcell(c)
+            end if
+         end if
+      end do 
+      garr(g) = sum_g
+
+      if(sumwt .ne. 0._r8) then 
+         garr(g) = garr(g)/sumwt
+      elseif(sumwt == 0._r8 ) then 
+         garr(g) = spval  !! needed to keep unused equal to spval?
+      elseif(sumwt > 1.0_r8 + 1.e-6_r8 ) then 
+         stop "Error with col gridcell weights"
+      end if 
+   end do
+
+   !$acc exit data delete(&
+   !$acc sumwt, &
+   !$acc sum_g)
+
+ end subroutine c2g_1d_parallel
 
   !-----------------------------------------------------------------------
   subroutine c2g_2d(bounds, num2d, carr, garr, c2l_scale_type, l2g_scale_type)
@@ -1165,7 +1217,7 @@ contains
     real(r8), intent(in)  :: carr( bounds%begc: , 1: ) ! input column array
     real(r8), intent(out) :: garr( bounds%begg: , 1: ) ! output gridcell array
     character(len=*), intent(in) :: c2l_scale_type     ! scale factor type for averaging
-        character(len=*), intent(in) :: l2g_scale_type     ! scale factor type for averaging
+    character(len=*), intent(in) :: l2g_scale_type     ! scale factor type for averaging
     !
     ! !LOCAL VARIABLES:
     integer  :: j,c,g,l,index                       ! indices
@@ -1204,8 +1256,8 @@ contains
           end if
        end do
        if (found) then
-          write(iulog,*)'c2g_2d error: sumwt is greater than 1.0 at g= ',index
-          call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+          !#py write(iulog,*)'c2g_2d error: sumwt is greater than 1.0 at g= ',index
+          !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -1313,8 +1365,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*) 'l2g_1d error: sumwt is greater than 1.0 at g= ',index
-       call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*) 'l2g_1d error: sumwt is greater than 1.0 at g= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine l2g_1d
@@ -1367,8 +1419,8 @@ contains
           end if
        end do
        if (found) then
-          write(iulog,*) 'l2g_2d error: sumwt is greater than 1.0 at g= ',index,' lev= ',j
-          call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+          !#py write(iulog,*) 'l2g_2d error: sumwt is greater than 1.0 at g= ',index,' lev= ',j
+          !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -1505,6 +1557,7 @@ contains
      end do
 
   end subroutine build_scale_l2g
+
   !-----------------------------------------------------------------------
   subroutine build_scale_l2g_gpu(bounds, l2g_scale_type, scale_l2g)
     !$acc routine seq
@@ -1555,7 +1608,6 @@ contains
     integer  :: l                       ! index
     !-----------------------------------------------------------------------
      
-    SHR_ASSERT_ALL((ubound(scale_l2t) == (/bounds%endl/)), errMsg(__FILE__, __LINE__))
 
      call create_scale_l2t_lookup(l2t_scale_type, scale_lookup)
 
@@ -1621,8 +1673,8 @@ contains
      else if (trim(l2g_scale_type) == 'lake') then
         scale_lookup(istdlak) = 1.0_r8
      else
-        write(iulog,*)'scale_l2g_lookup_array error: scale type ',l2g_scale_type,' not supported'
-        call endrun(msg=errMsg(__FILE__, __LINE__))
+      !   write(iulog,*)'scale_l2g_lookup_array error: scale type ',l2g_scale_type,' not supported'
+      !   call endrun(msg=errMsg(__FILE__, __LINE__))
      end if
 
   end subroutine create_scale_l2g_lookup
@@ -1663,8 +1715,8 @@ contains
      else if (l2t_scale_type == 'lake') then
         scale_lookup(istdlak) = 1.0_r8
      else
-        write(iulog,*)'scale_l2g_lookup_array error: scale type ',l2t_scale_type,' not supported'
-        call endrun(msg=errMsg(__FILE__, __LINE__))
+        !#py write(iulog,*)'scale_l2g_lookup_array error: scale type ',l2t_scale_type,' not supported'
+        !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
      end if
 
   end subroutine create_scale_l2t_lookup
@@ -1694,8 +1746,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(parr) == (/bounds%endp/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(tarr) == (/bounds%endt/)), errMsg(__FILE__, __LINE__))
 
     call build_scale_l2t(bounds, l2t_scale_type, &
          scale_l2t(bounds%begl:bounds%endl))
@@ -1709,8 +1759,8 @@ contains
           scale_p2c(p) = 1.0_r8
        end do
     else
-       write(iulog,*)'p2t_1d error: scale type ',p2c_scale_type,' not supported'
-       call endrun(msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2t_1d error: scale type ',p2c_scale_type,' not supported'
+       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     tarr(bounds%begt : bounds%endt) = spval
@@ -1737,8 +1787,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*)'p2t_1d error: sumwt is greater than 1.0 at t= ',index
-       call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2t_1d error: sumwt is greater than 1.0 at t= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine p2t_1d
@@ -1771,8 +1821,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(parr) == (/bounds%endp, num2d/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(tarr) == (/bounds%endt, num2d/)), errMsg(__FILE__, __LINE__))
 
     call build_scale_l2t(bounds, l2t_scale_type, &
          scale_l2t(bounds%begl:bounds%endl))
@@ -1786,8 +1834,8 @@ contains
           scale_p2c(p) = 1.0_r8
        end do
     else
-       write(iulog,*)'p2t_2d error: scale type ',p2c_scale_type,' not supported'
-       call endrun(msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'p2t_2d error: scale type ',p2c_scale_type,' not supported'
+       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     tarr(bounds%begt : bounds%endt, :) = spval
@@ -1815,8 +1863,8 @@ contains
           end if
        end do
        if (found) then
-          write(iulog,*)'p2t_2d error: sumwt gt 1.0 at t/sumwt = ',index,sumwt(index)
-          call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+          !#py write(iulog,*)'p2t_2d error: sumwt gt 1.0 at t/sumwt = ',index,sumwt(index)
+          !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -1845,8 +1893,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(carr) == (/bounds%endc/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(tarr) == (/bounds%endt/)), errMsg(__FILE__, __LINE__))
 
     call build_scale_l2t(bounds, l2t_scale_type, &
          scale_l2t(bounds%begl:bounds%endl))
@@ -1878,8 +1924,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*)'c2t_1d error: sumwt is greater than 1.0 at t= ',index
-       call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'c2t_1d error: sumwt is greater than 1.0 at t= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine c2t_1d
@@ -1908,8 +1954,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(carr) == (/bounds%endc, num2d/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(tarr) == (/bounds%endt, num2d/)), errMsg(__FILE__, __LINE__))
 
     call build_scale_l2t(bounds, l2t_scale_type, &
          scale_l2t(bounds%begl:bounds%endl))
@@ -1942,8 +1986,8 @@ contains
           end if
        end do
        if (found) then
-          write(iulog,*)'c2t_2d error: sumwt is greater than 1.0 at t= ',index
-          call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+          !#py write(iulog,*)'c2t_2d error: sumwt is greater than 1.0 at t= ',index
+          !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -1970,8 +2014,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(larr) == (/bounds%endl/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(tarr) == (/bounds%endt/)), errMsg(__FILE__, __LINE__))
 
     call build_scale_l2t(bounds, l2t_scale_type, &
          scale_l2t(bounds%begl:bounds%endl))
@@ -1998,8 +2040,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*)'l2t_1d error: sumwt is greater than 1.0 at t= ',index
-       call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'l2t_1d error: sumwt is greater than 1.0 at t= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine l2t_1d
@@ -2027,8 +2069,6 @@ contains
     !------------------------------------------------------------------------
 
     ! Enforce expected array sizes
-    SHR_ASSERT_ALL((ubound(larr) == (/bounds%endl, num2d/)), errMsg(__FILE__, __LINE__))
-    SHR_ASSERT_ALL((ubound(tarr) == (/bounds%endt, num2d/)), errMsg(__FILE__, __LINE__))
 
     call build_scale_l2t(bounds, l2t_scale_type, &
          scale_l2t(bounds%begl:bounds%endl))
@@ -2056,8 +2096,8 @@ contains
           end if
        end do
        if (found) then
-          write(iulog,*)'l2t_2d error: sumwt is greater than 1.0 at t= ',index,' lev= ',j
-          call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+          !#py write(iulog,*)'l2t_2d error: sumwt is greater than 1.0 at t= ',index,' lev= ',j
+          !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -2121,10 +2161,8 @@ contains
      else if (l2g_scale_type == lake) then
         scale_lookup(istdlak) = 1.0_r8
      else
-#ifndef _OPENACC             
-        write(iulog,*)'scale_l2g_lookup_array error: scale type ',l2g_scale_type,' not supported'
-        call endrun(msg=errMsg(__FILE__, __LINE__))
-#endif 
+        !write(iulog,*)'scale_l2g_lookup_array error: scale type ',l2g_scale_type,' not supported'
+        !call endrun(msg=errMsg(__FILE__, __LINE__))
      end if
 
   end subroutine create_scale_l2g_lookup_gpu
@@ -2175,8 +2213,8 @@ contains
        end if
     end do
     if (found) then
-       write(iulog,*)'t2g_1d error: sumwt is greater than 1.0 at g= ',index
-       call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+       !#py write(iulog,*)'t2g_1d error: sumwt is greater than 1.0 at g= ',index
+       !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine t2g_1d
@@ -2229,8 +2267,8 @@ contains
           end if
        end do
        if (found) then
-          write(iulog,*)'t2g_2d error: sumwt is greater than 1.0 at g= ',index,' lev= ',j
-          call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+          !#py write(iulog,*)'t2g_2d error: sumwt is greater than 1.0 at g= ',index,' lev= ',j
+          !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -2389,8 +2427,8 @@ contains
           end if
         end do
       else
-        write(iulog,*) 'error: scale type ',c2l_scale_type,' not supported'
-        call endrun(msg=errMsg(__FILE__, __LINE__))
+        !#py write(iulog,*) 'error: scale type ',c2l_scale_type,' not supported'
+        !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
       end if
 
     end subroutine create_scale_c2l
@@ -2451,5 +2489,144 @@ contains
 
       end subroutine create_scale_c2l_gpu
 
+       subroutine initialize_scale_l2g_lookup()
+         ! DESCRIPTION: 
+         ! create module copy of scale_l2g_lookup to avoid creating it for
+         ! every subgridAve call. 
+         !
+         use landunit_varcon, only : istsoil, istcrop, istice, istice_mec, istdlak
+         use landunit_varcon, only : isturb_MIN, isturb_MAX, max_lunit
+         
+         implicit none 
 
+         integer, parameter :: num_scale_types = 6 ! unity, natveg, veg, ice, nonurb, lake
+         integer :: itype, lunit 
+
+         allocate(main_scale_l2g_lookup(num_scale_types, max_lunit))
+
+         !itype = unity 
+         !!!$acc parallel loop independent gang vector default(present) 
+         do lunit = 1,max_lunit
+            main_scale_l2g_lookup(unity,lunit) = 1.0_r8
+         end do 
+
+         !itype = natveg
+         !!!$acc parallel loop independent gang vector default(present) 
+         do lunit = 1,max_lunit
+            if(lunit == istsoil) then 
+               main_scale_l2g_lookup(natveg,lunit) = 1.0_r8
+            else 
+               main_scale_l2g_lookup(natveg,lunit) = spval
+            end if 
+         end do 
+
+         !itype = veg 
+         !!!$acc parallel loop independent gang vector default(present) 
+         do lunit = 1,max_lunit
+            if(lunit == istsoil .or. lunit == istcrop ) then 
+               main_scale_l2g_lookup(veg,lunit) = 1.0_r8
+            else 
+               main_scale_l2g_lookup(veg,lunit) = spval
+            end if 
+         end do 
+         
+         !itype = ice 
+         !!!$acc parallel loop independent gang vector default(present) 
+         do lunit = 1,max_lunit
+            if(lunit == istice .or. lunit == istice_mec ) then 
+               main_scale_l2g_lookup(ice,lunit) = 1.0_r8
+            else 
+               main_scale_l2g_lookup(ice,lunit) = spval
+            end if 
+         end do 
+
+         !itype = nonurb
+         !!$acc parallel loop independent gang vector default(present) 
+         do lunit = 1,max_lunit
+            main_scale_l2g_lookup(ice,lunit) = 1.0_r8
+            if(lunit >= isturb_MIN .and. lunit <= isturb_MAX) then  
+               main_scale_l2g_lookup(ice,lunit) = spval
+            end if 
+         end do 
+
+         !itype = lake
+         !!$acc parallel loop independent gang vector default(present) 
+         do lunit = 1,max_lunit
+            if(lunit == istdlak) then 
+               main_scale_l2g_lookup(ice,lunit) = 1.0_r8
+            else 
+               main_scale_l2g_lookup(ice,lunit) = spval
+            end if 
+         end do 
+      
+         !$acc update device(main_scale_l2g_lookup(:,:))  
+
+       end subroutine initialize_scale_l2g_lookup
+
+       subroutine initialize_scale_c2l(bounds)
+         ! Description:
+         ! intialize and create scale_c2l to avoid having to calculate it 
+         ! every time a c2g or similar routine is called. 
+         ! May have to be called again if lun_pp%canyon_hwr is modified.
+         !
+         ! Note: Could save memory by just allocating over landunits?
+         ! Input variables: 
+         !
+         type(bounds_type), intent(in) :: bounds ! processor level bounds!
+         ! Local Variables
+         integer :: c, l, begc,endc 
+         integer, parameter :: num_scale_types = 3 ! unity, urbanf, urbans 
+
+         begc = bounds%begc
+         endc = bounds%endc 
+         ! allocate memory :
+         allocate(main_scale_c2l(begc:endc,num_scale_types))
+         
+         ! c2l_scale_type == unity
+        !!! !$acc parallel loop independent gang vector default(present) 
+         do c = begc,endc
+            main_scale_c2l(c,unity) = 1.0_r8
+         end do
+         
+         !c2l_scale_type == urbanf
+         !!!$acc parallel loop independent gang vector default(present) 
+         do c = begc,endc
+            l = col_pp%landunit(c)
+            if (lun_pp%urbpoi(l)) then
+               if (col_pp%itype(c) == icol_sunwall) then
+                  main_scale_c2l(c,urbanf) = 3.0 * lun_pp%canyon_hwr(l)
+               else if (col_pp%itype(c) == icol_shadewall) then
+                  main_scale_c2l(c,urbanf) = 3.0 * lun_pp%canyon_hwr(l)
+               else if (col_pp%itype(c) == icol_road_perv .or. col_pp%itype(c) == icol_road_imperv) then
+                  main_scale_c2l(c,urbanf) = 3.0_r8
+               else if (col_pp%itype(c) == icol_roof) then
+                  main_scale_c2l(c,urbanf) = 1.0_r8
+               end if
+            else
+               main_scale_c2l(c,urbanf) = 1.0_r8
+            end if
+         end do
+         
+           ! c2l_scale_type == urbans 
+         !!!$acc parallel loop independent gang vector default(present) 
+         do c = begc, endc
+           l = col_pp%landunit(c)
+           if (lun_pp%urbpoi(l)) then
+             if (col_pp%itype(c) == icol_sunwall) then
+               main_scale_c2l(c,urbans) = (3.0 * lun_pp%canyon_hwr(l)) / (2.*lun_pp%canyon_hwr(l) + 1.)
+             else if (col_pp%itype(c) == icol_shadewall) then
+               main_scale_c2l(c,urbans) = (3.0 * lun_pp%canyon_hwr(l)) / (2.*lun_pp%canyon_hwr(l) + 1.)
+             else if (col_pp%itype(c) == icol_road_perv .or. col_pp%itype(c) == icol_road_imperv) then
+               main_scale_c2l(c,urbans) = 3.0 / (2.*lun_pp%canyon_hwr(l) + 1.)
+             else if (col_pp%itype(c) == icol_roof) then
+               main_scale_c2l(c,urbans) = 1.0_r8
+             end if
+           else
+            main_scale_c2l(c,urbans) = 1.0_r8
+           end if
+         end do
+        
+         !$acc update device(main_scale_c2l(:,:)) 
+       end subroutine initialize_scale_c2l
+       
 end module subgridAveMod

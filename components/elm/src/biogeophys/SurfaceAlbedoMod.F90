@@ -305,8 +305,8 @@ contains
 
        call SoilAlbedo(bounds, &
             num_nourbanc, filter_nourbanc, &
-         coszen_col(bounds%begc:bounds%endc), &
-         albsnd(bounds%begc:bounds%endc, :), &
+            coszen_col(bounds%begc:bounds%endc), &
+            albsnd(bounds%begc:bounds%endc, :), &
             albsni(bounds%begc:bounds%endc, :), &
             lakestate_vars, surfalb_vars)
 
