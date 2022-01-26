@@ -119,17 +119,17 @@ module dynColumnStateUpdaterMod
 
   type :: column_state_updater_type
 
-     real(r8), allocatable :: cwtgcell_old(:)  ! old column weights on the grid cell
-     real(r8), allocatable :: cwtgcell_new(:)  ! new column weights on the grid cell
+     real(r8), pointer :: cwtgcell_old(:) => null() ! old column weights on the grid cell
+     real(r8), pointer :: cwtgcell_new(:) => null()  ! new column weights on the grid cell
 
      ! (cwtgcell_new - cwtgcell_old) from last call to set_new_weights
-     real(r8), allocatable :: area_gained_col(:)
+     real(r8), pointer :: area_gained_col(:) => null() 
 
      ! For each column, a 'template' column determined as: the first active column on the
      ! natural veg landunit in the same grid cell as the target column. 'active' is
      ! determined at the time of the call to set_old_weights, so that we consider whether
      ! a column was active in the previous time step, rather than newly-active.
-     integer , allocatable :: natveg_template_col(:)
+     integer , pointer :: natveg_template_col(:) => null() 
 
      ! Whether there have been any changes in this time step. This is indexed by clump so
      ! that it is thread-safe (so the different clumps don't stomp on each other). This
@@ -137,25 +137,26 @@ module dynColumnStateUpdaterMod
      ! clumps. (In the future, we plan to rework threading so that there is a separate
      ! object for each clump. In this case the indexing by clump will go away here -
      ! instead, there will be a single scalar 'any_changes' logical for each object.)
-     logical, allocatable :: any_changes(:)
+     logical, pointer :: any_changes(:) => null() 
 
    contains
 
 
-     ! Various ways to update a column-level state variable based on changing column areas:
-     !procedure, public :: update_column_state_no_special_handling
-     procedure, public :: update_column_state_fill_special_using_natveg
-     procedure, public :: update_column_state_fill_using_fixed_values
-     procedure, public :: update_column_state_fill_special_using_fixed_value
-
+  ! Various ways to update a column-level state variable based on changing column areas:
+  !procedure, public :: update_column_state_no_special_handling
+  procedure, public  :: update_column_state_fill_special_using_natveg
+  procedure, public  :: update_column_state_fill_using_fixed_values
+  procedure, public  :: update_column_state_fill_special_using_fixed_value
+  procedure, public  :: initColumnStateUpdater
 
   end type column_state_updater_type
 
-  interface column_state_updater_type
-     module procedure constructor  ! initialize a column_state_updater_type object
-  end interface column_state_updater_type
+ ! interface column_state_updater_type
+ !    module procedure constructor  ! initialize a column_state_updater_type object
+ ! end interface column_state_updater_type
 
-
+  ! object used to update column-level states after subgrid weight updates
+  !type(column_state_updater_type), public :: column_state_updater
   ! !PUBLIC VARIABLES:
   ! For update_column_state_fill_using_fixed_values, any landunit with
   ! FILLVAL_USE_EXISTING_VALUE will use the existing value in the state variable
@@ -170,40 +171,74 @@ contains
   ! Constructors
   ! ========================================================================
 
+  !!-----------------------------------------------------------------------
+  !function constructor(bounds, nclumps)
+  !  !
+  !  ! !DESCRIPTION:
+  !  ! Initialize a column_state_updater_type object
+  !  !
+  !  ! !USES:
+  !  use shr_infnan_mod , only : nan => shr_infnan_nan, assignment(=)
+  !  !
+  !  ! !ARGUMENTS:
+  !  type(column_state_updater_type) :: constructor  ! function result
+  !  type(bounds_type), intent(in)   :: bounds       ! processor bounds
+  !  integer          , intent(in)   :: nclumps      ! number of clumps per proc
+  !  !
+  !  ! !LOCAL VARIABLES:
+
+  !  character(len=*), parameter :: subname = 'constructor'
+  !  !-----------------------------------------------------------------------
+
+  !  SHR_ASSERT(bounds%level == BOUNDS_LEVEL_PROC, errMsg(sourcefile, __LINE__))
+
+  !  allocate(constructor%cwtgcell_old(bounds%begc:bounds%endc))
+  !  constructor%cwtgcell_old(:) = nan
+  !  allocate(constructor%cwtgcell_new(bounds%begc:bounds%endc))
+  !  constructor%cwtgcell_new(:) = nan
+  !  allocate(constructor%area_gained_col(bounds%begc:bounds%endc))
+  !  constructor%area_gained_col(:) = nan
+  !  allocate(constructor%natveg_template_col(bounds%begc:bounds%endc))
+  !  constructor%natveg_template_col(:) = TEMPLATE_NONE_FOUND
+
+  !  allocate(constructor%any_changes(nclumps))
+  !  constructor%any_changes(:) = .false.
+
+  !end function constructor
+
   !-----------------------------------------------------------------------
-  function constructor(bounds, nclumps)
-    !
-    ! !DESCRIPTION:
-    ! Initialize a column_state_updater_type object
-    !
-    ! !USES:
-    use shr_infnan_mod , only : nan => shr_infnan_nan, assignment(=)
-    !
-    ! !ARGUMENTS:
-    type(column_state_updater_type) :: constructor  ! function result
-    type(bounds_type), intent(in)   :: bounds       ! processor bounds
-    integer          , intent(in)   :: nclumps      ! number of clumps per proc
-    !
-    ! !LOCAL VARIABLES:
+  subroutine initColumnStateUpdater(this, bounds, nclumps)
+   !
+   ! !DESCRIPTION:
+   ! Initialize a column_state_updater_type object
+   !
+   ! !USES:
+   use shr_infnan_mod , only : nan => shr_infnan_nan, assignment(=)
+   !
+   ! !ARGUMENTS:
+   class(column_state_updater_type) :: this  ! function result
+   type(bounds_type), intent(in)   :: bounds       ! processor bounds
+   integer          , intent(in)   :: nclumps      ! number of clumps per proc
+   !
+   ! !LOCAL VARIABLES:
+   ! character(len=*), parameter :: subname = 'constructor'
+   !-----------------------------------------------------------------------
 
-    character(len=*), parameter :: subname = 'constructor'
-    !-----------------------------------------------------------------------
+   SHR_ASSERT(bounds%level == BOUNDS_LEVEL_PROC, errMsg(sourcefile, __LINE__))
 
-    SHR_ASSERT(bounds%level == BOUNDS_LEVEL_PROC, errMsg(sourcefile, __LINE__))
+   allocate(this%cwtgcell_old(bounds%begc:bounds%endc))
+   this%cwtgcell_old(:) = nan
+   allocate(this%cwtgcell_new(bounds%begc:bounds%endc))
+   this%cwtgcell_new(:) = nan
+   allocate(this%area_gained_col(bounds%begc:bounds%endc))
+   this%area_gained_col(:) = nan
+   allocate(this%natveg_template_col(bounds%begc:bounds%endc))
+   this%natveg_template_col(:) = TEMPLATE_NONE_FOUND
 
-    allocate(constructor%cwtgcell_old(bounds%begc:bounds%endc))
-    constructor%cwtgcell_old(:) = nan
-    allocate(constructor%cwtgcell_new(bounds%begc:bounds%endc))
-    constructor%cwtgcell_new(:) = nan
-    allocate(constructor%area_gained_col(bounds%begc:bounds%endc))
-    constructor%area_gained_col(:) = nan
-    allocate(constructor%natveg_template_col(bounds%begc:bounds%endc))
-    constructor%natveg_template_col(:) = TEMPLATE_NONE_FOUND
+   allocate(this%any_changes(nclumps))
+   this%any_changes(:) = .false.
 
-    allocate(constructor%any_changes(nclumps))
-    constructor%any_changes(:) = .false.
-
-  end function constructor
+  end subroutine initColumnStateUpdater
 
   ! ========================================================================
   ! Public methods
@@ -313,10 +348,10 @@ contains
     logical  :: vals_input_valid(bounds%begc:bounds%endc)
     logical  :: has_prognostic_state(bounds%begc:bounds%endc)
     real(r8) :: non_conserved_mass(bounds%begg:bounds%endg)
-    character(len=:), allocatable :: err_msg
+    !character(len=:), allocatable :: err_msg
     real(r8), parameter :: conservation_tolerance = 1.e-12_r8
 
-    character(len=*), parameter :: subname = 'update_column_state_no_special_handling'
+    !character(len=*), parameter :: subname = 'update_column_state_no_special_handling'
     !-----------------------------------------------------------------------
 
 
@@ -350,8 +385,8 @@ contains
        ! Since there is no special handling in this routine, the non_conserved_mass variable
        ! should not have any accumulation. We allow for roundoff-level accumulation in case
        ! non-conserved mass is determined in a way that is prone to roundoff-level errors.
-       err_msg = subname//': ERROR: failure to conserve mass when using no special handling'
-       SHR_ASSERT_ALL(abs(non_conserved_mass(bounds%begg:bounds%endg)) < conservation_tolerance, err_msg)
+       !err_msg = subname//': ERROR: failure to conserve mass when using no special handling'
+       !SHR_ASSERT_ALL(abs(non_conserved_mass(bounds%begg:bounds%endg)) < conservation_tolerance, err_msg)
 
     end if
 
@@ -688,7 +723,7 @@ contains
     ! call to update_column_state, and then does the call to update_column_state.
     !
     ! !USES:
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
     type(column_state_updater_type), intent(in) :: this
     type(bounds_type), intent(in) :: bounds
@@ -734,6 +769,7 @@ contains
     character(len=*), parameter :: subname = 'update_column_state_with_optional_fractions'
     !-----------------------------------------------------------------------
 
+#ifndef _OPENACC
     if (present(fractional_area_old) .and. .not. present(fractional_area_new)) then
        call endrun(subname//' ERROR: If fractional_area_old is provided, then fractional_area_new must be provided, too')
     end if
@@ -741,6 +777,7 @@ contains
     if (present(fractional_area_new) .and. .not. present(fractional_area_old)) then
        call endrun(subname//' ERROR: If fractional_area_new is provided, then fractional_area_old must be provided, too')
     end if
+#endif 
 
     if (present(fractional_area_old)) then
        my_fractional_area_old(bounds%begc:bounds%endc) = fractional_area_old(bounds%begc:bounds%endc)

@@ -9,10 +9,9 @@ module ColumnDataType
   use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
   use shr_const_mod   , only : SHR_CONST_TKFRZ
   use shr_const_mod   , only : SHR_CONST_PDB
-  use shr_log_mod     , only : errMsg => shr_log_errMsg
-  use shr_sys_mod     , only : shr_sys_flush
   use abortutils      , only : endrun
-  use MathfuncMod     , only : dot_sum
+  use shr_log_mod     , only : errMsg => shr_log_errMsg 
+  !use MathfuncMod     , only : dot_sum
   use elm_varpar      , only : nlevsoi, nlevsno, nlevgrnd, nlevlak, nlevurb
   use elm_varpar      , only : ndecomp_cascade_transitions, ndecomp_pools, nlevcan
   use elm_varpar      , only : nlevdecomp_full, crop_prog, nlevdecomp
@@ -1734,7 +1733,7 @@ contains
        this%h2osoi_ice(c,-nlevsno+1:) = spval
 
        if (.not. lun_pp%lakpoi(l)) then  !not lake
-	       nlevbed = col_pp%nlevbed(c)
+	  nlevbed = col_pp%nlevbed(c)
           ! volumetric water
           if (lun_pp%itype(l) == istsoil .or. lun_pp%itype(l) == istcrop) then
              nlevs = nlevgrnd
@@ -1742,7 +1741,7 @@ contains
                 if (j > nlevbed) then
                    this%h2osoi_vol(c,j) = 0.0_r8
                 else
-		             if (use_fates .or. use_hydrstress) then
+		   if (use_fates .or. use_hydrstress) then
                       this%h2osoi_vol(c,j) = 0.70_r8*watsat_input(c,j) !0.15_r8 to avoid very dry conditions that cause errors in FATES
                    else if (use_arctic_init) then
                       this%h2osoi_vol(c,j) = watsat_input(c,j) ! start saturated for arctic
@@ -3060,7 +3059,7 @@ contains
         end if ! read
      end if ! c12 or c14 (PET: why not c13?)
 
-  end subroutine col_cs_restart
+end subroutine col_cs_restart
 
   !-----------------------------------------------------------------------
   subroutine col_cs_summary(this, bounds, num_soilc, filter_soilc)
@@ -7767,9 +7766,9 @@ contains
 
        do j = 1,nlevdecomp
           do fc = 1,num_soilc
-             c = filter_soilc(fc)
+            c = filter_soilc(fc)
 
-             this%decomp_cascade_hr(c,k) = &
+            this%decomp_cascade_hr(c,k) = &
                 this%decomp_cascade_hr(c,k) + &
                 this%decomp_cascade_hr_vr(c,j,k) * dzsoi_decomp(j)
 
@@ -7779,39 +7778,39 @@ contains
 
       ! litter heterotrophic respiration (LITHR)
       do k = 1, ndecomp_cascade_transitions
-        if ( is_litter(decomp_cascade_con%cascade_donor_pool(k)) .or. is_cwd((decomp_cascade_con%cascade_donor_pool(k)))) then
+       if ( is_litter(decomp_cascade_con%cascade_donor_pool(k)) .or. is_cwd((decomp_cascade_con%cascade_donor_pool(k)))) then
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%lithr(c) = &
               this%lithr(c) + &
               this%decomp_cascade_hr(c,k)
           end do
-        end if
+       end if
       end do
 
       ! soil organic matter heterotrophic respiration (SOMHR)
       do k = 1, ndecomp_cascade_transitions
-        if ( is_soil(decomp_cascade_con%cascade_donor_pool(k)) ) then
+       if ( is_soil(decomp_cascade_con%cascade_donor_pool(k)) ) then
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%somhr(c) = &
               this%somhr(c) + &
               this%decomp_cascade_hr(c,k)
           end do
-        end if
+       end if
       end do
 
       ! total heterotrophic respiration, vertically resolved (HR)
 
       do k = 1, ndecomp_cascade_transitions
-        do j = 1,nlevdecomp
+       do j = 1,nlevdecomp
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%hr_vr(c,j) = &
                 this%hr_vr(c,j) + &
                 this%decomp_cascade_hr_vr(c,j,k)
           end do
-        end do
+       end do
       end do
     endif
 
@@ -8040,8 +8039,6 @@ contains
        this%rr(c) = 0._r8   ! This counterpart is
                             ! actually in SummaryRR
     end do
-
-
   end subroutine col_cf_zero_forfates_veg_rr
 
 

@@ -13,7 +13,7 @@ module landunit_varcon
   implicit none
   save
   private
-  
+
   !------------------------------------------------------------------
   ! Initialize landunit type constants
   !------------------------------------------------------------------
@@ -61,16 +61,27 @@ module landunit_varcon
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: landunit_varcon_init  ! initialize constants in this module
   public :: landunit_is_special   ! returns true if this is a special landunit
-  
+
   !
   ! !PRIVATE MEMBER FUNCTIONS:
   private :: set_landunit_names   ! set the landunit_names vector
   private :: set_polygon_names    ! set the polygon_names vector
 
 !-----------------------------------------------------------------------
-
+!$acc declare copyin(istsoil    )
+!$acc declare copyin(istcrop    )
+!$acc declare copyin(istice     )
+!$acc declare copyin(istice_mec )
+!$acc declare copyin(istdlak    )
+!$acc declare copyin(istwet     )
+!$acc declare copyin(isturb_MIN )
+!$acc declare copyin(isturb_tbd )
+!$acc declare copyin(isturb_hd  )
+!$acc declare copyin(isturb_md  )
+!$acc declare copyin(isturb_MAX )
+!$acc declare copyin(max_lunit  )
 contains
-  
+
   !-----------------------------------------------------------------------
   subroutine landunit_varcon_init()
     !
@@ -82,15 +93,15 @@ contains
     ! !ARGUMENTS:
     !
     ! !LOCAL VARIABLES:
-    
+
     character(len=*), parameter :: subname = 'landunit_varcon_init'
     !-----------------------------------------------------------------------
-    
+
     call set_landunit_names()
     call set_polygon_names()
 
   end subroutine landunit_varcon_init
-  
+
   !-----------------------------------------------------------------------
   function landunit_is_special(ltype) result(is_special)
     !

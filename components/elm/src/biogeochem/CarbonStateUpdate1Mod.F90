@@ -25,7 +25,7 @@ module CarbonStateUpdate1Mod
   use VegetationType          , only : veg_pp
   use VegetationDataType      , only : vegetation_carbon_state, vegetation_carbon_flux
   use VegetationPropertiesType, only : veg_vp
-
+  use timeInfoMod             , only : year_curr, mon_curr, day_curr, secs_curr 
   !
   implicit none
   save
@@ -33,193 +33,187 @@ module CarbonStateUpdate1Mod
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: CarbonStateUpdateDynPatch
-  public :: CarbonStateUpdate1
   public :: CarbonStateUpdate0
+  public :: CarbonStateUpdate_Phase1_COL
+  public :: CarbonStateUpdate_Phase1_PFT
+  public :: CarbonStateDynGridUpdate 
   !-----------------------------------------------------------------------
 
 contains
 
+!-------------------------------------------------------------------------
+subroutine CarbonStateDynGridUpdate(bounds, dt)
+   !
+   ! !DESCRIPTION: 
+   ! Update gridcell carbon states based on fluxes form dyn_cnbal_patch 
+   ! !ARGUMENTS 
+   type(bounds_type), intent(in) :: bounds  
+   real(r8), intent(in) :: dt 
+   ! 
+   integer :: begg, endg 
+   integer :: g
+      
+   begg = bounds%begg; endg = bounds%endg 
+
+   !$acc parallel loop independent gang vector default(present)  
+   do g =begg, endg  
+      grc_cs%seedc(g) = grc_cs%seedc(g) &
+         - grc_cf%dwt_seedc_to_leaf(g) * dt &
+         - grc_cf%dwt_seedc_to_deadstem(g) * dt
+
+      if (use_c13) then
+         c13_grc_cs%seedc(g) = c13_grc_cs%seedc(g) &
+            - c13_grc_cf%dwt_seedc_to_leaf(g)     * dt &
+            - c13_grc_cf%dwt_seedc_to_deadstem(g) * dt
+       end if
+
+       if (use_c14) then
+         c14_grc_cs%seedc(g) = c14_grc_cs%seedc(g) &
+            - c14_grc_cf%dwt_seedc_to_leaf(g)     * dt &
+            - c14_grc_cf%dwt_seedc_to_deadstem(g) * dt
+       end if
+    end do 
+end subroutine CarbonStateDynGridUpdate
+
+!-----------------------------------------------------------------------
+subroutine CarbonStateUpdateDynPatch(num_soilc_with_inactive, filter_soilc_with_inactive, dt)
+ !
+ ! !DESCRIPTION:
+ ! Update carbon states based on fluxes from dyn_cnbal_patch
+ ! !ARGUMENTS:
+ integer          , intent(in) :: num_soilc_with_inactive       ! number of columns in soil filter
+ integer          , intent(in) :: filter_soilc_with_inactive(:) ! soil column filter that includes inactive points
+ real(r8)         , intent(in) :: dt  ! time step (seconds)
+
+ !
+ ! !LOCAL VARIABLES:
+ integer  :: c   ! column index
+ integer  :: fc  ! column filter index
+ integer  :: j   ! level index
+
+   !$acc parallel loop independent gang vector default(present)
+   do fc = 1, num_soilc_with_inactive
+
+      c = filter_soilc_with_inactive(fc)
+      col_cs%prod10c(c) = col_cs%prod10c(c) + col_cf%dwt_prod10c_gain(c)*dt
+      col_cs%prod100c(c) = col_cs%prod100c(c) + col_cf%dwt_prod100c_gain(c)*dt
+      col_cs%prod1c(c) = col_cs%prod1c(c) + col_cf%dwt_crop_productc_gain(c)*dt
+
+      if (use_c13) then
+         c13_col_cs%prod10c(c) = c13_col_cs%prod10c(c) + c13_col_cf%dwt_prod10c_gain(c)*dt
+         c13_col_cs%prod100c(c) = c13_col_cs%prod100c(c) + c13_col_cf%dwt_prod100c_gain(c)*dt
+         c13_col_cs%prod1c(c) = c13_col_cs%prod1c(c) + c13_col_cf%dwt_crop_productc_gain(c)*dt
+      end if
+
+      if (use_c14) then
+         c14_col_cs%prod10c(c) = c14_col_cs%prod10c(c) + c14_col_cf%dwt_prod10c_gain(c)*dt
+         c14_col_cs%prod100c(c) = c14_col_cs%prod100c(c) + c14_col_cf%dwt_prod100c_gain(c)*dt
+         c14_col_cs%prod1c(c) = c14_col_cs%prod1c(c) + c14_col_cf%dwt_crop_productc_gain(c)*dt
+      end if
+   end do 
+
+!$acc parallel loop independent gang vector collapse(2) default(present) 
+do j = 1,nlevdecomp
+   do fc = 1, num_soilc_with_inactive
+      c = filter_soilc_with_inactive(fc)
+      col_cs%decomp_cpools_vr(c,j,i_met_lit) = col_cs%decomp_cpools_vr(c,j,i_met_lit) + &
+         col_cf%dwt_frootc_to_litr_met_c(c,j) * dt
+      col_cs%decomp_cpools_vr(c,j,i_cel_lit) = col_cs%decomp_cpools_vr(c,j,i_cel_lit) + &
+         col_cf%dwt_frootc_to_litr_cel_c(c,j) * dt
+      col_cs%decomp_cpools_vr(c,j,i_lig_lit) = col_cs%decomp_cpools_vr(c,j,i_lig_lit) + &
+         col_cf%dwt_frootc_to_litr_lig_c(c,j) * dt
+      col_cs%decomp_cpools_vr(c,j,i_cwd) = col_cs%decomp_cpools_vr(c,j,i_cwd) + &
+         ( col_cf%dwt_livecrootc_to_cwdc(c,j) + col_cf%dwt_deadcrootc_to_cwdc(c,j) ) * dt
+
+      if (use_c13) then
+         c13_col_cs%decomp_cpools_vr(c,j,i_met_lit) = c13_col_cs%decomp_cpools_vr(c,j,i_met_lit) + &
+            c13_col_cf%dwt_frootc_to_litr_met_c(c,j) * dt
+         c13_col_cs%decomp_cpools_vr(c,j,i_cel_lit) = c13_col_cs%decomp_cpools_vr(c,j,i_cel_lit) + &
+            c13_col_cf%dwt_frootc_to_litr_cel_c(c,j) * dt
+         c13_col_cs%decomp_cpools_vr(c,j,i_lig_lit) = c13_col_cs%decomp_cpools_vr(c,j,i_lig_lit) + &
+            c13_col_cf%dwt_frootc_to_litr_lig_c(c,j) * dt
+         c13_col_cs%decomp_cpools_vr(c,j,i_cwd) = c13_col_cs%decomp_cpools_vr(c,j,i_cwd) + &
+            ( c13_col_cf%dwt_livecrootc_to_cwdc(c,j) + c13_col_cf%dwt_deadcrootc_to_cwdc(c,j) ) * dt
+      end if
+
+      if (use_c14) then
+         c14_col_cs%decomp_cpools_vr(c,j,i_met_lit) = c14_col_cs%decomp_cpools_vr(c,j,i_met_lit) + &
+            c14_col_cf%dwt_frootc_to_litr_met_c(c,j) * dt
+         c14_col_cs%decomp_cpools_vr(c,j,i_cel_lit) = c14_col_cs%decomp_cpools_vr(c,j,i_cel_lit) + &
+            c14_col_cf%dwt_frootc_to_litr_cel_c(c,j) * dt
+         c14_col_cs%decomp_cpools_vr(c,j,i_lig_lit) = c14_col_cs%decomp_cpools_vr(c,j,i_lig_lit) + &
+            c14_col_cf%dwt_frootc_to_litr_lig_c(c,j) * dt
+         c14_col_cs%decomp_cpools_vr(c,j,i_cwd) = c14_col_cs%decomp_cpools_vr(c,j,i_cwd) + &
+            ( c14_col_cf%dwt_livecrootc_to_cwdc(c,j) + c14_col_cf%dwt_deadcrootc_to_cwdc(c,j) ) * dt
+      end if
+   end do
+end do
+
+end subroutine CarbonStateUpdateDynPatch
+
   !-----------------------------------------------------------------------
-  subroutine CarbonStateUpdateDynPatch(bounds, num_soilc_with_inactive, filter_soilc_with_inactive, dt)
-    !
-    ! !DESCRIPTION:
-    ! Update carbon states based on fluxes from dyn_cnbal_patch
-    !$acc routine seq
-    ! !ARGUMENTS:
-    type(bounds_type)      , intent(in)    :: bounds
-    integer                , intent(in)    :: num_soilc_with_inactive       ! number of columns in soil filter
-    integer                , intent(in)    :: filter_soilc_with_inactive(:) ! soil column filter that includes inactive points
-    real(r8), intent(in) :: dt  ! time step (seconds)
-
-    !
-    ! !LOCAL VARIABLES:
-    integer  :: c   ! column index
-    integer  :: fc  ! column filter index
-    integer  :: g   ! gridcell index
-    integer  :: j   ! level index
-
-    if (.not.use_fates) then
-
-       do g = bounds%begg, bounds%endg
-          grc_cs%seedc(g) = grc_cs%seedc(g) &
-               - grc_cf%dwt_seedc_to_leaf(g)     * dt &
-               - grc_cf%dwt_seedc_to_deadstem(g) * dt
-
-          if (use_c13) then
-            c13_grc_cs%seedc(g) = c13_grc_cs%seedc(g) &
-               - c13_grc_cf%dwt_seedc_to_leaf(g)     * dt &
-               - c13_grc_cf%dwt_seedc_to_deadstem(g) * dt
-          end if
-
-          if (use_c14) then
-            c14_grc_cs%seedc(g) = c14_grc_cs%seedc(g) &
-               - c14_grc_cf%dwt_seedc_to_leaf(g)     * dt &
-               - c14_grc_cf%dwt_seedc_to_deadstem(g) * dt
-          end if
-       end do
-
-       do fc = 1, num_soilc_with_inactive
-
-          c = filter_soilc_with_inactive(fc)
-          col_cs%prod10c(c) = col_cs%prod10c(c) + col_cf%dwt_prod10c_gain(c)*dt
-          col_cs%prod100c(c) = col_cs%prod100c(c) + col_cf%dwt_prod100c_gain(c)*dt
-          col_cs%prod1c(c) = col_cs%prod1c(c) + col_cf%dwt_crop_productc_gain(c)*dt
-
-          if (use_c13) then
-             c13_col_cs%prod10c(c) = c13_col_cs%prod10c(c) + c13_col_cf%dwt_prod10c_gain(c)*dt
-             c13_col_cs%prod100c(c) = c13_col_cs%prod100c(c) + c13_col_cf%dwt_prod100c_gain(c)*dt
-             c13_col_cs%prod1c(c) = c13_col_cs%prod1c(c) + c13_col_cf%dwt_crop_productc_gain(c)*dt
-          end if
-
-          if (use_c14) then
-             c14_col_cs%prod10c(c) = c14_col_cs%prod10c(c) + c14_col_cf%dwt_prod10c_gain(c)*dt
-             c14_col_cs%prod100c(c) = c14_col_cs%prod100c(c) + c14_col_cf%dwt_prod100c_gain(c)*dt
-             c14_col_cs%prod1c(c) = c14_col_cs%prod1c(c) + c14_col_cf%dwt_crop_productc_gain(c)*dt
-          end if
-
-          do j = 1,nlevdecomp
-
-             col_cs%decomp_cpools_vr(c,j,i_met_lit) = col_cs%decomp_cpools_vr(c,j,i_met_lit) + &
-                  col_cf%dwt_frootc_to_litr_met_c(c,j) * dt
-             col_cs%decomp_cpools_vr(c,j,i_cel_lit) = col_cs%decomp_cpools_vr(c,j,i_cel_lit) + &
-                  col_cf%dwt_frootc_to_litr_cel_c(c,j) * dt
-             col_cs%decomp_cpools_vr(c,j,i_lig_lit) = col_cs%decomp_cpools_vr(c,j,i_lig_lit) + &
-                  col_cf%dwt_frootc_to_litr_lig_c(c,j) * dt
-             col_cs%decomp_cpools_vr(c,j,i_cwd) = col_cs%decomp_cpools_vr(c,j,i_cwd) + &
-                  ( col_cf%dwt_livecrootc_to_cwdc(c,j) + col_cf%dwt_deadcrootc_to_cwdc(c,j) ) * dt
-
-             if (use_c13) then
-                c13_col_cs%decomp_cpools_vr(c,j,i_met_lit) = c13_col_cs%decomp_cpools_vr(c,j,i_met_lit) + &
-                     c13_col_cf%dwt_frootc_to_litr_met_c(c,j) * dt
-                c13_col_cs%decomp_cpools_vr(c,j,i_cel_lit) = c13_col_cs%decomp_cpools_vr(c,j,i_cel_lit) + &
-                     c13_col_cf%dwt_frootc_to_litr_cel_c(c,j) * dt
-                c13_col_cs%decomp_cpools_vr(c,j,i_lig_lit) = c13_col_cs%decomp_cpools_vr(c,j,i_lig_lit) + &
-                     c13_col_cf%dwt_frootc_to_litr_lig_c(c,j) * dt
-                c13_col_cs%decomp_cpools_vr(c,j,i_cwd) = c13_col_cs%decomp_cpools_vr(c,j,i_cwd) + &
-                     ( c13_col_cf%dwt_livecrootc_to_cwdc(c,j) + c13_col_cf%dwt_deadcrootc_to_cwdc(c,j) ) * dt
-             end if
-
-             if (use_c14) then
-                c14_col_cs%decomp_cpools_vr(c,j,i_met_lit) = c14_col_cs%decomp_cpools_vr(c,j,i_met_lit) + &
-                     c14_col_cf%dwt_frootc_to_litr_met_c(c,j) * dt
-                c14_col_cs%decomp_cpools_vr(c,j,i_cel_lit) = c14_col_cs%decomp_cpools_vr(c,j,i_cel_lit) + &
-                     c14_col_cf%dwt_frootc_to_litr_cel_c(c,j) * dt
-                c14_col_cs%decomp_cpools_vr(c,j,i_lig_lit) = c14_col_cs%decomp_cpools_vr(c,j,i_lig_lit) + &
-                     c14_col_cf%dwt_frootc_to_litr_lig_c(c,j) * dt
-                c14_col_cs%decomp_cpools_vr(c,j,i_cwd) = c14_col_cs%decomp_cpools_vr(c,j,i_cwd) + &
-                     ( c14_col_cf%dwt_livecrootc_to_cwdc(c,j) + c14_col_cf%dwt_deadcrootc_to_cwdc(c,j) ) * dt
-             end if
-
-          end do
-       end do
-    end if
-
-  end subroutine CarbonStateUpdateDynPatch
-
-  !-----------------------------------------------------------------------
-  subroutine CarbonStateUpdate0(num_soilp, filter_soilp, veg_cs, veg_cf, dt)
+  subroutine CarbonStateUpdate0(num_soilp, filter_soilp,veg_cs, veg_cf, dt)
     !
     ! !DESCRIPTION:
     ! On the radiation time step, update cpool carbon state
     !
 
     ! !ARGUMENTS:
-      !$acc routine seq
-    integer                , intent(in)    :: num_soilp       ! number of soil patches in filter
-    integer                , intent(in)    :: filter_soilp(:) ! filter for soil patches
+    integer, intent(in) :: num_soilp 
+    integer , intent(in) :: filter_soilp(:) 
     type(vegetation_carbon_state),intent(inout) :: veg_cs
     type(vegetation_carbon_flux) ,intent(inout) :: veg_cf
     real(r8),     intent(in)    :: dt
     !
-    ! !LOCAL VARIABLES:
-    integer :: p  ! indices
-    integer :: fp ! lake filter indices
+    integer :: p, fp 
     !-----------------------------------------------------------------------
 
     ! patch loop
-    do fp = 1,num_soilp
-       p = filter_soilp(fp)
-       ! gross photosynthesis fluxes
-       veg_cs%cpool(p) = veg_cs%cpool(p) + veg_cf%psnsun_to_cpool(p)*dt
-       veg_cs%cpool(p) = veg_cs%cpool(p) + veg_cf%psnshade_to_cpool(p)*dt
+    !$acc parallel loop independent gang vector default(present) 
+    do fp =1 ,num_soilp 
+      p = filter_soilp(fp)
+      ! gross photosynthesis fluxes
+      veg_cs%cpool(p) = veg_cs%cpool(p) + veg_cf%psnsun_to_cpool(p)*dt
+      veg_cs%cpool(p) = veg_cs%cpool(p) + veg_cf%psnshade_to_cpool(p)*dt
     end do
-
   end subroutine CarbonStateUpdate0
 
   !-----------------------------------------------------------------------
-  subroutine CarbonStateUpdate1(bounds, &
-       num_soilc, filter_soilc, &
-       num_soilp, filter_soilp, &
-       crop_vars, col_cs, veg_cs, col_cf, veg_cf, dt)
+  subroutine CarbonStateUpdate_Phase1_col(num_soilc, filter_soilc, col_cs, col_cf, dt)
     !
     ! !DESCRIPTION:
     ! On the radiation time step, update all the prognostic carbon state
     ! variables (except for gap-phase mortality and fire fluxes)
     !
-      !$acc routine seq
     use tracer_varcon       , only : is_active_betr_bgc
-    use decompMod           , only : bounds_type
+    implicit none 
     ! !ARGUMENTS:
-    type(bounds_type)            , intent(in)    :: bounds
     integer                      , intent(in)    :: num_soilc       ! number of soil columns filter
     integer                      , intent(in)    :: filter_soilc(:) ! filter for soil columns
-    integer                      , intent(in)    :: num_soilp       ! number of soil patches in filter
-    integer                      , intent(in)    :: filter_soilp(:) ! filter for soil patches
-    type(crop_type)              , intent(inout) :: crop_vars
     type(column_carbon_state)    , intent(inout) :: col_cs
-    type(vegetation_carbon_state), intent(inout) :: veg_cs
     type(column_carbon_flux)     , intent(inout) :: col_cf
-    type(vegetation_carbon_flux) , intent(inout) :: veg_cf
     real(r8), intent(in) :: dt        ! radiation time step (seconds)
 
     !
     ! !LOCAL VARIABLES:
-    integer  :: c,p,j,k,l ! indices
-    integer  :: fp,fc     ! lake filter indices
+    integer  :: c,j,k,l ! indices
+    integer  :: fc     ! lake filter indices
     !-----------------------------------------------------------------------
 
-    associate(                                                                                 &
+    associate(  &
          ivt                   =>    veg_pp%itype                               , & ! Input:  [integer  (:)     ]  pft vegetation type
          woody                 =>    veg_vp%woody                               , & ! Input:  [real(r8) (:)     ]  woody lifeform flag (0 = non-woody, 1 = tree, 2 = shrub)
          cascade_donor_pool    =>    decomp_cascade_con%cascade_donor_pool      , & ! Input:  [integer  (:)     ]  which pool is C taken from for a given decomposition step
-         cascade_receiver_pool =>    decomp_cascade_con%cascade_receiver_pool   , & ! Input:  [integer  (:)     ]  which pool is C added to for a given decomposition step
-         harvdate              =>    crop_vars%harvdate_patch                     & ! Input:  [integer  (:)     ]  harvest date
+         cascade_receiver_pool =>    decomp_cascade_con%cascade_receiver_pool    & ! Input:  [integer  (:)     ]  which pool is C added to for a given decomposition step
          )
 
-      ! set time steps
-
-
       ! column level fluxes
-
-      do fc = 1,num_soilc
-          c = filter_soilc(fc)
-          col_cs%decomp_som2c_vr(c,1:nlevdecomp) = col_cs%decomp_cpools_vr(c,1:nlevdecomp,6)
-      end do
 
       if (.not. is_active_betr_bgc .and. .not.(use_pflotran .and. pf_cmode) ) then
 
          ! plant to litter fluxes
          if(.not.use_fates)then
+            !$acc parallel loop independent gang vector collapse(2) default(present)
             do j = 1,nlevdecomp
                ! column loop
                do fc = 1,num_soilc
@@ -231,41 +225,77 @@ contains
                        col_cf%phenology_c_to_litr_cel_c(c,j) * dt
                   col_cf%decomp_cpools_sourcesink(c,j,i_lig_lit) = &
                        col_cf%phenology_c_to_litr_lig_c(c,j) * dt
+
+                  col_cs%decomp_som2c_vr(c,j) = col_cs%decomp_cpools_vr(c,j,6)
+
                end do
             end do
          end if
 
          ! litter and SOM HR fluxes
-         do k = 1, ndecomp_cascade_transitions
-            do j = 1,nlevdecomp
+         !$acc parallel loop independent gang worker collapse(2) default(present)
+         do j = 1,nlevdecomp
+            do fc = 1,num_soilc
                ! column loop
-               do fc = 1,num_soilc
-                  c = filter_soilc(fc)
+               c = filter_soilc(fc)
+               !$acc loop vector independent
+               do k = 1, ndecomp_cascade_transitions
+                  !$acc atomic update 
                   col_cf%decomp_cpools_sourcesink(c,j,cascade_donor_pool(k)) = &
                        col_cf%decomp_cpools_sourcesink(c,j,cascade_donor_pool(k)) &
                        - ( col_cf%decomp_cascade_hr_vr(c,j,k) + col_cf%decomp_cascade_ctransfer_vr(c,j,k)) *dt
+                  !$acc end atomic 
                end do
             end do
          end do
-         do k = 1, ndecomp_cascade_transitions
-            if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
-               do j = 1,nlevdecomp
-                  ! column loop
-                  do fc = 1,num_soilc
+
+         !$acc parallel loop independent gang worker collapse(2) default(present)
+         do j = 1,nlevdecomp
+            do fc = 1,num_soilc
+               ! column loop
+               !$acc loop vector independent
+               do k = 1, ndecomp_cascade_transitions
+                  if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
                      c = filter_soilc(fc)
+                     !$acc atomic update 
                      col_cf%decomp_cpools_sourcesink(c,j,cascade_receiver_pool(k)) = &
                           col_cf%decomp_cpools_sourcesink(c,j,cascade_receiver_pool(k)) &
                           + col_cf%decomp_cascade_ctransfer_vr(c,j,k)*dt
-                  end do
+                     !$acc end atomic 
+                    end if
                end do
-            end if
+            end do
          end do
 
       endif   !end if is_active_betr_bgc()
 
-      if (.not.use_fates) then
+  end associate
 
+  end subroutine CarbonStateUpdate_Phase1_COL
+
+  subroutine CarbonStateUpdate_Phase1_PFT(num_soilp,filter_soilp,crop_vars, veg_cs, veg_cf,dt)
+     implicit none
+
+     integer                      , intent(in)    :: num_soilp       ! number of soil patches in filter
+     integer                      , intent(in)    :: filter_soilp(:) ! filter for soil patches
+     real(r8), intent(in) :: dt
+     type(crop_type)              , intent(inout) :: crop_vars
+     type(vegetation_carbon_state), intent(inout) :: veg_cs
+     type(vegetation_carbon_flux) , intent(inout) :: veg_cf
+
+     !
+     ! !LOCAL VARIABLES:
+     integer  :: l ! indices
+     integer  :: fp,p      ! lake filter indices
+     associate(  &
+          ivt                   =>    veg_pp%itype                               , & ! Input:  [integer  (:)     ]  pft vegetation type
+          woody                 =>    veg_vp%woody                               , & ! Input:  [real(r8) (:)     ]  binary flag for woody lifeform (1=woody, 0=not woody)
+          harvdate              =>    crop_vars%harvdate_patch                     & ! Input:  [integer  (:)     ]  harvest date
+          )
+      !
+      !if (.not.use_fates) then
       ! patch loop
+      !$acc parallel loop independent gang vector default(present)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -457,10 +487,8 @@ contains
 
       end do ! end of patch loop
 
-   end if
+       end associate
 
-  end associate
-
-  end subroutine CarbonStateUpdate1
+  end subroutine CarbonStateUpdate_Phase1_PFT
 
 end module CarbonStateUpdate1Mod

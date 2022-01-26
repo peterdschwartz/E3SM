@@ -29,6 +29,7 @@ module NitrogenStateUpdate1Mod
   use decompMod              , only : bounds_type
   use elm_varcon             , only : dzsoi_decomp
   use elm_varctl             , only : use_fates
+  use timeinfoMod 
   !
   implicit none
   save
@@ -66,6 +67,7 @@ contains
 
       if (.not.use_fates) then
 
+         !$acc parallel loop independent gang vector default(present)  
          do g = bounds%begg, bounds%endg
             grc_ns%seedn(g) = grc_ns%seedn(g) &
                  - grc_nf%dwt_seedn_to_leaf(g)     * dt &
@@ -73,23 +75,28 @@ contains
                  - grc_nf%dwt_seedn_to_npool(g)    * dt
          end do
 
+         !$acc parallel loop independent gang vector default(present)
          do fc = 1, num_soilc_with_inactive
 
             c = filter_soilc_with_inactive(fc)
             col_ns%prod10n(c) = col_ns%prod10n(c) + col_nf%dwt_prod10n_gain(c)*dt
             col_ns%prod100n(c) = col_ns%prod100n(c) + col_nf%dwt_prod100n_gain(c)*dt
             col_ns%prod1n(c) = col_ns%prod1n(c) + col_nf%dwt_crop_productn_gain(c)*dt
+         end do 
 
-            do j = 1,nlevdecomp
+         !$acc parallel loop independent gang vector collapse(2) default(present) 
+         do j = 1,nlevdecomp
+            do fc = 1, num_soilc_with_inactive
+               c = filter_soilc_with_inactive(fc)
 
                col_ns%decomp_npools_vr(c,j,i_met_lit) = col_ns%decomp_npools_vr(c,j,i_met_lit) + &
-                    col_nf%dwt_frootn_to_litr_met_n(c,j) * dt
+                  col_nf%dwt_frootn_to_litr_met_n(c,j) * dt
                col_ns%decomp_npools_vr(c,j,i_cel_lit) = col_ns%decomp_npools_vr(c,j,i_cel_lit) + &
-                    col_nf%dwt_frootn_to_litr_cel_n(c,j) * dt
+                  col_nf%dwt_frootn_to_litr_cel_n(c,j) * dt
                col_ns%decomp_npools_vr(c,j,i_lig_lit) = col_ns%decomp_npools_vr(c,j,i_lig_lit) + &
-                    col_nf%dwt_frootn_to_litr_lig_n(c,j) * dt
+                  col_nf%dwt_frootn_to_litr_lig_n(c,j) * dt
                col_ns%decomp_npools_vr(c,j,i_cwd) = col_ns%decomp_npools_vr(c,j,i_cwd) + &
-                    ( col_nf%dwt_livecrootn_to_cwdn(c,j) + col_nf%dwt_deadcrootn_to_cwdn(c,j) ) * dt
+                  ( col_nf%dwt_livecrootn_to_cwdn(c,j) + col_nf%dwt_deadcrootn_to_cwdn(c,j) ) * dt
 
             end do
          end do
@@ -113,7 +120,7 @@ contains
     integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:) ! filter for soil patches
     type(cnstate_type)       , intent(in)    :: cnstate_vars
-    real(r8)                  , intent(in)    :: dt        ! radiation time step (seconds)
+    real(r8)                 , intent(in)    :: dt        ! radiation time step (seconds)
 
     !
     ! !LOCAL VARIABLES:
@@ -144,6 +151,7 @@ contains
 
       if (.not. is_active_betr_bgc .and. .not.(use_pflotran .and. pf_cmode)) then
 
+         !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -169,9 +177,8 @@ contains
 
          ! repeating N dep and fixation for crops
          if ( crop_prog )then
+            !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
             do j = 1, nlevdecomp
-
-               ! column loop
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                   ! N deposition and fixation (put all into NH4 pool)
@@ -181,47 +188,50 @@ contains
             end do
          end if
 
-         ! decomposition fluxes
-         do k = 1, ndecomp_cascade_transitions
+            ! decomposition fluxes
+            !$acc parallel loop independent gang worker collapse(2) default(present) private(c) 
+            do j = 1, nlevdecomp
+               ! column loop
+               do fc = 1,num_soilc
+                  c = filter_soilc(fc)
+                  !$acc loop vector independent 
+                  do k = 1, ndecomp_cascade_transitions
+                     !$acc atomic update 
+                     col_nf%decomp_npools_sourcesink(c,j,cascade_donor_pool(k)) = &
+                        col_nf%decomp_npools_sourcesink(c,j,cascade_donor_pool(k)) - &
+                        col_nf%decomp_cascade_ntransfer_vr(c,j,k) * dt
+                     !$acc end atomic 
+                  end do
+               end do
+            end do
+            
+            !$acc parallel loop independent gang worker collapse(2) default(present) private(c) 
             do j = 1, nlevdecomp
                ! column loop
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
 
-                  col_nf%decomp_npools_sourcesink(c,j,cascade_donor_pool(k)) = &
-                       col_nf%decomp_npools_sourcesink(c,j,cascade_donor_pool(k)) - &
-                       col_nf%decomp_cascade_ntransfer_vr(c,j,k) * dt
+                  !$acc loop vector independent 
+                  do k = 1, ndecomp_cascade_transitions
+                     if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
+                        !$acc atomic update 
+                        col_nf%decomp_npools_sourcesink(c,j,cascade_receiver_pool(k)) = &
+                           col_nf%decomp_npools_sourcesink(c,j,cascade_receiver_pool(k)) + &
+                           (col_nf%decomp_cascade_ntransfer_vr(c,j,k) + col_nf%decomp_cascade_sminn_flux_vr(c,j,k)) * dt
+                        !$acc end atomic 
+                     else  ! terminal transitions
+                        !$acc atomic update 
+                        col_nf%decomp_npools_sourcesink(c,j,cascade_donor_pool(k)) = &
+                           col_nf%decomp_npools_sourcesink(c,j,cascade_donor_pool(k)) - &
+                           col_nf%decomp_cascade_sminn_flux_vr(c,j,k) * dt
+                        !$acc end atomic 
+                     end if
+                  end do
                end do
             end do
-         end do
 
-         do k = 1, ndecomp_cascade_transitions
-            if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
-               do j = 1, nlevdecomp
-                  ! column loop
-                  do fc = 1,num_soilc
-                     c = filter_soilc(fc)
-
-                     col_nf%decomp_npools_sourcesink(c,j,cascade_receiver_pool(k)) = &
-                          col_nf%decomp_npools_sourcesink(c,j,cascade_receiver_pool(k)) + &
-                          (col_nf%decomp_cascade_ntransfer_vr(c,j,k) + col_nf%decomp_cascade_sminn_flux_vr(c,j,k)) * dt
-                  end do
-               end do
-            else  ! terminal transitions
-               do j = 1, nlevdecomp
-                  ! column loop
-                  do fc = 1,num_soilc
-                     c = filter_soilc(fc)
-                     col_nf%decomp_npools_sourcesink(c,j,cascade_donor_pool(k)) = &
-                          col_nf%decomp_npools_sourcesink(c,j,cascade_donor_pool(k)) - &
-                          col_nf%decomp_cascade_sminn_flux_vr(c,j,k) * dt
-                  end do
-               end do
-            end if
-         end do
-
+         !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
-            ! column loop
             do fc = 1,num_soilc
                c = filter_soilc(fc)
 
@@ -258,8 +268,9 @@ contains
       endif  !end if is_active_betr_bgc
 
       ! forest fertilization
-      call get_curr_date(kyr, kmo, kda, mcsec)
+      !call get_curr_date(kyr, kmo, kda, mcsec)
       if (forest_fert_exp) then
+          kyr = year_curr; kda = day_curr; mcsec = secs_curr;
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             if ( ((fert_continue(c) == 1 .and. kyr > fert_start(c) .and. kyr <= fert_end(c)) .or.  kyr == fert_start(c)) &
@@ -277,6 +288,7 @@ contains
 
       ! patch loop (veg)
       if(.not.use_fates) then
+          !$acc parallel loop independent gang vector default(present)
           do fp = 1,num_soilp
               p = filter_soilp(fp)
 

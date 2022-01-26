@@ -85,9 +85,12 @@ contains
     use ExternalModelInterfaceMod , only: EMI_Determine_Active_EMs
     use dynSubgridControlMod      , only: dynSubgridControl_init
     use filterMod                 , only: allocFilters
+    use filterMod                 , only : proc_filter, proc_filter_inactive_and_active
+    use filterMod                 , only : createProcessorFilter, setProcFilters  
     use reweightMod               , only: reweight_wrapup
     use topounit_varcon           , only: max_topounits, has_topounit, topounit_varcon_init
     use elm_varctl                , only: use_top_solar_rad, use_polygonal_tundra
+    use domainMod                 , only : domain_transfer 
     !
     ! !LOCAL VARIABLES:
     integer           :: ier                     ! error status
@@ -293,6 +296,8 @@ contains
     allocate (firrig  (begg:endg,1:max_topounits  ))
     allocate (f_surf  (begg:endg,1:max_topounits  ))
     allocate (f_grd  (begg:endg,1:max_topounits  ))
+    slp_tunit(:,:) = 0._r8
+    asp_tunit(:,:) = 0._r8 
 
     ! Read list of Patches and their corresponding parameter values
     ! Independent of model resolution, Needs to stay before surfrd_get_data
@@ -415,7 +420,13 @@ contains
             ldomain%glcmask(bounds_clump%begg:bounds_clump%endg)*1._r8)
     end do
     !$OMP END PARALLEL DO
-
+    
+    call createProcessorFilter(nclumps, bounds_proc, proc_filter, ldomain%glcmask(begg:endg)*1._r8)
+    call createProcessorFilter(nclumps, bounds_proc, proc_filter_inactive_and_active, ldomain%glcmask(begg:endg)*1._r8)
+    !!!!$acc enter data copyin (proc_filter, proc_filter_inactive_and_active) 
+    !!! call setProcFilters(bounds_proc, proc_filter, .false., ldomain%glcmask(begg:endg)*1._r8)
+    !!! call setProcFilters(bounds_proc, proc_filter_inactive_and_active, .true., ldomain%glcmask(begg:endg)*1._r8)
+    
     ! ------------------------------------------------------------------------
     ! Remainder of initialization1
     ! ------------------------------------------------------------------------
@@ -432,7 +443,6 @@ contains
     ! Some things are kept until the end of initialize2; urban_valid is kept through the
     ! end of the run for error checking.
 
-    !deallocate (wt_lunit, wt_cft, wt_glc_mec)
     deallocate (wt_cft, wt_glc_mec)    !wt_lunit not deallocated because it is being used in CanopyHydrologyMod.F90
     deallocate (wt_tunit, elv_tunit, slp_tunit, asp_tunit,num_tunit_per_grd)
     deallocate (wt_polygon) ! RF - might be used elsewhere, not sure if we want to deallocate here.
@@ -525,6 +535,12 @@ contains
     use FATESFireFactoryMod   , only : scalar_lightning
     use FanStreamMod          , only : fanstream_init, fanstream_interp
     use dynFATESLandUseChangeMod, only : dynFatesLandUseInit
+    use subgridAveMod, only : initialize_scale_l2g_lookup, initialize_scale_c2l
+    use UrbanParamsType       , only : urban_hac_int, urban_hac_off_int, urban_hac_on_int, urban_wasteheat_int
+    use UrbanParamsType       , only : urban_hac, urban_hac_off, urban_hac_on, urban_wasteheat_on
+    use elm_instMod           , only : patch_state_updater, column_state_updater
+    use subgridAveMod, only :  initialize_scale_l2g_lookup, initialize_scale_c2l
+    use domainMod, only : domain_transfer
     !
     ! !ARGUMENTS
     implicit none
@@ -706,7 +722,7 @@ contains
 
     ! FATES is instantiated in the following call.  The global is in clm_inst
     call elm_inst_biogeochem(bounds_proc)
-
+    call domain_transfer()
     ! ------------------------------------------------------------------------
     ! Initialize accumulated fields
     ! ------------------------------------------------------------------------
@@ -739,7 +755,11 @@ contains
     call print_accum_fields()
 
     call t_stopf('init_accflds')
-
+    
+    print *, "initialize_scale_l2g:"   
+    call initialize_scale_l2g_lookup()
+    print *, "initialize scale c2l:" 
+    call initialize_scale_c2l(bounds_proc)
     ! ------------------------------------------------------------------------
     ! Initializate dynamic subgrid weights (for prescribed transient Patches,
     ! and/or dynamic landunits); note that these will be overwritten in a
@@ -748,7 +768,7 @@ contains
 
     call t_startf('init_dyn_subgrid')
     call init_subgrid_weights_mod(bounds_proc)
-    call dynSubgrid_init(bounds_proc, glc2lnd_vars, crop_vars)
+    call dynSubgrid_init(bounds_proc, glc2lnd_vars, crop_vars,patch_state_updater,column_state_updater)
     call t_stopf('init_dyn_subgrid')
 
     ! Initialize fates LUH2 usage
@@ -891,7 +911,7 @@ contains
        finidat = trim(finidat_interp_dest)
 
     end if
-
+    print *, "Rewegiths!!!"
     !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
     do nc = 1, nclumps
        call get_clump_bounds(nc, bounds_clump)
@@ -1087,6 +1107,15 @@ contains
        write(iulog,*)
     endif
     call t_stopf('init_wlog')
+    
+    ! Set urban_hac to an integer flag, since "trim" is not supported on GPUs
+    if(trim(urban_hac) == urban_hac_off) then 
+       urban_hac_int = urban_hac_off_int 
+    else if (trim(urban_hac) == urban_hac_on) then 
+       urban_hac_int = urban_hac_on_int
+    elseif(trim(urban_hac) == urban_wasteheat_on) then 
+       urban_hac_int = urban_wasteheat_int
+    end if 
 
     call t_stopf('elm_init2')
 
