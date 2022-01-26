@@ -75,8 +75,6 @@ module SnowSnicarMod
   !$acc declare copyin(idx_bcint_icerds_max)
 #endif
 
-
-
   integer,  parameter :: snw_rds_max_tbl = 1500          ! maximum effective radius defined in Mie lookup table [microns]
   integer,  parameter :: snw_rds_min_tbl = 30            ! minimium effective radius defined in Mie lookup table [microns]
   real(r8), parameter :: snw_rds_max     = 1500._r8      ! maximum allowed snow effective radius [microns]
@@ -190,8 +188,6 @@ module SnowSnicarMod
   !$acc declare create(ss_alb_bc2     )
   !$acc declare create(asm_prm_bc2    )
   !$acc declare create(ext_cff_mss_bc2)
-
-
 #endif
 
 !  ! hydrophiliic BC
@@ -728,7 +724,7 @@ contains
                      enddo
                   endif
 
-!H. Wang
+                  !H. Wang
                   ! aerosol species 1 optical properties
                  ! ss_alb_aer_lcl(1)        = ss_alb_bc1(bnd_idx)
                  ! asm_prm_aer_lcl(1)       = asm_prm_bc1(bnd_idx)
@@ -738,7 +734,7 @@ contains
                  ! ss_alb_aer_lcl(2)        = ss_alb_bc2(bnd_idx)
                  ! asm_prm_aer_lcl(2)       = asm_prm_bc2(bnd_idx)
                  ! ext_cff_mss_aer_lcl(2)   = ext_cff_mss_bc2(bnd_idx)
-!H. Wang
+                 !H. Wang
                   ! aerosol species 3 optical properties
                   ss_alb_aer_lcl(3)        = ss_alb_oc1(bnd_idx)
                   asm_prm_aer_lcl(3)       = asm_prm_oc1(bnd_idx)
@@ -1394,8 +1390,10 @@ contains
             if (      abs(dr_fresh) < 1.0e-8_r8 ) then
                dr_fresh = 0.0_r8
             else if ( dr_fresh < 0.0_r8 ) then
+#ifndef _OPENACC 
                write(iulog,*) "dr_fresh = ", dr_fresh
                call endrun( "dr_fresh < 0" )
+#endif 
             end if
 
             dr = (bst_drdt0*(bst_tau/(dr_fresh+bst_tau))**(1._r8/bst_kappa)) * (dtime/3600._r8)
@@ -1802,7 +1800,6 @@ contains
      ! The inputs and outputs are the same to subroutine SNICAR_RT
      !
      ! !USES:
-      !$acc routine seq
      use elm_varpar       , only : nlevsno, numrad
      use elm_time_manager , only : get_nstep
      use shr_const_mod    , only : SHR_CONST_PI
@@ -2285,6 +2282,7 @@ contains
 
 
              ! Error check for snow grain size:
+#ifndef _OPENACC
              do i=snl_top,snl_btm,1
                 if ((snw_rds_lcl(i) < snw_rds_min_tbl) .or. (snw_rds_lcl(i) > snw_rds_max_tbl)) then
                    write (iulog,*) "SNICAR ERROR: snow grain radius of ", snw_rds_lcl(i), " out of bounds."
@@ -2296,7 +2294,7 @@ contains
                    call endrun(decomp_index=c_idx, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
                 endif
              enddo
-
+#endif
              ! Incident flux weighting parameters
              !  - sum of all VIS bands must equal 1
              !  - sum of all NIR bands must equal 1
@@ -2911,7 +2909,7 @@ contains
                   do i=snl_top,snl_btm,1
                     F_abs(i) = dftmp(i)-dftmp(i+1)
                     flx_abs_lcl(i,bnd_idx) = F_abs(i)
-
+#ifndef _OPENACC
                     ! ERROR check: negative absorption
                     if (flx_abs_lcl(i,bnd_idx) < -0.00001) then
                       write (iulog,"(a,e13.6,a,i6,a,i6)") "SNICAR ERROR: negative absoption : ", flx_abs_lcl(i,bnd_idx), &
@@ -2927,6 +2925,7 @@ contains
                       write(iulog,*) "SNICAR_AD STATS: dust4(0)= ", mss_cnc_aer_lcl(0,6)
                       call endrun(decomp_index=c_idx, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
                     endif
+#endif
                   enddo
 
                   ! absobed flux by the underlying ground
@@ -2965,6 +2964,7 @@ contains
                 ! Energy conservation check:
                 ! Incident direct+diffuse radiation equals (absorbed+bulk_transmitted+bulk_reflected)
                 energy_sum = (mu_not*pi*flx_slrd_lcl(bnd_idx)) + flx_slri_lcl(bnd_idx) - (F_abs_sum + F_btm_net + F_sfc_pls)
+#ifndef _OPENACC
                 if (abs(energy_sum) > 0.00001_r8) then
                    write (iulog,"(a,e13.6,a,i6,a,i6)") "SNICAR ERROR: Energy conservation error of : ", energy_sum, &
                         " at timestep: ", nstep, " at column: ", c_idx
@@ -2978,7 +2978,6 @@ contains
                    write(iulog,*) "albedo", albedo
                    call endrun(decomp_index=c_idx, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
                 endif
-
                 albout_lcl(bnd_idx) = albedo
                 ! Check that albedo is less than 1
                 if (albout_lcl(bnd_idx) > 1.0) then
@@ -3010,6 +3009,7 @@ contains
 
                    call endrun(decomp_index=c_idx, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
                 endif
+#endif
 
              enddo   ! loop over wvl bands
 
@@ -3060,6 +3060,6 @@ contains
      end associate
 
    end subroutine SNICAR_AD_RT
-   
+
 
  end module SnowSnicarMod

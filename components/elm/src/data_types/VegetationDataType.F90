@@ -3514,7 +3514,7 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Vegetation-level carbon state summary calculations
-    !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class(vegetation_carbon_state)                :: this
     type(bounds_type)         , intent(in)    :: bounds
@@ -4195,6 +4195,7 @@ module VegetationDataType
     ! !DESCRIPTION:
     ! Vegetation-level nitrogen state summary calculations
     !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class(vegetation_nitrogen_state)            :: this
     type(bounds_type)           , intent(in)    :: bounds
@@ -4868,7 +4869,7 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Set phosphorus state variables, column-level
-    !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class (vegetation_phosphorus_state) :: this
     integer , intent(in)                :: num_patch
@@ -4947,6 +4948,7 @@ module VegetationDataType
   !-----------------------------------------------------------------------
   subroutine veg_ps_summary (this, bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, col_ps)
     !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class (vegetation_phosphorus_state) :: this
     type(bounds_type) , intent(in)      :: bounds
@@ -8103,6 +8105,7 @@ module VegetationDataType
     !
     ! !USES:
     !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class(vegetation_carbon_flux)                 :: this
     type(bounds_type)      , intent(in)    :: bounds
@@ -8243,7 +8246,7 @@ module VegetationDataType
             this%ar(p)
 
        ! update the annual NPP accumulator, for use in allocation code
-       if (trim(isotope) == 'bulk') then
+       if (isotope == 'bulk') then
           this%tempsum_npp(p) = &
                this%tempsum_npp(p) + &
                this%npp(p)
@@ -8491,6 +8494,7 @@ module VegetationDataType
     !
     ! !USES:
     !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class(vegetation_carbon_flux) :: this
     type(bounds_type), intent(in) :: bounds
@@ -8532,6 +8536,7 @@ module VegetationDataType
   !------------------------------------------------------------
   subroutine veg_cf_summary_for_ch4( this, bounds, num_soilp, filter_soilp)
     !
+    !$acc routine seq 
     ! !DESCRIPTION:
     ! summarize vegetation-level fluxes for methane calculation
     !
@@ -8597,7 +8602,7 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Set vegetation-level carbon fluxes
-    !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class (vegetation_carbon_flux) :: this
     integer , intent(in) :: num_patch
@@ -9580,7 +9585,7 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Set vegetation-level nitrogen fluxes
-    !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class (vegetation_nitrogen_flux) :: this
     integer , intent(in)             :: num_patch
@@ -9688,6 +9693,7 @@ module VegetationDataType
     ! !DESCRIPTION:
     ! Vegetation-level nitrogen flux summary calculations
     !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class(vegetation_nitrogen_flux)             :: this
     type(bounds_type)           , intent(in)    :: bounds
@@ -10646,7 +10652,7 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Set phosphorus flux variables
-    !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class (vegetation_phosphorus_flux) :: this
     integer , intent(in) :: num_patch
@@ -10747,6 +10753,7 @@ module VegetationDataType
   !-----------------------------------------------------------------------
   subroutine veg_pf_summary(this, bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, col_pf)
     !
+    !$acc routine seq 
     ! !ARGUMENTS:
     class (vegetation_phosphorus_flux) :: this
     type(bounds_type) , intent(in)     :: bounds
