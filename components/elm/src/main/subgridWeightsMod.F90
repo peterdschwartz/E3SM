@@ -13,14 +13,14 @@ module subgridWeightsMod
   ! Note: in the following, 'active' refers to a pft, column, landunit or grid cell over
   ! which computations are performed, and 'inactive' refers to a pft, column or landunit
   ! where computations are NOT performed (grid cells are always active).
-  ! 
+  !
   ! (1) For all columns, landunits and grid cells, the sum of all subgrid weights of its
   !     children (or grandchildren, etc.) is equal to 1. For example:
   !     - For all columns, the sum of all pft weights on the column equals 1
   !     - For all landunits, the sum of all col weights on the landunit equals 1
   !     - For all grid cells, the sum of all pft weights on the grid cell equals 1
   !     - etc.
-  ! 
+  !
   ! (2) For all ACTIVE columns, landunits and grid cells, the sum of all subgrid weights of
   !     its ACTIVE children (or grandchildren, etc.) is equal to 1. For example:
   !     - For all active columns, the sum of all pft weights on the column equals 1 when
@@ -91,6 +91,7 @@ module subgridWeightsMod
   ! !USES:
   use shr_kind_mod , only : r8 => shr_kind_r8
   use shr_log_mod  , only : errMsg => shr_log_errMsg
+  use shr_sys_mod  , only : shr_sys_flush 
   use abortutils   , only : endrun
   use elm_varctl   , only : iulog, all_active
   use elm_varcon   , only : nameg, namel, namec, namep
@@ -130,8 +131,9 @@ module subgridWeightsMod
      real(r8), pointer :: pct_cft(:,:)       ! % of each crop functional type, as % of landunit [begt:endt,cft_lb:cft_ub]
      real(r8), pointer :: pct_glc_mec(:,:)   ! % of each glacier elevation class, as % of landunit [begt:endt,1:maxpatch_glcmec]
   end type subgrid_weights_diagnostics_type
-     
-  type(subgrid_weights_diagnostics_type) :: subgrid_weights_diagnostics
+
+  type(subgrid_weights_diagnostics_type), public :: subgrid_weights_diagnostics
+  !$acc declare create(subgrid_weights_diagnostics)
 
   !
   ! !PRIVATE MEMBER FUNCTIONS:
@@ -163,10 +165,10 @@ contains
     type(bounds_type), intent(in) :: bounds  ! proc bounds
     !
     ! !LOCAL VARIABLES:
-    
+
     character(len=*), parameter :: subname = 'init_subgrid_weights_mod'
     !-----------------------------------------------------------------------
-    
+
     SHR_ASSERT(bounds%level == BOUNDS_LEVEL_PROC, errMsg(__FILE__, __LINE__))
 
     ! ------------------------------------------------------------------------
@@ -225,6 +227,7 @@ contains
     !
     ! !USES:
     !
+    !$acc routine seq
     ! !ARGUMENTS:
     implicit none
     type(bounds_type), intent(in) :: bounds  ! clump bounds
@@ -268,6 +271,7 @@ contains
     ! !USES:
     !
     ! !ARGUMENTS:
+      !$acc routine seq
     implicit none
     type(bounds_type), intent(in) :: bounds  ! bounds
     !
@@ -276,14 +280,14 @@ contains
 
     character(len=*), parameter :: subname = 'set_active'
     !------------------------------------------------------------------------
-
+   
     do l = bounds%begl,bounds%endl
        t = lun_pp%topounit(l)
        lun_pp%active(l) = is_active_l(l)
        if (lun_pp%active(l) .and. .not. lun_pp%itype(l) == istice_mec .and. .not. lun_pp%itype(l) == istsoil .and. .not. top_pp%active(t)) then
-          write(iulog,*) trim(subname),' ERROR: active landunit found on inactive topounit', &
+          print *, ' ERROR: active landunit found on inactive topounit', &
                          'at l = ', l, ', t = ', t
-          call endrun(decomp_index=l, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+          stop !call endrun(decomp_index=l, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -291,21 +295,27 @@ contains
        l = col_pp%landunit(c)
        col_pp%active(c) = is_active_c(c)
        if (col_pp%active(c) .and. .not. lun_pp%active(l)) then
-          write(iulog,*) trim(subname),' ERROR: active column found on inactive landunit', &
+          print *, trim(subname),' ERROR: active column found on inactive landunit', &
                          'at c = ', c, ', l = ', l
-          call endrun(decomp_index=c, elmlevel=namec, msg=errMsg(__FILE__, __LINE__))
+          stop !call endrun(decomp_index=c, elmlevel=namec, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
     do p = bounds%begp,bounds%endp
        c = veg_pp%column(p)
        veg_pp%active(p) = is_active_p(p)
+       !if (all_active) then
+       !   veg_pp%active(p) = .true.
+       !else
+       !   c =veg_pp%column(p)
+       !   veg_pp%active(p) = .false.
+       !   if (col_pp%active(c) .and. veg_pp%wtcol(p) > 0._r8) veg_pp%active(p) = .true.
+       !end if
        if (veg_pp%active(p) .and. .not. col_pp%active(c)) then
-          write(iulog,*) trim(subname),' ERROR: active pft found on inactive column', &
+          print *,' ERROR: active pft found on inactive column', &
                          'at p = ', p, ', c = ', c
-          call endrun(decomp_index=p, elmlevel=namep, msg=errMsg(__FILE__, __LINE__))
        end if
-    end do
+     end do
 
   end subroutine set_active
 
@@ -357,7 +367,7 @@ contains
        ! PET: 4/25/2018: By keeping the glcmask reference at the gridcell level, this forces
        ! is_active_l = .true. for istice_mec landunits on all topounits for the gridcell.
        !if (lun_pp%itype(l) == istice_mec .and. ldomain%glcmask(g) == 1) is_active_l = .true. ! make sure no active l for inactive topounit TKT
-       if (top_pp%active(t) .and. lun_pp%itype(l) == istice_mec .and. ldomain%glcmask(g) == 1) is_active_l = .true.
+       if (top_pp%active(t) .and. lun_pp%itype(l) == istice_mec .and. ldomain_gpu%glcmask(g) == 1) is_active_l = .true.
 
        ! In general, include a virtual natural vegetation landunit. This aids
        ! initialization of a new landunit; and for runs that are coupled to CISM, this
@@ -384,6 +394,43 @@ contains
     end if
 
   end function is_active_l
+
+  !-----------------------------------------------------------------------
+  subroutine is_active_l_gpu(bounds,lun_pp_active)
+    !
+    ! !DESCRIPTION:
+    ! Determine whether the given landunit is active
+    !$acc routine seq
+    ! !USES:
+    use landunit_varcon, only : istsoil, istice, istice_mec
+    use domainMod , only : ldomain
+    !
+    ! !ARGUMENTS:
+    implicit none
+    !
+    ! !LOCAL VARIABLES:
+    type(bounds_type)  , intent(in) :: bounds
+    logical ,intent(inout) :: lun_pp_active(bounds%begl:)
+    integer :: g,t,l  ! grid cell index
+    !------------------------------------------------------------------------
+    do l = bounds%begl, bounds%endl
+      if (all_active) then
+        lun_pp_active(l) = .true.
+
+      else
+        g = lun_pp%gridcell(l)
+        lun_pp_active(l) = .false.
+
+        if (lun_pp%wttopounit(l) > 0) lun_pp_active(l) = .true.
+        if (lun_pp%itype(l) == istice_mec .and. ldomain%glcmask(g) == 1) lun_pp_active(l) = .true.
+
+        if (lun_pp%itype(l) == istsoil .and. .not. is_topo_all_ltypeX(lun_pp%topounit(l), istice)) then
+            lun_pp_active(l) = .true.
+        end if
+      end if
+    end do
+
+  end subroutine is_active_l_gpu
 
   !-----------------------------------------------------------------------
   logical function is_active_c(c)
@@ -430,7 +477,7 @@ contains
        !
        ! Note that we use glcmask rather than icemask here; see comment in is_active_l
        ! for the rationale.
-       if (top_pp%active(t) .and. lun_pp%itype(l) == istice_mec .and. ldomain%glcmask(g) == 1) is_active_c = .true.
+       if (top_pp%active(t) .and. lun_pp%itype(l) == istice_mec .and. ldomain_gpu%glcmask(g) == 1) is_active_c = .true.
 
        ! We don't really need to run over 0-weight urban columns. But because of some
        ! messiness in the urban code (many loops are over the landunit filter, then drill
@@ -444,6 +491,50 @@ contains
     end if
 
   end function is_active_c
+
+  !-----------------------------------------------------------------------
+  subroutine is_active_c_gpu(bounds, col_pp_active)
+    !
+    ! !DESCRIPTION:
+    ! Determine whether the given column is active
+    !$acc routine seq
+    ! !USES:
+    use landunit_varcon, only : istice_mec, isturb_MIN, isturb_MAX
+    use domainMod , only : ldomain
+    !
+    ! !ARGUMENTS:
+    implicit none
+    type(bounds_type), intent(in) :: bounds   ! column index
+    logical , intent(inout)  :: col_pp_active(bounds%begc:)
+    !
+    ! !LOCAL VARIABLES:
+    integer :: l  ! landunit index
+    integer :: g,c  ! grid cell index
+    !------------------------------------------------------------------------
+    do c = bounds%begc, bounds%endc
+      if (all_active) then
+        col_pp_active(c) = .true.
+
+      else
+        l =col_pp%landunit(c)
+        g =col_pp%gridcell(c)
+
+        col_pp_active(c) = .false.
+        if (lun_pp%active(l) .and. col_pp%wtlunit(c) > 0._r8) col_pp_active(c) = .true.
+        !
+        !
+        if (lun_pp%itype(l) == istice_mec .and. ldomain%glcmask(g) == 1) col_pp_active(c) = .true.
+        if (lun_pp%active(l) .and. (lun_pp%itype(l) >= isturb_MIN .and. lun_pp%itype(l) <= isturb_MAX)) then
+            col_pp_active(c) = .true.
+        end if
+      end if
+      if (col_pp_active(c) .and. .not. lun_pp%active(l)) then
+         print *, ' ERROR: active column found on inactive landunit', &
+                        'at c = ', c, ', l = ', l
+      end if
+    end do
+
+  end subroutine is_active_c_gpu
 
   !-----------------------------------------------------------------------
   logical function is_active_p(p)
@@ -466,7 +557,7 @@ contains
 
     else
        c =veg_pp%column(p)
-    
+
        is_active_p = .false.
 
        ! ------------------------------------------------------------------------
@@ -484,6 +575,7 @@ contains
     !
     ! !DESCRIPTION:
     ! Get the subgrid weight of a given landunit type on a single topographic unit
+    !$acc routine seq
     !
     ! !USES:
     use elm_varcon, only : ispval
@@ -496,9 +588,9 @@ contains
     ! !LOCAL VARIABLES:
     integer :: l ! landunit index
 
-    character(len=*), parameter :: subname = 'get_landunit_weight'
+    !character(len=*), parameter :: subname = 'get_landunit_weight'
     !-----------------------------------------------------------------------
-    
+
     l = top_pp%landunit_indices(ltype, t)
     if (l == ispval) then
        weight = 0._r8
@@ -513,6 +605,7 @@ contains
     !
     ! !DESCRIPTION:
     ! Set the subgrid weight of a given landunit type on a single topographic unit
+    !$acc routine seq
     !
     ! !USES:
     use elm_varcon, only : ispval
@@ -524,7 +617,7 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: l ! landunit index
-    
+
     character(len=*), parameter :: subname = 'set_landunit_weight'
     !-----------------------------------------------------------------------
 
@@ -532,11 +625,13 @@ contains
     if (l /= ispval) then
        lun_pp%wttopounit(l) = weight
     else if (weight > 0._r8) then
+#ifndef _OPENACC
        write(iulog,*) subname//' ERROR: Attempt to assign non-zero weight to a non-existent landunit'
        write(iulog,*) 'g, t, l, ltype, weight = ', top_pp%gridcell(t), t, l, ltype, weight
        call endrun(decomp_index=l, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+#endif
     end if
-    
+
   end subroutine set_landunit_weight
 
 
@@ -547,6 +642,7 @@ contains
     ! Determine if the given topounit is 100% covered by the landunit type given by ltype
     !
     ! !USES:
+    !$acc routine seq
     !
     ! !ARGUMENTS:
     implicit none
@@ -558,7 +654,7 @@ contains
     real(r8) :: wt_lunit ! subgrid weight of the given landunit
 
     real(r8), parameter :: tolerance = 1.e-13_r8  ! tolerance for checking whether landunit's weight is 1
-    character(len=*), parameter :: subname = 'is_topo_all_ltypeX'
+    !character(len=*), parameter :: subname = 'is_topo_all_ltypeX'
     !------------------------------------------------------------------------------
 
     wt_lunit = get_landunit_weight(t, ltype)
@@ -579,12 +675,13 @@ contains
     ! This routine operates in two different modes, depending on the value of active_only. If
     ! active_only is true, then we check the sum of weights of the ACTIVE children,
     ! grandchildren, etc. of a given point. If active_only is false, then we check the sum of
-    ! weights of ALL children, grandchildren, etc. of a given point. 
+    ! weights of ALL children, grandchildren, etc. of a given point.
     !
     ! Normally this routine will be called twice: once with active_only=false, and once with
     ! active_only=true.
     !
     ! !USES
+    !$acc routine seq
     !
     ! !ARGUMENTS
     implicit none
@@ -593,16 +690,14 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: g,t,l,c,p, tu     ! loop counters
-    real(r8), allocatable :: sumwtcol(:), sumwtlunit(:), sumwtgcell(:), sumwttunit(:)
+    real(r8) :: sumwtcol(bounds%begc:bounds%endc)
+    real(r8) :: sumwtlunit(bounds%begl:bounds%endl)
+    real(r8) :: sumwtgcell(bounds%begg:bounds%endg)
+    real(r8) :: sumwttunit(bounds%begt:bounds%endt)
     logical :: error_found                ! true if we find an error
     logical :: topo_active_only           ! Check the weights of the active topounits
-    character(len=*), parameter :: subname = 'check_weights'
+    !character(len=*), parameter :: subname = 'check_weights'
     !------------------------------------------------------------------------------
-
-    allocate(sumwtcol(bounds%begc:bounds%endc))
-    allocate(sumwtlunit(bounds%begl:bounds%endl))
-    allocate(sumwttunit(bounds%begt:bounds%endt))
-    allocate(sumwtgcell(bounds%begg:bounds%endg))
 
     error_found = .false.
 
@@ -618,7 +713,7 @@ contains
        t = veg_pp%topounit(p)
        g = veg_pp%gridcell(p)
 
-       if ((active_only .and. veg_pp%active(p)) .or. .not. active_only) then 
+       if ((active_only .and. veg_pp%active(p)) .or. .not. active_only) then
           sumwtcol(c) = sumwtcol(c) + veg_pp%wtcol(p)
           sumwtlunit(l) = sumwtlunit(l) + veg_pp%wtlunit(p)
           !topo_active_only = top_pp%active(t)
@@ -629,12 +724,13 @@ contains
        end if
     end do
 
+#ifndef _OPENACC
     do c = bounds%begc,bounds%endc
        tu = col_pp%topounit(c)
        topo_active_only = top_pp%active(tu) 
        if (topo_active_only) then ! Check only for the valid topounits
           if (.not. weights_okay(sumwtcol(c), active_only, col_pp%active(c))) then
-             write(iulog,*) trim(subname),' ERROR: at c = ',c,'total PFT weight is ',sumwtcol(c), &
+             write(iulog,*) ' ERROR: at c = ',c,'total PFT weight is ',sumwtcol(c), &
                          'active_only = ', active_only
              error_found = .true.
           end if
@@ -646,7 +742,7 @@ contains
        topo_active_only = top_pp%active(tu) 
        if (topo_active_only) then 
           if (.not. weights_okay(sumwtlunit(l), active_only, lun_pp%active(l))) then
-             write(iulog,*) trim(subname),' ERROR: at l = ',l,'total PFT weight is ',sumwtlunit(l), &
+             write(iulog,*) ' ERROR: at l = ',l,'total PFT weight is ',sumwtlunit(l), &
                          'active_only = ', active_only
              error_found = .true.
           end if
@@ -657,7 +753,7 @@ contains
        topo_active_only = top_pp%active(t)
        if (topo_active_only) then 
           if (.not. weights_okay(sumwttunit(t), active_only, top_pp%active(t))) then
-             write(iulog,*) trim(subname),' ERROR: at t = ',t,'total PFT weight is ',sumwttunit(t), &
+             write(iulog,*) ' ERROR: at t = ',t,'total PFT weight is ',sumwttunit(t), &
                          'active_only = ', active_only
              error_found = .true.
           end if
@@ -666,11 +762,12 @@ contains
 
     do g = bounds%begg,bounds%endg
        if (.not. weights_okay(sumwtgcell(g), active_only, i_am_active=.true.)) then
-          write(iulog,*) trim(subname),' ERROR: at g = ',g,'total PFT weight is ',sumwtgcell(g), &
+          write(iulog,*) ' ERROR: at g = ',g,'total PFT weight is ',sumwtgcell(g), &
                          'active_only = ', active_only
           error_found = .true.
        end if
     end do
+#endif
 
     ! Check col-level weights
     sumwtlunit(bounds%begl : bounds%endl) = 0._r8
@@ -692,12 +789,13 @@ contains
        end if
     end do
 
+#ifndef _OPENACC
     do l = bounds%begl,bounds%endl
        tu = lun_pp%topounit(l)
        topo_active_only = top_pp%active(tu)
        if (topo_active_only) then ! Check only for the valid topounits
           if (.not. weights_okay(sumwtlunit(l), active_only, lun_pp%active(l))) then
-             write(iulog,*) trim(subname),' ERROR: at l = ',l,'total col weight is ',sumwtlunit(l), &
+             write(iulog,*) ' ERROR: at l = ',l,'total col weight is ',sumwtlunit(l), &
                          'active_only = ', active_only
              error_found = .true.
           end if
@@ -708,21 +806,21 @@ contains
        topo_active_only = top_pp%active(t)
        if (topo_active_only) then
           if (.not. weights_okay(sumwttunit(t), active_only, top_pp%active(t))) then
-             write(iulog,*) trim(subname),' ERROR: at t = ',t,'total col weight is ',sumwttunit(t), &
+             write(iulog,*) ' ERROR: at t = ',t,'total col weight is ',sumwttunit(t), &
                          'active_only = ', active_only
              error_found = .true.
           end if
        end if
     end do
-    
+
     do g = bounds%begg,bounds%endg
        if (.not. weights_okay(sumwtgcell(g), active_only, i_am_active=.true.)) then
-          write(iulog,*) trim(subname),' ERROR: at g = ',g,'total col weight is ',sumwtgcell(g), &
+          write(iulog,*) ' ERROR: at g = ',g,'total col weight is ',sumwtgcell(g), &
                          'active_only = ', active_only
           error_found = .true.
        end if
     end do
-
+#endif
     ! Check landunit-level weights
     sumwtgcell(bounds%begg : bounds%endg) = 0._r8
     sumwttunit(bounds%begt : bounds%endt) = 0._r8
@@ -737,24 +835,25 @@ contains
        end if       
     end do
 
+    
+#ifndef _OPENACC
     do t = bounds%begt,bounds%endt
        if (top_pp%active(t)) then
           if (.not. weights_okay(sumwttunit(t), active_only, top_pp%active(t))) then
-             write(iulog,*) trim(subname),' ERROR: at t= ',t,'total lunit weight is ',sumwttunit(t), &
+             write(iulog,*) ' ERROR: at t= ',t,'total lunit weight is ',sumwttunit(t), &
                          'active_only = ', active_only
              error_found = .true.
           end if
        end if
     end do
-    
     do g = bounds%begg,bounds%endg
        if (.not. weights_okay(sumwtgcell(g), active_only, i_am_active=.true.)) then
-          write(iulog,*) trim(subname),' ERROR: at g = ',g,'total lunit weight is ',sumwtgcell(g), &
+          write(iulog,*) ' ERROR: at g = ',g,'total lunit weight is ',sumwtgcell(g), &
                          'active_only = ', active_only
           error_found = .true.
        end if
     end do
-    
+#endif
     ! Check topounit-level weights
     sumwtgcell(bounds%begg : bounds%endg) = 0._r8    
     do t = bounds%begt,bounds%endt
@@ -764,21 +863,16 @@ contains
        end if       
     end do
 
-    do g = bounds%begg,bounds%endg
-       if (.not. weights_okay(sumwtgcell(g), active_only, i_am_active=.true.)) then
-          write(iulog,*) trim(subname),' ERROR: at g = ',g,'total topounit weight is ',sumwtgcell(g), &
-                         'active_only = ', active_only
-          write(iulog,*) trim(subname),' ERROR: at g = ',g,' ntopounits = ',grc_pp%ntopounits(g)
-          error_found = .true.
-       end if
-    end do
+    !do g = bounds%begg,bounds%endg
+    !   if (.not. weights_okay(sumwtgcell(g), active_only, i_am_active=.true.)) then
+    !      write(iulog,*) trim(subname),' ERROR: at g = ',g,'total topounit weight is ',sumwtgcell(g), &
+    !                     'active_only = ', active_only
+    !      write(iulog,*) trim(subname),' ERROR: at g = ',g,' ntopounits = ',grc_pp%ntopounits(g)
+    !      error_found = .true.
+    !   end if
+    !end do
     
-    deallocate(sumwtcol, sumwtlunit, sumwttunit, sumwtgcell)
-
-    if (error_found) then
-       call endrun(msg=errMsg(__FILE__, __LINE__))
-    end if
-
+    !deallocate(sumwtcol, sumwtlunit, sumwttunit, sumwtgcell)
     ! Success
 
   end subroutine check_weights
@@ -796,6 +890,7 @@ contains
     !   grandchildren or great-grandchilden? (alternative is that it includes weights of ALL
     !   children, grandchildren or great-grandchildren)
     ! - i_am_active: true if the column, landunit or grid cell of interest is active
+    !$acc routine seq
     !
     ! !ARGUMENTS:
     implicit none
@@ -830,15 +925,16 @@ contains
     ! Set history fields giving diagnostics about subgrid weights
     !
     ! !USES:
+    !$acc routine seq
     !
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
     !
     ! !LOCAL VARIABLES:
-    
-    character(len=*), parameter :: subname = 'set_subgrid_diagnostic_fields'
+
+    !character(len=*), parameter :: subname = 'set_subgrid_diagnostic_fields'
     !-----------------------------------------------------------------------
-    
+
     call set_pct_landunit_diagnostics(bounds)
     call set_pct_pft_diagnostics(bounds)
     call set_pct_glc_mec_diagnostics(bounds)
@@ -852,6 +948,7 @@ contains
     ! Set pct_landunit diagnostic field: % of each landunit on the grid cell
     !
     ! !USES:
+    !$acc routine seq
     !
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
@@ -859,10 +956,9 @@ contains
     ! !LOCAL VARIABLES:
     integer :: g, l,t,ti,topi  ! grid cell & landunit indices
     integer :: ltype ! landunit type
-    
+
     character(len=*), parameter :: subname = 'set_pct_landunit_diagnostics'
     !-----------------------------------------------------------------------
-
     subgrid_weights_diagnostics%pct_landunit(bounds%begt:bounds%endt,:) = 0._r8
     
     do l = bounds%begl, bounds%endl
@@ -888,10 +984,11 @@ contains
     ! Note that pct_glc_mec will be 0 for all elevation classes in a grid cell that does
     ! not have a glc_mec landunit. However, it will still sum to 100% for a grid cell
     ! that has a 0-weight (i.e., virtual) glc_mec landunit.
+    !$acc routine seq
     !
     ! !USES:
     use landunit_varcon, only : istice_mec
-    use column_varcon, only : col_itype_to_icemec_class
+    !use column_varcon, only : col_itype_to_icemec_class
     use elm_varpar, only : maxpatch_glcmec
     !
     ! !ARGUMENTS:
@@ -900,10 +997,10 @@ contains
     ! !LOCAL VARIABLES:
     integer :: c,l,g,t,ti,topi          ! indices
     integer :: icemec_class   ! icemec class (1..maxpatch_glcmec)
-    
+
     character(len=*), parameter :: subname = 'set_pct_glc_mec_diagnostics'
     !-----------------------------------------------------------------------
-    
+
     if (maxpatch_glcmec > 0) then
        subgrid_weights_diagnostics%pct_glc_mec(bounds%begt:bounds%endt,:) = 0._r8
     
@@ -914,7 +1011,7 @@ contains
           !topi = grc_pp%topi(g)
           !ti = t - topi + 1
           if (lun_pp%itype(l) == istice_mec) then
-             icemec_class = col_itype_to_icemec_class(col_pp%itype(c))
+             icemec_class = col_pp%itype(c) - istice_mec*100
              subgrid_weights_diagnostics%pct_glc_mec(t, icemec_class) = col_pp%wtlunit(c) * 100._r8
           end if
        end do
@@ -927,6 +1024,7 @@ contains
     !
     ! !DESCRIPTION:
     ! Set pct_nat_pft & pct_cft diagnostic fields: % of PFTs on their landunit
+    !$acc routine seq
     !
     ! !USES:
     use landunit_varcon, only : istsoil, istcrop
@@ -939,7 +1037,7 @@ contains
     integer :: p,l,g,t,ti,topi           ! indices
     integer :: ptype           ! pft itype
     integer :: ptype_1indexing ! pft itype, translated into 1-indexing for the given landunit type
-    
+
     character(len=*), parameter :: subname = 'set_pct_pft_diagnostics'
     !-----------------------------------------------------------------------
     

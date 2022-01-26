@@ -56,7 +56,6 @@ module decompMod
   ! !PRIVATE MEMBER FUNCTIONS:
   !
   ! !PRIVATE TYPES:
-  private  ! (now mostly public for decompinitmod)
 
   integer,public :: nclumps     ! total number of clumps across all processors
   integer,public :: numg        ! total number of gridcells on all procs
@@ -100,34 +99,34 @@ module decompMod
   type processor_type
      integer         :: nclumps                          ! number of clumps for processor_type iam
      integer,pointer :: cid(:)                           ! clump indices
-
+     
      ! The following variables correspond to "Local" quantities on a proc
-     integer         :: ncells                           ! number of gridcells in proc
-     integer         :: ntunits                          ! number of topographic units in proc
-     integer         :: nlunits                          ! number of landunits in proc
-     integer         :: ncols                            ! number of columns in proc
-     integer         :: npfts                            ! number of pfts in proc
-     integer         :: nCohorts                         ! number of cohorts in proc
-     integer         :: begg, endg                       ! beginning and ending gridcell index
-     integer         :: begt, endt                       ! beginning and ending topographic unit index
-     integer         :: begl, endl                       ! beginning and ending landunit index
-     integer         :: begc, endc                       ! beginning and ending column index
-     integer         :: begp, endp                       ! beginning and ending pft index
-     integer         :: begCohort, endCohort             ! beginning and ending cohort indices
+     integer   :: ncells                           ! number of gridcells in proc
+     integer   :: ntunits                          ! number of topographic units in proc
+     integer   :: nlunits                          ! number of landunits in proc
+     integer   :: ncols                            ! number of columns in proc
+     integer   :: npfts                            ! number of pfts in proc
+     integer   :: nCohorts                         ! number of cohorts in proc
+     integer   :: begg, endg                       ! beginning and ending gridcell index
+     integer   :: begt, endt                       ! beginning and ending topographic unit index
+     integer   :: begl, endl                       ! beginning and ending landunit index
+     integer   :: begc, endc                       ! beginning and ending column index
+     integer   :: begp, endp                       ! beginning and ending pft index
+     integer   :: begCohort, endCohort             ! beginning and ending cohort indices
 
      ! The following variables correspond to "Ghost/Halo" quantites on a proc
-     integer         :: ncells_ghost                     ! number of gridcells in proc
-     integer         :: ntunits_ghost                    ! number of topounits in proc
-     integer         :: nlunits_ghost                    ! number of landunits in proc
-     integer         :: ncols_ghost                      ! number of columns in proc
-     integer         :: npfts_ghost                      ! number of pfts in proc
-     integer         :: nCohorts_ghost                   ! number of cohorts in proc
-     integer         :: begg_ghost, endg_ghost           ! beginning and ending gridcell index
-     integer         :: begt_ghost, endt_ghost           ! beginning and ending topounit index
-     integer         :: begl_ghost, endl_ghost           ! beginning and ending landunit index
-     integer         :: begc_ghost, endc_ghost           ! beginning and ending column index
-     integer         :: begp_ghost, endp_ghost           ! beginning and ending pft index
-     integer         :: begCohort_ghost, endCohort_ghost ! beginning and ending cohort indices
+     integer   :: ncells_ghost                     ! number of gridcells in proc
+     integer   :: ntunits_ghost                    ! number of topounits in proc
+     integer   :: nlunits_ghost                    ! number of landunits in proc
+     integer   :: ncols_ghost                      ! number of columns in proc
+     integer   :: npfts_ghost                      ! number of pfts in proc
+     integer   :: nCohorts_ghost                   ! number of cohorts in proc
+     integer   :: begg_ghost, endg_ghost           ! beginning and ending gridcell index
+     integer   :: begt_ghost, endt_ghost           ! beginning and ending topounit index
+     integer   :: begl_ghost, endl_ghost           ! beginning and ending landunit index
+     integer   :: begc_ghost, endc_ghost           ! beginning and ending column index
+     integer   :: begp_ghost, endp_ghost           ! beginning and ending pft index
+     integer   :: begCohort_ghost, endCohort_ghost ! beginning and ending cohort indices
 
      ! The following variables correspond to "ALL" (=Local + Ghost) quantites on a proc
      integer         :: ncells_all                       ! number of gridcells in proc
@@ -146,6 +145,12 @@ module decompMod
   end type processor_type
   public processor_type
   type(processor_type),public :: procinfo
+  type :: processor_type_gpu
+     integer, pointer :: nclumps   => null()             ! number of clumps for processor_type iam
+     integer, pointer :: cid(:)    => null()             ! clump indices
+
+  end type processor_type_gpu
+  type(processor_type_gpu), public :: gpu_procinfo
 
   !---global information on each pe
   type clump_type
@@ -166,6 +171,29 @@ module decompMod
   public clump_type
   type(clump_type),public, allocatable :: clumps(:)
 
+    type clump_type_gpu
+       integer, pointer :: owner          => null()  ! process id owning clump
+       integer, pointer :: ncells         => null()  ! number of gridcells in clump
+       integer, pointer :: ntunits        => null()  ! number of topographic units in clump
+       integer, pointer :: nlunits        => null()  ! number of landunits in clump
+       integer, pointer :: ncols          => null()  ! number of columns in clump
+       integer, pointer :: npfts          => null()  ! number of pfts in clump
+       integer, pointer :: nCohorts       => null()  ! number of cohorts in clump
+       integer, pointer :: begg           => null()
+       integer, pointer :: endg           => null()  ! beginning and ending gridcell index
+       integer, pointer :: begt           => null()
+       integer, pointer :: endt           => null()  ! beginning and ending topographic unit index
+       integer, pointer :: begl           => null()
+       integer, pointer :: endl           => null()  ! beginning and ending landunit index
+       integer, pointer :: begc           => null()
+       integer, pointer :: endc           => null()  ! beginning and ending column index
+       integer, pointer :: begp           => null()
+       integer, pointer :: endp           => null()  ! beginning and ending pft index
+       integer, pointer :: begCohort      => null()
+       integer, pointer :: endCohort      => null()  ! beginning and ending cohort indices
+    end type clump_type_gpu
+    type(clump_type_gpu), public, allocatable :: gpu_clumps(:)
+
   !---global information on each pe
   !--- glo = 1d global sn ordered
   !--- gdc = 1d global dc ordered compressed
@@ -182,10 +210,61 @@ module decompMod
   type(mct_gsMap)  ,public,target :: gsMap_col_gdc2glo
   type(mct_gsMap)  ,public,target :: gsMap_patch_gdc2glo
   type(mct_gsMap)  ,public,target :: gsMap_cohort_gdc2glo
+  
+
+ !$acc declare create(clumps(:) , procinfo )
   !------------------------------------------------------------------------------
 
 contains
 
+    integer :: nc
+    print *, "allocating ",nclumps,"for gpu"
+
+    allocate(gpu_clumps(nclumps))
+    allocate(gpu_procinfo%cid(nclumps))
+    allocate(gpu_procinfo%nclumps);
+    gpu_procinfo%nclumps = procinfo%nclumps
+
+    do nc = 1 , nclumps
+      gpu_procinfo%cid(nc) = procinfo%cid(nc)
+      allocate(gpu_clumps(nc)%owner          )
+      allocate(gpu_clumps(nc)%ncells          )
+      allocate(gpu_clumps(nc)%ntunits      )
+      allocate(gpu_clumps(nc)%nlunits         )
+      allocate(gpu_clumps(nc)%ncols           )
+      allocate(gpu_clumps(nc)%npfts           )
+      allocate(gpu_clumps(nc)%nCohorts        )
+      allocate(gpu_clumps(nc)%begg       )
+      allocate(gpu_clumps(nc)%endg       )
+      allocate(gpu_clumps(nc)%begt       )
+      allocate(gpu_clumps(nc)%endt       )
+      allocate(gpu_clumps(nc)%begl       )
+      allocate(gpu_clumps(nc)%endl       )
+      allocate(gpu_clumps(nc)%begc       )
+      allocate(gpu_clumps(nc)%endc       )
+      allocate(gpu_clumps(nc)%begp       )
+      allocate(gpu_clumps(nc)%endp       )
+      allocate(gpu_clumps(nc)%begCohort  )
+      allocate(gpu_clumps(nc)%endCohort  )
+    end do
+    do nc = 1, nclumps
+      gpu_clumps(nc)%owner      = clumps(nc)%owner
+      gpu_clumps(nc)%ncells     = clumps(nc)%ncells
+      gpu_clumps(nc)%ntunits    = clumps(nc)%ntunits
+      gpu_clumps(nc)%nlunits    = clumps(nc)%nlunits
+      gpu_clumps(nc)%ncols      = clumps(nc)%ncols
+      gpu_clumps(nc)%npfts      = clumps(nc)%npfts
+      gpu_clumps(nc)%nCohorts   = clumps(nc)%nCohorts
+      gpu_clumps(nc)%begg = clumps(nc)%begg; gpu_clumps(nc)%endg = clumps(nc)%endg
+      gpu_clumps(nc)%begt = clumps(nc)%begt; gpu_clumps(nc)%endt = clumps(nc)%endt
+      gpu_clumps(nc)%begl = clumps(nc)%begl; gpu_clumps(nc)%endl = clumps(nc)%endl
+      gpu_clumps(nc)%begc = clumps(nc)%begc; gpu_clumps(nc)%endc = clumps(nc)%endc
+      gpu_clumps(nc)%begp = clumps(nc)%begp; gpu_clumps(nc)%endp = clumps(nc)%endp
+      gpu_clumps(nc)%begCohort = clumps(nc)%begCohort
+      gpu_clumps(nc)%endCohort = clumps(nc)%endCohort
+    end do
+
+  end subroutine init_proc_clump_info
   !-----------------------------------------------------------------------
   pure function get_beg(bounds, subgrid_level) result(beg_index)
     !
@@ -277,7 +356,7 @@ contains
      !
      ! !DESCRIPTION:
      ! Determine clump bounds
-     !
+     !$acc routine seq 
      ! !ARGUMENTS:
      integer, intent(in)  :: n                ! processor clump index
      type(bounds_type), intent(out) :: bounds ! clump bounds
@@ -639,5 +718,58 @@ contains
      nCohorts_ghost = procinfo%nCohorts_ghost
 
    end subroutine get_proc_total_ghosts
+
+   subroutine get_clump_bounds_gpu(n, bounds)
+     !$acc routine seq
+     ! !DESCRIPTION:
+     ! Determine clump bounds
+     !
+     ! !ARGUMENTS:
+     integer, value, intent(in)  :: n                ! processor clump index
+     type(bounds_type), intent(inout) :: bounds ! clump bounds
+     !
+     ! !LOCAL VARIABLES:
+     bounds%begp = gpu_clumps(n)%begp
+     bounds%endp = gpu_clumps(n)%endp
+     bounds%begc = gpu_clumps(n)%begc
+     bounds%endc = gpu_clumps(n)%endc
+     bounds%begl = gpu_clumps(n)%begl
+     bounds%endl = gpu_clumps(n)%endl
+     bounds%begt = gpu_clumps(n)%begt
+     bounds%endt = gpu_clumps(n)%endt
+     bounds%begg = gpu_clumps(n)%begg
+     bounds%endg = gpu_clumps(n)%endg
+      
+     ! clumps have no ghost quantites
+     bounds%begp_ghost = 0
+     bounds%endp_ghost = 0
+     bounds%begc_ghost = 0
+     bounds%endc_ghost = 0
+     bounds%begl_ghost = 0
+     bounds%endl_ghost = 0
+     bounds%begt_ghost = 0
+     bounds%endt_ghost = 0
+     bounds%begg_ghost = 0
+     bounds%endg_ghost = 0
+
+     ! Since clumps have no ghost quantites, all = local
+     bounds%begp_all = gpu_clumps(n)%begp
+     bounds%endp_all = gpu_clumps(n)%endp
+     bounds%begc_all = gpu_clumps(n)%begc
+     bounds%endc_all = gpu_clumps(n)%endc
+     bounds%begl_all = gpu_clumps(n)%begl
+     bounds%endl_all = gpu_clumps(n)%endl
+     bounds%begt_all = gpu_clumps(n)%begt
+     bounds%endt_all = gpu_clumps(n)%endt
+     bounds%begg_all = gpu_clumps(n)%begg
+     bounds%endg_all = gpu_clumps(n)%endg
+
+     bounds%begCohort = gpu_clumps(n)%begCohort
+     bounds%endCohort = gpu_clumps(n)%endCohort
+
+     bounds%level = BOUNDS_LEVEL_CLUMP
+     bounds%clump_index = n
+
+   end subroutine get_clump_bounds_gpu
 
 end module decompMod

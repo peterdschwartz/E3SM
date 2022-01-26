@@ -9,6 +9,7 @@ contains
 
   subroutine  t_start_lnd(event)
 
+    !$acc routine seq
     character(len=64), intent(in) :: event
 
 #ifndef _OPENACC
@@ -19,6 +20,7 @@ contains
 
   subroutine  t_stop_lnd(event)
 
+    !$acc routine seq 
     character(len=64), intent(in) :: event
 
 #ifndef _OPENACC

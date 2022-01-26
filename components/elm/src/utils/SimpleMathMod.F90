@@ -19,11 +19,11 @@ implicit none
 contains
 !--------------------------------------------------------------------------------
   subroutine array_normalization_2d(which_dim, arr2d_inout)
-  !$acc routine seq
-  !DESCRIPTIONS
-  !do normalization for the input array along dimension which_dim
-  !
-  !USES
+    !$acc routine seq
+    !DESCRIPTIONS
+    !do normalization for the input array along dimension which_dim
+    !
+    !USES
   use shr_kind_mod, only: r8 => shr_kind_r8
   implicit none
 
@@ -76,54 +76,50 @@ contains
   end subroutine array_normalization_2d
 
 !--------------------------------------------------------------------------------
-subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, arr2d_inout)
-  !$acc routine seq
+  subroutine array_normalization_2d_filter( lbj2, ubj2, numf, filter, arr2d_inout)
   !DESCRIPTIONS
   !do normalization with filter for the input array along dimension 2
-
   !
   !USES
   use shr_kind_mod, only: r8 => shr_kind_r8
   implicit none
-  integer,  intent(in) :: lbj1         !left bound of dim 1
-  integer,  intent(in) :: lbj2         !left bound of dim 2
-  integer,  intent(in) :: ubj1         !right bound of dim 1
+  integer,  intent(in) :: lbj2         !right bound of dim 1
   integer,  intent(in) :: ubj2         !right bound of dim 2
   integer,  intent(in) :: numf         !filter size
   integer,  intent(in) :: filter(:)    !filter
-  real(r8), intent(inout) :: arr2d_inout(lbj1: , lbj2: )   !input 2d array
-
+  real(r8), intent(inout) :: arr2d_inout(: , : )   !input 2d array
 
   !local variables
   integer  :: sz1, sz2     !array size
   integer  :: j2           !indices
   integer  :: f, p         !indices
-  real(r8) :: arr_sum(lbj1:ubj1)
+  real(r8) :: arr_sum(numf), sum1
 
-  ! Enforce expected array sizes
-
-
-  arr_sum(:) = 0._r8
-  do j2 = lbj2, ubj2
-    do f = 1, numf
-      p = filter(f)
-      !obtain the total
-      arr_sum(p)=arr_sum(p)+arr2d_inout(p,j2)
+  !$acc enter data create(arr_sum(1:numf))
+  !$acc parallel loop independent gang worker default(present) private(sum1)
+  do f = 1, numf
+     sum1 = 0._r8
+     !$acc loop vector reduction(+:sum1)
+     do j2 = lbj2, ubj2
+        !obtain the total
+        sum1=sum1+arr2d_inout(f,j2)
     enddo
+    arr_sum(f) = sum1
   enddo
 
     !normalize with the total if arr_sum is non-zero
+  !$acc parallel loop independent gang default(present)
   do j2 = lbj2, ubj2
+    !$acc loop vector independent
     do f = 1, numf
-      p = filter(f)
       !I found I have to ensure >0._r8 because of some unknown reason, jyt May 23, 2014
       !I will test this later with arr_sum(p)/=0._r8
-      if(arr_sum(p)>0._r8 .or. arr_sum(p)<0._r8)then
-        arr2d_inout(p,j2) = arr2d_inout(p,j2)/arr_sum(p)
+      if(arr_sum(f)>0._r8 .or. arr_sum(f)<0._r8)then
+        arr2d_inout(f,j2) = arr2d_inout(f,j2)/arr_sum(f)
       endif
     enddo
   enddo
-  return
+  !$acc exit data delete(arr_sum(:))
   end subroutine array_normalization_2d_filter
 !--------------------------------------------------------------------------------
 
@@ -138,6 +134,7 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
   ! USES
   !
   use shr_kind_mod, only: r8 => shr_kind_r8
+  !#py !#py use shr_log_mod    , only : errMsg => shr_log_errMsg
   implicit none
   integer,  intent(in) :: lbj1         !left bound of dim 1
   integer,  intent(in) :: lbj2         !left bound of dim 2
@@ -178,6 +175,8 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
   !USES
   !
   use shr_kind_mod, only: r8 => shr_kind_r8
+  !#py use shr_assert_mod , only : shr_assert
+  !#py !#py use shr_log_mod    , only : errMsg => shr_log_errMsg
   implicit none
   real(r8), intent(in) :: arr1d_in(:)     !scaling factor
   integer,  intent(in) :: which_dim        !which dimension is scaled
@@ -235,7 +234,7 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
     subroutine matvec_acc(START,END_,RES,A,X)
       !$acc routine seq
       !As of Cuda 10.1 calling cuBlas functions from device code
-      !is not supported.  So must create any blas routines with
+      !is not supported.  So must have create any blas routines with
       !acc routine seq manually.  This is for square matrices Matrix Vector Multiplication
       !used only in PhotosynthesisMod::calcstressroot so far
 

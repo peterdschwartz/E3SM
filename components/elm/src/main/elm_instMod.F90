@@ -5,8 +5,9 @@ module elm_instMod
   use shr_kind_mod               , only : r8 => shr_kind_r8
   use shr_log_mod                , only : errMsg => shr_log_errMsg
   use abortutils                 , only : endrun
+  use shr_sys_mod                , only : shr_sys_flush
   use decompMod                  , only : bounds_type, get_proc_bounds
-  use elm_varctl                 , only : use_cn, use_voc, use_c13, use_c14, use_fates, use_betr
+  use elm_varctl                 , only : use_cn, use_voc, use_c13, use_c14, use_fates, use_betr, iulog
   !-----------------------------------------
   ! Definition of component types
   !-----------------------------------------
@@ -40,7 +41,7 @@ module elm_instMod
   use WaterfluxType              , only : waterflux_type,   waterflux_vars
   use WaterstateType             , only : waterstate_type, waterstate_vars
   use VOCEmissionMod             , only : vocemis_type
-  use atm2lndType                , only : atm2lnd_type
+  use atm2lndType                , only : atm2lnd_type, cplbypass_atminput_type
   use lnd2atmType                , only : lnd2atm_type
   use lnd2glcMod                 , only : lnd2glc_type
   use glc2lndMod                 , only : glc2lnd_type
@@ -79,7 +80,10 @@ module elm_instMod
   ! instances declared in their own modules
   use UrbanParamsType            , only : urbanparams_vars
   use controlMod                 , only : nlfilename
+  use dynPatchStateUpdaterMod    , only : patch_state_updater_type 
+  use dynColumnStateUpdaterMod   , only : column_state_updater_type 
 
+  use dynUpdateModAcc            , only : patch_su_type_gpu 
 
   !
   implicit none
@@ -130,9 +134,38 @@ module elm_instMod
   type(hlm_fates_interface_type)                      :: alm_fates
   class(betr_simulation_elm_type), pointer            :: ep_betr
   type(PlantMicKinetics_type)                         :: PlantMicKinetics_vars
+  
+  type(cplbypass_atminput_type)                       :: cpl_bypass_input 
+  type(patch_state_updater_type)                      :: patch_state_updater 
+  type(column_state_updater_type)                     :: column_state_updater 
+
   public :: elm_inst_biogeochem
   public :: elm_inst_biogeophys
   public :: alm_fates
+    
+
+  !$acc declare create(ch4_vars)
+  !$acc declare create(crop_vars)
+  !$acc declare create(cnstate_vars)
+  !$acc declare create(dust_vars)
+  !$acc declare create(drydepvel_vars)
+  !$acc declare create(aerosol_vars)
+  !$acc declare create(canopystate_vars)
+  !$acc declare create(energyflux_vars)
+  !$acc declare create(frictionvel_vars)
+  !$acc declare create(lakestate_vars)
+  !$acc declare create(photosyns_vars)
+  !$acc declare create(sedflux_vars)
+  !$acc declare create(soilstate_vars)
+  !$acc declare create(soilhydrology_vars)
+  !$acc declare create(solarabs_vars)
+  !$acc declare create(surfalb_vars)
+  !$acc declare create(surfrad_vars)
+  !$acc declare create(atm2lnd_vars)
+  !$acc declare create(glc2lnd_vars)
+  !$acc declare create(lnd2atm_vars)
+  !$acc declare create(lnd2glc_vars)
+  !$acc declare create(column_state_updater) 
 
 contains
 
@@ -299,6 +332,8 @@ contains
     allocate (h2osno_col(begc:endc))
     allocate (snow_depth_col(begc:endc))
 
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::snow water  " 
+    call shr_sys_flush(iulog)
     ! snow water
     ! Note: Glacier_mec columns are initialized with half the maximum snow cover.
     ! This gives more realistic values of qflx_glcice sooner in the simulation
@@ -357,26 +392,38 @@ contains
     end do
 
    ! Initialize urban constants
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::urbanparams init " 
+    call shr_sys_flush(iulog)
 
     call urbanparams_vars%Init(bounds_proc)
 
     ! Initialize ecophys constants
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::veg_vp init " 
+    call shr_sys_flush(iulog)
 
     call veg_vp%Init()
 
     ! Initialize soil order related constants
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::soilordercon init " 
+    call shr_sys_flush(iulog)
 
     call soilorderconInit()
 
     ! Initialize lake constants
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::LakeConinit " 
+    call shr_sys_flush(iulog)
 
     call LakeConInit()
 
     ! Initialize surface albedo constants
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::SurfaceAlbedoInitTimeConst init " 
+    call shr_sys_flush(iulog)
 
     call SurfaceAlbedoInitTimeConst(bounds_proc)
 
     ! Initialize vertical data components
+    write(iulog,*) "DEBUG: elm_inst_biogeophys ::initvertical " 
+    call shr_sys_flush(iulog)
 
     call initVertical(bounds_proc,               &
          snow_depth_col(begc:endc),              &
@@ -395,6 +442,8 @@ contains
     call lnd2glc_vars%Init( bounds_proc )
 
     ! If single-column determine closest latitude and longitude
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::single column  " 
+    call shr_sys_flush(iulog)
 
     if (single_column) then
        call getfil (fsurdat, locfn, 0)
@@ -412,6 +461,8 @@ contains
     call canopystate_vars%init(bounds_proc)
 
     call soilstate_vars%init(bounds_proc)
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::waterstate  " 
+    call shr_sys_flush(iulog)
 
     call waterstate_vars%init(bounds_proc,         &
          h2osno_col(begc:endc),                    &
@@ -419,6 +470,8 @@ contains
          soilstate_vars%watsat_col(begc:endc, 1:), &
          col_es%t_soisno(begc:endc, -nlevsno+1:) )
 
+    write(iulog,*) "DEBUG: elm_inst_biogeophys :: grc_ws " 
+    call shr_sys_flush(iulog)
     call grc_ws%Init(bounds_proc%begg_all, bounds_proc%endg_all)
     call lun_ws%Init(bounds_proc%begl_all, bounds_proc%endl_all)
     call col_ws%Init(bounds_proc%begc_all, bounds_proc%endc_all, &
@@ -428,6 +481,8 @@ contains
     call veg_ws%Init(bounds_proc%begp_all, bounds_proc%endp_all)
 
     call waterflux_vars%init(bounds_proc)
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::grc_WF  " 
+    call shr_sys_flush(iulog)
 
     call grc_wf%Init(bounds_proc%begg_all, bounds_proc%endg_all, bounds_proc)
     call col_wf%Init(bounds_proc%begc_all, bounds_proc%endc_all)
@@ -437,12 +492,16 @@ contains
     ! WJS (6-24-14): Without the following write statement, the assertion in
     ! energyflux_vars%init fails with pgi 13.9 on yellowstone. So for now, I'm leaving
     ! this write statement in place as a workaround for this problem.
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::energyflux " 
+    call shr_sys_flush(iulog)
     call energyflux_vars%init(bounds_proc, col_es%t_grnd(begc:endc))
 
     call grc_ef%Init(bounds_proc%begg_all, bounds_proc%endg_all)
     call lun_ef%Init(bounds_proc%begl_all, bounds_proc%endl_all)
     call col_ef%Init(bounds_proc%begc_all, bounds_proc%endc_all)
     call veg_ef%Init(bounds_proc%begp_all, bounds_proc%endp_all)
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::drydep " 
+    call shr_sys_flush(iulog)
 
     call drydepvel_vars%Init(bounds_proc)
     call aerosol_vars%Init(bounds_proc)
@@ -450,6 +509,8 @@ contains
     call frictionvel_vars%Init(bounds_proc)
 
     call lakestate_vars%Init(bounds_proc)
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::photosyns " 
+    call shr_sys_flush(iulog)
 
     call photosyns_vars%Init(bounds_proc)
 
@@ -472,6 +533,8 @@ contains
          source=create_soil_water_retention_curve())
 
 
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::ch4 vars " 
+    call shr_sys_flush(iulog)
     ! Note - always initialize the memory for ch4_vars
     call ch4_vars%Init(bounds_proc, soilstate_vars%cellorg_col(begc:endc, 1:))
 
@@ -483,8 +546,12 @@ contains
     ! Initialise the BeTR
     ! --------------------------------------------------------------
 
+    write(iulog,*) "DEBUG: elm_inst_biogeophys::dealoc" 
+    call shr_sys_flush(iulog)
     deallocate (h2osno_col)
     deallocate (snow_depth_col)
+    write(iulog,*) "DEBUG: elm_inst_biogeophys finished " 
+    call shr_sys_flush(iulog)
 
     end subroutine elm_inst_biogeophys
 

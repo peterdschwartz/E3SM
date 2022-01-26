@@ -9,13 +9,13 @@ module dynSubgridDriverMod
   ! dynamic landunits).
   !
   ! !USES:
-  use shr_kind_mod           , only : r8 => shr_kind_r8
+  use shr_kind_mod        , only : r8 => shr_kind_r8
   use dynSubgridControlMod, only : get_flanduse_timeseries
   use dynSubgridControlMod, only : get_do_transient_pfts, get_do_transient_crops
   use dynSubgridControlMod, only : get_do_harvest
   use dynPriorWeightsMod  , only : prior_weights_type
-  use dynPatchStateUpdaterMod      , only : patch_state_updater_type
-  use dynColumnStateUpdaterMod     , only : column_state_updater_type
+  use dynPatchStateUpdaterMod      , only : patch_state_updater_type  !, initPatchStateUpdater, patch_state_updater 
+  use dynColumnStateUpdaterMod     , only : column_state_updater_type !, initColumnStateUpdater
   use UrbanParamsType     , only : urbanparams_type
   use CanopyStateType     , only : canopystate_type
   use CNStateType         , only : cnstate_type
@@ -45,21 +45,15 @@ module dynSubgridDriverMod
   public :: dynSubgrid_driver           ! top-level driver for transient land cover
   public :: dynSubgrid_wrapup_weight_changes ! reconcile various variables after subgrid weights change
   !
-  ! !PRIVATE TYPES:
   ! saved weights from before the subgrid weight updates
-  type(prior_weights_type) :: prior_weights
-
-  ! object used to update patch-level states after subgrid weight updates
-  type(patch_state_updater_type), target :: patch_state_updater
-
-  ! object used to update column-level states after subgrid weight updates
-  type(column_state_updater_type), target :: column_state_updater
+  type(prior_weights_type),public :: prior_weights
   !---------------------------------------------------------------------------
+  !$acc declare create(prior_weights)
 
 contains
 
   !-----------------------------------------------------------------------
-  subroutine dynSubgrid_init(bounds, glc2lnd_vars, crop_vars)
+  subroutine dynSubgrid_init(bounds, glc2lnd_vars, crop_vars, patch_state_updater, column_state_updater)
     !
     ! !DESCRIPTION:
     ! Determine initial subgrid weights for prescribed transient Patches and/or
@@ -83,6 +77,9 @@ contains
     type(bounds_type) , intent(in)    :: bounds  ! processor-level bounds
     type(glc2lnd_type), intent(inout) :: glc2lnd_vars
     type(crop_type)   , intent(inout) :: crop_vars
+    type(patch_state_updater_type), intent(inout) :: patch_state_updater 
+    type(column_state_updater_type), intent(inout) :: column_state_updater 
+
     !
     ! !LOCAL VARIABLES:
     integer           :: nclumps      ! number of clumps on this processor
@@ -96,36 +93,36 @@ contains
     nclumps = get_proc_clumps()
 
     prior_weights        = prior_weights_type(bounds)
-    patch_state_updater  = patch_state_updater_type(bounds)
-    column_state_updater = column_state_updater_type(bounds, nclumps)
+    call patch_state_updater%initPatchStateUpdater( bounds) 
+    call column_state_updater%initColumnStateUpdater(bounds, nclumps)
 
     ! Initialize stuff for prescribed transient Patches
-    if (get_do_transient_pfts()) then
-       call dynpft_init(bounds, dynpft_filename=get_flanduse_timeseries())
-    end if
+     if (get_do_transient_pfts()) then
+        call dynpft_init(bounds, dynpft_filename=get_flanduse_timeseries())
+     end if
 
     ! Initialize stuff for harvest (currently shares the flanduse_timeseries file)
     if (get_do_harvest() .or. fates_harvest_mode == fates_harvest_hlmlanduse) then
        call dynHarvest_init(bounds, harvest_filename=get_flanduse_timeseries())
     end if
 
-    ! Initialize stuff for prescribed transient crops
-    if (get_do_transient_crops()) then
-       call dyncrop_init(bounds, dyncrop_filename=get_flanduse_timeseries())
-    end if
+     ! Initialize stuff for prescribed transient crops
+     if (get_do_transient_crops()) then
+        call dyncrop_init(bounds, dyncrop_filename=get_flanduse_timeseries())
+     end if
 
     ! ------------------------------------------------------------------------
     ! Set initial subgrid weights for aspects that are read from file. This is relevant
     ! for cold start and use_init_interp-based initialization.
     ! ------------------------------------------------------------------------
+    
+     if (get_do_transient_pfts()) then
+        call dynpft_interp(bounds)
+     end if
 
-    if (get_do_transient_pfts()) then
-       call dynpft_interp(bounds)
-    end if
-
-    if (get_do_transient_crops()) then
-       call dyncrop_interp(bounds, crop_vars)
-    end if
+     if (get_do_transient_crops()) then
+        call dyncrop_interp(bounds, crop_vars)
+     end if
 
     !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
     do nc = 1, nclumps
@@ -142,7 +139,8 @@ contains
        energyflux_vars, canopystate_vars, photosyns_vars, cnstate_vars, &
        veg_cs, c13_veg_cs, c14_veg_cs, &
        col_cs, c13_col_cs, c14_col_cs, col_cf, &
-       grc_cs, grc_cf, glc2lnd_vars, crop_vars)
+       grc_cs, grc_cf, glc2lnd_vars, crop_vars,&
+       patch_state_updater, column_state_updater)
     !
     ! !DESCRIPTION:
     ! Update subgrid weights for prescribed transient Patches and/or dynamic
@@ -202,7 +200,8 @@ contains
     type(glc2lnd_type)       , intent(inout) :: glc2lnd_vars
 
     type(crop_type)          , intent(inout) :: crop_vars
-
+    type(patch_state_updater_type), intent(inout) :: patch_state_updater 
+    type(column_state_updater_type), intent(inout) :: column_state_updater 
     !
     ! !LOCAL VARIABLES:
     integer           :: nclumps      ! number of clumps on this processor
@@ -215,7 +214,6 @@ contains
     SHR_ASSERT(bounds_proc%level == BOUNDS_LEVEL_PROC, subname // ': argument must be PROC-level bounds')
 
     nclumps = get_proc_clumps()
-    dt = real(get_step_size(), r8)
     ! ==========================================================================
     ! Do initialization, prior to land cover change
     ! ==========================================================================
@@ -227,8 +225,7 @@ contains
        call dyn_hwcontent_init(bounds_clump, &
             filter(nc)%num_nolakec, filter(nc)%nolakec, &
             filter(nc)%num_lakec, filter(nc)%lakec, &
-            urbanparams_vars, soilstate_vars, soilhydrology_vars, lakestate_vars, &
-            energyflux_vars)
+            urbanparams_vars, soilstate_vars, soilhydrology_vars, lakestate_vars )
 
        call set_prior_weights(prior_weights, bounds_clump)
        call set_old_patch_weights  (patch_state_updater,bounds_clump)
@@ -264,9 +261,9 @@ contains
     do nc = 1, nclumps
        call get_clump_bounds(nc, bounds_clump)
 
-       if (use_fates) then
-          call dyn_ED(bounds_clump)
-       end if
+       ! if (use_fates) then
+       !    call dyn_ED(bounds_clump)
+       ! end if
 
        if (create_glacier_mec_landunit) then
           call glc2lnd_vars%update_glc2lnd(bounds_clump)
@@ -295,7 +292,7 @@ contains
             filter(nc)%num_nolakec, filter(nc)%nolakec, &
             filter(nc)%num_lakec, filter(nc)%lakec, &
             urbanparams_vars, soilstate_vars, soilhydrology_vars, lakestate_vars, &
-            energyflux_vars, dt)
+            dt)
 
        if (use_cn) then
           call dyn_cnbal_patch(bounds_clump, &
@@ -307,15 +304,15 @@ contains
                veg_cs, c13_veg_cs, c14_veg_cs, &
                veg_ns, veg_ps, dt)
 
-          ! Transfer root/seed litter C/N/P to decomposer pools
-          call CarbonStateUpdateDynPatch(bounds_clump, &
-               filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
+          ! ! Transfer root/seed litter C/N/P to decomposer pools
+          ! call CarbonStateUpdateDynPatch(bounds_clump, &
+          !      filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
 
-          call NitrogenStateUpdateDynPatch(bounds_clump, &
-               filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
+          ! call NitrogenStateUpdateDynPatch(bounds_clump, &
+          !      filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
 
-          call PhosphorusStateUpdateDynPatch(bounds_clump, &
-               filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
+          ! call PhosphorusStateUpdateDynPatch(bounds_clump, &
+          !      filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
 
        end if
 
@@ -348,15 +345,13 @@ contains
     !
     ! !LOCAL VARIABLES:
 
-    character(len=*), parameter :: subname = 'dynSubgrid_wrapup_weight_changes'
+    !character(len=*), parameter :: subname = 'dynSubgrid_wrapup_weight_changes'
     !-----------------------------------------------------------------------
     associate( &
       icemask_grc => glc2lnd_vars%icemask_grc &
       )
     !SHR_ASSERT(bounds_clump%level == BOUNDS_LEVEL_CLUMP, subname // ': argument must be CLUMP-level bounds')
-
     call update_landunit_weights(bounds_clump)
-
     call compute_higher_order_weights(bounds_clump)
 
     ! Here: filters are re-made

@@ -89,7 +89,7 @@ module elm_driver
   use seq_drydep_mod         , only : n_drydep, drydep_method, DD_XLND
   use DryDepVelocity         , only : depvel_compute
   !
-  use DaylengthMod           , only : UpdateDaylength
+  use DaylengthMod           , only : UpdateDaylength, first_step
   use perf_mod
   !
   use elm_instMod            , only : ch4_vars, ep_betr
@@ -137,9 +137,10 @@ module elm_driver
   use GridcellType           , only : grc_pp
   use GridcellDataType       , only : grc_cs, c13_grc_cs, c14_grc_cs
   use GridcellDataType       , only : grc_cf, c13_grc_cf, c14_grc_cf
-  use GridcellDataType       , only : grc_ns, grc_nf
-  use GridcellDataType       , only : grc_ps, grc_pf
-  use TopounitDataType       , only : top_as, top_af
+  use GridcellDataType       , only : grc_nf, grc_pf, grc_ef, grc_wf, grc_ws
+  use GridcellDataType       , only : grc_es, grc_ns, grc_ps
+  use TopounitDataType         , only : top_as, top_af
+  use TopounitType             , only : top_pp
   use LandunitType           , only : lun_pp
   use ColumnType             , only : col_pp
   use ColumnDataType         , only : col_es, col_ef, col_ws, col_wf
@@ -176,7 +177,37 @@ module elm_driver
   use CNPBudgetMod                , only : CNPBudget_SetBeginningMonthlyStates, CNPBudget_SetEndingMonthlyStates
   use elm_varctl                  , only : do_budgets, budget_inst, budget_daily, budget_month
   use elm_varctl                  , only : budget_ann, budget_ltann, budget_ltend
+  use elm_varctl
+  use PhotosynthesisMod        , only : params_inst
+  use SharedParamsMod          , only : ParamsShareInst
+  use CH4Mod                   , only : CH4ParamsInst
+  use CNDecompCascadeConType   , only : decomp_cascade_con
+  use DecompCascadeBGCMod      , only : DecompBGCParamsInst
+  use GapMortalityMod          , only : cngapmortparamsinst
+  use DecompCascadeCNMod       , only : DecompCNParamsInst
+  use NitrifDenitrifMod        , only : NitrifDenitrifParamsInst
+  use SoilLittDecompMod        , only : cndecompparamsinst
+  use AllocationMod            , only : AllocParamsInst
+  use LandunitDataType         , only : lun_ef, lun_es, lun_ws 
 
+  use NitrogenDynamicsMod, only : CNNDynamicsParamsInst
+  use dynSubgridControlMod , only : dyn_subgrid_control_inst
+  use dynInitColumnsMod    , only : initialize_new_columns
+  use dynConsBiogeophysMod , only : dyn_hwcontent_init, dyn_hwcontent_final
+  use dynConsBiogeochemMod , only : dyn_cnbal_patch, dyn_cnbal_column
+  use reweightMod          , only : reweight_wrapup
+  use subgridWeightsMod    , only : compute_higher_order_weights, set_subgrid_diagnostic_fields
+  use subgridWeightsMod    , only : subgrid_weights_diagnostics
+  use CarbonStateUpdate1Mod   , only : CarbonStateUpdateDynPatch
+  use NitrogenStateUpdate1Mod   , only : NitrogenStateUpdateDynPatch
+  use PhosphorusStateUpdate1Mod     , only : PhosphorusStateUpdateDynPatch
+
+  use dynSubgridDriverMod    , only : dynSubgrid_driver,dynSubgrid_wrapup_weight_changes
+  use dynSubgridDriverMod    , only : prior_weights, column_state_updater, patch_state_updater
+  use domainMod , only : ldomain
+  use histGPUMod , only : tape_gpu
+  use histFileMod , only : elmptr_ra, elmptr_rs
+  use update_accMod
   use timeinfoMod
   !
   ! !PUBLIC TYPES:
@@ -198,7 +229,7 @@ contains
     !
     ! !DESCRIPTION:
     !
-    ! First phase of the clm driver calling the clm physics. An outline of
+    ! First phase of the elm driver calling the elm physics. An outline of
     ! the calling tree is given in the description of this module.
     !
     ! !USES:
@@ -206,7 +237,9 @@ contains
      use elm_varctl            , only : fates_seeddisp_cadence
      use FATESFireFactoryMod   , only : scalar_lightning
      use FatesInterfaceTypesMod, only : fates_dispersal_cadence_none
-     
+#ifdef _CUDA
+    use cudafor
+#endif
     ! !ARGUMENTS:
     implicit none
     logical ,        intent(in) :: doalb       ! true if time for surface albedo calc
@@ -238,6 +271,11 @@ contains
     character(len=256)   :: dateTimeString
     type(bounds_type)    :: bounds_clump
     type(bounds_type)    :: bounds_proc
+#if _CUDA
+    integer(kind=cuda_count_kind) :: heapsize,free1,free2,total
+    integer  :: istat, val
+#endif
+
     !-----------------------------------------------------------------------
 
     call get_curr_time_string(dateTimeString)
@@ -245,13 +283,14 @@ contains
        write(iulog,*)'Beginning timestep   : ',trim(dateTimeString)
        call shr_sys_flush(iulog)
     endif
-    ! Determine processor bounds and clumps for this processor
 
     call get_proc_bounds(bounds_proc)
     nclumps = get_proc_clumps()
+    !Update time variables
     nstep_mod = get_nstep()
     dtime_mod = real(get_step_size(),r8)
-    call get_curr_date(year_curr,mon_curr, day_curr,secs_curr)
+    call get_curr_date(year_curr,mon_curr,day_curr,secs_curr)
+    call get_prev_date(year_prev,mon_prev,day_prev,secs_prev)
     dayspyr_mod = get_days_per_year()
     jday_mod = get_curr_calday()
 
@@ -272,6 +311,155 @@ contains
        end if
     end if
 
+
+    ! Determine processor bounds and clumps for this processor
+    call get_proc_bounds(bounds_proc)
+    nclumps = get_proc_clumps()
+
+#if _CUDA
+    istat = cudaDeviceGetLimit(heapsize, cudaLimitMallocHeapSize)
+    print *, "SETTING Heap Limit from", heapsize
+    heapsize = 189_8*1024_8*1024_8
+    print *, "TO:",heapsize
+    istat = cudaDeviceSetLimit(cudaLimitMallocHeapSize,heapsize)
+    istat = cudaMemGetInfo(free1, total)
+    print *, "Free1:",free1
+if(nstep_mod == 0 ) then
+  print *, "transferring data to GPU"
+   !$acc update device( &
+   !$acc        spinup_state            &
+   !$acc       , nyears_ad_carbon_only   &
+   !$acc       , spinup_mortality_factor &
+   !$acc       , carbon_only &
+   !$acc       , carbonphosphorus_only &
+   !$acc       , carbonnitrogen_only &
+   !$acc       ,use_crop            &
+   !$acc       ,use_snicar_frc      &
+   !$acc       ,use_snicar_ad       &
+   !$acc       ,use_vancouver       &
+   !$acc       ,use_mexicocity      &
+   !$acc       ,use_noio            &
+   !$acc       ,use_var_soil_thick  &
+   !$acc       ,NFIX_PTASE_plant &
+   !$acc       ,tw_irr &
+   !$acc       ,use_erosion &
+   !$acc       ,ero_ccycle  &
+   !$acc       ,anoxia &
+   !$acc       , glc_do_dynglacier &
+   !$acc       , all_active &
+   !$acc       , co2_ppmv &
+   !$acc       , const_climate_hist &
+   !$acc     )
+   !$acc update device(first_step, nlevgrnd) ! TODO!!!!!!, eccen, obliqr, lambm0, mvelpp )
+   call update_acc_variables()
+   !
+  !! !$acc enter data copyin(filter(:), &
+  !! !$acc filter_inactive_and_active(:) )
+   !
+    !$acc enter data copyin(&
+    !$acc aerosol_vars     , &
+    !$acc AllocParamsInst  , &
+    !$acc atm2lnd_vars     , &
+    !$acc c13_col_cf     , &
+    !$acc c13_col_cs     , &
+    !$acc c13_grc_cf     , &
+    !$acc c13_veg_cf     , &
+    !$acc c13_veg_cs     , &
+    !$acc c14_col_cf     , &
+    !$acc c14_col_cs     , &
+    !$acc c14_grc_cf     , &
+    !$acc c14_veg_cf     , &
+    !$acc c14_veg_cs     , &
+    !$acc canopystate_vars, &
+    !$acc CH4ParamsInst     , &
+    !$acc ch4_vars          , &
+    !$acc CNDecompParamsInst     , &
+    !$acc CNGapMortParamsInst     , &
+    !$acc CNNDynamicsParamsInst     , &
+    !$acc cnstate_vars     , &
+    !$acc column_state_updater     , &
+    !$acc col_cf     , &
+    !$acc col_cs     , &
+    !$acc col_ef     , &
+    !$acc col_es     , &
+    !$acc col_nf     , &
+    !$acc col_ns     , &
+    !$acc col_pf     , &
+    !$acc col_pp     , &
+    !$acc col_ps     , &
+    !$acc col_wf     , &
+    !$acc col_ws     , &
+    !$acc crop_vars     , &
+   ! !$acc dyn_subgrid_control_inst , &
+   ! !$acc subgrid_weights_diagnostics, &
+    !$acc DecompBGCParamsInst     , &
+    !$acc DecompCNParamsInst     , &
+    !$acc decomp_cascade_con     , &
+    !$acc drydepvel_vars     , &
+    !$acc dust_vars     , &
+   ! !$acc energyflux_vars     , &
+    !$acc frictionvel_vars     , &
+   ! !$acc glc2lnd_vars     , &
+   ! !$acc grc_cf     , &
+   ! !$acc grc_cs     , &
+   ! !$acc grc_ef     , &
+   ! !$acc grc_es     , &
+   ! !$acc grc_nf     , &
+   ! !$acc grc_ns     , &
+   ! !$acc grc_pf     , &
+   ! !$acc grc_pp     , &
+   ! !$acc grc_ps     , &
+   ! !$acc grc_wf     , &
+   ! !$acc grc_ws     , &
+   ! !$acc lakestate_vars , &
+   !! !$acc ldomain  ,&
+   ! !$acc lnd2glc_vars   , &
+   ! !$acc lnd2atm_vars   , &
+   ! !$acc lun_ef     , &
+   ! !$acc lun_es     , &
+   ! !$acc lun_pp     , &
+   ! !$acc lun_ws     , &
+   !! !$acc NitrifDenitrifParamsInst     , &
+   !! !$acc ParamsShareInst     , &
+   !! !$acc params_inst     , &
+   !! !$acc patch_state_updater     , &
+   !! !$acc photosyns_vars     , &
+   !! !$acc prior_weights     , &
+   !! !$acc sedflux_vars     , &
+   !! !$acc soilhydrology_vars     , &
+   !! !$acc soilstate_vars     , &
+   !! !$acc solarabs_vars     , &
+   !! !$acc surfalb_vars     , &
+   !! !$acc surfrad_vars     , &
+   !! !$acc top_af     , &
+   !! !$acc top_as     , &
+   !! !$acc top_pp     , &
+   !! !$acc urbanparams_vars     , &
+   !! !$acc veg_cf     , &
+   !! !$acc veg_cs     , &
+   !! !$acc veg_ef     , &
+   !! !$acc veg_es     , &
+   !! !$acc veg_nf     , &
+   !! !$acc veg_ns     , &
+   !! !$acc veg_pf     , &
+   !! !$acc veg_pp     , &
+   !! !$acc veg_ps     , &
+   !! !$acc veg_vp     , &
+   !! !$acc veg_wf     , &
+    !$acc veg_ws      &
+    !$acc   )
+    !! !$acc enter data copyin(tape_gpu(:),elmptr_ra,elmptr_rs)
+    !$acc enter data copyin( doalb, declinp1, declin )
+
+          istat = cudaMemGetInfo(free2, total)
+          print *, "Transferred:", free1-free2
+          print *, "Total:",total
+          print *, "Free:", free2
+  end if
+
+#endif
+
+    if (do_budgets) call WaterBudget_Reset()
 
     ! ============================================================================
     ! Specified phenology
