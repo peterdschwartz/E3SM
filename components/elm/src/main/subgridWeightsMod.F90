@@ -302,13 +302,14 @@ contains
 
     do p = bounds%begp,bounds%endp
        c = veg_pp%column(p)
-       if (all_active) then
-          veg_pp%active(p) = .true.
-       else
-          c =veg_pp%column(p)
-          veg_pp%active(p) = .false.
-          if (col_pp%active(c) .and. veg_pp%wtcol(p) > 0._r8) veg_pp%active(p) = .true.
-       end if
+       veg_pp%active(p) = is_active_p(p)
+       !if (all_active) then
+       !   veg_pp%active(p) = .true.
+       !else
+       !   c =veg_pp%column(p)
+       !   veg_pp%active(p) = .false.
+       !   if (col_pp%active(c) .and. veg_pp%wtcol(p) > 0._r8) veg_pp%active(p) = .true.
+       !end if
        if (veg_pp%active(p) .and. .not. col_pp%active(c)) then
           print *,' ERROR: active pft found on inactive column', &
                          'at p = ', p, ', c = ', c
@@ -1017,7 +1018,7 @@ contains
           !ti = t - topi + 1
           if (lun_pp%itype(l) == istice_mec) then
              icemec_class = col_pp%itype(c) - istice_mec*100
-             subgrid_weights_diagnostics%pct_glc_mec(g, icemec_class) = col_pp%wtlunit(c) * 100._r8
+             subgrid_weights_diagnostics%pct_glc_mec(t, icemec_class) = col_pp%wtlunit(c) * 100._r8
           end if
        end do
     end if
