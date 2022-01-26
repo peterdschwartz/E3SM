@@ -28,14 +28,14 @@ module VegStructUpdateMod
 contains
 
   !-----------------------------------------------------------------------
-  subroutine VegStructUpdate(num_soilp, filter_soilp, &
+  subroutine VegStructUpdate(num_soilp,filter_soilp, &
        frictionvel_vars, cnstate_vars, &
        canopystate_vars, crop_vars)
     !
     ! !DESCRIPTION:
     ! On the radiation time step, use C state variables and epc to diagnose
     ! vegetation structure (LAI, SAI, height)
-    !
+       
     ! !USES:
     use pftvarcon        , only : noveg, woody, iscft, crop
     use pftvarcon        , only : ncorn, ncornirrig, ztopmx, laimx
@@ -44,7 +44,7 @@ contains
     use elm_time_manager , only : get_rad_step_size
     use elm_varctl       , only : spinup_state, spinup_mortality_factor
     !
-    ! !ARGUMENTS:
+   !  ! !ARGUMENTS:
     integer                , intent(in)    :: num_soilp       ! number of column soil points in pft filter
     integer                , intent(in)    :: filter_soilp(:) ! patch filter for soil points
     type(frictionvel_type) , intent(in)    :: frictionvel_vars
@@ -57,7 +57,7 @@ contains
     ! 2/29/08, David Lawrence: revised snow burial fraction for short vegetation
     !
     ! !LOCAL VARIABLES:
-    integer  :: p,c,g      ! indices
+    integer  :: c,g,p      ! indices
     integer  :: fp         ! lake filter indices
     real(r8) :: ol         ! thickness of canopy layer covered by snow (m)
     real(r8) :: fb         ! fraction of canopy layer covered by snow
@@ -113,13 +113,18 @@ contains
          frac_veg_nosno_alb =>  canopystate_vars%frac_veg_nosno_alb_patch & ! Output: [integer  (:) ] frac of vegetation not covered by snow [-]
          )
 
-      dt = real( get_rad_step_size(), r8 )
-
       ! patch loop
+      !$acc parallel loop independent gang vector default(present) 
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          c = veg_pp%column(p)
          g = veg_pp%gridcell(p)
+         ! constant allometric parameters
+         taper = 200._r8
+         stocking = 1000._r8
+
+         ! convert from stems/ha -> stems/m^2
+         stocking = stocking / 10000._r8
 
          if (ivt(p) /= noveg) then
 
@@ -254,7 +259,7 @@ contains
             frac_veg_nosno_alb(p) = 0
          end if
 
-      end do
+       end do
 
     end associate
 

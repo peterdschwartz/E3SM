@@ -17,12 +17,8 @@ module MaintenanceRespMod
   use VegetationPropertiesType      , only : veg_vp
   use SoilStateType       , only : soilstate_type
   use CanopyStateType     , only : canopystate_type
-  use TemperatureType     , only : temperature_type
-  use PhotosynthesisType  , only : photosyns_type
-  use CNCarbonFluxType    , only : carbonflux_type
-  use CNCarbonStateType   , only : carbonstate_type
-  use CNNitrogenStateType , only : nitrogenstate_type
   use ColumnDataType      , only : col_es
+  use PhotosynthesisType  , only : photosyns_type
   use VegetationType      , only : veg_pp
   use VegetationDataType  , only : veg_es, veg_cs, veg_cf, veg_ns
   !
@@ -46,7 +42,7 @@ module MaintenanceRespMod
 contains
 
   !-----------------------------------------------------------------------
-   subroutine readMaintenanceRespParams ( ncid )
+   subroutine readMaintenanceRespParams (ncid )
      !
      ! !DESCRIPTION:
      ! Read parameters
@@ -76,7 +72,7 @@ contains
   !-----------------------------------------------------------------------
   ! FIX(SPM,032414) this shouldn't even be called with ED on.
   !
-  subroutine MaintenanceResp(bounds, &
+  subroutine MaintenanceResp(&
        num_soilc, filter_soilc, num_soilp, filter_soilp, &
        canopystate_vars, soilstate_vars, photosyns_vars)
     !
@@ -85,8 +81,6 @@ contains
     ! !USES:
     !
     ! !ARGUMENTS:
-      !$acc routine seq
-    type(bounds_type)        , intent(in)    :: bounds
     integer                  , intent(in)    :: num_soilc       ! number of soil points in column filter
     integer                  , intent(in)    :: filter_soilc(:) ! column filter for soil points
     integer                  , intent(in)    :: num_soilp       ! number of soil points in patch filter
@@ -99,10 +93,9 @@ contains
     integer :: c,p,j ! indices
     integer :: fp    ! soil filter patch index
     integer :: fc    ! soil filter column index
-    real(r8):: br_mr ! base rate (gC/gN/s)
-    real(r8):: q10   ! temperature dependence
     real(r8):: tc    ! temperature correction, 2m air temp (unitless)
-    real(r8):: tcsoi(bounds%begc:bounds%endc,nlevgrnd) ! temperature correction by soil layer (unitless)
+    real(r8):: tcsoi ! temperature correction by soil layer (unitless)
+    real(r8) :: sum1
     !-----------------------------------------------------------------------
 
     associate(                                                        &
@@ -120,6 +113,8 @@ contains
 
          lmrsun         =>    photosyns_vars%lmrsun_patch           , & ! Input:  [real(r8) (:)   ]  sunlit leaf maintenance respiration rate (umol CO2/m**2/s)
          lmrsha         =>    photosyns_vars%lmrsha_patch           , & ! Input:  [real(r8) (:)   ]  shaded leaf maintenance respiration rate (umol CO2/m**2/s)
+
+         Q10 => ParamsShareInst%Q10_mr, &
 
          cpool          =>    veg_cs%cpool          , & ! Input: [real(r8) (:)   ]   plant carbon pool (gC m-2)
 
@@ -142,17 +137,14 @@ contains
       ! Original expression is br = 0.0106 molC/(molN h)
       ! Conversion by molecular weights of C and N gives 2.525e-6 gC/(gN s)
       ! set constants
-      br_mr = br_mr_Inst
-
+      !br_mr = br_mr_Inst
       ! Peter Thornton: 3/13/09
       ! Q10 was originally set to 2.0, an arbitrary choice, but reduced to 1.5 as part of the tuning
       ! to improve seasonal cycle of atmospheric CO2 concentration in global
       ! simulatoins
 
-      ! Set Q10 from SharedParamsMod
-      Q10 = ParamsShareInst%Q10_mr
-
       ! column loop to calculate temperature factors in each soil layer
+      !$acc parallel loop independent gang vector default(present) present(tcsoi(:,:),t_soisno(:,:))
       do j=1,nlevgrnd
          do fc = 1, num_soilc
             c = filter_soilc(fc)
@@ -165,29 +157,30 @@ contains
       end do
 
       ! patch loop for leaves and live wood
+      !$acc enter data create(sum1)
+
+      !$acc parallel loop independent gang vector private(p,tc) default(present)
       do fp = 1, num_soilp
          p = filter_soilp(fp)
 
          ! calculate maintenance respiration fluxes in
          ! gC/m2/s for each of the live plant tissues.
          ! Leaf and live wood MR
-
-         tc = Q10**((t_ref2m(p)-SHR_CONST_TKFRZ - 20.0_r8)/10.0_r8)
+         tc = ParamsShareInst%Q10_mr**((t_ref2m(p)-SHR_CONST_TKFRZ - 20.0_r8)/10.0_r8)
          if (frac_veg_nosno(p) == 1) then
             leaf_mr(p) = lmrsun(p) * laisun(p) * 12.011e-6_r8 + &
                          lmrsha(p) * laisha(p) * 12.011e-6_r8
 
          else !nosno
              leaf_mr(p) = 0._r8
-
          end if
 
          if (woody(ivt(p)) >= 1.0_r8) then
-            livestem_mr(p) = livestemn(p)*br_mr*tc
-            livecroot_mr(p) = livecrootn(p)*br_mr*tc
+            livestem_mr(p) = livestemn(p)*br_mr_Inst*tc
+            livecroot_mr(p) = livecrootn(p)*br_mr_Inst*tc
          else if (iscft(ivt(p)) .and. livestemn(p) .gt. 0._r8) then
-            livestem_mr(p) = livestemn(p)*br_mr*tc
-            grain_mr(p) = grainn(p)*br_mr*tc
+            livestem_mr(p) = livestemn(p)*br_mr_Inst*tc
+            grain_mr(p) = grainn(p)*br_mr_Inst*tc
          end if
          if (br_xr(ivt(p)) .gt. 1e-9_r8) then
             xr(p) = cpool(p) * br_xr(ivt(p)) * tc
@@ -203,20 +196,28 @@ contains
 
       ! soil and patch loop for fine root
 
-      do j = 1,nlevgrnd
-         do fp = 1,num_soilp
-            p = filter_soilp(fp)
-            c = veg_pp%column(p)
+      !$acc parallel loop independent gang worker private(p,c,sum1) default(present)
+      do fp = 1,num_soilp
+         p = filter_soilp(fp)
+         c = veg_pp%column(p)
+         ! calculate temperature corrections for each soil layer, for use in
+         ! estimating fine root maintenance respiration with depth
 
+         !$acc loop vector reduction(+:sum1) private(tcsoi)
+         do j = 1,nlevgrnd
+
+            tcsoi = ParamsShareInst%Q10_mr**((t_soisno(c,j)-SHR_CONST_TKFRZ - 20.0_r8)/10.0_r8)
             ! Fine root MR
             ! rootfr(j) sums to 1.0 over all soil layers, and
             ! describes the fraction of root mass that is in each
             ! layer.  This is used with the layer temperature correction
             ! to estimate the total fine root maintenance respiration as a
             ! function of temperature and N content.
-            froot_mr(p) = froot_mr(p) + frootn(p)*br_mr*tcsoi(c,j)*rootfr(p,j)
+            froot_mr(p) = froot_mr(p) + frootn(p)*br_mr_Inst*tcsoi*rootfr(p,j)
          end do
       end do
+
+      !$acc exit data delete(sum1)
 
     end associate
 

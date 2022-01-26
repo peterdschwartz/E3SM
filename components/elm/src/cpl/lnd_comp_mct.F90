@@ -338,7 +338,6 @@ contains
     end if
 #endif
     ! Finish initializing elm
-
     call initialize2()
     call initialize3()
 
@@ -422,7 +421,7 @@ contains
     !
     ! !USES:
     use shr_kind_mod    ,  only : r8 => shr_kind_r8
-    use elm_instMod     , only : lnd2atm_vars, atm2lnd_vars, lnd2glc_vars, glc2lnd_vars
+    use elm_instMod     , only : lnd2atm_vars, atm2lnd_vars, lnd2glc_vars, glc2lnd_vars, cpl_bypass_input
     use elm_driver      ,  only : elm_drv
     use elm_time_manager,  only : get_curr_date, get_nstep, get_curr_calday, get_step_size
     use elm_time_manager,  only : advance_timestep, set_nextsw_cday,update_rad_dtime
@@ -540,7 +539,6 @@ contains
 
     
     ! Map to elm (only when state and/or fluxes need to be updated)
-
     call t_startf ('lc_lnd_import')
     call lnd_import( bounds, x2l_l%rattr, atm2lnd_vars, glc2lnd_vars, lnd2atm_vars)
     
@@ -567,7 +565,10 @@ contains
 #endif
 
     call t_stopf ('lc_lnd_import')
-
+   
+    if(.false.) then 
+      call duplicate_lnd_points( bounds, x2l_l%rattr, atm2lnd_vars, glc2lnd_vars, lnd2atm_vars, cpl_bypass_input)
+    end if 
     ! Use infodata to set orbital values if updated mid-run
 
     call seq_infodata_GetData( infodata, orb_eccen=eccen, orb_mvelpp=mvelpp, &
