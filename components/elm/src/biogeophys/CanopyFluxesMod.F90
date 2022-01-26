@@ -92,7 +92,7 @@ contains
     ! !USES:
       !$acc routine seq
     use shr_const_mod      , only : SHR_CONST_TKFRZ, SHR_CONST_RGAS
-    use shr_flux_mod       , only : shr_flux_update_stress
+    use SimpleMathMod       , only : shr_flux_update_stress_elm
     use elm_varcon         , only : sb, cpair, hvap, vkc, grav, denice
     use elm_varcon         , only : denh2o, tfrz, csoilc, tlsai_crit, alpha_aero
     use elm_varcon         , only : isecspday, degpsec
@@ -102,6 +102,7 @@ contains
     !NEW
     use elm_varsur         , only : firrig
     use TopounitType       , only : top_pp
+    use domainMod          , only : ldomain_gpu
     use QSatMod            , only : QSat
     use FrictionVelocityMod, only : FrictionVelocity, MoninObukIni, &
          implicit_stress, atm_gustiness, force_land_gustiness
@@ -790,7 +791,7 @@ contains
             ! basic form of iteration in this loop...
             if (implicit_stress) then
                tau(p) = forc_rho(t)*wind_speed_adj(p)/ram1(p)
-               call shr_flux_update_stress(wind_speed0(p), wsresp(t), tau_est(t), &
+               call shr_flux_update_stress_elm(wind_speed0(p), wsresp(t), tau_est(t), &
                     tau(p), prev_tau(p), tau_diff(p), prev_tau_diff(p), &
                     wind_speed_adj(p))
                ur(p) = max(1.0_r8, sqrt(wind_speed_adj(p)**2 + ugust(t)**2))
@@ -1261,6 +1262,8 @@ contains
          h2ocan(p) = max(0._r8,h2ocan(p)+(qflx_tran_veg(p)-qflx_evap_veg(p))*dtime)
 
          ! Check for convergence of stress.
+         
+#ifndef _OPENACC
          if (implicit_stress .and. abs(tau_diff(p)) > dtaumin) then
             if (nstep_mod > 0) then ! Suppress common warnings on the first time step.
                write(iulog,*)'WARNING: Stress did not converge for canopy ',&
@@ -1269,7 +1272,7 @@ contains
                     ' wind_speed_adj= ',wind_speed_adj(p),' iter_final= ',iter_final
             end if
          end if
-
+#endif
       end do
 
       if ( use_fates ) then

@@ -15,7 +15,8 @@ module lnd2atmMod
   use elm_varctl           , only : iulog, use_c13, use_cn, use_lch4, use_voc, use_fates, use_atm_downscaling_to_topunit, use_fan
   use elm_varctl           , only : use_lnd_rof_two_way
   use tracer_varcon        , only : is_active_betr_bgc
-  use seq_drydep_mod   , only : n_drydep, drydep_method, DD_XLND
+  !use seq_drydep_mod   , only : n_drydep, drydep_method, DD_XLND
+  use seq_drydep_mod_elm   , only : n_drydep, drydep_method, DD_XLND
   use decompMod            , only : bounds_type
   use subgridAveMod        , only : p2g, c2g, p2t  
   use lnd2atmType          , only : lnd2atm_type
@@ -37,6 +38,7 @@ module lnd2atmMod
   use SedFluxType          , only : sedflux_type
   use spmdmod          , only: masterproc
   use elm_varctl     , only : iulog
+  #define is_active_betr_bgc .false. 
   !
   ! !PUBLIC TYPES:
   implicit none

@@ -6,7 +6,6 @@ module ColumnDataType
   ! --------------------------------------------------------
   !
   use shr_kind_mod    , only : r8 => shr_kind_r8
-  use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
   use shr_const_mod   , only : SHR_CONST_TKFRZ
   use shr_const_mod   , only : SHR_CONST_PDB
   use shr_log_mod     , only : errMsg => shr_log_errMsg
@@ -43,7 +42,6 @@ module ColumnDataType
   use spmdMod         , only : masterproc
   use restUtilMod
   use CNStateType     , only: cnstate_type
-  use tracer_varcon   , only : is_active_betr_bgc
   use CNDecompCascadeConType , only : decomp_cascade_con
   use ColumnType      , only : col_pp
   use LandunitType    , only : lun_pp
@@ -53,6 +51,13 @@ module ColumnDataType
   implicit none
   save
   public
+  public :: col_cf_summary_for_ch4
+  public :: col_cs_summary, col_cf_summary
+  public :: col_ps_summary, col_pf_summary
+  public :: col_ns_summary, col_nf_summary
+  public :: col_cf_setvalues, col_pf_setvalues, col_nf_setvalues
+  public :: col_ps_setvalues, col_pf_setvalues
+
   !
   ! NOTE(bandre, 2013-10) according to Charlie Koven, nfix_timeconst
   ! is currently used as a flag and rate constant. Rate constant: time
@@ -228,7 +233,7 @@ module ColumnDataType
   contains
     procedure, public :: Init    => col_cs_init
     procedure, public :: Restart => col_cs_restart
-    procedure, public :: Summary => col_cs_summary
+    !procedure, public :: Summary => col_cs_summary
     procedure, public :: Clean   => col_cs_clean
     procedure, public :: ZeroForFates => col_cs_zero_forfates_veg
   end type column_carbon_state
@@ -322,8 +327,8 @@ module ColumnDataType
   contains
     procedure, public :: Init       => col_ns_init
     procedure, public :: Restart    => col_ns_restart
-    procedure, public :: SetValues  => col_ns_setvalues
-    procedure, public :: Summary    => col_ns_summary
+    !procedure, public :: SetValues  => col_ns_setvalues
+    !procedure, public :: Summary    => col_ns_summary
     procedure, public :: Clean      => col_ns_clean
     procedure, public :: ZeroForFates => col_ns_zero_forfates_veg
   end type column_nitrogen_state
@@ -398,8 +403,8 @@ module ColumnDataType
   contains
     procedure, public :: Init      => col_ps_init
     procedure, public :: Restart   => col_ps_restart
-    procedure, public :: SetValues => col_ps_setvalues
-    procedure, public :: Summary   => col_ps_summary
+    !procedure, public :: SetValues => col_ps_setvalues
+    !procedure, public :: Summary   => col_ps_summary
     procedure, public :: Clean     => col_ps_clean
     procedure, public :: ZeroForFates => col_ps_zero_forfates_veg
   end type column_phosphorus_state
@@ -664,9 +669,9 @@ module ColumnDataType
   contains
     procedure, public :: Init       => col_cf_init
     procedure, public :: Restart    => col_cf_restart
-    procedure, public :: Summary    => col_cf_summary
-    procedure, public :: SummaryCH4 => col_cf_summary_for_ch4
-    procedure, public :: SetValues  => col_cf_setvalues
+    !procedure, public :: Summary    => col_cf_summary
+    !procedure, public :: SummaryCH4 => col_cf_summary_for_ch4
+    !procedure, public :: SetValues  => col_cf_setvalues
     procedure, public :: ZeroDWT    => col_cf_zerodwt
     procedure, public :: Clean      => col_cf_clean
     procedure, public :: ZeroForFates => col_cf_zero_forfates_veg
@@ -892,11 +897,11 @@ module ColumnDataType
 
   contains
     procedure, public :: Init       => col_nf_init
-    procedure, public :: Restart    => col_nf_restart
-    procedure, public :: SetValues  => col_nf_setvalues
+     procedure, public :: Restart    => col_nf_restart
+    !procedure, public :: SetValues  => col_nf_setvalues
     procedure, public :: ZeroForFates => col_nf_zero_forfates_veg
     procedure, public :: ZeroDWT    => col_nf_zerodwt
-    procedure, public :: Summary    => col_nf_summary
+    !procedure, public :: Summary    => col_nf_summary
     procedure, public :: SummaryInt => col_nf_summaryint
     procedure, public :: Clean      => col_nf_clean
   end type column_nitrogen_flux
@@ -1031,10 +1036,10 @@ module ColumnDataType
   contains
     procedure, public :: Init       => col_pf_init
     procedure, public :: Restart    => col_pf_restart
-    procedure, public :: SetValues  => col_pf_setvalues
+    !procedure, public :: SetValues  => col_pf_setvalues
     procedure, public :: ZeroForFates => col_pf_zero_forfates_veg
     procedure, public :: ZeroDWT    => col_pf_zerodwt
-    procedure, public :: Summary    => col_pf_summary
+    !procedure, public :: Summary    => col_pf_summary
     procedure, public :: SummaryInt => col_pf_summaryint
     procedure, public :: Clean      => col_pf_clean
   end type column_phosphorus_flux
@@ -1084,6 +1089,7 @@ contains
   subroutine col_es_init(this, begc, endc)
     !
     ! !USES:
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     use landunit_varcon, only : istice, istwet, istsoil, istdlak, istice_mec
     use elm_varctl     , only : iulog, use_cn, use_vancouver, use_mexicocity
     use column_varcon  , only : icol_road_perv, icol_road_imperv, icol_roof, icol_sunwall, icol_shadewall
@@ -1302,6 +1308,7 @@ contains
     ! Read/Write column energy state information to/from restart file.
     !
     ! !USES:
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     !
     ! !ARGUMENTS:
     class(column_energy_state) :: this
@@ -1364,6 +1371,7 @@ contains
     !
     use elm_varctl  , only : use_lake_wat_storage
     ! !ARGUMENTS:
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     class(column_water_state) :: this
     integer , intent(in)      :: begc,endc
     real(r8), intent(in)      :: h2osno_input(begc:)
@@ -1678,7 +1686,7 @@ contains
        this%h2osoi_ice(c,-nlevsno+1:) = spval
 
        if (.not. lun_pp%lakpoi(l)) then  !not lake
-	       nlevbed = col_pp%nlevbed(c)
+          nlevbed = col_pp%nlevbed(c)
           ! volumetric water
           if (lun_pp%itype(l) == istsoil .or. lun_pp%itype(l) == istcrop) then
              nlevs = nlevgrnd
@@ -1797,6 +1805,7 @@ contains
     use elm_varctl, only : use_lake_wat_storage, do_budgets
     !
     ! !ARGUMENTS:
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     class(column_water_state) :: this
     type(bounds_type), intent(in)    :: bounds
     type(file_desc_t), intent(inout) :: ncid
@@ -2013,6 +2022,7 @@ contains
   subroutine col_cs_init(this, begc, endc, carbon_type, ratio, c12_carbonstate_vars)
     !
     ! !ARGUMENTS:
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     class(column_carbon_state)    :: this
     integer          , intent(in) :: begc,endc
     character(len=3) , intent(in) :: carbon_type ! one of ['c12', c13','c14']
@@ -2514,6 +2524,7 @@ contains
     ! Read/Write column carbon state information to/from restart file.
     !
     ! !ARGUMENTS:
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     class(column_carbon_state)       :: this
     type(bounds_type), intent(in)    :: bounds
     type(file_desc_t), intent(inout) :: ncid
@@ -2953,9 +2964,9 @@ contains
     !
     ! !DESCRIPTION:
     ! Column-level carbon state summary calculations
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class(column_carbon_state) :: this
+    type(column_carbon_state) :: this
     type(bounds_type)      , intent(in)    :: bounds
     integer                , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                , intent(in)    :: filter_soilc(:) ! filter for soil columns
@@ -3200,6 +3211,7 @@ contains
   !------------------------------------------------------------------------
   subroutine col_ns_init(this, begc, endc, col_cs)
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class(column_nitrogen_state)          :: this
     integer, intent(in)                   :: begc,endc
@@ -3696,7 +3708,7 @@ contains
        this%cropseedn_deficit(c) = 0._r8
     end do
 
-    call this%SetValues (num_column=num_special_col, filter_column=special_col, value_column=0._r8)
+    call col_ns_SetValues (this,num_column=num_special_col, filter_column=special_col, value_column=0._r8)
 
   end subroutine col_ns_init
 
@@ -3706,6 +3718,7 @@ contains
     ! !DESCRIPTION:
     ! Read/write CN restart data for nitrogen state
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class (column_nitrogen_state)              :: this
     type(bounds_type)          , intent(in)    :: bounds
@@ -4059,11 +4072,11 @@ contains
           do c = bounds%begc, bounds%endc
              do j = 1, nlevdecomp
                 if ( exit_spinup ) then
-		             m = decomp_cascade_con%spinup_factor(k)
+                   m = decomp_cascade_con%spinup_factor(k)
                    if (decomp_cascade_con%spinup_factor(k) > 1) m = m / cnstate_vars%scalaravg_col(c,j)
                 else if ( enter_spinup ) then
                    m = 1. / decomp_cascade_con%spinup_factor(k)
-		             if (decomp_cascade_con%spinup_factor(k) > 1) m = m * cnstate_vars%scalaravg_col(c,j)
+                   if (decomp_cascade_con%spinup_factor(k) > 1) m = m * cnstate_vars%scalaravg_col(c,j)
                 end if
                 this%decomp_npools_vr(c,j,k) = this%decomp_npools_vr(c,j,k) * m
              end do
@@ -4078,9 +4091,9 @@ contains
     !
     ! !DESCRIPTION:
     ! Set column-level nitrogen state variables
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class (column_nitrogen_state) :: this
+    type (column_nitrogen_state) :: this
     integer , intent(in) :: num_column
     integer , intent(in) :: filter_column(:)
     real(r8), intent(in) :: value_column
@@ -4168,9 +4181,9 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine col_ns_summary(this, bounds, num_soilc, filter_soilc)
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class (column_nitrogen_state)  :: this
+    type (column_nitrogen_state)  :: this
     type(bounds_type) , intent(in) :: bounds
     integer           , intent(in) :: num_soilc       ! number of soil columns in filter
     integer           , intent(in) :: filter_soilc(:) ! filter for soil columns
@@ -4464,6 +4477,7 @@ contains
   !------------------------------------------------------------------------
   subroutine col_ps_init(this, begc, endc, col_cs)
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class(column_phosphorus_state)        :: this
     integer, intent(in)                   :: begc,endc
@@ -4804,7 +4818,7 @@ contains
        this%totprodp(c) = 0._r8
     end do
 
-    call this%SetValues (num_column=num_special_col, filter_column=special_col, value_column=0._r8)
+    call col_ps_SetValues (this,num_column=num_special_col, filter_column=special_col, value_column=0._r8)
 
   end subroutine col_ps_init
 
@@ -4814,6 +4828,7 @@ contains
     ! !DESCRIPTION:
     ! Read/write vegetation-level phosphorus state restart data
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class (column_phosphorus_state)            :: this
     type(bounds_type)          , intent(in)    :: bounds
@@ -5020,12 +5035,12 @@ contains
        do k = 1, ndecomp_pools
           do c = bounds%begc, bounds%endc
              do j = 1, nlevdecomp
-	             if ( exit_spinup ) then
-		             m = decomp_cascade_con%spinup_factor(k)
+                if ( exit_spinup ) then
+                   m = decomp_cascade_con%spinup_factor(k)
                    if (decomp_cascade_con%spinup_factor(k) > 1) m = m  / cnstate_vars%scalaravg_col(c,j)
                 else if ( enter_spinup ) then
                    m = 1. / decomp_cascade_con%spinup_factor(k)
-		             if (decomp_cascade_con%spinup_factor(k) > 1) m = m  * cnstate_vars%scalaravg_col(c,j)
+                   if (decomp_cascade_con%spinup_factor(k) > 1) m = m  * cnstate_vars%scalaravg_col(c,j)
                 end if
                 this%decomp_ppools_vr(c,j,k) = this%decomp_ppools_vr(c,j,k) * m
              end do
@@ -5144,7 +5159,7 @@ contains
     ! Set phosphorus state variables, column-level
     !$acc routine seq
     ! !ARGUMENTS:
-    class (column_phosphorus_state) :: this
+    type (column_phosphorus_state) :: this
     integer , intent(in)            :: num_column
     integer , intent(in)            :: filter_column(:)
     real(r8), intent(in)            :: value_column
@@ -5208,9 +5223,9 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine col_ps_summary(this, bounds, num_soilc, filter_soilc)
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class (column_phosphorus_state) :: this
+    type(column_phosphorus_state) :: this
     type(bounds_type) , intent(in)  :: bounds
     integer           , intent(in)  :: num_soilc       ! number of soil columns in filter
     integer           , intent(in)  :: filter_soilc(:) ! filter for soil columns
@@ -5495,6 +5510,7 @@ contains
   !------------------------------------------------------------------------
   subroutine col_ef_init(this, begc, endc)
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class(column_energy_flux) :: this
     integer, intent(in) :: begc,endc
@@ -5608,6 +5624,7 @@ contains
     !
     ! !USES:
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class(column_energy_flux) :: this
     type(bounds_type), intent(in)    :: bounds
@@ -5642,6 +5659,7 @@ contains
   !------------------------------------------------------------------------
   subroutine col_wf_init(this, begc, endc)
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class(column_water_flux) :: this
     integer, intent(in) :: begc,endc
@@ -5890,6 +5908,7 @@ contains
     ! Read/Write column water state information to/from restart file.
     !
     ! !USES:
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     !
     ! !ARGUMENTS:
     class(column_water_flux) :: this
@@ -5964,6 +5983,7 @@ contains
   !------------------------------------------------------------------------
   subroutine col_cf_init(this, begc, endc, carbon_type)
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class(column_carbon_flux) :: this
     integer, intent(in) :: begc,endc
@@ -7081,7 +7101,7 @@ contains
        this%landuptake(c)  = 0._r8
     end do
 
-    call this%SetValues (num_column=num_special_col, filter_column=special_col, value_column=0._r8)
+    call col_cf_SetValues (this,num_column=num_special_col, filter_column=special_col, value_column=0._r8)
 
   end subroutine col_cf_init
 
@@ -7091,6 +7111,7 @@ contains
     ! !DESCRIPTION:
     ! Read/write restart data for column carbon flux
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class (column_carbon_flux)        :: this
     type(bounds_type) , intent(in)    :: bounds
@@ -7116,7 +7137,7 @@ contains
             interpinic_flag='interp', readvar=readvar, data=ptr2d)
     end if
 
-!    if(use_fates) return
+    !    if(use_fates) return
 
     !-------------------------------
     ! Prognostic crop variables
@@ -7167,13 +7188,14 @@ contains
     ! !DESCRIPTION:
     ! column-level carbon flux summary calculations
     !
-    !
+    !$acc routine seq
+    use timeinfoMod , only : dtime_mod
     ! !ARGUMENTS:
-    class(column_carbon_flux)              :: this
+    type(column_carbon_flux)              :: this
     type(bounds_type)      , intent(in)    :: bounds
     integer                , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                , intent(in)    :: filter_soilc(:) ! filter for soil columns
-    character(len=*)       , intent(in)    :: isotope
+    character(len=4)       , intent(in)    :: isotope
     !
     ! !LOCAL VARIABLES:
     real(r8) :: nfixlags, dtime ! temp variables for making lagged npp
@@ -7191,11 +7213,11 @@ contains
 
     ! PET: retaining the following here during migration, but this is science code that should
     ! really be in the NDynamics module. Flag for relocation during ELM v2 code cleanup.
-    if ( trim(isotope) == 'bulk') then
+    if ( isotope == 'bulk') then
        if (nfix_timeconst > 0._r8 .and. nfix_timeconst < 500._r8 ) then
 
           ! this code is to calculate an exponentially-relaxed npp value for use in NDynamics code
-           dtime = get_step_size()
+           dtime = dtime_mod
           nfixlags = nfix_timeconst * secspday
 
           do fc = 1,num_soilc
@@ -7249,7 +7271,6 @@ contains
        end do
 
     elseif (is_active_betr_bgc) then
-
        do fc = 1, num_soilc
           c = filter_soilc(fc)
           this%hr(c) = dot_sum(this%hr_vr(c,1:nlevdecomp),dzsoi_decomp(1:nlevdecomp))
@@ -7324,9 +7345,11 @@ contains
     !----------------------------------------------------------------
     ! bgc interface & pflotran:
     !----------------------------------------------------------------
+#ifndef _OPENACC
     if (use_elm_interface .and. (use_pflotran .and. pf_cmode)) then
         call col_cf_summary_pf(this, bounds, num_soilc, filter_soilc)
     end if
+#endif
     !----------------------------------------------------------------
 
     do fc = 1,num_soilc
@@ -7573,9 +7596,9 @@ contains
     ! summarize column-level fluxes for methane calculation
     !
     ! !USES:
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class(column_carbon_flux)     :: this
+    type(column_carbon_flux)     :: this
     type(bounds_type), intent(in) :: bounds
     integer, intent(in) :: num_soilc
     integer, intent(in) :: filter_soilc(:)
@@ -7664,9 +7687,9 @@ contains
   subroutine col_cf_setvalues ( this, num_column, filter_column, value_column)
     ! !DESCRIPTION:
     ! Set column-level carbon fluxes
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class(column_carbon_flux) :: this
+    type (column_carbon_flux) :: this
     integer , intent(in) :: num_column
     integer , intent(in) :: filter_column(:)
     real(r8), intent(in) :: value_column
@@ -8119,6 +8142,7 @@ contains
   !------------------------------------------------------------------------
   subroutine col_nf_init(this, begc, endc)
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class(column_nitrogen_flux) :: this
     integer, intent(in) :: begc,endc
@@ -9173,7 +9197,7 @@ contains
        this%dwt_nloss(c) = 0._r8
     end do
 
-    call this%SetValues (num_column=num_special_col, filter_column=special_col, value_column=0._r8)
+    call col_nf_SetValues (this,num_column=num_special_col, filter_column=special_col, value_column=0._r8)
 
   end subroutine col_nf_init
 
@@ -9183,6 +9207,7 @@ contains
     ! !DESCRIPTION:
     ! Read/write restart data for column-level nitrogen fluxes
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class (column_nitrogen_flux)      :: this
     type(bounds_type) , intent(in)    :: bounds
@@ -9288,9 +9313,9 @@ contains
     !
     ! !DESCRIPTION:
     ! Set column-level nitrogen fluxes
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class(column_nitrogen_flux) :: this
+    type (column_nitrogen_flux) :: this
     integer , intent(in)         :: num_column
     integer , intent(in)         :: filter_column(:)
     real(r8), intent(in)         :: value_column
@@ -9582,9 +9607,9 @@ contains
     !
     ! !DESCRIPTION:
     ! Column-level nitrogen summary calculations
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class(column_nitrogen_flux)            :: this
+    type (column_nitrogen_flux)            :: this
     type(bounds_type)      , intent(in)    :: bounds
     integer                , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                , intent(in)    :: filter_soilc(:) ! filter for soil columns
@@ -9828,9 +9853,11 @@ contains
     enddo
 
     ! bgc interface & pflotran
+    #ifndef _OPENACC
     if (use_elm_interface .and. (use_pflotran .and. pf_cmode)) then
         call this%SummaryInt(bounds, num_soilc, filter_soilc)
     end if
+    #endif
 
   end subroutine col_nf_summary
 
@@ -10051,6 +10078,7 @@ contains
   !------------------------------------------------------------------------
   subroutine col_pf_init(this, begc, endc)
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class(column_phosphorus_flux) :: this
     integer, intent(in) :: begc,endc
@@ -10764,7 +10792,7 @@ contains
        this%dwt_ploss(c) = 0._r8
     end do
 
-    call this%SetValues (num_column=num_special_col, filter_column=special_col, value_column=0._r8)
+    call col_pf_SetValues (this,num_column=num_special_col, filter_column=special_col, value_column=0._r8)
 
   end subroutine col_pf_init
 
@@ -10774,6 +10802,7 @@ contains
     ! !DESCRIPTION:
     ! Read/write restart data for column-level phosphorus fluxes
     !
+    use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
     ! !ARGUMENTS:
     class (column_phosphorus_flux)     :: this
     type(bounds_type) , intent(in)     :: bounds
@@ -10844,7 +10873,7 @@ contains
     ! !DESCRIPTION:
     ! Set phosphorus flux variables
     ! !ARGUMENTS:
-    class (column_phosphorus_flux) :: this
+    type (column_phosphorus_flux) :: this
     integer , intent(in) :: num_column
     integer , intent(in) :: filter_column(:)
     real(r8), intent(in) :: value_column
@@ -11097,9 +11126,9 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine col_pf_summary(this, bounds, num_soilc, filter_soilc)
-    !
+    !$acc routine seq
     ! !ARGUMENTS:
-    class (column_phosphorus_flux) :: this
+    type (column_phosphorus_flux) :: this
     type(bounds_type) , intent(in) :: bounds
     integer           , intent(in) :: num_soilc       ! number of soil columns in filter
     integer           , intent(in) :: filter_soilc(:) ! filter for soil columns
@@ -11385,10 +11414,12 @@ contains
        end do
     end if
 
+    #ifndef _OPENACC
     ! bgc interface & pflotran:
     if (use_elm_interface) then
         call this%SummaryInt(bounds, num_soilc, filter_soilc)
     end if
+    #endif
 
   end subroutine col_pf_summary
 

@@ -305,17 +305,20 @@ contains
     
     ! Read surface dataset and set up subgrid weight arrays
     call surfrd_get_data(begg, endg, ldomain, fsurdat)
+    call domain_transfer() 
 
     if(use_fates) then
-
-       ! Pass various control flags to FATES and setup
-       ! FATES allocations
-       ! --------------------------------------------------------------------
-
-       call ELMFatesGlobals2()
-
+      ! --------------------------------------------------------------------
+      ! Ask Fates to evaluate its own dimensioning needs.
+      !
+      ! (Note: fates_maxELementsPerSite is the critical variable used by CLM
+      ! to allocate space, determined in this routine)
+      ! --------------------------------------------------------------------
+      ! Pass various control flags to FATES and setup
+      ! FATES allocations
+      ! --------------------------------------------------------------------
+      call ELMFatesGlobals2()
     end if
-
     
     ! ------------------------------------------------------------------------
     ! Determine decomposition of subgrid scale topounits, landunits, topounits, columns, patches

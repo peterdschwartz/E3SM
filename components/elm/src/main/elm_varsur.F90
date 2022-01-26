@@ -53,5 +53,6 @@ module elm_varsur
   real(r8),pointer :: f_surf(:,:)  ! fraction of water withdraws from surfacewater
   real(r8),pointer :: f_grd(:,:)   ! fraction of water withdraws from groundwater
   !-----------------------------------------------------------------------
-
+    
+  !$acc declare create(wt_lunit) 
 end module elm_varsur
