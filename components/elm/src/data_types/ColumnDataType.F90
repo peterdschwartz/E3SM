@@ -8,10 +8,8 @@ module ColumnDataType
   use shr_kind_mod    , only : r8 => shr_kind_r8
   use shr_const_mod   , only : SHR_CONST_TKFRZ
   use shr_const_mod   , only : SHR_CONST_PDB
-  use shr_log_mod     , only : errMsg => shr_log_errMsg
-  use shr_sys_mod     , only : shr_sys_flush
   use abortutils      , only : endrun
-  use MathfuncMod     , only : dot_sum
+  !use MathfuncMod     , only : dot_sum
   use elm_varpar      , only : nlevsoi, nlevsno, nlevgrnd, nlevlak, nlevurb
   use elm_varpar      , only : ndecomp_cascade_transitions, ndecomp_pools, nlevcan
   use elm_varpar      , only : nlevdecomp_full, crop_prog, nlevdecomp
@@ -42,6 +40,7 @@ module ColumnDataType
   use spmdMod         , only : masterproc
   use restUtilMod
   use CNStateType     , only: cnstate_type
+  use tracer_varcon   , only : is_active_betr_bgc
   use CNDecompCascadeConType , only : decomp_cascade_con
   use ColumnType      , only : col_pp
   use LandunitType    , only : lun_pp
@@ -1367,7 +1366,7 @@ contains
   !------------------------------------------------------------------------
   ! Subroutines to initialize and clean column water state data structure
   !------------------------------------------------------------------------
-  subroutine col_ws_init(this, begc, endc, h2osno_input, snow_depth_input, watsat_input)
+  subroutine col_ws_init(this, begc, endc, h2osno_input, snow_depth_input)!, watsat_input)
     !
     use elm_varctl  , only : use_lake_wat_storage
     ! !ARGUMENTS:
@@ -1376,7 +1375,7 @@ contains
     integer , intent(in)      :: begc,endc
     real(r8), intent(in)      :: h2osno_input(begc:)
     real(r8), intent(in)      :: snow_depth_input(begc:)
-    real(r8), intent(in)      :: watsat_input(begc:, 1:)          ! volumetric soil water at saturation (porosity)
+    ! real(r8), intent(in)      :: watsat_input(begc:, 1:)          ! volumetric soil water at saturation (porosity)
     !
     ! !LOCAL VARIABLES:
     real(r8), pointer  :: data2dptr(:,:), data1dptr(:) ! temp. pointers for slicing larger arrays
@@ -1738,7 +1737,7 @@ contains
              end do
           endif
           do j = 1, nlevs
-             this%h2osoi_vol(c,j) = min(this%h2osoi_vol(c,j), watsat_input(c,j))
+             this%h2osoi_vol(c,j) = min(this%h2osoi_vol(c,j), 100.0_r8)!watsat_input(c,j))
 
              if (col_es%t_soisno(c,j) <= SHR_CONST_TKFRZ) then
                 this%h2osoi_ice(c,j) = col_pp%dz(c,j)*denice*this%h2osoi_vol(c,j)
@@ -1767,7 +1766,7 @@ contains
           end do
           do j = 1,nlevgrnd
              if (j <= nlevsoi) then ! soil
-                this%h2osoi_vol(c,j) = watsat_input(c,j)
+                this%h2osoi_vol(c,j) = 0.15_r8!watsat_input(c,j)
                 this%h2osoi_liq(c,j) = spval
                 this%h2osoi_ice(c,j) = spval
              else                  ! bedrock
@@ -2957,7 +2956,7 @@ contains
         end if ! read
      end if ! c12 or c14 (PET: why not c13?)
 
-  end subroutine col_cs_restart
+end subroutine col_cs_restart
 
   !-----------------------------------------------------------------------
   subroutine col_cs_summary(this, bounds, num_soilc, filter_soilc)
@@ -7631,9 +7630,9 @@ contains
 
        do j = 1,nlevdecomp
           do fc = 1,num_soilc
-             c = filter_soilc(fc)
+            c = filter_soilc(fc)
 
-             this%decomp_cascade_hr(c,k) = &
+            this%decomp_cascade_hr(c,k) = &
                 this%decomp_cascade_hr(c,k) + &
                 this%decomp_cascade_hr_vr(c,j,k) * dzsoi_decomp(j)
 
@@ -7643,39 +7642,39 @@ contains
 
       ! litter heterotrophic respiration (LITHR)
       do k = 1, ndecomp_cascade_transitions
-        if ( is_litter(decomp_cascade_con%cascade_donor_pool(k)) .or. is_cwd((decomp_cascade_con%cascade_donor_pool(k)))) then
+       if ( is_litter(decomp_cascade_con%cascade_donor_pool(k)) .or. is_cwd((decomp_cascade_con%cascade_donor_pool(k)))) then
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%lithr(c) = &
               this%lithr(c) + &
               this%decomp_cascade_hr(c,k)
           end do
-        end if
+       end if
       end do
 
       ! soil organic matter heterotrophic respiration (SOMHR)
       do k = 1, ndecomp_cascade_transitions
-        if ( is_soil(decomp_cascade_con%cascade_donor_pool(k)) ) then
+       if ( is_soil(decomp_cascade_con%cascade_donor_pool(k)) ) then
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%somhr(c) = &
               this%somhr(c) + &
               this%decomp_cascade_hr(c,k)
           end do
-        end if
+       end if
       end do
 
       ! total heterotrophic respiration, vertically resolved (HR)
 
       do k = 1, ndecomp_cascade_transitions
-        do j = 1,nlevdecomp
+       do j = 1,nlevdecomp
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%hr_vr(c,j) = &
                 this%hr_vr(c,j) + &
                 this%decomp_cascade_hr_vr(c,j,k)
           end do
-        end do
+       end do
       end do
     endif
 
@@ -7907,8 +7906,6 @@ contains
        this%rr(c) = 0._r8   ! This counterpart is
                             ! actually in SummaryRR
     end do
-
-
   end subroutine col_cf_zero_forfates_veg_rr
 
 
@@ -7961,6 +7958,7 @@ contains
     !
     ! !ARGUMENTS:
     class(column_carbon_flux)       :: this
+      !$acc routine seq
     type(bounds_type) ,  intent(in) :: bounds
     integer,             intent(in) :: num_soilc       ! number of soil columns in filter
     integer,             intent(in) :: filter_soilc(:) ! filter for soil columns

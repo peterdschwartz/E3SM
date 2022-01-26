@@ -1,6 +1,6 @@
 module FrictionVelocityMod
 
-#include "shr_assert.h"
+!#py #include "shr_assert.h"
 
   !------------------------------------------------------------------------------
   ! !DESCRIPTION:
@@ -9,14 +9,14 @@ module FrictionVelocityMod
   !
   ! !USES:
   use shr_kind_mod         , only : r8 => shr_kind_r8
-  use shr_log_mod          , only : errMsg => shr_log_errMsg
+  !#py !#py use shr_log_mod          , only : errMsg => shr_log_errMsg
   use FrictionVelocityType , only : frictionvel_type
   use LandunitType         , only : lun_pp
   use VegetationType       , only : veg_pp
   !
   ! !PUBLIC TYPES:
   implicit none
-  
+
   logical, public :: implicit_stress = .false.
   logical, public :: atm_gustiness = .false.
   logical, public :: force_land_gustiness = .false.
@@ -37,8 +37,6 @@ module FrictionVelocityMod
   private :: StabilityFunc1        ! Stability function for rib < 0.
   private :: StabilityFunc2        ! Stability function for rib < 0.
   !------------------------------------------------------------------------------
-
-
 
 contains
 
@@ -63,8 +61,8 @@ contains
     implicit none
     !
     ! !ARGUMENTS:
-    integer  , intent(in)    :: f           ! pft/landunit filter index
-    integer  , intent(in)    :: n           ! pft/landunit index
+    integer ,value  , intent(in)   :: f    ! pft/landunit filter index
+    integer ,value , intent(in)    :: n     ! pft/landunit index
     real(r8) , intent(in)    :: displa      ! displacement height (m) [lbn:ubn]
     real(r8) , intent(in)    :: z0m         ! roughness length over vegetation, momentum [m] [lbn:ubn]
     real(r8) , intent(in)    :: z0h         ! roughness length over vegetation, sensible heat [m] [lbn:ubn]
@@ -109,15 +107,9 @@ contains
 
       ! Adjustment factors for unstable (moz < 0) or stable (moz > 0) conditions.
 
-      !  do f = 1, fn
-      !    n = filtern(f)
-
           if (present(landunit_index)) then
-             !g = lun_pp%gridcell(n)
              pfti = lun_pp%pfti(n)
              pftf = lun_pp%pftf(n)
-          else
-             !g = veg_pp%gridcell(n)
           end if
 
           ! Wind profile
@@ -125,6 +117,8 @@ contains
           if (present(landunit_index)) then
              zldis = forc_hgt_u_patch(pfti)-displa
           else
+             print *,displa
+             print *, forc_hgt_u_patch(n)
              zldis = forc_hgt_u_patch(n)-displa
           end if
 

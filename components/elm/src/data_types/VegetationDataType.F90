@@ -46,8 +46,8 @@ module VegetationDataType
 
   public :: veg_cf_summary_for_ch4
   public :: veg_cf_summary, veg_cs_summary
-  public :: veg_nf_summary, veg_ns_summary
   public :: veg_pf_summary, veg_ps_summary
+  public :: veg_nf_summary, veg_ns_summary
   public :: veg_cf_setvalues, veg_pf_setvalues, veg_nf_setvalues
   public :: veg_cf_summary_rr
 
@@ -8495,17 +8495,16 @@ module VegetationDataType
   end subroutine veg_cf_summary
 
   !------------------------------------------------------------
-  subroutine veg_cf_summary_rr(this, bounds, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
+  subroutine veg_cf_summary_rr(this, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
     !
     ! !DESCRIPTION:
     ! summarize root respiration
     !
     ! !USES:
+    use subgridAveMod, only : p2c_1d_filter_parallel
     !
-    !$acc routine seq
     ! !ARGUMENTS:
     type(vegetation_carbon_flux) :: this
-    type(bounds_type), intent(in) :: bounds
     integer, intent(in) :: num_soilp
     integer, intent(in) :: filter_soilp(:)
     integer, intent(in) :: num_soilc
@@ -8515,10 +8514,7 @@ module VegetationDataType
     ! !LOCAL VARIABLES
     integer :: fp, p
     !------------------------------------------------------------
-    associate( &
-      rr_patch => this%rr, &
-      rr_col   => col_cf_input%rr &
-      )
+    !$acc parallel loop independent gang vector private(p) default(present)
     do fp = 1,num_soilp
       p = filter_soilp(fp)
       ! root respiration (RR)
@@ -8534,10 +8530,9 @@ module VegetationDataType
       this%cpool_livecroot_storage_gr(p) + &
       this%cpool_deadcroot_storage_gr(p)
     enddo
-    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
-            rr_patch(bounds%begp:bounds%endp), &
-            rr_col(bounds%begc:bounds%endc))
-  end associate
+    call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
+            this%rr, &
+            col_cf_input%rr)
 
   end subroutine veg_cf_summary_rr
 
@@ -8610,7 +8605,6 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Set vegetation-level carbon fluxes
-    !$acc routine seq
     ! !ARGUMENTS:
     type (vegetation_carbon_flux) :: this
     integer , intent(in) :: num_patch
@@ -9593,7 +9587,6 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Set vegetation-level nitrogen fluxes
-    !$acc routine seq
     ! !ARGUMENTS:
     type (vegetation_nitrogen_flux) :: this
     integer , intent(in)             :: num_patch
@@ -9603,7 +9596,6 @@ module VegetationDataType
     ! !LOCAL VARIABLES:
     integer :: fi,i     ! loop index
     !------------------------------------------------------------------------
-
     do fi = 1,num_patch
        i=filter_patch(fi)
 
@@ -10660,7 +10652,6 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Set phosphorus flux variables
-    !$acc routine seq
     ! !ARGUMENTS:
     type (vegetation_phosphorus_flux) :: this
     integer , intent(in) :: num_patch
