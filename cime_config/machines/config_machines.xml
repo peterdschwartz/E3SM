@@ -4727,8 +4727,8 @@
     <DESC>ORNL Summit. Node: 2x POWER9 + 6x Volta V100, 22 cores/socket, 4 HW threads/core.</DESC>
     <NODENAME_REGEX>.*summit.*</NODENAME_REGEX>
     <OS>LINUX</OS>
-    <COMPILERS>ibm,ibmgpu,pgi,pgigpu,gnu,gnugpu</COMPILERS>
-    <MPILIBS>spectrum-mpi</MPILIBS>
+    <COMPILERS>ibm,ibmgpu,pgi,pgigpu,gnu,gnugpu,pgielmacc</COMPILERS>
+    <MPILIBS>spectrum-mpi,mpi-serial</MPILIBS>
     <PROJECT>cli115</PROJECT>
     <CHARGE_ACCOUNT>cli115</CHARGE_ACCOUNT>
     <SAVE_TIMING_DIR>/gpfs/alpine/proj-shared/cli115</SAVE_TIMING_DIR>
@@ -4901,6 +4901,13 @@
     </environment_variables>
     <environment_variables compiler="gnu.*" mpilib="spectrum-mpi">
       <env name="ADIOS2_ROOT">$SHELL{if [ -z "$ADIOS2_ROOT" ]; then echo /gpfs/alpine/cli115/world-shared/3rdparty/adios2/2.9.1/spectrum-mpi-10.4.0.3/gcc-9.1.0; else echo "$ADIOS2_ROOT"; fi}</env>
+    </environment_variables>
+    <environment_variables compiler="pgielmacc">
+      <env name="RS_PER_NODE">$SHELL{if [ `./xmlquery --value TOTAL_TASKS` -lt 6 ];then echo `./xmlquery --value TOTAL_TASKS`;else echo 6;fi|bc}</env>
+      <env name="CPU_PER_RS">1</env>
+      <env name="GPU_PER_RS">1</env>
+      <env name="LTC_PRT">gpu-cpu</env>
+      <env name="NUM_RS">$SHELL{echo "(`./xmlquery --value TOTAL_TASKS`)"|bc}</env>
     </environment_variables>
   </machine>
 

@@ -143,7 +143,7 @@ contains
     
     call elm_petsc_init()
     call init_soil_temperature()
-
+    write(iulog,*) "DEBUG: init params" 
     if (masterproc) call control_print()
 
     call dynSubgridControl_init(NLFilename)
@@ -171,7 +171,7 @@ contains
     ! ------------------------------------------------------------------------
     ! If specified, read the grid level connectivity
     ! ------------------------------------------------------------------------
-
+    write(iulog,*) "DEBUG: before lateral connectivity" 
     if (lateral_connectivity) then
        call surfrd_get_grid_conn(fatmlndfrc, cellsOnCell, edgesOnCell, &
             nEdgesOnCell, areaCell, dcEdge, dvEdge, &
@@ -183,9 +183,9 @@ contains
     endif
 
     ! ------------------------------------------------------------------------
-    ! Determine clm gridcell decomposition and processor bounds for gridcells
+    ! Determine elm gridcell decomposition and processor bounds for gridcells
     ! ------------------------------------------------------------------------
-
+    write(iulog,*) "DEBUG: Domain decomp ",trim(domain_decomp_type) 
     select case (trim(domain_decomp_type))
     case ("round_robin")
        call decompInit_lnd(ni, nj, amask)
@@ -216,7 +216,7 @@ contains
     ! ------------------------------------------------------------------------
     ! Get grid and land fraction (set ldomain)
     ! ------------------------------------------------------------------------
-
+    write(iulog,*) "DEBUG: real ldomain"
     if (masterproc) then
        write(iulog,*) 'Attempting to read ldomain from ',trim(fatmlndfrc)
        call shr_sys_flush(iulog)
@@ -254,6 +254,7 @@ contains
     !-------------------------------------------------------------------------
     ! Topounit
     !-------------------------------------------------------------------------
+    write(iulog,*) "DEBUG: topounit_varcon_init" 
     call topounit_varcon_init(begg, endg,fsurdat,ldomain)  ! Topounits
     !-------------------------------------------------------------------------
     
@@ -261,7 +262,8 @@ contains
     ! Initialize urban model input (initialize urbinp data structure)
     ! This needs to be called BEFORE the call to surfrd_get_data since
     ! that will call surfrd_get_special which in turn calls check_urban
-
+    write(iulog,*) "DEBUG: UrbanInput " 
+    call shr_sys_flush(iulog)
     call UrbanInput(begg, endg, mode='initialize')
 
     ! Allocate surface grid dynamic memory (just gridcell bounds dependent)
@@ -292,6 +294,7 @@ contains
     ! Read list of Patches and their corresponding parameter values
     ! Independent of model resolution, Needs to stay before surfrd_get_data
 
+    call shr_sys_flush(iulog)
     call pftconrd()
     call soilorder_conrd()
 
@@ -335,6 +338,8 @@ contains
     ! *** Get ALL processor bounds - for gridcells, landunit, columns and patches ***
 
     call get_proc_bounds(bounds_proc)
+    write(iulog,*) "DEBUG: initialize gridcell " 
+    call shr_sys_flush(iulog)
 
     ! Allocate memory for subgrid data structures
     ! This is needed here BEFORE the following call to initGridcells
@@ -363,6 +368,8 @@ contains
 
     ! Initialize the vegetation (PFT) data types
     call veg_pp%Init (bounds_proc%begp_all, bounds_proc%endp_all)
+    write(iulog,*) "DEBUG: Variable initialization finished " 
+    call shr_sys_flush(iulog)
 
     ! Initialize the cohort data types (nothing here yet)
     ! ...to be added later...
@@ -391,11 +398,15 @@ contains
     !endif
 
     ! Set filters
-
+    write(iulog,*) "DEBUG: Allocating filters !! " 
+    call shr_sys_flush(iulog)
+    
     call t_startf('init_filters')
     call allocFilters()
     call t_stopf('init_filters')
     
+    write(iulog,*) "DEBUG: reweight wrapup " 
+    call shr_sys_flush(iulog)
     nclumps = get_proc_clumps()
     !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
     do nc = 1, nclumps
@@ -412,6 +423,8 @@ contains
     ! Set CH4 Model Parameters from namelist.
     ! Need to do before initTimeConst so that it knows whether to
     ! look for several optional parameters on surfdata file.
+    write(iulog,*) "DEBUG: CH4conrd " 
+    call shr_sys_flush(iulog)
 
     if (use_lch4) then
        call CH4conrd()
@@ -420,11 +433,15 @@ contains
     ! Deallocate surface grid dynamic memory for variables that aren't needed elsewhere.
     ! Some things are kept until the end of initialize2; urban_valid is kept through the
     ! end of the run for error checking.
+    write(iulog,*) "DEBUG: Deallocating memory  " 
+    call shr_sys_flush(iulog)
 
     !deallocate (wt_lunit, wt_cft, wt_glc_mec)
     deallocate (wt_cft, wt_glc_mec)    !wt_lunit not deallocated because it is being used in CanopyHydrologyMod.F90
     deallocate (wt_tunit, elv_tunit, slp_tunit, asp_tunit,num_tunit_per_grd)
     call t_stopf('elm_init1')
+    write(iulog,*) "DEBUG: Last topo initialization  " 
+    call shr_sys_flush(iulog)
 
     ! initialize glc_topo
     ! TODO - does this belong here?

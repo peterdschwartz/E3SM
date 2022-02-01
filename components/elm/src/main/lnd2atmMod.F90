@@ -125,6 +125,7 @@ contains
     end do
     
     ! Calculate topounit level eflx_lwrad_out_topo for downscaling purpose
+#ifndef _OPENACC 
     if (use_atm_downscaling_to_topunit) then
        call p2t(bounds, &
             eflx_lwrad_out (bounds%begp:bounds%endp), &
@@ -135,6 +136,7 @@ contains
           top_es%t_rad(t) = sqrt(sqrt(top_es%eflx_lwrad_out_topo(t)/sb))   
        end do
     end if
+#endif
     
     end associate
 
@@ -447,9 +449,9 @@ contains
     endif
 
     call c2g( bounds, &
-         col_ws%wslake_col(bounds%begc:bounds%endc), &
-         lnd2atm_vars%wslake_grc(bounds%begg:bounds%endg), &
-         c2l_scale_type= 'urbanf', l2g_scale_type='unity' )
+         wslake_col(bounds%begc:bounds%endc), &
+         wslake_grc(bounds%begg:bounds%endg), &
+         c2l_scale_type= urbanf, l2g_scale_type=unity )
 
     ! calculate total water storage for history files
     ! first set tws to gridcell total endwb

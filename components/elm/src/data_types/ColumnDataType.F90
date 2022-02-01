@@ -9,6 +9,7 @@ module ColumnDataType
   use shr_const_mod   , only : SHR_CONST_TKFRZ
   use shr_const_mod   , only : SHR_CONST_PDB
   use abortutils      , only : endrun
+  use shr_log_mod     , only : errMsg => shr_log_errMsg 
   !use MathfuncMod     , only : dot_sum
   use elm_varpar      , only : nlevsoi, nlevsno, nlevgrnd, nlevlak, nlevurb
   use elm_varpar      , only : ndecomp_cascade_transitions, ndecomp_pools, nlevcan
@@ -1366,16 +1367,16 @@ contains
   !------------------------------------------------------------------------
   ! Subroutines to initialize and clean column water state data structure
   !------------------------------------------------------------------------
-  subroutine col_ws_init(this, begc, endc, h2osno_input, snow_depth_input)!, watsat_input)
+  subroutine col_ws_init(this, begc, endc, h2osno_input, snow_depth_input, watsat_input)
     !
     use elm_varctl  , only : use_lake_wat_storage
-    ! !ARGUMENTS:
     use shr_infnan_mod  , only : isnan => shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
+    ! !ARGUMENTS:
     class(column_water_state) :: this
     integer , intent(in)      :: begc,endc
     real(r8), intent(in)      :: h2osno_input(begc:)
     real(r8), intent(in)      :: snow_depth_input(begc:)
-    ! real(r8), intent(in)      :: watsat_input(begc:, 1:)          ! volumetric soil water at saturation (porosity)
+    real(r8), intent(in)      :: watsat_input(begc:, 1:)          ! volumetric soil water at saturation (porosity)
     !
     ! !LOCAL VARIABLES:
     real(r8), pointer  :: data2dptr(:,:), data1dptr(:) ! temp. pointers for slicing larger arrays
@@ -1737,7 +1738,7 @@ contains
              end do
           endif
           do j = 1, nlevs
-             this%h2osoi_vol(c,j) = min(this%h2osoi_vol(c,j), 100.0_r8)!watsat_input(c,j))
+             this%h2osoi_vol(c,j) = min(this%h2osoi_vol(c,j), watsat_input(c,j))
 
              if (col_es%t_soisno(c,j) <= SHR_CONST_TKFRZ) then
                 this%h2osoi_ice(c,j) = col_pp%dz(c,j)*denice*this%h2osoi_vol(c,j)
@@ -1766,7 +1767,7 @@ contains
           end do
           do j = 1,nlevgrnd
              if (j <= nlevsoi) then ! soil
-                this%h2osoi_vol(c,j) = 0.15_r8!watsat_input(c,j)
+                this%h2osoi_vol(c,j) = watsat_input(c,j)
                 this%h2osoi_liq(c,j) = spval
                 this%h2osoi_ice(c,j) = spval
              else                  ! bedrock
