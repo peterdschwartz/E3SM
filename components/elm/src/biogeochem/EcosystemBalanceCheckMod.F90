@@ -6,7 +6,7 @@ module EcosystemBalanceCheckMod
   !
   ! !USES:
   use shr_kind_mod        , only : r8 => shr_kind_r8
-  use shr_infnan_mod      , only : nan => shr_infnan_nan, assignment(=)
+  use shr_infnan_mod      , only : nan => shr_infnan_nan!, assignment(=)
   use shr_log_mod         , only : errMsg => shr_log_errMsg
   use decompMod           , only : bounds_type
   use abortutils          , only : endrun
@@ -41,10 +41,11 @@ module EcosystemBalanceCheckMod
   use ColumnDataType      , only : column_phosphorus_state, column_phosphorus_flux
   use VegetationType      , only : veg_pp
   use VegetationDataType  , only : veg_cf, veg_nf, veg_pf
-
+   
   use timeinfoMod
-  #define is_active_betr_bgc .false. 
+  use subgridAveMod , only : unity
   !
+  #define is_active_betr_bgc .false.  
   implicit none
   save
   private
@@ -776,7 +777,7 @@ contains
     ! !DESCRIPTION:
     ! Calculate the beginning carbon balance for mass conservation checks
     ! at grid cell level
-    !
+    !$acc routine seq 
     ! !ARGUMENTS:
     type(bounds_type)          , intent(in)  :: bounds
     type(column_carbon_state)  , intent(in)  :: col_cs
@@ -989,7 +990,7 @@ contains
     ! !DESCRIPTION:
     ! Calculate the beginning nitrogen balance for mass conservation checks
     ! at grid cell level
-    !
+    !$acc routine seq 
     ! !ARGUMENTS:
     type(bounds_type)             , intent(in)    :: bounds
     type(column_nitrogen_state)   , intent(in)    :: col_ns
@@ -1002,7 +1003,7 @@ contains
          )
 
       call c2g(bounds, totcoln(bounds%begc:bounds%endc), begnb_grc(bounds%begg:bounds%endg), &
-           c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+           c2l_scale_type=unity, l2g_scale_type=unity)
 
     end associate
 
@@ -1014,7 +1015,7 @@ contains
     ! !DESCRIPTION:
     ! Calculate the beginning phosphorus balance for mass conservation checks
     ! at grid cell level
-    !
+    !$acc routine seq 
     ! !ARGUMENTS:
     type(bounds_type)               , intent(in)    :: bounds
     type(column_phosphorus_state)   , intent(in)    :: col_ps
@@ -1028,7 +1029,7 @@ contains
          )
 
       call c2g(bounds, totcolp(bounds%begc:bounds%endc), begpb_grc(bounds%begg:bounds%endg), &
-           c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+           c2l_scale_type=unity, l2g_scale_type=unity)
 
 
     end associate
@@ -1038,7 +1039,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine EndGridCBalanceAfterDynSubgridDriver(bounds, &
        num_soilc, filter_soilc, col_cs, grc_cs, grc_cf)
-    !
+    !$acc routine seq 
     ! !DESCRIPTION:
     ! On the radiation time step, perform carbon mass conservation check
     ! at grid level after dynamic subgrid driver has been called
@@ -1124,6 +1125,7 @@ contains
   subroutine EndGridNBalanceAfterDynSubgridDriver(bounds, &
        num_soilc, filter_soilc, col_ns, grc_ns, grc_nf)
     !
+    !$acc routine seq 
     ! !DESCRIPTION:
     ! On the radiation time step, perform nitrogen mass conservation check
     ! at grid level after dynamic subgrid driver has been called
@@ -1215,6 +1217,7 @@ contains
   subroutine EndGridPBalanceAfterDynSubgridDriver(bounds, &
        num_soilc, filter_soilc, col_ps, grc_ps, grc_pf)
     !
+    !$acc routine seq 
     ! !DESCRIPTION:
     ! On the radiation time step, perform phosphorus mass conservation check
     ! at grid level after dynamic subgrid driver has been called

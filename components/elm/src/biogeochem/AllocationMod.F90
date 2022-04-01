@@ -2256,7 +2256,6 @@ contains
        ! (2) maintain plant NC stoichiometry at optimal ratio under CP mode
        ! (3) maintain plant PC/NC stoichiometry at optimal ratios under C mode
 
-     !end do ! end pft loop
 
      end associate
   end subroutine DistributeN_RD

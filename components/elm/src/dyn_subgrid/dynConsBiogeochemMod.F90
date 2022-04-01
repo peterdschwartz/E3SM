@@ -1,6 +1,6 @@
 module dynConsBiogeochemMod
 
-#include "shr_assert.h"
+!#py #include "shr_assert.h"
 
   !---------------------------------------------------------------------------
   !
@@ -9,9 +9,9 @@ module dynConsBiogeochemMod
   !
   ! !USES:
   use shr_kind_mod             , only : r8 => shr_kind_r8
-  use shr_log_mod              , only : errMsg => shr_log_errMsg
+  !#py !#py use shr_log_mod              , only : errMsg => shr_log_errMsg
   use decompMod                , only : bounds_type
-  use abortutils               , only : endrun
+  !#py use abortutils               , only : endrun
   use elm_varctl               , only : iulog, use_c13, use_c14
   use VegetationPropertiesType , only : veg_vp
   use CanopyStateType          , only : canopystate_type
@@ -826,6 +826,7 @@ contains
    ! !DESCRIPTION:
    ! Initializes p-th patch of carbonstate_type
    !
+      !$acc routine seq 
    implicit none
    !
    ! !ARGUMENT
@@ -868,6 +869,7 @@ contains
    ! !DESCRIPTION:
    ! Initializes p-th patch of nitrogenstate_type
    !
+      !$acc routine seq 
    implicit none
    !
    ! !ARGUMENT
@@ -908,6 +910,7 @@ contains
    ! !DESCRIPTION:
    ! Initializes p-th patch of phosphorusstate_type
    !
+      !$acc routine seq 
    implicit none
    !
    ! !ARGUMENT
@@ -948,6 +951,7 @@ contains
    ! !DESCRIPTION:
    ! Initializes p-th patch of canopystate_type
    !
+      !$acc routine seq 
    implicit none
    !
    ! !ARGUMENT
@@ -965,6 +969,7 @@ contains
    ! !DESCRIPTION:
    ! Initializes p-th patch of cnstate_type
    !
+      !$acc routine seq 
    use elm_varcon, only : c14ratio
    implicit none
    !
@@ -1018,6 +1023,7 @@ contains
    ! !DESCRIPTION:
    ! Initializes p-th patch of carbonflux_type
    !
+      !$acc routine seq 
    use elm_varcon, only : c13ratio
    !
    implicit none
@@ -1048,6 +1054,7 @@ contains
    ! !DESCRIPTION:
    ! Initializes p-th patch of nitrogenflux_type
    !
+      !$acc routine seq 
    implicit none
    !
    ! !ARGUMENT
@@ -1065,6 +1072,7 @@ contains
    ! !DESCRIPTION:
    ! Initializes p-th patch of phosphorusflux_type
    !
+      !$acc routine seq 
    implicit none
    !
    ! !ARGUMENT
@@ -1086,6 +1094,7 @@ contains
    ! and phosphorus balance with dynamic column weights.
    !
    ! !USES:
+      !$acc routine seq 
    use dynColumnStateUpdaterMod, only : column_state_updater_type
    use dynPriorWeightsMod      , only : prior_weights_type
    use elm_varctl              , only : use_lch4

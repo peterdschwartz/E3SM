@@ -433,7 +433,7 @@ contains
     !
     ! !USES:
     use shr_kind_mod    ,  only : r8 => shr_kind_r8
-    use elm_instMod     , only : lnd2atm_vars, atm2lnd_vars, lnd2glc_vars, glc2lnd_vars
+    use elm_instMod     , only : lnd2atm_vars, atm2lnd_vars, lnd2glc_vars, glc2lnd_vars, cpl_bypass_input
     use elm_driver      ,  only : elm_drv
     use elm_time_manager,  only : get_curr_date, get_nstep, get_curr_calday, get_step_size
     use elm_time_manager,  only : advance_timestep, set_nextsw_cday,update_rad_dtime
@@ -586,9 +586,9 @@ contains
     call shr_sys_flush(iulog) 
    
     call cpu_time(startt)  
-    call duplicate_lnd_points( bounds, x2l_l%rattr, atm2lnd_vars, glc2lnd_vars, lnd2atm_vars)
+    call duplicate_lnd_points( bounds, x2l_l%rattr, atm2lnd_vars, glc2lnd_vars, lnd2atm_vars, cpl_bypass_input)
     call cpu_time(stopt) 
-    write(iulog, *) "TIMING :: lnd_import ",(stopt-startt)*1.E+3, "ms" 
+    write(iulog, *) "TIMING :: duplicate_lnd ",(stopt-startt)*1.E+3, "ms" 
     call shr_sys_flush(iulog) 
     
     ! Use infodata to set orbital values if updated mid-run
