@@ -541,12 +541,6 @@ contains
           !mgf--
 #endif
 
-            ! ! Set local aerosol array
-            ! do j=1,sno_nbr_aer
-            !    mss_cnc_aer_lcl(:,j) = mss_cnc_aer_in(c_idx,:,j)
-            ! enddo
-
-
             ! Error check for snow grain size:
 #ifndef _OPENACC
             do i=snl_top,snl_btm,1
@@ -1217,7 +1211,6 @@ contains
     !   I am aware.
     !
     ! !USES:
-    !$acc routine seq
     use elm_varpar       , only : nlevsno
     use elm_varcon       , only : spval
     use shr_const_mod    , only : SHR_CONST_RHOICE, SHR_CONST_PI
@@ -1241,7 +1234,7 @@ contains
     integer :: rhos_idx                     ! snow aging lookup table snow density index [idx]
     real(r8) :: t_snotop                    ! temperature at upper layer boundary [K]
     real(r8) :: t_snobtm                    ! temperature at lower layer boundary [K]
-    real(r8) :: dTdz(bounds%begc:bounds%endc,-nlevsno:0)    ! snow temperature gradient (col,lyr) [K m-1]
+    real(r8) :: dTdz    ! snow temperature gradient (col,lyr) [K m-1]
     real(r8) :: bst_tau                     ! snow aging parameter retrieved from lookup table [hour]
     real(r8) :: bst_kappa                   ! snow aging parameter retrieved from lookup table [unitless]
     real(r8) :: bst_drdt0                   ! snow aging parameter retrieved from lookup table [um hr-1]
@@ -1254,10 +1247,9 @@ contains
     real(r8) :: frc_oldsnow                 ! fraction of layer mass that is old snow [frc]
     real(r8) :: frc_refrz                   ! fraction of layer mass that is re-frozen snow [frc]
     real(r8) :: frc_liq                     ! fraction of layer mass that is liquid water[frc]
-    real(r8)  :: dtime                       ! land model time step [sec]
     real(r8) :: rhos                        ! snow density [kg m-3]
     real(r8) :: h2osno_lyr                  ! liquid + solid H2O in snow layer [kg m-2]
-    real(r8) :: cdz(-nlevsno+1:0)           ! column average layer thickness [m]
+    real(r8) :: cdz              ! column average layer thickness [m]
     !--------------------------------------------------------------------------!
 
     associate(                                                      &
@@ -1284,20 +1276,17 @@ contains
          )
 
 
-      ! set timestep and step interval
-      dtime = dtime_mod
-
       ! loop over columns that have at least one snow layer
+      !$acc parallel loop independent gang worker default(present) private(c_idx,snl_top)
       do fc = 1, num_snowc
          c_idx = filter_snowc(fc)
 
-         snl_btm = 0
          snl_top = snl(c_idx) + 1
 
-         cdz(snl_top:snl_btm)=frac_sno(c_idx)*dz(c_idx,snl_top:snl_btm)
-
          ! loop over snow layers
-         do i=snl_top,snl_btm,1
+         !$acc loop vector independent 
+         do i=snl_top,0,1
+            cdz=frac_sno(c_idx)*dz(c_idx,i)
             !
             !**********  1. DRY SNOW AGING  ***********
             !
@@ -1319,17 +1308,17 @@ contains
                     / (dz(c_idx,i)+dz(c_idx,i+1))
             endif
 
-            dTdz(c_idx,i) = abs((t_snotop - t_snobtm) / cdz(i))
+            dTdz = abs((t_snotop - t_snobtm) / cdz)
 
             ! snow density
-            rhos = (h2osoi_liq(c_idx,i)+h2osoi_ice(c_idx,i)) / cdz(i)
+            rhos = (h2osoi_liq(c_idx,i)+h2osoi_ice(c_idx,i)) / cdz
 
             ! make sure rhos doesn't drop below 50 (see rhos_idx below)
             rhos=max(50._r8,rhos)
 
             ! best-fit table indecies
             T_idx    = nint((t_soisno(c_idx,i)-223) / 5) + 1
-            Tgrd_idx = nint(dTdz(c_idx,i) / 10) + 1
+            Tgrd_idx = nint(dTdz / 10) + 1
             rhos_idx = nint((rhos-50) / 50) + 1
 
             ! boundary check:
@@ -1357,7 +1346,6 @@ contains
             bst_kappa = snowage_kappa(rhos_idx,Tgrd_idx,T_idx)
             bst_drdt0 = snowage_drdt0(rhos_idx,Tgrd_idx,T_idx)
 
-
             ! change in snow effective radius, using best-fit parameters
             ! added checks suggested by mgf. --HW 10/15/2015
             dr_fresh = snw_rds(c_idx,i)-snw_rds_min
@@ -1372,9 +1360,9 @@ contains
 #endif
             end if
 
-            dr = (bst_drdt0*(bst_tau/(dr_fresh+bst_tau))**(1._r8/bst_kappa)) * (dtime/3600._r8)
+            dr = (bst_drdt0*(bst_tau/(dr_fresh+bst_tau))**(1._r8/bst_kappa)) * (dtime_mod/3600._r8)
 #else
-            dr = (bst_drdt0*(bst_tau/(dr_fresh+bst_tau))**(1/bst_kappa)) * (dtime/3600)
+            dr = (bst_drdt0*(bst_tau/(dr_fresh+bst_tau))**(1/bst_kappa)) * (dtime_mod/3600)
 #endif
             !
             !**********  2. WET SNOW AGING  ***********
@@ -1388,7 +1376,7 @@ contains
 
             !dr_wet = 1E6_r8*(dtime*(C1_liq_Brun89 + C2_liq_Brun89*(frc_liq**(3))) / (4*SHR_CONST_PI*(snw_rds(c_idx,i)/1E6)**(2)))
             !simplified, units of microns:
-            dr_wet = 1E18_r8*(dtime*(C2_liq_Brun89*(frc_liq**(3))) / (4*SHR_CONST_PI*snw_rds(c_idx,i)**(2)))
+            dr_wet = 1E18_r8*(dtime_mod*(C2_liq_Brun89*(frc_liq**(3))) / (4*SHR_CONST_PI*snw_rds(c_idx,i)**(2)))
 
             dr = dr + dr_wet
 
@@ -1399,8 +1387,6 @@ contains
             if (flg_snoage_scl) then
                dr = dr*xdrdt
             endif
-
-
             !
             !**********  4. INCREMENT EFFECTIVE RADIUS, ACCOUNTING FOR:  ***********
             !               DRY AGING
@@ -1410,13 +1396,13 @@ contains
             !
             ! new snowfall [kg/m2]
             if (do_capsnow(c_idx) .and. .not. use_extrasnowlayers) then
-               newsnow = max(0._r8, (qflx_snwcp_ice(c_idx)*dtime))
+               newsnow = max(0._r8, (qflx_snwcp_ice(c_idx)*dtime_mod))
             else
-               newsnow = max(0._r8, (qflx_snow_grnd_col(c_idx)*dtime))
+               newsnow = max(0._r8, (qflx_snow_grnd_col(c_idx)*dtime_mod))
             endif
 
             ! snow that has re-frozen [kg/m2]
-            refrzsnow = max(0._r8, (qflx_snofrz_lyr(c_idx,i)*dtime))
+            refrzsnow = max(0._r8, (qflx_snofrz_lyr(c_idx,i)*dtime_mod))
 
             ! fraction of layer mass that is re-frozen
             frc_refrz = refrzsnow / h2osno_lyr
@@ -1453,16 +1439,16 @@ contains
             ! set top layer variables for history files
             if (i == snl_top) then
                snot_top(c_idx)    = t_soisno(c_idx,i)
-               dTdz_top(c_idx)    = dTdz(c_idx,i)
+               dTdz_top(c_idx)    = dTdz
                snw_rds_top(c_idx) = snw_rds(c_idx,i)
                sno_liq_top(c_idx) = h2osoi_liq(c_idx,i) / (h2osoi_liq(c_idx,i)+h2osoi_ice(c_idx,i))
             endif
 
          enddo
       enddo
-
       ! Special case: snow on ground, but not enough to have defined a snow layer:
       !   set snw_rds to fresh snow grain size:
+      !$acc parallel loop independent gang vector default(present)
       do fc = 1, num_nosnowc
          c_idx = filter_nosnowc(fc)
          if (h2osno(c_idx) > 0._r8) then
@@ -1476,13 +1462,13 @@ contains
 
   !-----------------------------------------------------------------------
      subroutine SnowOptics_init( )
-!#py
+
       use fileutils  , only : getfil
       use elm_varctl , only : fsnowoptics, snicar_atm_type
       use spmdMod    , only : masterproc
       use ncdio_pio  , only : file_desc_t, ncd_io, ncd_pio_openfile, ncd_pio_closefile
       use ncdio_pio  , only : ncd_pio_openfile, ncd_inqfdims, ncd_pio_closefile, ncd_inqdid, ncd_inqdlen
-!#py
+
       type(file_desc_t)  :: ncid                        ! netCDF file id
       character(len=256) :: locfn                       ! local filename
       character(len= 32) :: subname = 'SnowOptics_init' ! subroutine name
@@ -1510,7 +1496,7 @@ contains
       elseif (trim(snicar_atm_type) == 'high_mountain') then
         atm_type_index = atm_type_high_mountain
       else
-	write(iulog,*) "snicar_atm_type = ", snicar_atm_type
+	     write(iulog,*) "snicar_atm_type = ", snicar_atm_type
         call endrun( "snicar_atm_type is unknown" )
       endif
 	  
@@ -1520,7 +1506,7 @@ contains
       call getfil (fsnowoptics, locfn, 0)
       call ncd_pio_openfile(ncid, locfn, 0)
       if(masterproc) write(iulog,*) subname,trim(fsnowoptics)
-!#py
+
       ! direct-beam snow Mie parameters:
       call ncd_io('ss_alb_ice_drc', ss_alb_snw_drc,            'read', ncid, posNOTonfile=.true.)
       call ncd_io( 'asm_prm_ice_drc',asm_prm_snw_drc,          'read', ncid, posNOTonfile=.true.)
@@ -1647,7 +1633,7 @@ contains
      !$acc ss_alb_dst4        ,&
      !$acc asm_prm_dst4      ,&
      !$acc ext_cff_mss_dst4  )
-!#py
+
       call ncd_pio_closefile(ncid)
       if (masterproc) then
         !
@@ -1711,7 +1697,7 @@ contains
      use fileutils       , only : getfil
      use spmdMod         , only : masterproc
      use ncdio_pio       , only : file_desc_t, ncd_io, ncd_pio_openfile, ncd_pio_closefile
-!#py
+
      type(file_desc_t)  :: ncid                        ! netCDF file id
      character(len=256) :: locfn                       ! local filename
      character(len= 32) :: subname = 'SnowOptics_init' ! subroutine name
@@ -1745,7 +1731,7 @@ contains
         write (iulog,*) 'SNICAR: snowage dr/dt_0 for T=263K, dTdz = 100 K/m, rhos = 150 kg/m3: ', snowage_drdt0(3,11,9)
      endif
      !$acc update device(snowage_tau, snowage_kappa, snowage_drdt0)
-!#py
+
     end subroutine SnowAge_init
 
    !-----------------------------------------------------------------------

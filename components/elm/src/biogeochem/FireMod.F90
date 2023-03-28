@@ -504,7 +504,6 @@ contains
      end if
      !
      ! calculate burned area fraction in cropland
-     call cpu_time(startt)
      if( mon_curr == 1 .and. day_curr == 1 .and. secs_curr == 0 )then
         !$acc parallel loop independent gang vector default(present) private(p)
         do fp = 1,num_soilp
@@ -677,6 +676,8 @@ contains
         end if
 
      end do  ! end of column loop
+     !$acc exit data delete(i_cwd, &
+     !$acc       sum1,sum2,sum3,sum4,btran_col(:))
 
    end associate
 
@@ -1264,8 +1265,7 @@ contains
      ! fire-induced transfer of carbon and nitrogen pools to litter and cwd
      ! add phosphorus transfer fluxes -X.YANG
      !NOTE:  restructuring store and FP ops. so likely non-BFB
-     call cpu_time(startt)
-     !$acc parallel loop independent gang worker collapse(2) default(present) private(c,sum1,sum2,sum3) async(1)
+     !$acc parallel loop independent gang worker collapse(2) default(present) private(c,sum1,sum2,sum3)
      do j = 1,nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -1277,6 +1277,7 @@ contains
            !$acc     private(wt_col, lprof_pj, fr_prof_pj, cr_prof_pj, st_prof_pj)
            do p = col_pp%pfti(c), col_pp%pftf(c)
              wt_col = veg_pp%wtcol(p)
+             if(wt_col == 0._r8) cycle 
              lprof_pj   = leaf_prof(p,j)
              fr_prof_pj = froot_prof(p,j)
              cr_prof_pj = croot_prof(p,j)
@@ -1301,7 +1302,7 @@ contains
         end do
      end do
 
-     !$acc parallel loop independent gang worker collapse(2) default(present) private(c,sum1,sum2,sum3) async(2)
+     !$acc parallel loop independent gang worker collapse(2) default(present) private(c,sum1,sum2,sum3)
      do j = 1,nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -1312,6 +1313,7 @@ contains
            !$acc loop vector reduction(+:sum1,sum2,sum3) private(wt_col,itype,lprof_pj,fr_prof_pj,cr_prof_pj,st_prof_pj)
            do p = col_pp%pfti(c), col_pp%pftf(c)
              wt_col     = veg_pp%wtcol(p)
+             if(wt_col == 0._r8) cycle 
              itype      = veg_pp%itype(p)
              lprof_pj   = leaf_prof(p,j)
              fr_prof_pj = froot_prof(p,j)
@@ -1352,7 +1354,7 @@ contains
         end do
      end do
 
-   !$acc parallel loop independent gang worker collapse(2) default(present) private(c,sum1,sum2,sum3) async(3)
+   !$acc parallel loop independent gang worker collapse(2) default(present) private(c,sum1,sum2,sum3)
    do j = 1,nlevdecomp
      do fc = 1,num_soilc
          c = filter_soilc(fc)
@@ -1363,6 +1365,7 @@ contains
          !$acc loop vector reduction(+:sum1,sum2,sum3) private(wt_col,itype,lprof_pj,fr_prof_pj,cr_prof_pj,st_prof_pj)
          do p = col_pp%pfti(c), col_pp%pftf(c)
           wt_col     = veg_pp%wtcol(p)
+          if(wt_col == 0._r8) cycle 
           itype      = veg_pp%itype(p)
           lprof_pj   = leaf_prof(p,j)
           fr_prof_pj = froot_prof(p,j)
@@ -1399,7 +1402,7 @@ contains
      end do
    end do
 
-   !$acc parallel loop independent gang worker collapse(2) default(present) private(c,sum1,sum2,sum3) async(4)
+   !$acc parallel loop independent gang worker collapse(2) default(present) private(c,sum1,sum2,sum3)
    do j = 1,nlevdecomp
      do fc = 1,num_soilc
          c = filter_soilc(fc)
@@ -1410,6 +1413,7 @@ contains
          !$acc loop vector reduction(+:sum1,sum2,sum3) private(wt_col,itype,lprof_pj,fr_prof_pj,cr_prof_pj,st_prof_pj)
          do p = col_pp%pfti(c), col_pp%pftf(c)
           wt_col     = veg_pp%wtcol(p)
+          if(wt_col == 0._r8) cycle 
           itype      = veg_pp%itype(p)
           lprof_pj   = leaf_prof(p,j)
           fr_prof_pj = froot_prof(p,j)
@@ -1446,7 +1450,6 @@ contains
      end do
    end do
 
-   !
    ! vertically-resolved decomposing C/N fire loss
    ! column loop
    ! add phosphorus

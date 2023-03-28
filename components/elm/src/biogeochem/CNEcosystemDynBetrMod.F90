@@ -176,7 +176,6 @@ module CNEcosystemDynBetrMod
                cnstate_vars, dt)
        call t_stopf('PhosphorusWeathering')
 
-
        ! --------------------------------------------------
        ! Phosphorus Deposition ! X.SHI
        ! --------------------------------------------------
@@ -187,49 +186,7 @@ module CNEcosystemDynBetrMod
 
        !This specifies the vertical distribution of deposition fluxes and
        !root exudates
-       call decomp_vertprofiles(bounds,                      &
-           num_soilc, filter_soilc, num_soilp, filter_soilp, &
-           soilstate_vars, canopystate_vars, cnstate_vars)
-!!--------------------------------------------------------------
-
-       call t_startf('CNAllocation - phase-1')
-       call SetPlantMicNPDemand (bounds                                     , &
-                num_soilc, filter_soilc, num_soilp, filter_soilp            , &
-                photosyns_vars, crop_vars, canopystate_vars, cnstate_vars   , &
-                carbonstate_vars, carbonflux_vars, c13_carbonflux_vars      , &
-                c14_carbonflux_vars, nitrogenstate_vars, nitrogenflux_vars  , &
-                phosphorusstate_vars, phosphorusflux_vars, PlantMicKinetics_vars)
-
-       call t_stopf('CNAllocation - phase-1')
-
-       call t_startf('CNFixation')
-       !nfixation comes after SetPlantMicNPDemand because it needs cnp ratio
-       !computed first
-       call NitrogenFixation_balance( num_soilc, filter_soilc, &
-               cnstate_vars )
-       call t_stopf('CNFixation')
-
-       ! nu_com_phosphatase is true
-       call t_startf('PhosphorusBiochemMin')
-       call PhosphorusBiochemMin_balance(bounds,num_soilc, filter_soilc, &
-                  cnstate_vars, dt)
-       call t_stopf('PhosphorusBiochemMin')
-
-       if (crop_prog) then
-          !be careful about CNSoyfix, it is coded by using CTC-RD formulation
-          !of CN interactions
-          call CNSoyfix(bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
-               crop_vars, cnstate_vars)
-      endif
-      call t_startf('CNAllocation - phase-3')
-      call Allocation3_PlantCNPAlloc (bounds                      , &
-                num_soilc, filter_soilc, num_soilp, filter_soilp    , &
-                canopystate_vars                                    , &
-                cnstate_vars, carbonstate_vars, carbonflux_vars     , &
-                c13_carbonflux_vars, c14_carbonflux_vars            , &
-                nitrogenstate_vars, nitrogenflux_vars               , &
-                phosphorusstate_vars, phosphorusflux_vars, crop_vars)
-      call t_stopf('CNAllocation - phase-3')
+      
 
        !--------------------------------------------
        ! Phenology
@@ -253,13 +210,6 @@ module CNEcosystemDynBetrMod
        ! Growth respiration
        !--------------------------------------------
 
-       call t_startf('GrowthResp')
-       do fp = 1, num_soilp
-          p = filter_soilp(fp)
-          call GrowthResp(p)
-       end do
-       call t_stopf('CNGResp')
-
        !--------------------------------------------
        ! Dynamic Roots
        !--------------------------------------------
@@ -279,16 +229,6 @@ module CNEcosystemDynBetrMod
 
        dt = real(get_step_size(), r8)
        call t_startf('CarbonStateUpdate0')
-       do fp = 1,  num_soilp
-          p = filter_soilp(fp)
-          call CarbonStateUpdate0(p,veg_cs,veg_cf, dt)
-         if ( use_c13 ) then
-            call CarbonStateUpdate0(p,c13_veg_cs,c13_veg_cf, dt)
-         end if
-         if ( use_c14 ) then
-            call CarbonStateUpdate0(p,c14_veg_cs,c14_veg_cf, dt)
-         end if
-       end do
        call t_stopf('CarbonStateUpdate0')
 
        !--------------------------------------------
