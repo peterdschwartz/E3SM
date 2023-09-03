@@ -81,7 +81,7 @@ contains
     character(len=*), optional, intent(in)    :: NLFilename       ! Namelist filename to read
     !
     ! !LOCAL VARIABLES:
-    integer                          :: LNDID	     ! Land identifyer
+    integer                          :: LNDID        ! Land identifyer
     integer                          :: mpicom_lnd   ! MPI communicator
     type(mct_gsMap),         pointer :: GSMap_lnd    ! Land model MCT GS map
     type(mct_gGrid),         pointer :: dom_l        ! Land model domain
@@ -215,13 +215,13 @@ contains
     call seq_infodata_GetData( infodata, orb_eccen=eccen, orb_mvelpp=mvelpp, &
          orb_lambm0=lambm0, orb_obliqr=obliqr )
 
-    ! Consistency check on namelist filename	
+    ! Consistency check on namelist filename 
 
     call control_setNL("lnd_in"//trim(inst_suffix))
 
     ! Initialize elm
     ! initialize1 reads namelist, grid and surface data (need this to initialize gsmap) 
-    ! initialize2 performs rest of initialization	
+    ! initialize2 performs rest of initialization  
 
     call seq_timemgr_EClockGetData(EClock,                               &
                                    start_ymd=start_ymd,                  &
@@ -255,7 +255,6 @@ contains
                         hostname_in=hostname, username_in=username)
 
     ! Read namelist, grid and surface data
-    print *, "calling initialize 1:"
     call initialize1( )
 
     ! If no land then exit out of initialization
@@ -279,7 +278,7 @@ contains
 
     call get_proc_bounds( bounds )
 
-    call lnd_SetgsMap_mct( bounds, mpicom_lnd, LNDID, gsMap_lnd ) 	
+    call lnd_SetgsMap_mct( bounds, mpicom_lnd, LNDID, gsMap_lnd )    
     lsz = mct_gsMap_lsize(gsMap_lnd, mpicom_lnd)
 
     call lnd_domain_mct( bounds, lsz, gsMap_lnd, dom_l )
@@ -467,12 +466,9 @@ contains
 
     
     ! Map to elm (only when state and/or fluxes need to be updated)
-    call cpu_time(startt) 
     call t_startf ('lc_lnd_import')
     call lnd_import( bounds, x2l_l%rattr, atm2lnd_vars, glc2lnd_vars, lnd2atm_vars)
     call t_stopf ('lc_lnd_import')
-    call cpu_time(stopt) 
-    write(iulog, *) "TIMING :: lnd_import ",(stopt-startt)*1.E+3, "ms" 
    
     ! call cpu_time(startt)  
     ! call duplicate_lnd_points( bounds, x2l_l%rattr, atm2lnd_vars, glc2lnd_vars, lnd2atm_vars)
@@ -503,7 +499,7 @@ contains
        nstep = get_nstep()
        caldayp1 = get_curr_calday(offset=dtime)
        if (nstep == 0) then
-	  doalb = .false. 	
+     doalb = .false.    
        else if (nstep == 1) then 
           doalb = (abs(nextsw_cday- caldayp1) < 1.e-10_r8) 
        else
@@ -739,26 +735,4 @@ contains
 
   end subroutine lnd_domain_mct
   
-  subroutine acc_initialization()
-      use openacc 
-      use spmdMod,    only : iam 
-      use abortutils, only : endrun 
-      use elm_varctl, only : iulog 
-     
-      implicit none 
-      integer :: mygpu, ngpus 
-
-      call acc_init(acc_device_nvidia)
-      ngpus = acc_get_num_devices(acc_device_nvidia)
-      if (ngpus==0) then
-        write(iulog,*) "Error: No GPUs detected with OpenACC enabled"
-        call endrun() 
-     endif 
-     call acc_set_device_num(mod(iam,ngpus),acc_device_nvidia)
-
-     mygpu = acc_get_device_num(acc_device_nvidia)
-     write(iulog,*) "iam, mygpu:",iam,mygpu, ngpus
-
-  end subroutine 
-
 end module lnd_comp_mct

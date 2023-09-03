@@ -63,8 +63,10 @@ contains
       tdc(t) = min( 50._r8, max(-50._r8,(t-SHR_CONST_TKFRZ)) )
       esatw(t) = 100._r8*(a0+t*(a1+t*(a2+t*(a3+t*(a4+t*(a5+t*a6))))))
       esati(t) = 100._r8*(b0+t*(b1+t*(b2+t*(b3+t*(b4+t*(b5+t*b6))))))
+#ifdef CPL_BYPASS
       write(iulog,*) "Duplicating atm Data "
       call shr_sys_flush(iulog)
+      
       do g = bounds%begg+num_unique_sites, bounds%endg
          dup_g = mod(g-1,num_unique_sites)+1
          !!!!!!!!!!!!!!!!!!!!!
@@ -206,7 +208,7 @@ contains
          end do
       end do
       call shr_sys_flush(iulog)
-
+#endif
    end subroutine duplicate_lnd_points
 
   !===============================================================================
@@ -352,9 +354,6 @@ contains
 
     stream_fldFileName_lightng = ' '
     stream_fldFileName_popdens = ' '
-
-    write(iulog, *) "Modified LND_IMPORT TO DUPLICATE -- REVERT IF DOING PRODUCTION RUNS"
-    call shr_sys_flush(iulog)
 
     co2_type_idx = 0
     if (co2_type == 'prognostic') then

@@ -79,6 +79,8 @@ contains
     use ExternalModelInterfaceMod , only: EMI_Determine_Active_EMs
     use dynSubgridControlMod      , only: dynSubgridControl_init
     use filterMod                 , only: allocFilters
+    use filterMod                 , only : proc_filter, proc_filter_inactive_and_active
+    use filterMod                 , only : createProcessorFilter, setProcFilters  
     use reweightMod               , only: reweight_wrapup
     use ELMFatesInterfaceMod      , only: ELMFatesGlobals
     use topounit_varcon           , only: max_topounits, has_topounit, topounit_varcon_init    
@@ -368,7 +370,12 @@ contains
             ldomain%glcmask(bounds_clump%begg:bounds_clump%endg)*1._r8)
     end do
     !$OMP END PARALLEL DO
-
+    
+    call createProcessorFilter(nclumps, bounds_proc, proc_filter, ldomain%glcmask(begg:endg)*1._r8)
+    call createProcessorFilter(nclumps, bounds_proc, proc_filter_inactive_and_active, ldomain%glcmask(begg:endg)*1._r8)
+    call setProcFilters(bounds_proc, proc_filter, .false., ldomain%glcmask(begg:endg)*1._r8)
+    call setProcFilters(bounds_proc, proc_filter_inactive_and_active, .true., ldomain%glcmask(begg:endg)*1._r8)
+    
     ! ------------------------------------------------------------------------
     ! Remainder of initialization1
     ! ------------------------------------------------------------------------

@@ -21,6 +21,8 @@ module elm_driver
   use spmdMod                , only : masterproc, mpicom
   use decompMod              , only : get_proc_clumps, get_clump_bounds, get_proc_bounds, bounds_type
   use filterMod              , only : filter, filter_inactive_and_active
+  use filterMod              , only : setProcFilters, createProcessorFilter, proc_filter_inactive_and_active
+  use filterMod              , only : updateFracNoSnoFilters, proc_filter
   use histFileMod            , only : hist_update_hbuf, hist_htapes_wrapup
   use restFileMod            , only : restFile_write, restFile_filename
   use abortutils             , only : endrun
@@ -247,7 +249,7 @@ contains
     call get_curr_date(year_curr,mon_curr, day_curr,secs_curr)
     dayspyr_mod = get_days_per_year()
     jday_mod = get_curr_calday()
-
+   
     if (do_budgets) then
        call WaterBudget_Reset()
 
@@ -433,7 +435,7 @@ contains
        col_cs, c13_col_cs, c14_col_cs, col_cf,  &
        grc_cs, grc_cf , glc2lnd_vars,  crop_vars)
     call t_stopf('dyn_subgrid')
-
+    call setProcFilters(bounds_proc, proc_filter, .false.,glc2lnd_vars%icemask_grc) 
     if (use_cn  .or. use_fates) then
        nstep = get_nstep()
 
@@ -667,6 +669,14 @@ contains
             aerosol_vars )
        call t_stopf('canhydro')
 
+     end do
+
+    !NOTE: canopystate_vars%frac_veg_nosno_alb_patch may be sufficient here?
+    call updateFracNoSnoFilters(bounds_proc,proc_filter, canopystate_vars%frac_veg_nosno_patch) 
+
+    !$OMP PARALLEL DO PRIVATE (nc,l,c, bounds_clump)
+    do nc = 1,nclumps
+       call get_clump_bounds(nc, bounds_clump)
        ! ============================================================================
        ! Surface Radiation
        ! ============================================================================
@@ -818,8 +828,8 @@ contains
        call SoilTemperature(bounds_clump,                     &
             filter(nc)%num_urbanl  , filter(nc)%urbanl,       &
             filter(nc)%num_nolakec , filter(nc)%nolakec,      &
-            atm2lnd_vars, urbanparams_vars, canopystate_vars, &
-            solarabs_vars, soilstate_vars, energyflux_vars )
+            urbanparams_vars, canopystate_vars, &
+            solarabs_vars, soilstate_vars)
        call t_stopf('soiltemperature')
 
 
