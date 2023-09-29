@@ -21,6 +21,7 @@ module HydrologyDrainageMod
   use VegetationType    , only : veg_pp
   use elm_instMod   , only : ep_betr
   use timeinfoMod
+  use elm_instMod , only : ep_betr 
   !
   ! !PUBLIC TYPES:
   implicit none
