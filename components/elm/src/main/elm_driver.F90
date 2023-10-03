@@ -151,7 +151,7 @@ module elm_driver
   use VegetationDataType     , only : veg_es, veg_ws, veg_wf
   use VegetationDataType     , only : veg_cs, c13_veg_cs, c14_veg_cs
   use VegetationDataType     , only : veg_ns, veg_nf
-  use VegetationDataType     , only : veg_ps, veg_pf
+  use VegetationDataType     , only : veg_ps, veg_pf, veg_ef
 
   !----------------------------------------------------------------------------
   ! bgc interface & pflotran:
@@ -177,6 +177,9 @@ module elm_driver
   use elm_varctl                  , only : budget_ann, budget_ltann, budget_ltend
 
   use timeinfoMod
+  use spmdMod, only : iam
+  use domainMod, only : ldomain 
+  use verificationMod 
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -233,8 +236,12 @@ contains
     character(len=256)   :: dateTimeString
     type(bounds_type)    :: bounds_clump
     type(bounds_type)    :: bounds_proc
+    character(len=30)     :: iam_str 
+    integer  :: stride 
     !-----------------------------------------------------------------------
-
+      
+    write(iam_str,*) iam
+    iam_str = adjustl(iam_str) 
     call get_curr_time_string(dateTimeString)
     if (masterproc) then
        write(iulog,*)'Beginning timestep   : ',trim(dateTimeString)
@@ -585,7 +592,6 @@ contains
     !$OMP END PARALLEL DO
 
 
-
 #ifndef CPL_BYPASS
 
     if (use_cn .or. use_fates) then
@@ -739,47 +745,56 @@ contains
 
        call col_wf%Reset(bounds_clump, filter(nc)%num_nolakec , filter(nc)%nolakec)
 
-       ! Bareground fluxes for all patches except lakes and urban landunits
-
-       call BareGroundFluxes(bounds_clump,                                 &
-            filter(nc)%num_nolakeurbanp, filter(nc)%nolakeurbanp,          &
-            atm2lnd_vars, canopystate_vars, soilstate_vars,                &
-            frictionvel_vars, ch4_vars  )
        call t_stopf('bgflux')
+       ! Bareground fluxes for all patches except lakes and urban landunits
+       ! call BareGroundFluxes(bounds_clump,                                 &
+       !      filter(nc)%num_nolakeurbanp, filter(nc)%nolakeurbanp,          &
+       !      atm2lnd_vars, canopystate_vars, soilstate_vars,                &
+       !      frictionvel_vars, ch4_vars  )
+   end do 
+   
+   call BareGroundFluxes(                              &
+        proc_filter%num_nolu_barep, proc_filter%nolu_barep,   &
+        canopystate_vars, soilstate_vars,                &
+        frictionvel_vars, ch4_vars  )
 
        ! non-bareground fluxes for all patches except lakes and urban landunits
        ! Calculate canopy temperature, latent and sensible fluxes from the canopy,
        ! and leaf water change by evapotranspiration
 
        call t_startf('canflux')
-       call CanopyFluxes(bounds_clump,                                                   &
-            filter(nc)%num_nolakeurbanp, filter(nc)%nolakeurbanp,                        &
-            atm2lnd_vars, canopystate_vars, cnstate_vars, energyflux_vars,               &
-            frictionvel_vars, soilstate_vars, solarabs_vars, surfalb_vars,               &
+       call CanopyFluxes(bounds_proc,                                         &
+            proc_filter%num_nolu_barep, proc_filter%nolu_barep,               &
+            proc_filter%num_nolu_vegp, proc_filter%nolu_vegp ,                &
+            canopystate_vars, cnstate_vars, energyflux_vars,                  &
+            frictionvel_vars, soilstate_vars, solarabs_vars, surfalb_vars,    &
             ch4_vars, photosyns_vars )
        call t_stopf('canflux')
-
+       
        ! Fluxes for all urban landunits
+       ! Define fields that appear on the restart file for non-urban landunits
 
-       call t_startf('uflux')
-       call UrbanFluxes(bounds_clump,                        &
-            filter(nc)%num_nourbanl, filter(nc)%nourbanl,    &
-            filter(nc)%num_urbanl, filter(nc)%urbanl,        &
-            filter(nc)%num_urbanc, filter(nc)%urbanc,        &
-            filter(nc)%num_urbanp, filter(nc)%urbanp,        &
-            atm2lnd_vars, urbanparams_vars, soilstate_vars,  &
-            frictionvel_vars, energyflux_vars)
+        call t_startf('uflux')
+       call UrbanFluxes(bounds_proc,                        &
+            proc_filter%num_nourbanl, proc_filter%nourbanl,    &
+            proc_filter%num_urbanl, proc_filter%urbanl,        &
+            proc_filter%num_urbanc, proc_filter%urbanc,        &
+            proc_filter%num_urbanp, proc_filter%urbanp,        &
+            urbanparams_vars, soilstate_vars,  &
+            frictionvel_vars)
        call t_stopf('uflux')
 
-       ! Fluxes for all lake landunits
+     ! Fluxes for all lake landunits
 
        call t_startf('bgplake')
-       call LakeFluxes(bounds_clump,                                         &
-            filter(nc)%num_lakec, filter(nc)%lakec,                          &
-            filter(nc)%num_lakep, filter(nc)%lakep,                          &
-            atm2lnd_vars, solarabs_vars, frictionvel_vars,  &
+       call LakeFluxes(                        &
+            proc_filter%num_lakep, proc_filter%lakep,       &
+            solarabs_vars, frictionvel_vars,  &
             energyflux_vars, lakestate_vars)
 
+    !$OMP PARALLEL DO PRIVATE (nc,l,c, bounds_clump)
+    do nc = 1,nclumps
+       call get_clump_bounds(nc, bounds_clump)
        ! ============================================================================
        ! DUST and VOC emissions
        ! ============================================================================
@@ -819,11 +834,15 @@ contains
             filter(nc)%num_lakec, filter(nc)%lakec,   &
             filter(nc)%num_lakep, filter(nc)%lakep,   &
             solarabs_vars, soilstate_vars,  ch4_vars, &
-            energyflux_vars, lakestate_vars)
+            lakestate_vars)
+  end do  
        call t_stopf('bgplake')
 
        ! Set soil/snow temperatures including ground temperature
 
+    !$OMP PARALLEL DO PRIVATE (nc,l,c, bounds_clump)
+    do nc = 1,nclumps
+       call get_clump_bounds(nc, bounds_clump)
        call t_startf('soiltemperature')
        call SoilTemperature(bounds_clump,                     &
             filter(nc)%num_urbanl  , filter(nc)%urbanl,       &
@@ -866,7 +885,6 @@ contains
        ! LakeHydrology after the new snow filter is built
 
        call t_startf('hydro without drainage')
-
        call HydrologyNoDrainage(bounds_clump,                                &
             filter(nc)%num_nolakec, filter(nc)%nolakec,                      &
             filter(nc)%num_hydrologyc, filter(nc)%hydrologyc,                &
