@@ -515,7 +515,7 @@ contains
             if ( Carbon_only  .or.  carbonphosphorus_only ) then
 
                lnc(f) = 1._r8 / (slatop(i_type) * leafcn(i_type))
-               vcmax25top = lnc(f) * flnr(i_type) * fnr * act25 * dayl_factor(p)
+               vcmax25top = lnc(f) * flnr(i_type) * fnr * act25 * dayl_factor(f)
                vcmax25top = vcmax25top * fnitr(i_type)
                jmax25top = (2.59_r8 - 0.035_r8*min(max((t10(p)-tfrz),11._r8),35._r8)) * vcmax25top
 
@@ -553,7 +553,7 @@ contains
                   lnc(f) = 0.0_r8
                end if
 
-               vcmax25top = (i_vcmax(i_type) + s_vcmax(i_type) * lnc(f)) * dayl_factor(p)
+               vcmax25top = (i_vcmax(i_type) + s_vcmax(i_type) * lnc(f)) * dayl_factor(f)
                jmax25top = (2.59_r8 - 0.035_r8*min(max((t10(p)-tfrz),11._r8),35._r8)) * vcmax25top
                vcmax25top = min(max(vcmax25top, 10.0_r8), 150.0_r8)
                jmax25top = min(max(jmax25top, 10.0_r8), 250.0_r8)
@@ -595,8 +595,8 @@ contains
                      lpc = min(max(lpc,0.014_r8),0.85_r8) ! based on doi: 10.1002/ece3.1173
                      vcmax25top = exp(vcmax_np1(i_type) + vcmax_np2(i_type)*log(lnc(f)) + &
                           vcmax_np3(i_type)*log(lpc) + vcmax_np4(i_type)*log(lnc(f))*log(lpc ))&
-                          * dayl_factor(p)
-                     jmax25top = exp(jmax_np1 + jmax_np2*log(vcmax25top) + jmax_np3*log(lpc )) * dayl_factor(p)
+                          * dayl_factor(f)
+                     jmax25top = exp(jmax_np1 + jmax_np2*log(vcmax25top) + jmax_np3*log(lpc )) * dayl_factor(f)
                      vcmax25top = min(max(vcmax25top, 10.0_r8), 150.0_r8)
                      jmax25top = min(max(jmax25top, 10.0_r8), 250.0_r8)
                   else

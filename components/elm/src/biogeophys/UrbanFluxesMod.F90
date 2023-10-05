@@ -749,23 +749,23 @@ contains
             qaf_denom(fl) = qaf_denom(fl) + wtuq(fc)
 
          end do
-         ! !$acc parallel loop independent gang worker default(present) private(sum_denom,sum_numer)
-         ! do fl = 1, num_urbanl
-         !    sum_denom = 0._r8 
-         !    sum_numer = 0._r8 
-         !    l = filter_urbanl(fl) 
-         !    if(converged_landunits(l)) cycle 
-         !    !$acc loop vector reduction(+:sum_denom,sum_numer)
-         !    do c = lun_pp%coli(l), lun_pp%colf(l) 
-         !       if(col_pp%active(c)) then 
-         !          fc = col_to_urban_filter(c)
-         !          sum_denom = sum_denom + wtus(fc)
-         !          sum_numer = sum_numer + t_grnd(c)*wtus(fc)
-         !       end if 
-         !    end do 
-         !    taf_denom_test(fl) = taf_denom_test(fl) + sum_denom
-         !    taf_numer_test(fl) = taf_numer_test(fl) + sum_numer  
-         ! end do 
+        ! !$acc parallel loop independent gang worker default(present) private(sum_denom,sum_numer)
+        ! do fl = 1, num_urbanl
+        !    sum_denom = 0._r8 
+        !    sum_numer = 0._r8 
+        !    l = filter_urbanl(fl) 
+        !    if(converged_landunits(l)) cycle 
+        !    !$acc loop vector reduction(+:sum_denom,sum_numer)
+        !    do c = lun_pp%coli(l), lun_pp%colf(l) 
+        !       if(col_pp%active(c)) then 
+        !          fc = col_to_urban_filter(c)
+        !          sum_denom = sum_denom + wtus(fc)
+        !          sum_numer = sum_numer + t_grnd(c)*wtus(fc)
+        !       end if 
+        !    end do 
+        !    taf_denom_test(fl) = taf_denom_test(fl) + sum_denom
+        !    taf_numer(fl) = taf_numer(fl) + sum_numer  
+        ! end do 
          
          ! !$acc parallel loop independent gang worker default(present) private(sum_denom,sum_numer)
          ! do fl = 1, num_urbanl

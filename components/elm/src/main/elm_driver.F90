@@ -892,7 +892,7 @@ contains
             filter(nc)%num_urbanc, filter(nc)%urbanc,                        &
             filter(nc)%num_snowc, filter(nc)%snowc,                          &
             filter(nc)%num_nosnowc, filter(nc)%nosnowc,canopystate_vars,     &
-            atm2lnd_vars, soilstate_vars, energyflux_vars,  &
+            atm2lnd_vars, soilstate_vars,  &
             soilhydrology_vars, aerosol_vars )
 
        !  Calculate column-integrated aerosol masses, and
@@ -922,7 +922,7 @@ contains
             filter(nc)%num_lakesnowc, filter(nc)%lakesnowc,                                  &
             filter(nc)%num_lakenosnowc, filter(nc)%lakenosnowc,                              &
             atm2lnd_vars, soilstate_vars,  &
-            energyflux_vars, aerosol_vars, lakestate_vars)
+            aerosol_vars, lakestate_vars)
 
        !  Calculate column-integrated aerosol masses, and
        !  mass concentrations for radiative calculations and output
