@@ -14,7 +14,7 @@ module UrbanFluxesMod
   use elm_varctl           , only : iulog
   use abortutils           , only : endrun
   use UrbanParamsType      , only : urbanparams_type
-  use UrbanParamsType      , only : urban_wasteheat_on, urban_hac_on, urban_hac
+  use UrbanParamsType      , only : urban_wasteheat_int, urban_hac_on_int, urban_hac_int,urban_hac_off_int
   use atm2lndType          , only : atm2lnd_type
   use SoilStateType        , only : soilstate_type
   use FrictionVelocityType , only : frictionvel_type
@@ -629,7 +629,7 @@ contains
                wtuq_roof_unscl(fl) = fwet_roof*(1._r8/canyon_resistance(fl))
 
                ! wasteheat from heating/cooling
-               if (trim(urban_hac) == urban_wasteheat_on) then
+               if (urban_hac_int == urban_wasteheat_int) then
                   eflx_wasteheat_roof(fl) = ac_wasteheat_factor * eflx_urban_ac(c) + &
                        ht_wasteheat_factor * eflx_urban_heat(c)
                else
@@ -637,7 +637,7 @@ contains
                end if
 
                ! If air conditioning on, always replace heat removed with heat into canyon
-               if (trim(urban_hac) == urban_hac_on .or. trim(urban_hac) == urban_wasteheat_on) then
+               if (urban_hac_int == urban_hac_on_int .or. urban_hac_int == urban_wasteheat_int) then
                   eflx_heat_from_ac_roof(fl) = abs(eflx_urban_ac(c))
                else
                   eflx_heat_from_ac_roof(fl) = 0._r8
@@ -703,7 +703,7 @@ contains
                wtuq_sunwall_unscl(fl) = 0._r8
 
                ! wasteheat from heating/cooling
-               if (trim(urban_hac) == urban_wasteheat_on) then
+               if (urban_hac_int == urban_wasteheat_int) then
                   eflx_wasteheat_sunwall(fl) = ac_wasteheat_factor * eflx_urban_ac(c) + &
                        ht_wasteheat_factor * eflx_urban_heat(c)
                else
@@ -711,7 +711,7 @@ contains
                end if
 
                ! If air conditioning on, always replace heat removed with heat into canyon
-               if (trim(urban_hac) == urban_hac_on .or. trim(urban_hac) == urban_wasteheat_on) then
+               if (urban_hac_int == urban_hac_on_int .or. urban_hac_int == urban_wasteheat_int) then
                   eflx_heat_from_ac_sunwall(fl) = abs(eflx_urban_ac(c))
                else
                   eflx_heat_from_ac_sunwall(fl) = 0._r8
@@ -732,7 +732,7 @@ contains
                wtuq_shadewall_unscl(fl) = 0._r8
 
                ! wasteheat from heating/cooling
-               if (trim(urban_hac) == urban_wasteheat_on) then
+               if (urban_hac_int == urban_wasteheat_int) then
                   eflx_wasteheat_shadewall(fl) = ac_wasteheat_factor * eflx_urban_ac(c) + &
                        ht_wasteheat_factor * eflx_urban_heat(c)
                else
@@ -740,7 +740,7 @@ contains
                end if
 
                ! If air conditioning on, always replace heat removed with heat into canyon
-               if (trim(urban_hac) == urban_hac_on .or. trim(urban_hac) == urban_wasteheat_on) then
+               if (urban_hac_int == urban_hac_on_int .or. urban_hac_int == urban_wasteheat_int) then
                   eflx_heat_from_ac_shadewall(fl) = abs(eflx_urban_ac(c))
                else
                   eflx_heat_from_ac_shadewall(fl) = 0._r8
