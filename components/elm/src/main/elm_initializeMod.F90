@@ -478,6 +478,8 @@ contains
     use tracer_varcon         , only : is_active_betr_bgc
     use clm_time_manager      , only : is_restart
     use ALMbetrNLMod          , only : betr_namelist_buffer
+    use UrbanParamsType       , only : urban_hac_int, urban_hac_off_int, urban_hac_on_int, urban_wasteheat_int
+    use UrbanParamsType       , only : urban_hac, urban_hac_off, urban_hac_on, urban_wasteheat_on
     !
     ! !ARGUMENTS
     implicit none
@@ -1012,6 +1014,15 @@ contains
        write(iulog,*)
     endif
     call t_stopf('init_wlog')
+    
+    ! Set urban_hac to an integer flag, since "trim" is not supported on GPUs
+    if(trim(urban_hac) == urban_hac_off) then 
+       urban_hac_int = urban_hac_off_int 
+    else if (trim(urban_hac) == urban_hac_on) then 
+       urban_hac_int = urban_hac_on_int
+    elseif(trim(urban_hac) == urban_wasteheat_on) then 
+       urban_hac_int = urban_wasteheat_int
+    end if 
 
     call t_stopf('elm_init2')
 
