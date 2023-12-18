@@ -45,7 +45,7 @@ contains
     use elm_varcon           , only : cpair, vkc, grav, denice, denh2o
     use elm_varctl           , only : use_lch4
     use landunit_varcon      , only : istsoil, istcrop
-    use FrictionVelocityMod  , only : FrictionVelocity, MoninObukIni, &
+    use FrictionVelocityMod  , only : FrictionVelocity, MoninObukIni, FrictionVelocity_noloop,  &
          implicit_stress, atm_gustiness, force_land_gustiness
     use QSatMod              , only : QSat
     use SurfaceResistanceMod , only : do_soilevap_beta
@@ -254,8 +254,7 @@ contains
 
       ITERATION : do while( iter < niters)
          if (abs(tau_diff(p)) < dtaumin) cycle
-           
-         call FrictionVelocity( &
+           call FrictionVelocity_noloop( &
                 displa, z0mg_patch, z0hg_patch, z0qg_patch, &
                 obu, iter+1, ur, um, ugust_total(p), ustar, &
                 temp1, temp2, temp12m, temp22m, fm, &

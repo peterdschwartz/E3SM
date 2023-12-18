@@ -52,7 +52,7 @@ contains
     use LakeCon             , only : lake_use_old_fcrit_minz0
     use LakeCon             , only : minz0lake, cur0, cus, curm, fcrit
     use QSatMod             , only : QSat
-    use FrictionVelocityMod , only : FrictionVelocity, MoninObukIni
+    use FrictionVelocityMod , only : FrictionVelocity_noloop, MoninObukIni
     use FrictionVelocityMod , only : implicit_stress, atm_gustiness, force_land_gustiness
     use elm_time_manager    , only : get_nstep
     !
@@ -357,7 +357,7 @@ contains
          ! profiles of the surface boundary layer
          if (nmozsgn >= 3) iter = niters+1 ! stop iterating
 
-         call FrictionVelocity( &
+         call FrictionVelocity_noloop( &
               displa, z0mg, z0hg, z0qg, &
               obu, iter, ur, um,  ugust_total(p),ustar, &
               temp1, temp2, temp12m, temp22m, &
