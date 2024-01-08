@@ -1,3 +1,6 @@
+if (NOT DEBUG)
+  string(APPEND CFLAGS " -O2")
+endif()
 string(APPEND CPPDEFS " -DLINUX")
 string(APPEND CMAKE_Fortran_FLAGS_DEBUG " -check all -ftrapuv")
 set(PIO_FILESYSTEM_HINTS "lustre")

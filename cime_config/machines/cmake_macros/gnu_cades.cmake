@@ -1,3 +1,7 @@
 string(APPEND CMAKE_Fortran_FLAGS " -O -fno-range-check")
 set(MPICXX "mpic++")
+set(MPIFC "mpif90")
+set(SCC "gcc")
 set(SCXX "gcpp")
+set(SFC "gfortran")
+set(SUPPORTS_CXX "TRUE")
