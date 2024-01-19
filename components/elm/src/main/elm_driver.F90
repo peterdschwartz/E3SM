@@ -179,7 +179,6 @@ module elm_driver
   use timeinfoMod
   use spmdMod, only : iam
   use domainMod, only : ldomain 
-  use verificationMod 
   !
   ! !PUBLIC TYPES:
   implicit none
