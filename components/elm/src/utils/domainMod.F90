@@ -12,6 +12,8 @@ module domainMod
   use elm_varctl  , only : iulog
   use spmdMod  , only : masterproc
   use shr_sys_mod, only : shr_sys_abort 
+  #define nan 1e36
+
 !
 ! !PUBLIC TYPES:
   implicit none
@@ -107,7 +109,6 @@ contains
 !
 ! !INTERFACE:
 subroutine domain_init(domain,isgrid2d,ni,nj,nbeg,nend,elmlevel)
-        #define nan 1e36
    !
    ! !DESCRIPTION:
    ! This subroutine allocates and nans the domain type
@@ -128,8 +129,8 @@ subroutine domain_init(domain,isgrid2d,ni,nj,nbeg,nend,elmlevel)
    !
    ! !LOCAL VARIABLES:
    !EOP
-   integer ier
-   integer nb,ne
+   integer :: ier
+   integer :: nb,ne
    !
    !------------------------------------------------------------------------------
 
@@ -231,20 +232,35 @@ end subroutine domain_init
 !------------------------------------------------------------------------------
 !BOP
 !
-!------------------------------------------------------------------------------
-    if (domain%set) then
-       if (masterproc) then
-          write(iulog,*) 'domain_clean: cleaning ',domain%ni,domain%nj
-       endif
-       deallocate(domain%mask,domain%frac,domain%latc, &
-            domain%pftm,domain%area,domain%lonc, &
-            domain%topo,domain%num_tunits_per_grd,domain%glcmask, &
-            domain%xCell,domain%yCell, &
-            domain%stdev_elev,domain%sky_view,domain%terrain_config, &
-            domain%sinsl_cosas,domain%sinsl_sinas,stat=ier)
-       if (ier /= 0) then
-          call shr_sys_abort('domain_clean ERROR: deallocate mask, frac, lat, lon, area ')
-       endif
+! !IROUTINE: domain_clean
+!
+! !INTERFACE:
+subroutine domain_clean(domain)
+   !
+   ! !DESCRIPTION:
+   ! This subroutine deallocates the domain type
+   !
+   ! !ARGUMENTS:
+   implicit none
+   type(domain_type) :: domain        ! domain datatype
+   !
+   ! !REVISION HISTORY:
+   !   Created by T Craig
+   !
+   !
+   ! !LOCAL VARIABLES:
+   !EOP
+   integer :: ier
+   !
+   !------------------------------------------------------------------------------
+   if (domain%set) then
+      if (masterproc) then
+         write(iulog,*) 'domain_clean: cleaning ',domain%ni,domain%nj
+      endif
+      deallocate(domain%mask,domain%frac,domain%latc, &
+            domain%lonc,domain%area,domain%firrig,domain%pftm, &
+            domain%topo,domain%f_surf,domain%f_grd,domain%num_tunits_per_grd,domain%glcmask, &
+            domain%xCell,domain%yCell,stat=ier)
 
       ! pflotran:beg-----------------------------------------------------
       ! 'nv' is user-defined, so it must be initialized or assigned value prior to call this subroutine
