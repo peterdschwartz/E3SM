@@ -162,7 +162,6 @@ module dynConsBiogeochemMod
          allocate(crop_product_c14flux       (num_soilp_with_inactive), stat=ier)
       endif
       
-
       !$acc enter data create(&
       !$acc dwt_froot_to_litter(:)    ,&
       !$acc dwt_livecroot_to_litter(:),&
@@ -177,7 +176,7 @@ module dynConsBiogeochemMod
       !$acc parallel loop independent gang vector default(present) 
       do fp = 1, num_soilp_with_inactive
          ! initialize all the pft-level local flux arrays
-         dwt_pool_seed         = 0.0_r8
+         ! dwt_pool_seed         = 0.0_r8
          dwt_froot_to_litter(fp)    = 0.0_r8
          dwt_livecroot_to_litter(fp)= 0.0_r8
          dwt_deadcroot_to_litter(fp)= 0.0_r8
