@@ -285,8 +285,9 @@ contains
     !------------------------------------------------------------------------------
   subroutine FrictionVelocity_loops(lbn, ubn, fn, filtern, &
    displa, z0m, z0h, z0q, &
-   obu, iter, ur, um, ustar, &
-   temp1, temp2, temp12m, temp22m, fm,frictionvel_vars,converged, landunit_index)
+   obu, iter, ur, um, ugust, ustar, &
+   temp1, temp2, temp12m, temp22m, fm, &
+   frictionvel_vars, converged, landunit_index)
 ! !DESCRIPTION:
 ! Calculation of the friction velocity, relation for potential
 ! temperature and humidity profiles of surface boundary layer.
@@ -301,23 +302,24 @@ use elm_varcon, only : vkc
 implicit none
 !
 ! !ARGUMENTS:
-integer  , intent(in)    :: lbn, ubn            ! pft/landunit array bounds
-integer  , intent(in)    :: fn                  ! number of filtered pft/landunit elements
-integer  , intent(in)    :: filtern(fn)         ! pft/landunit filter
-real(r8) , intent(in)    :: displa  ( lbn: )    ! displacement height (m) [lbn:ubn]
-real(r8) , intent(in)    :: z0m     ( lbn: )    ! roughness length over vegetation, momentum [m] [lbn:ubn]
-real(r8) , intent(in)    :: z0h     ( lbn: )    ! roughness length over vegetation, sensible heat [m] [lbn:ubn]
-real(r8) , intent(in)    :: z0q     ( lbn: )    ! roughness length over vegetation, latent heat [m] [lbn:ubn]
-real(r8) , intent(in)    :: obu     ( 1: )      ! monin-obukhov length (m) [lbn:ubn]
-integer  , intent(in)    :: iter                ! iteration number
-real(r8) , intent(in)    :: ur      (1: )    ! wind speed at reference height [m/s] [lbn:ubn]
-real(r8) , intent(in)    :: um      (1: )    ! wind speed including the stablity effect [m/s] [lbn:ubn]
-real(r8) , intent(out)   :: ustar   (1: )    ! friction velocity [m/s] [lbn:ubn]
-real(r8) , intent(out)   :: temp1   (1: )    ! relation for potential temperature profile [lbn:ubn]
-real(r8) , intent(out)   :: temp2   (1: )    ! relation for specific humidity profile [lbn:ubn]
-real(r8) , intent(out)   :: temp12m (1: )    ! relation for potential temperature profile applied at 2-m [lbn:ubn]
-real(r8) , intent(out)   :: temp22m (1: )    ! relation for specific humidity profile applied at 2-m [lbn:ubn]
-real(r8) , intent(inout) :: fm      (1: )    ! diagnose 10m wind (DUST only) [lbn:ubn]
+integer  , intent(in)    :: lbn, ubn          ! pft/landunit array bounds
+integer  , intent(in)    :: fn                ! number of filtered pft/landunit elements
+integer  , intent(in)    :: filtern(fn)       ! pft/landunit filter
+real(r8) , intent(in)    :: displa  ( lbn: )  ! displacement height (m) [lbn:ubn]
+real(r8) , intent(in)    :: z0m     ( lbn: )  ! roughness length over vegetation, momentum [m] [lbn:ubn]
+real(r8) , intent(in)    :: z0h     ( lbn: )  ! roughness length over vegetation, sensible heat [m] [lbn:ubn]
+real(r8) , intent(in)    :: z0q     ( lbn: )  ! roughness length over vegetation, latent heat [m] [lbn:ubn]
+real(r8) , intent(in)    :: obu     ( 1: )    ! monin-obukhov length (m) [lbn:ubn]
+integer  , intent(in)    :: iter              ! iteration number
+real(r8) , intent(in)    :: ur      ( 1: )    ! wind speed at reference height [m/s] [lbn:ubn]
+real(r8) , intent(in)    :: um      ( 1: )    ! wind speed including the stablity effect [m/s] [lbn:ubn]
+real(r8) , intent(in)    :: ugust   ( lbn: )  ! Gustiness wind speed [m/s] [lbn:ubn]
+real(r8) , intent(out)   :: ustar   ( 1: )    ! friction velocity [m/s] [lbn:ubn]
+real(r8) , intent(out)   :: temp1   ( 1: )    ! relation for potential temperature profile [lbn:ubn]
+real(r8) , intent(out)   :: temp2   ( 1: )    ! relation for specific humidity profile [lbn:ubn]
+real(r8) , intent(out)   :: temp12m ( 1: )    ! relation for potential temperature profile applied at 2-m [lbn:ubn]
+real(r8) , intent(out)   :: temp22m ( 1: )    ! relation for specific humidity profile applied at 2-m [lbn:ubn]
+real(r8) , intent(inout) :: fm      ( 1: )    ! diagnose 10m wind (DUST only) [lbn:ubn]
 type(frictionvel_type) , intent(inout) :: frictionvel_vars
 logical, intent(in)  :: converged(lbn:)
 logical  , intent(in), optional :: landunit_index   ! optional argument that defines landunit or pft level
@@ -340,15 +342,17 @@ real(r8) :: vds_tmp             ! Temporary for dry deposition velocity
 logical  :: is_landunit_index 
 !------------------------------------------------------------------------------
 associate(                                                   &
-     forc_hgt_u_patch => frictionvel_vars%forc_hgt_u_patch , & ! Input:  [real(r8) (:) ] observational height of wind at pft level [m]
-     forc_hgt_t_patch => frictionvel_vars%forc_hgt_t_patch , & ! Input:  [real(r8) (:) ] observational height of temperature at pft level [m]
-     forc_hgt_q_patch => frictionvel_vars%forc_hgt_q_patch , & ! Input:  [real(r8) (:) ] observational height of specific humidity at pft level [m]
-     vds              => frictionvel_vars%vds_patch        , & ! Output: [real(r8) (:) ] dry deposition velocity term (m/s) (for SO4 NH4NO3)
-     u10              => frictionvel_vars%u10_patch        , & ! Output: [real(r8) (:) ] 10-m wind (m/s) (for dust model)
-     u10_elm          => frictionvel_vars%u10_elm_patch    , & ! Output: [real(r8) (:) ] 10-m wind (m/s)
-     va               => frictionvel_vars%va_patch         , & ! Output: [real(r8) (:) ] atmospheric wind speed plus convective velocity (m/s)
-     fv               => frictionvel_vars%fv_patch           & ! Output: [real(r8) (:) ] friction velocity (m/s) (for dust model)
-     )
+   forc_hgt_u_patch => frictionvel_vars%forc_hgt_u_patch , & ! Input:  [real(r8) (:) ] observational height of wind at pft level [m]
+   forc_hgt_t_patch => frictionvel_vars%forc_hgt_t_patch , & ! Input:  [real(r8) (:) ] observational height of temperature at pft level [m]
+   forc_hgt_q_patch => frictionvel_vars%forc_hgt_q_patch , & ! Input:  [real(r8) (:) ] observational height of specific humidity at pft level [m]
+   vds              => frictionvel_vars%vds_patch        , & ! Output: [real(r8) (:) ] dry deposition velocity term (m/s) (for SO4 NH4NO3)
+   u10              => frictionvel_vars%u10_patch        , & ! Output: [real(r8) (:) ] 10-m wind (m/s) (for dust model)
+   u10_elm          => frictionvel_vars%u10_elm_patch    , & ! Output: [real(r8) (:) ] 10-m wind (m/s)
+   u10_with_gusts_elm=>frictionvel_vars%u10_with_gusts_elm_patch, & ! Output: [real(r8) (:) ] 10-m wind with gusts(m/s)
+   va               => frictionvel_vars%va_patch         , & ! Output: [real(r8) (:) ] atmospheric wind speed plus convective velocity (m/s)
+   fv               => frictionvel_vars%fv_patch           & ! Output: [real(r8) (:) ] friction velocity (m/s) (for dust model)
+   )
+
 
   ! Adjustment factors for unstable (moz < 0) or stable (moz > 0) conditions.
   is_landunit_index = present(landunit_index)
@@ -421,52 +425,56 @@ associate(                                                   &
         !$acc loop seq 
         do pp = pfti,pftf
             if (zldis-z0m(n) <= 10._r8) then
-               u10_elm(pp) = um(f)
+               u10_with_gusts_elm(pp) = um(f)
             else
                if (zeta < -zetam) then
-                  u10_elm(pp) = um(f) - ( ustar(f)/vkc*(log(-zetam*obu(f)/(10._r8+z0m(n)))      &
+                  u10_with_gusts_elm(pp) = um(f) - ( ustar(f)/vkc*(log(-zetam*obu(f)/(10._r8+z0m(n)))      &
                        - StabilityFunc1(-zetam)                              &
                        + StabilityFunc1((10._r8+z0m(n))/obu(f))              &
                        + 1.14_r8*((-zeta)**0.333_r8-(zetam)**0.333_r8)) )
                else if (zeta < 0._r8) then
-                  u10_elm(pp) = um(f) - ( ustar(f)/vkc*(log(zldis/(10._r8+z0m(n)))           &
+                  u10_with_gusts_elm(pp) = um(f) - ( ustar(f)/vkc*(log(zldis/(10._r8+z0m(n)))           &
                        - StabilityFunc1(zeta)                             &
                        + StabilityFunc1((10._r8+z0m(n))/obu(f))) )
                else if (zeta <=  1._r8) then
-                  u10_elm(pp) = um(f) - ( ustar(f)/vkc*(log(zldis/(10._r8+z0m(n)))           &
+                  u10_with_gusts_elm(pp) = um(f) - ( ustar(f)/vkc*(log(zldis/(10._r8+z0m(n)))           &
                        + 5._r8*zeta - 5._r8*(10._r8+z0m(n))/obu(f)) )
                else
-                  u10_elm(pp) = um(f) - ( ustar(f)/vkc*(log(obu(f)/(10._r8+z0m(n)))             &
+                  u10_with_gusts_elm(pp) = um(f) - ( ustar(f)/vkc*(log(obu(f)/(10._r8+z0m(n)))             &
                        + 5._r8 - 5._r8*(10._r8+z0m(n))/obu(f)                &
                        + (5._r8*log(zeta)+zeta-1._r8)) )
 
                end if
             end if
             va(pp) = um(f)
+            ! Estimate u10 with effects of gustiness removed.
+            u10_elm(pp) = u10_with_gusts_elm(pp) * sqrt(max(0., um(n)**2 - ugust(n)**2)) / um(n)
         end do
       else
         if (zldis-z0m(n) <= 10._r8) then
-            u10_elm(n) = um(f)
+         u10_with_gusts_elm(n) = um(f)
         else
             if (zeta < -zetam) then
-               u10_elm(n) = um(f) - ( ustar(f)/vkc*(log(-zetam*obu(f)/(10._r8+z0m(n)))         &
+               u10_with_gusts_elm(n) = um(f) - ( ustar(f)/vkc*(log(-zetam*obu(f)/(10._r8+z0m(n)))         &
                     - StabilityFunc1(-zetam)                                 &
                     + StabilityFunc1((10._r8+z0m(n))/obu(f))                 &
                     + 1.14_r8*((-zeta)**0.333_r8-(zetam)**0.333_r8)) )
             else if (zeta < 0._r8) then
-               u10_elm(n) = um(f) - ( ustar(f)/vkc*(log(zldis/(10._r8+z0m(n)))              &
+               u10_with_gusts_elm(n) = um(f) - ( ustar(f)/vkc*(log(zldis/(10._r8+z0m(n)))              &
                     - StabilityFunc1(zeta)                                &
                     + StabilityFunc1((10._r8+z0m(n))/obu(f))) )
             else if (zeta <=  1._r8) then
-               u10_elm(n) = um(f) - ( ustar(f)/vkc*(log(zldis/(10._r8+z0m(n)))              &
+               u10_with_gusts_elm(n) = um(f) - ( ustar(f)/vkc*(log(zldis/(10._r8+z0m(n)))              &
                     + 5._r8*zeta - 5._r8*(10._r8+z0m(n))/obu(f)) )
             else
-               u10_elm(n) = um(f) - ( ustar(f)/vkc*(log(obu(f)/(10._r8+z0m(n)))    &
+               u10_with_gusts_elm(n) = um(f) - ( ustar(f)/vkc*(log(obu(f)/(10._r8+z0m(n)))    &
                     + 5._r8 - 5._r8*(10._r8+z0m(n))/obu(f)                   &
                     + (5._r8*log(zeta)+zeta-1._r8)) )
             end if
         end if
         va(n) = um(f)
+        ! Estimate u10 with effects of gustiness removed.
+        u10_elm(n) = u10_with_gusts_elm(n) * sqrt(max(0., um(n)**2 - ugust(n)**2)) / um(n)
       end if
 
       !===================!

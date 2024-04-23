@@ -160,6 +160,7 @@ contains
     real(r8), parameter :: amCO2 = amC + 2.0_r8*amO ! Atomic mass number for CO2
     ! The following converts g of C to kg of CO2
     real(r8), parameter :: convertgC2kgCO2 = 1.0e-3_r8 * (amCO2/amC)
+    
     !------------------------------------------------------------------------
     associate( &
       t_ref2m     => veg_es%t_ref2m , &
@@ -330,15 +331,15 @@ contains
             p2c_scale_type=unity, c2l_scale_type= unity, l2g_scale_type=unity)
     endif
 
-! #ifndef _OPENACC
-!     ! voc emission flux
-!     if (use_voc .and. shr_megan_mechcomps_n>0) then
-!        call p2g(bounds, shr_megan_mechcomps_n, &
-!             vocemis_vars%vocflx_patch, &
-!             lnd2atm_vars%flxvoc_grc  , &
-!             p2c_scale_type=unity, c2l_scale_type= unity, l2g_scale_type=unity)
-!     end if
-! #endif 
+#ifndef _OPENACC
+    ! voc emission flux
+    if (use_voc .and. shr_megan_mechcomps_n>0) then
+       call p2g(bounds, shr_megan_mechcomps_n, &
+            vocemis_vars%vocflx_patch, &
+            lnd2atm_vars%flxvoc_grc  , &
+            p2c_scale_type=unity, c2l_scale_type= unity, l2g_scale_type=unity)
+    end if
+#endif 
 
     ! dust emission flux
     call p2g(bounds, ndst, &
@@ -430,8 +431,8 @@ contains
     endif
 
     call c2g( bounds, &
-         wslake_col(bounds%begc:bounds%endc), &
-         wslake_grc(bounds%begg:bounds%endg), &
+         col_ws%wslake_col(bounds%begc:bounds%endc), &
+         lnd2atm_vars%wslake_grc(bounds%begg:bounds%endg), &
          c2l_scale_type= urbanf, l2g_scale_type=unity )
 
     ! calculate total water storage for history files

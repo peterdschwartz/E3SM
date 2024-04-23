@@ -83,8 +83,6 @@ module elm_instMod
   use dynPatchStateUpdaterMod    , only : patch_state_updater_type 
   use dynColumnStateUpdaterMod   , only : column_state_updater_type 
 
-  use dynUpdateModAcc            , only : patch_su_type_gpu 
-
   !
   implicit none
   save

@@ -10,7 +10,7 @@ module ColumnDataType
   use shr_const_mod   , only : SHR_CONST_PDB
   use abortutils      , only : endrun
   use shr_log_mod     , only : errMsg => shr_log_errMsg 
-  !use MathfuncMod     , only : dot_sum
+  use MathfuncMod     , only : dot_sum
   use elm_varpar      , only : nlevsoi, nlevsno, nlevgrnd, nlevlak, nlevurb
   use elm_varpar      , only : ndecomp_cascade_transitions, ndecomp_pools, nlevcan
   use elm_varpar      , only : nlevdecomp_full, crop_prog, nlevdecomp
@@ -56,7 +56,7 @@ module ColumnDataType
   public :: col_ps_summary, col_pf_summary
   public :: col_ns_summary, col_nf_summary
   public :: col_cf_setvalues, col_pf_setvalues, col_nf_setvalues
-  public :: col_ps_setvalues, col_pf_setvalues
+  public :: col_ps_setvalues
 
   !
   ! NOTE(bandre, 2013-10) according to Charlie Koven, nfix_timeconst
@@ -7345,11 +7345,9 @@ end subroutine col_cs_restart
     !----------------------------------------------------------------
     ! bgc interface & pflotran:
     !----------------------------------------------------------------
-#ifndef _OPENACC
     if (use_elm_interface .and. (use_pflotran .and. pf_cmode)) then
         call col_cf_summary_pf(this, bounds, num_soilc, filter_soilc)
     end if
-#endif
     !----------------------------------------------------------------
 
     do fc = 1,num_soilc
@@ -9851,11 +9849,9 @@ end subroutine col_cs_restart
     enddo
 
     ! bgc interface & pflotran
-    #ifndef _OPENACC
     if (use_elm_interface .and. (use_pflotran .and. pf_cmode)) then
         call this%SummaryInt(bounds, num_soilc, filter_soilc)
     end if
-    #endif
 
   end subroutine col_nf_summary
 
@@ -11412,12 +11408,10 @@ end subroutine col_cs_restart
        end do
     end if
 
-    #ifndef _OPENACC
     ! bgc interface & pflotran:
     if (use_elm_interface) then
         call this%SummaryInt(bounds, num_soilc, filter_soilc)
     end if
-    #endif
 
   end subroutine col_pf_summary
 

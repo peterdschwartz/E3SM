@@ -61,7 +61,7 @@ contains
     use column_varcon       , only : icol_shadewall, icol_road_perv, icol_road_imperv
     use column_varcon       , only : icol_roof, icol_sunwall
     use filterMod           , only : filter
-    use FrictionVelocityMod , only : FrictionVelocity, MoninObukIni, implicit_stress, atm_gustiness, force_land_gustiness
+    use FrictionVelocityMod , only : FrictionVelocity_loops, MoninObukIni, implicit_stress, atm_gustiness, force_land_gustiness
     use QSatMod             , only : QSat
     use elm_varpar          , only : maxpatch_urb, nlevurb, nlevgrnd
     use elm_varctl          , only : use_vsfm
@@ -84,9 +84,6 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: fp,fc,fl,f,p,c,l,t,g,j,pi,i     ! indices
-
-   !  integer  :: filter_copyl(num_urbanl)                ! iteration copy of filter_urbanl
-   !  integer  :: filter_copyc(num_urbanc)                ! iteration copy of filter_urbanc
     integer  :: num_copyl                                ! iteration num_urbanl
     integer  :: num_copyl_old                            ! previous iteration num_copyl
     integer  :: num_copyc                                ! iteration num_urbanc
@@ -157,6 +154,7 @@ contains
     real(r8) :: t_roof_innerl(1:num_urbanl)               ! temperature of inner layer of roof (K)
     real(r8) :: lngth_roof                                           ! length of roof (m)
     real(r8) :: wc                                                   ! convective velocity (m/s)
+    real(r8) :: ugust_total(bounds%begl:bounds%endl)                 ! gustiness including convective velocity [m/s]
     real(r8) :: zeta                                                 ! dimensionless height used in Monin-Obukhov theory
     real(r8) :: eflx_sh_grnd_scale(bounds%begp:bounds%endp)          ! scaled sensible heat flux from ground (W/m**2) [+ to atm]
     real(r8) :: qflx_evap_soi_scale(bounds%begp:bounds%endp)         ! scaled soil evaporation (mm H2O/s) (+ = to atm)
@@ -175,7 +173,7 @@ contains
     real(r8) :: fwet_roof                                            ! fraction of roof surface that is wet (-)
     real(r8) :: fwet_road_imperv                                     ! fraction of impervious road surface that is wet (-)
     integer  :: local_secp1(1:num_urbanl)                 ! seconds into current date in local time (sec)
-                                     ! calendar info for current time step
+                                                          ! calendar info for current time step
     logical  :: found                                                ! flag in search loop
     integer  :: indexl                                               ! index of first found in search loop
     integer  :: nstep                                                ! time step number
@@ -198,17 +196,6 @@ contains
     real(r8), parameter :: beta = 1._r8           ! coefficient of convective velocity
     real(r8), parameter :: zii  = 1000._r8        ! convective boundary layer height (m)
     integer :: lnd_to_urban_filter(bounds%begl:bounds%endl) !
-    real(r8), parameter :: dtaumin = 0.01_r8      ! max limit for stress convergence [Pa]
-    integer, parameter  :: itmin = 3              ! minimum number of iterations
-    integer, parameter  :: itmax = 30             ! maximum number of iterations
-    integer  :: loopmax                           ! bound for iteration loop
-    real(r8) :: wind_speed0(bounds%begl:bounds%endl) ! Wind speed from atmosphere at start of iteration
-    real(r8) :: wind_speed_adj(bounds%begl:bounds%endl) ! Adjusted wind speed for iteration
-    real(r8) :: tau(bounds%begl:bounds%endl)      ! Stress used in iteration
-    real(r8) :: tau_diff(bounds%begl:bounds%endl) ! Difference from previous iteration tau
-    real(r8) :: prev_tau(bounds%begl:bounds%endl) ! Previous iteration tau
-    real(r8) :: prev_tau_diff(bounds%begl:bounds%endl) ! Previous difference in iteration tau
-    integer :: begl, endl 
     integer :: col_to_urban_filter(bounds%begc:bounds%endc)
     logical :: converged_landunits(bounds%begl:bounds%endl)
     integer :: begl, endl, begc,endc
@@ -293,8 +280,6 @@ contains
          qflx_tran_veg       =>   veg_wf%qflx_tran_veg        , & ! Output: [real(r8) (:)   ]  vegetation transpiration (mm H2O/s) (+ = to atm)
          qflx_evap_veg       =>   veg_wf%qflx_evap_veg        , & ! Output: [real(r8) (:)   ]  vegetation evaporation (mm H2O/s) (+ = to atm)
          qflx_evap_tot       =>   veg_wf%qflx_evap_tot         & ! Output: [real(r8) (:)   ]  qflx_evap_soi + qflx_evap_can + qflx_tran_veg
-
-
          )
     !$acc enter data create(&
     !$acc canyontop_wind(:), &
@@ -544,7 +529,7 @@ contains
             rawu(fl) = 1._r8/(temp2(fl)*ustar(fl))
 
             ! Calculate magnitude of stress and update wind speed.
-            #ifndef _OPENACC
+#ifndef _OPENACC
             if (implicit_stress) then
                tau(fl) = forc_rho(t)*wind_speed_adj(fl)/ramu(fl)
                call shr_flux_update_stress(wind_speed0(l), wsresp(t), tau_est(t), &
@@ -552,7 +537,7 @@ contains
                     wind_speed_adj(l))
                ur(fl) = max(1.0_r8, wind_speed_adj(fl) + ugust(t))
             end if
-            #endif
+#endif
 
             ! Canyon top wind
             ! If the wind does not change in this loop (explicit stress), then

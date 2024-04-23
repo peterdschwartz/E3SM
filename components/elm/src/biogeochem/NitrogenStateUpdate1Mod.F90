@@ -37,19 +37,9 @@ module NitrogenStateUpdate1Mod
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: NitrogenStateUpdateDynPatch
-  public :: NitrogenStateUpdate1
-  !-----------------------------------------------------------------------
-
-   !
-   implicit none
-   save
-   private
-   !
-   ! !PUBLIC MEMBER FUNCTIONS:
-   public :: NitrogenStateUpdateDynPatch
-   public :: NitrogenStateUpdate_Phase1_col
-   public :: NitrogenStateUpdate_Phase1_pft 
-   public :: NitrogenStateDynGridUpdate
+  public :: NitrogenStateUpdate_Phase1_col
+  public :: NitrogenStateUpdate_Phase1_pft 
+  public :: NitrogenStateDynGridUpdate
 
    !-----------------------------------------------------------------------
    

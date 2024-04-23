@@ -73,7 +73,7 @@ contains
 
     !
     ! !LOCAL VARIABLES:
-    integer  :: g,t,l,c,j,fc,,tpu_ind     ! indices
+    integer  :: g,t,l,c,j,fc,tpu_ind     ! indices
     real(r8) :: sum1, sum2, sum3 
     !-----------------------------------------------------------------------
 
@@ -121,7 +121,6 @@ contains
          )
 
       !$acc enter data create(sum1,sum2,sum3)
-   #ifndef _OPENACC
       if (use_vichydro) then
          call ELMVICMap(bounds, num_hydrologyc, filter_hydrologyc, &
               soilhydrology_vars)
@@ -131,22 +130,19 @@ contains
         call ep_betr%BeTRSetBiophysForcing(bounds, col_pp, veg_pp, 1, nlevsoi, waterstate_vars=col_ws)
         call ep_betr%PreDiagSoilColWaterFlux(num_hydrologyc, filter_hydrologyc)
       endif
-   #endif
       if (.not. use_vsfm) then
          call Drainage(bounds, num_hydrologyc, filter_hydrologyc, &
               num_urbanc, filter_urbanc,&
               soilhydrology_vars, soilstate_vars, dtime_mod)
       endif
 
-#ifndef _OPENACC
       if (use_betr) then
         call ep_betr%BeTRSetBiophysForcing(bounds, col_pp, veg_pp, 1, nlevsoi, waterstate_vars=col_ws, &
           waterflux_vars=col_wf)
         call ep_betr%DiagDrainWaterFlux(num_hydrologyc, filter_hydrologyc)
         call ep_betr%RetrieveBiogeoFlux(bounds, 1, nlevsoi, waterflux_vars=col_wf)
       endif
-#endif
-
+      
       !$acc parallel loop independent gang vector default(present) collapse(2) 
       do j = 1, nlevgrnd
          do fc = 1, num_nolakec

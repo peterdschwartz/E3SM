@@ -198,7 +198,6 @@ module elm_driver
    !use dynColumnStateUpdaterMod , only: column_state_updater
    use elm_instMod , only : patch_state_updater
    use elm_instMod , only : column_state_updater
-   use domainMod , only : ldomain_gpu
    use histGPUMod , only : tape_gpu, htape_gpu_init, hist_update_hbuf_gpu
    use histFileMod , only : elmptr_ra, elmptr_rs, tape
    use update_accMod
@@ -208,7 +207,6 @@ module elm_driver
    use pftvarcon
    use decompMod , only : clumps, procinfo
    use ColumnWorkRoutinesMod 
-   use CarbonStateUpdate3Mod 
    use ErosionMod, only : ErosionFluxes 
    !
    ! !PUBLIC TYPES:
@@ -234,41 +232,14 @@ module elm_driver
       ! the calling tree is given in the description of this module.
       !
       ! !USES:
-      #if _CUDA
+#if _CUDA
       use cudafor
-      #endif
-      use shr_orb_mod_elm
+#endif
       use decompMod , only : init_proc_clump_info, gpu_clumps, gpu_procinfo
       use decompMod , only : get_clump_bounds_gpu
       use ColumnDataType, only : col_cf_setvalues, col_nf_SetValues, col_pf_SetValues
       use VegetationDataType, only : veg_cf_summary_rr
       use VegetationSummaryRoutinesMod
-      use NitrogenDynamicsMod, only : NitrogenDeposition, NitrogenFixation, NitrogenFixation_balance, NitrogenFert
-      use NitrogenDynamicsMod, only : CNSoyFix
-      use MaintenanceRespMod , only : MaintenanceResp
-      use PhosphorusDynamicsMod,only: PhosphorusWeathering,PhosphorusBiochemMin,PhosphorusBiochemMin_balance,PhosphorusDeposition
-      use DecompCascadeCNMod   , only: decomp_rate_constants_cn
-      use AllocationMod, only : Allocation1_PlantNPDemand
-      use SoilLittDecompMod, only: SoilLittDecompAlloc, SoilLittDecompAlloc2
-      use PhenologyMod, only : Phenology, CNLitterToColumn
-      use GrowthRespMod, only : GrowthResp
-      use CarbonStateUpdate1Mod, only:CarbonStateUpdate0,CarbonStateUpdate_Phase1_col, CarbonStateUpdate_Phase1_pft
-      use NitrogenStateUpdate1Mod,only:NitrogenStateUpdate_Phase1_col, NitrogenStateUpdate_Phase1_pft
-      use PhosphorusStateUpdate1Mod,only:PhosphorusStateUpdate_Phase1_col, PhosphorusStateUpdate_Phase1_pft
-      use CarbonStateUpdate1Mod , only : CarbonStateDynGridUpdate
-      use NitrogenStateUpdate1Mod , only : NitrogenStateDynGridUpdate
-      use PhosphorusStateUpdate1Mod , only : PhosphorusStateDynGridUpdate
-      use SoilLittVertTranspMod,only:SoilLittVertTransp, createLitterTransportList, transport_ptr_list 
-      use GapMortalityMod,only:GapMortality
-      use NitrogenStateUpdate3Mod   , only: NitrogenStateUpdate3
-      use PhosphorusStateUpdate3Mod , only: PhosphorusStateUpdate3
-      use CarbonStateUpdate2Mod     , only: CarbonStateUpdate2, CarbonStateUpdate2h
-      use NitrogenStateUpdate2Mod   , only: NitrogenStateUpdate2, NitrogenStateUpdate2h
-      use PhosphorusStateUpdate2Mod , only: PhosphorusStateUpdate2, PhosphorusStateUpdate2h
-      use FireMod              , only: FireArea, FireFluxes
-      use C14DecayMod          , only: C14Decay, C14BombSpike
-      use WoodProductsMod      , only: WoodProducts
-      use CropHarvestPoolsMod  , only: CropHarvestPools
       !
       use dynSubgridControlMod, only : get_flanduse_timeseries
       use dynSubgridControlMod, only : get_do_transient_pfts, get_do_transient_crops
@@ -280,13 +251,18 @@ module elm_driver
       use dynpftFileMod, only : dynpft_interp
       use dynHarvestMod, only : dynHarvest_interp
       use dyncropFileMod      , only : dyncrop_init, dyncrop_interp
-      !!use writeMod , only : write_vars 
       use histFileMod, only : ntapes  
       use dynSubgridAdjustmentsMod, only : dyn_col_cs_Adjustments,dyn_col_ns_Adjustments,dyn_col_ps_Adjustments
       use ForcingUpdateMod , only : update_forcings_cplbypass
       use elm_instMod , only : cpl_bypass_input   
       use elm_varpar , only : ndecomp_pools 
       use UrbanParamsType, only : urban_hac_int 
+
+      use elm_varctl            , only : fates_spitfire_mode
+      use elm_varctl            , only : fates_seeddisp_cadence
+      use FATESFireFactoryMod   , only : scalar_lightning
+      use FatesInterfaceTypesMod, only : fates_dispersal_cadence_none
+ 
 
       !
       ! !ARGUMENTS:
@@ -323,10 +299,10 @@ module elm_driver
       integer :: fc,fl
       integer :: num_soilc,num_nourbanl 
       real :: startt, stopt, eco_startt, eco_stopt,outer_start, outer_stop 
-      #if _CUDA
+#if _CUDA
       integer(kind=cuda_count_kind) :: heapsize,free1,free2,total
       integer  :: istat, val
-      #endif
+#endif
       integer :: maxcols, begg,endg, i,maxpfts,begc,begp, endc, endp 
       integer, allocatable :: ncols(:) 
       integer, allocatable :: npfts(:) 
@@ -348,8 +324,6 @@ module elm_driver
       call get_curr_date(year_curr,mon_curr,day_curr,secs_curr)
       call get_prev_date(year_prev,mon_prev,day_prev,secs_prev)
       write(iulog,*) iam, "STEP :", nstep_mod 
-      print *, year_curr,mon_curr, day_curr, secs_curr 
-      print *, year_prev, mon_prev, day_prev, secs_prev 
       dayspyr_mod = get_days_per_year()
       jday_mod = get_curr_calday()
       
@@ -360,10 +334,9 @@ module elm_driver
             call CNPBudget_Reset()
          end if
       end if
-      ! Determine processor bounds and clumps for this processor
-      write(iulog,*) "TOTAL Gridcells/clumps:",bounds_proc%endg,nclumps
+
       if(nstep_mod == 0 ) then
-        #if _CUDA
+#if _CUDA
         istat = cudaDeviceGetLimit(heapsize, cudaLimitMallocHeapSize)
         write(iulog,*) "SETTING Heap Limit from", heapsize
         heapsize = 2000_8*1024_8*1024_8
@@ -371,7 +344,7 @@ module elm_driver
         istat = cudaDeviceSetLimit(cudaLimitMallocHeapSize,heapsize)
         istat = cudaMemGetInfo(free1, total)
         write(iulog,*) iam,"Free1:",free1
-        #endif 
+#endif 
          write(iulog,*) "transferring data to GPU"
          call init_proc_clump_info()
          call createLitterTransportList() 
@@ -488,12 +461,12 @@ module elm_driver
          !$acc       ,nswitchgrass         &
          !$acc       ,nswitchgrassirrig    &
          !$acc       ,num_cfts_known_to_model )
-         #if _CUDA 
+#if _CUDA 
          istat = cudaMemGetInfo(free2, total)
          write(iulog,*) "Transferred:", free1-free2
          write(iulog,*) "Total:",total
          write(iulog,*) iam,"Free:", free2/1.E+9
-         #endif
+#endif
         call createProcessorFilter(nclumps, bounds_proc, proc_filter, glc2lnd_vars%icemask_grc)
         call createProcessorFilter(nclumps, bounds_proc, proc_filter_inactive_and_active, glc2lnd_vars%icemask_grc)
         
@@ -518,19 +491,11 @@ module elm_driver
       !$acc surfalb_vars     , &
       !$acc surfrad_vars )   
       
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after  moremore_vars:", free2/1.E9
-      #endif
       !$acc enter data copyin(&
       !$acc patch_state_updater     , &
       !$acc column_state_updater , &
       !$acc prior_weights ) 
             
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free 1st:", free2/1.E9
-      #endif
       !$acc enter data copyin(&
       !$acc col_cf     , &
       !$acc col_cs     , &
@@ -543,11 +508,6 @@ module elm_driver
       !$acc col_ps     , &
       !$acc col_wf     , &
       !$acc col_ws     ) 
-      
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after Col:", free2/1.E9
-      #endif
       !$acc enter data copyin( &
       !$acc crop_vars  , &
       !$acc DecompBGCParamsInst     , &
@@ -558,11 +518,6 @@ module elm_driver
       !$acc energyflux_vars     , &
       !$acc frictionvel_vars     , &
       !$acc glc2lnd_vars  ) 
-      
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after more vars:", free2/1.E9
-      #endif
       !$acc enter data copyin(&
       !$acc grc_cf     , &
       !$acc grc_cs     , &
@@ -576,13 +531,8 @@ module elm_driver
       !$acc grc_wf     , &
       !$acc grc_ws     ) 
       
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after grc_vars:", free2/1.E9
-      #endif
       !$acc enter data copyin(&
       !$acc lakestate_vars , &
-      !$acc ldomain_gpu  ,&
       !$acc lnd2glc_vars   , &
       !$acc lnd2atm_vars   , &
       !$acc lun_ef     , &
@@ -592,11 +542,6 @@ module elm_driver
       !$acc NitrifDenitrifParamsInst     , &
       !$acc ParamsShareInst     , &
       !$acc params_inst     ) 
-      
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after lun/lnd2atm/domain/params:", free2/1.E9
-      #endif
       !$acc enter data copyin( subgrid_weights_diagnostics, &
       !$acc top_af     , &
       !$acc top_as     , &
@@ -615,27 +560,18 @@ module elm_driver
       !$acc veg_wf     , &
       !$acc veg_ws      &
       !$acc   )
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after top/veg vars:", free2/1.E9
-      #endif
       call htape_gpu_init() 
       !$acc enter data copyin(tape_gpu(:),elmptr_ra(:),elmptr_rs(:))
       !$acc enter data copyin( doalb, declinp1, declin )
       !$acc enter data copyin(filter(:), gpu_clumps(:), gpu_procinfo, proc_filter,proc_filter_inactive_and_active  )
       !$acc enter data copyin(filter_inactive_and_active(:),bounds_proc )
       !$acc enter data copyin(transport_ptr_list(:)) 
-      #if _CUDA 
+#if _CUDA 
       istat = cudaMemGetInfo(free2, total)
       write(iulog,*) iam,"Free after final copyin:", free2/1.E9
-      #endif
-      call cpu_time(startt)
-      print *, "active only:" 
+#endif
       call setProcFilters(bounds_proc, proc_filter, .false., glc2lnd_vars%icemask_grc)
-      write(iulog,*) "inactive and active:" 
       call setProcFilters(bounds_proc, proc_filter_inactive_and_active, .true., glc2lnd_vars%icemask_grc)
-      call cpu_time(stopt) 
-      write(iulog,*) iam,"TIMING SetProcFilters :: ",(stopt-startt)*1.E+3, "ms"
       !$acc enter data copyin(cpl_bypass_input%atm_input(:,:,:,1:5))
       end if
       
@@ -643,7 +579,6 @@ module elm_driver
       !$acc   year_curr,mon_curr,day_curr,secs_curr,&
       !$acc   year_prev,mon_prev,day_prev,secs_prev, dayspyr_mod,jday_mod)
       
-     !write(iulog,*) "update_forcings cplbypass : " 
      !call update_forcings_cplbypass(bounds_proc, atm2lnd_vars, cpl_bypass_input, &
      !       dtime_mod, thiscalday_mod,secs_curr, year_curr, mon_curr, nstep_mod) 
       if (do_budgets) call WaterBudget_Reset()
@@ -747,13 +682,16 @@ module elm_driver
          call summary_veg_state_p2c ( proc_filter%num_soilc, proc_filter%soilc, &
          veg_cs, col_cs, veg_ps,col_ps, veg_ns, col_ns)
          
-         ! elseif(use_fates)then
-         !      ! In this scenario, we simply zero all of the
-         !      ! column level variables that would had been upscaled
-         !      ! in the veg summary with p2c
-         !      call col_cs%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-         !      call col_ns%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-         !      call col_ps%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
+      elseif(use_fates)then
+         do nc = 1, nclumps 
+            call get_clump_bounds(nc, bounds_clump)
+           ! In this scenario, we simply zero all of the
+           ! column level variables that would had been upscaled
+           ! in the veg summary with p2c
+           call col_cs%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
+           call col_ns%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
+           call col_ps%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
+         end do 
       end if
       call cpu_time(stopt) 
       write(iulog,*) iam,"TIMING cnpvegsum ",(stopt-startt)*1.E+3,"ms"

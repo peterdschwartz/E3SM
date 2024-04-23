@@ -665,10 +665,6 @@ module VegetationDataType
   contains
     procedure, public :: Init       => veg_cf_init
     procedure, public :: Restart    => veg_cf_restart
-    !procedure, public :: Summary    => veg_cf_summary
-    !procedure, public :: SummaryRR  => veg_cf_summary_rr      ! Root respiration summary
-    !procedure, public :: SummaryCH4 => veg_cf_summary_for_ch4 ! Summary for CH4 model
-    !procedure, public :: SetValues  => veg_cf_setvalues
     procedure, public :: Clean      => veg_cf_clean
   end type vegetation_carbon_flux
 
@@ -8531,15 +8527,13 @@ module VegetationDataType
       this%cpool_deadcroot_storage_gr(p)
     enddo
     call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
-            this%rr, &
-            col_cf_input%rr)
+            this%rr,  col_cf_input%rr)
 
   end subroutine veg_cf_summary_rr
 
   !------------------------------------------------------------
   subroutine veg_cf_summary_for_ch4( this, bounds, num_soilp, filter_soilp)
     !
-    !$acc routine seq
     ! !DESCRIPTION:
     ! summarize vegetation-level fluxes for methane calculation
     !

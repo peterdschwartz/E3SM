@@ -91,7 +91,6 @@ contains
     integer                  , intent(inout) :: num_nosnowc          ! number of column non-snow points
     integer                  , intent(inout) :: filter_nosnowc(:)    ! column filter for non-snow points
     type(atm2lnd_type)       , intent(in)    :: atm2lnd_vars
-    type(lnd2atm_type)       , intent(in)    :: lnd2atm_vars
     type(soilstate_type)     , intent(inout) :: soilstate_vars
     type(canopystate_type)   , intent(in)    :: canopystate_vars
     type(aerosol_type)       , intent(inout) :: aerosol_vars
@@ -196,12 +195,12 @@ contains
 
          call Infiltration(bounds, num_hydrononsoic, filter_hydrononsoic, &
               num_urbanc, filter_urbanc, &
-              soilhydrology_vars, soilstate_vars, dtime_mod)
+              atm2lnd_vars, soilhydrology_vars, soilstate_vars, dtime_mod)
 
       else
       !------------------------------------------------------------------------------------
         call Infiltration(bounds, num_hydrologyc, filter_hydrologyc, num_urbanc, filter_urbanc, &
-             soilhydrology_vars, soilstate_vars, dtime_mod)
+             atm2lnd_vars, soilhydrology_vars, soilstate_vars, dtime_mod)
          
       end if
       !------------------------------------------------------------------------------------
@@ -628,7 +627,7 @@ contains
 
       do fc = 1, num_fc
          c = filter(fc)
-         h2osoi_tend_tsl(c) = (h2osoi_liq(c,1) - h2osoi_liq_saved(c)) / dtime
+         h2osoi_tend_tsl(c) = (h2osoi_liq(c,1) - h2osoi_liq_saved(c)) / dtime_mod
       end do
 
       end associate

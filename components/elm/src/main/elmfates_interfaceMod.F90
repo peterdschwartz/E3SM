@@ -2250,7 +2250,7 @@ contains
 
    subroutine wrap_photosynthesis(this, bounds_clump, fn, filterp, &
          esat_tv, eair, oair, cair, rb, dayl_factor,             &
-         atm2lnd_inst, canopystate_inst, photosyns_inst)
+         canopystate_inst, photosyns_inst)
 
     use shr_log_mod       , only : errMsg => shr_log_errMsg
     use abortutils        , only : endrun
@@ -2271,7 +2271,6 @@ contains
     real(r8)               , intent(in)            :: cair( bounds_clump%begp: )        ! Atmospheric CO2 partial pressure (Pa)
     real(r8)               , intent(in)            :: rb( bounds_clump%begp: )          ! boundary layer resistance (s/m)
     real(r8)               , intent(in)            :: dayl_factor( bounds_clump%begp: ) ! scalar (0-1) for daylength
-    type(atm2lnd_type)     , intent(in)            :: atm2lnd_inst
     type(canopystate_type) , intent(inout)         :: canopystate_inst
     type(photosyns_type)   , intent(inout)         :: photosyns_inst
 

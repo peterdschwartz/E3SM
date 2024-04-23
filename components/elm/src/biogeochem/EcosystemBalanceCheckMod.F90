@@ -41,11 +41,10 @@ module EcosystemBalanceCheckMod
   use ColumnDataType      , only : column_phosphorus_state, column_phosphorus_flux
   use VegetationType      , only : veg_pp
   use VegetationDataType  , only : veg_cf, veg_nf, veg_pf
-   
+  use Tracer_varcon       , only : is_active_betr_bgc
   use timeinfoMod
   use subgridAveMod , only : unity
   !
-  #define is_active_betr_bgc .false.  
   implicit none
   save
   private

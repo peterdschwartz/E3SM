@@ -41,7 +41,8 @@ module FrictionVelocityType
      real(r8), pointer :: z0mg_col         (:)   ! col roughness length over ground, momentum  [m]
      real(r8), pointer :: z0hg_col         (:)   ! col roughness length over ground, sensible heat [m]
      real(r8), pointer :: z0qg_col         (:)   ! col roughness length over ground, latent heat [m]
-
+     real(r8), pointer :: num_iter_patch   (:)   ! number of iterations performed to find a solution
+                                                 ! to the land-energy flux balance in CanopyFluxes()
    contains
 
      procedure, public  :: Init

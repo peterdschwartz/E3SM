@@ -32,7 +32,8 @@ module PhenologyMod
   use VegetationType      , only : veg_pp
   use VegetationDataType  , only : veg_es, veg_ef, veg_cs, veg_cf, veg_ns, veg_nf
   use VegetationDataType  , only : veg_ps, veg_pf
-  !!!Added for gpu timing info
+  use SolarAbsorbedType   , only : solarabs_type
+  ! Added for gpu timing info
   use timeinfoMod
 
   !
@@ -297,7 +298,7 @@ contains
     end do
 
    if (num_pcropp > 0 ) then
-       call CropPlantDate(num_soilp, filter_soilp, num_pcropp, filter_pcropp,&
+       call CropPlantDate(num_pcropp, filter_pcropp,&
             cnstate_vars, crop_vars, solarabs_vars)
    end if
 
@@ -2331,7 +2332,7 @@ contains
   end subroutine vernalization
 
   !-----------------------------------------------------------------------
-  subroutine CropPlantDate (num_soilp, filter_soilp, num_pcropp, filter_pcropp, &
+  subroutine CropPlantDate (num_pcropp, filter_pcropp, &
         cnstate_vars, crop_vars, solarabs_vars)
     !
     ! !DESCRIPTION:
@@ -2604,7 +2605,7 @@ contains
             ! The transfer rate is a linearly decreasing function of time,
             ! going to zero on the last timestep of the onset period
 
-            if (onset_counter(p) == dt .or. (use_crop .and. percrop(ivt(p)) == 1.0_r8) ) then
+            if (onset_counter(p) == dtime_mod .or. (use_crop .and. percrop(ivt(p)) == 1.0_r8) ) then
                t1 = 1.0_r8 / dtime_mod
             else
                t1 = 2.0_r8 / (onset_counter(p))

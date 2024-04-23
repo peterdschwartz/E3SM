@@ -1,6 +1,6 @@
 module CH4Mod
 
-   #include "shr_assert.h"
+#include "shr_assert.h"
   !-----------------------------------------------------------------------
   ! !DESCRIPTION:
   ! Module holding routines to calculate methane fluxes
@@ -2286,10 +2286,10 @@ contains
                      end if ! anoxia
                   end if
                else
-                  #ifndef _OPENACC 
+#ifndef _OPENACC 
                   call endrun(msg=' ERROR: No source for decomp rate in CH4Prod.'//&
                        ' CH4 model currently requires CN.'//errMsg(__FILE__, __LINE__))
-                  #endif 
+#endif 
                end if ! use_cn
 
                ! For sensitivity studies
@@ -3640,7 +3640,7 @@ contains
 
                   if (conc_ch4_rel(fc,j) < 0._r8) then
                      deficit = - conc_ch4_rel(fc,j)*epsilon_t(fc,j,1)*dz(c,j)  ! Mol/m^2 added
-                     #ifndef _OPENACC 
+#ifndef _OPENACC 
                      if (deficit > 1.e-3_r8 * scale_factor_gasdiff) then
                         if (deficit > 1.e-2_r8) then
                            write(iulog,*)  'Note: sink > source in ch4_tran, sources are changing '// &
@@ -3651,7 +3651,7 @@ contains
                            write(iulog,*) 'If this occurs frequently, consider reducing land model (or  methane model) timestep, or reducing the max. sink per timestep in the methane model.'
                         end if
                      end if
-                     #endif 
+#endif 
                      conc_ch4_rel(fc,j) = 0._r8
                      ! Subtract deficit
                      ch4_surf_diff(c) = ch4_surf_diff(c) - deficit/dtime_mod

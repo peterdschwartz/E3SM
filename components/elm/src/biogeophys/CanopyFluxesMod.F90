@@ -41,7 +41,7 @@ module CanopyFluxesMod
   use VegetationType        , only : veg_pp
   use VegetationDataType    , only : veg_es, veg_ef, veg_ws, veg_wf
   ! using elm_instMod messes with the compilation order
-  !#fates_py use elm_instMod           , only : alm_fates, soil_water_retention_curve
+  use elm_instMod           , only : alm_fates, soil_water_retention_curve
   use timeinfoMod
   use spmdmod          , only: masterproc
   !
@@ -99,7 +99,6 @@ contains
     !NEW
     use elm_varsur         , only : firrig
     use TopounitType       , only : top_pp
-    use domainMod          , only : ldomain_gpu
     use QSatMod            , only : QSat
     use FrictionVelocityMod, only : FrictionVelocity, MoninObukIni, implicit_stress, atm_gustiness, force_land_gustiness
     use SoilWaterRetentionCurveMod, only : soil_water_retention_curve_type
@@ -163,10 +162,10 @@ contains
     !added by K.Sakaguchi for stability formulation
     real(r8), parameter :: ria  = 0.5_r8             ! free parameter for stable formulation (currently = 0.5, "gamma" in Sakaguchi&Zeng,2008)
 
-    real(r8) :: zldis(num_nolu_vegp)   ! reference height "minus" zero displacement height [m]
+    real(r8) :: zldis(num_nolu_vegp)      ! reference height "minus" zero displacement height [m]
     real(r8) :: zeta                      ! dimensionless height used in Monin-Obukhov theory
     real(r8) :: wc                        ! convective velocity [m/s]
-    real(r8) :: ugust_total(bounds%begp:bounds%endp) ! gustiness including convective velocity [m/s]
+    real(r8) :: ugust_total(num_nolu_vegp) ! gustiness including convective velocity [m/s]
     real(r8) :: dth(num_nolu_vegp)     ! diff of virtual temp. between ref. height and surface
     real(r8) :: dthv(num_nolu_vegp)    ! diff of vir. poten. temp. between ref. height and surface
     real(r8) :: dqh(num_nolu_vegp)     ! diff of humidity between ref. height and surface
@@ -248,7 +247,7 @@ contains
     integer  :: nmozsgn(num_nolu_vegp) ! number of times stability changes sign
     real(r8) :: w                      ! exp(-LSAI)
     real(r8) :: csoilcn                ! interpolated csoilc for less than dense canopies
-    real(r8) :: fm(num_nolu_vegp)    ! needed for BGC only to diagnose 10m wind speed
+    real(r8) :: fm(num_nolu_vegp)      ! needed for BGC only to diagnose 10m wind speed
     real(r8) :: wtshi                  ! sensible heat resistance for air, grnd and leaf [-]
     real(r8) :: wtsqi                  ! latent heat resistance for air, grnd and leaf [-]
     integer  :: j                      ! soil/snow level index
@@ -256,6 +255,7 @@ contains
     integer  :: c                      ! column index
     integer  :: l                      ! landunit index
     integer  :: t                      ! topounit index
+    integer  :: tpu_ind                ! index of topounit to grid
     integer  :: g                      ! gridcell index
     integer  :: fp                     ! lake filter pft index
     integer  :: fn                     ! number of values in vegetated pft filter
@@ -294,9 +294,17 @@ contains
     real(r8) :: deficit                        ! difference between desired soil moisture level for this layer and
                                                ! current soil moisture level [kg/m2]
     real(r8) :: dt_veg(num_nolu_vegp)          ! change in t_veg, last iteration (Kelvin)
+    integer  :: filterc_tmp(num_nolu_vegp)     ! temporary variable
     integer  :: ft                             ! plant functional type index
-    real(r8) :: temprootr,sum1
+    real(r8) :: temprootr, sum_irrig
     integer  :: iv
+    real(r8) :: wind_speed0(num_nolu_vegp)    ! Wind speed from atmosphere at start of iteration
+    real(r8) :: wind_speed_adj(num_nolu_vegp) ! Adjusted wind speed for iteration
+    real(r8) :: tau                     ! Stress used in iteration
+    real(r8) :: tau_diff(num_nolu_vegp) ! Difference from previous iteration tau
+    real(r8) :: prev_tau(num_nolu_vegp) ! Previous iteration tau
+    real(r8) :: prev_tau_diff(num_nolu_vegp) ! Previous difference in iteration tau
+
     real :: startt, stopt,iterT1,iterT2
     integer :: filterp(num_nolu_vegp)  ! filter for iteration loop
     integer :: converged(num_nolu_vegp), num_unconverged 
@@ -316,6 +324,9 @@ contains
          forc_t               => top_as%tbot                               , & ! Input:  [real(r8) (:)   ]  atmospheric temperature (Kelvin)
          forc_u               => top_as%ubot                               , & ! Input:  [real(r8) (:)   ]  atmospheric wind speed in east direction (m/s)
          forc_v               => top_as%vbot                               , & ! Input:  [real(r8) (:)   ]  atmospheric wind speed in north direction (m/s)
+         wsresp               => top_as%wsresp                             , & ! Input:  [real(r8) (:)   ]  response of wind to surface stress (m/s/Pa)
+         tau_est              => top_as%tau_est                            , & ! Input:  [real(r8) (:)   ]  approximate atmosphere change to zonal wind (m/s)
+         ugust                => top_as%ugust                              , & ! Input:  [real(r8) (:)   ]  gustiness from atmosphere (m/s)
          forc_pco2            => top_as%pco2bot                            , & ! Input:  [real(r8) (:)   ]  partial pressure co2 (Pa)
          forc_pc13o2          => top_as%pc13o2bot                          , & ! Input:  [real(r8) (:)   ]  partial pressure c13o2 (Pa)
          forc_po2             => top_as%po2bot                             , & ! Input:  [real(r8) (:)   ]  partial pressure o2 (Pa)
@@ -358,13 +369,14 @@ contains
          z0hv                 => frictionvel_vars%z0hv_patch               , & ! Output: [real(r8) (:)   ]  roughness length over vegetation, sensible heat [m]
          z0qv                 => frictionvel_vars%z0qv_patch               , & ! Output: [real(r8) (:)   ]  roughness length over vegetation, latent heat [m]
          rb1                  => frictionvel_vars%rb1_patch                , & ! Output: [real(r8) (:)   ]  boundary layer resistance (s/m)
-         forc_hgt_t_patch => frictionvel_vars%forc_hgt_t_patch , & ! Input:  [real(r8) (:) ] observational height of temperature at pft level [m]
-         forc_hgt_q_patch => frictionvel_vars%forc_hgt_q_patch , & ! Input:  [real(r8) (:) ] observational height of specific humidity at pft level [m]
-         vds              => frictionvel_vars%vds_patch        , & ! Output: [real(r8) (:) ] dry deposition velocity term (m/s) (for SO4 NH4NO3)
-         u10              => frictionvel_vars%u10_patch        , & ! Output: [real(r8) (:) ] 10-m wind (m/s) (for dust model)
-         u10_elm          => frictionvel_vars%u10_elm_patch    , & ! Output: [real(r8) (:) ] 10-m wind (m/s)
-         va               => frictionvel_vars%va_patch         , & ! Output: [real(r8) (:) ] atmospheric wind speed plus convective velocity (m/s)
-         fv               => frictionvel_vars%fv_patch         ,  & ! Output: [real(r8) (:) ] friction velocity (m/s) (for dust model)
+         num_iter             => frictionvel_vars%num_iter_patch           , & ! Output: number of iterations required
+         forc_hgt_t_patch     => frictionvel_vars%forc_hgt_t_patch , & ! Input:  [real(r8) (:) ] observational height of temperature at pft level [m]
+         forc_hgt_q_patch     => frictionvel_vars%forc_hgt_q_patch , & ! Input:  [real(r8) (:) ] observational height of specific humidity at pft level [m]
+         vds                  => frictionvel_vars%vds_patch        , & ! Output: [real(r8) (:) ] dry deposition velocity term (m/s) (for SO4 NH4NO3)
+         u10                  => frictionvel_vars%u10_patch        , & ! Output: [real(r8) (:) ] 10-m wind (m/s) (for dust model)
+         u10_elm              => frictionvel_vars%u10_elm_patch    , & ! Output: [real(r8) (:) ] 10-m wind (m/s)
+         va                   => frictionvel_vars%va_patch         , & ! Output: [real(r8) (:) ] atmospheric wind speed plus convective velocity (m/s)
+         fv                   => frictionvel_vars%fv_patch         ,  & ! Output: [real(r8) (:) ] friction velocity (m/s) (for dust model)
 
          t_h2osfc             => col_es%t_h2osfc             , & ! Input:  [real(r8) (:)   ]  surface water temperature
          t_soisno             => col_es%t_soisno             , & ! Input:  [real(r8) (:,:) ]  soil temperature (Kelvin)
@@ -465,8 +477,8 @@ contains
             end do
          end do
          
-            
       end if
+      
       if(num_nolu_vegp == 0) return
       !!NOTE:  Ensure dtime_mod and secs_curr replaces dtime and time !!!!
       ! Determine step size
@@ -509,19 +521,11 @@ contains
       !NOTE: This likely shouldn't init based on bounds but on a filter !!
       call photosyns_vars_TimeStepInit(photosyns_vars,bounds)
 
-#ifndef _OPENACC
       if (use_fates) then
-         !#fates_py call alm_fates%prep_canopyfluxes( bounds )
+         call alm_fates%prep_canopyfluxes( bounds )
       end if
-#endif
       
       rb1(begp:endp) = 0._r8
-
-
-      !NOTE: this filter set up means doing the same calculations for a column
-      !      redundantly (eg. computing the same column variable 4 times)
-      !      It would be best to make nolu_vegc filter.
-      !assign the temporary filter
       
       ! compute effective soil porosity
       call calc_effective_soilporosity(bounds,                          &
@@ -559,6 +563,18 @@ contains
       ! wetness factor btran and the root weighting factors for FATES.  These
       ! values require knowledge of the belowground root structure.
       ! --------------------------------------------------------------------------
+      
+      ! assign the temporary filter
+      ! pds note: This filter appears to have redundant entries, so I have removed 
+      !           it's use in the ELM subroutines. Keeping it here for FATES.
+      ! Ex: if each soil column has 4 active soil patches, then
+      !        each calculation with this filter will do the same col
+      !        four times in a row.   
+      do f = 1, fn
+         p = filterp(f)
+         filterc_tmp(f)=veg_pp%column(p)
+      enddo
+
       if(use_fates)then
          call alm_fates%wrap_btran(bounds, fn, filterc_tmp(1:fn), soilstate_vars, &
                energyflux_vars, soil_water_retention_curve)
@@ -579,7 +595,9 @@ contains
       ! Also set n_irrig_steps_left for these grid cells
       ! n_irrig_steps_left(p) > 0 is ok even if irrig_rate(p) ends up = 0
       ! in this case, we'll irrigate by 0 for the given number of time steps
-      !$acc parallel loop independent gang vector default(present) present(btran(:),elai(:),n_irrig_steps_left(:), irrig_rate(:)) private(p,g,local_time,seconds_since_irrig_start_time)
+      !$acc parallel loop independent gang vector default(present) &
+      !$acc present(btran(:),elai(:),n_irrig_steps_left(:), irrig_rate(:)) &
+      !$acc private(p,g,local_time,seconds_since_irrig_start_time)
       do f = 1, fn
          p = filter_nolu_vegp(f)
          g = veg_pp%gridcell(p)
@@ -616,9 +634,11 @@ contains
       do f = 1, fn
          p = filter_nolu_vegp(f)
          c = veg_pp%column(p)
+         t = veg_pp%topounit(p)
+         tpu_ind = top_pp%topo_grc_ind(t)  !Get topounit index on the grid
          g = veg_pp%gridcell(p)
          if (check_for_irrig(f)) then
-            !$acc loop vector reduction(+:sum1) private(vol_liq_so,h2osoi_liq_so,h2osoi_liq_sat,deficit)
+            !$acc loop vector reduction(+:sum_irrig) private(vol_liq_so,h2osoi_liq_so,h2osoi_liq_sat,deficit)
             do j = 1,nlevgrnd
                ! if level L was frozen, then we don't look at any levels below L
                if (t_soisno(c,j) > SHR_CONST_TKFRZ .and. rootfr(p,j) > 0._r8) then
@@ -633,12 +653,12 @@ contains
                   deficit        = max((h2osoi_liq_so + firrig(g,tpu_ind)*(h2osoi_liq_sat - h2osoi_liq_so)) - h2osoi_liq(c,j), 0._r8)
 
                   ! Add deficit to irrig_rate, converting units from mm to mm/sec
-                  sum1  = sum1 + deficit/(dtime_mod*irrig_nsteps_per_day)
+                  sum_irrig  = sum_irrig + deficit/(dtime_mod*irrig_nsteps_per_day)
 
                end if  ! else if (rootfr(p,j) > 0)
             end do     ! do j
-            irrig_rate(p) = sum1
-         end if        ! if (check_for_irrig(f) .and. .not. frozen_soil(f))
+            irrig_rate(p) = sum_irrig
+         end if        ! if (check_for_irrig(f))
       end do           ! do f
 
       found = .false.
@@ -708,16 +728,16 @@ contains
          end if
          ! Initialize winds for iteration.
          if (implicit_stress) then
-            wind_speed0(p) = max(0.01_r8, hypot(forc_u(t), forc_v(t)))
-            wind_speed_adj(p) = wind_speed0(p)
-            ur(f) = max(1.0_r8, sqrt(wind_speed_adj(p)**2 + ugust(t)**2))
+            wind_speed0(f) = max(0.01_r8, hypot(forc_u(t), forc_v(t)))
+            wind_speed_adj(f) = wind_speed0(f)
+            ur(f) = max(1.0_r8, sqrt(wind_speed_adj(f)**2 + ugust(t)**2))
          
-            prev_tau(p) = tau_est(t)
+            prev_tau(f) = tau_est(t)
          else
             ur(f) = max(1.0_r8,sqrt(forc_u(t)*forc_u(t)+forc_v(t)*forc_v(t)+ugust(t)*ugust(t)))
          end if
-         tau_diff(p) = 1.e100_r8
-         ugust_total(p) = ugust(t)         
+         tau_diff(f) = 1.e100_r8
+         ugust_total(f) = ugust(t)         
          dth(f)   = thm(p)-taf(f)
          dqh(f)   = forc_q(t)-qaf(f)
          delq(f)  = qg(c) - qaf(f)
@@ -762,7 +782,7 @@ contains
             p = filterp(f)
             call FrictionVelocity_noloop ( &
                         displa(p), z0mv(p), z0hv(p), z0qv(p), &
-                        obu(f), itlef+1, ur(f), um(f), ugust_total(p), ustar(f), &
+                        obu(f), itlef+1, ur(f), um(f), ugust_total(f), ustar(f), &
                         temp1(f), temp2(f), temp12m(f), temp22m(f), fm(f), &
                         forc_hgt_u_patch(p), forc_hgt_t_patch(p), forc_hgt_q_patch(p), &
                         vds(p), u10(p), u10_elm(p), va(p), fv(p))
@@ -788,11 +808,11 @@ contains
             ! This is mainly to avoid convergence issues since this is such a
             ! basic form of iteration in this loop...
             if (implicit_stress) then
-               tau(p) = forc_rho(t)*wind_speed_adj(p)/ram1(p)
-               call shr_flux_update_stress_elm(wind_speed0(p), wsresp(t), tau_est(t), &
-                    tau(p), prev_tau(p), tau_diff(p), prev_tau_diff(p), &
-                    wind_speed_adj(p))
-               ur(f) = max(1.0_r8, sqrt(wind_speed_adj(p)**2 + ugust(t)**2))
+               tau = forc_rho(t)*wind_speed_adj(f)/ram1(p)
+               call shr_flux_update_stress_elm(wind_speed0(f), wsresp(t), tau_est(t), &
+                    tau, prev_tau(f), tau_diff(f), prev_tau_diff(f), &
+                    wind_speed_adj(f))
+               ur(f) = max(1.0_r8, sqrt(wind_speed_adj(f)**2 + ugust(t)**2))
             end if
             
 
@@ -874,7 +894,7 @@ contains
             call alm_fates%wrap_photosynthesis(bounds, fn, filterp(1:fn), &
                   svpts(begp:endp), eah(begp:endp), o2(begp:endp), &
                   co2(begp:endp), rb(begp:endp), dayl_factor(begp:endp), &
-                  atm2lnd_vars, canopystate_vars, photosyns_vars)
+                  canopystate_vars, photosyns_vars)
          else ! not use_fates
 
             if ( use_hydrstress ) then
@@ -882,7 +902,7 @@ contains
                     svpts(begp:endp), eah(begp:endp), o2(begp:endp), co2(begp:endp), rb(begp:endp), bsun(begp:endp), &
                     bsha(begp:endp), btran(begp:endp), dayl_factor(begp:endp), &
                     qsatl(begp:endp), qaf(begp:endp),     &
-                    atm2lnd_vars, soilstate_vars, surfalb_vars, solarabs_vars,    &
+                    soilstate_vars, surfalb_vars, solarabs_vars,    &
                     canopystate_vars, photosyns_vars)
             else
               call Photosynthesis(bounds,num_nolu_vegp,filterp,converged(1:num_nolu_vegp),&
@@ -1139,7 +1159,7 @@ contains
                zeta = max(-100._r8,min(zeta,-0.01_r8))
                if ((.not. atm_gustiness) .or. force_land_gustiness) then
                   wc = beta*(-grav*ustar(f)*thvstar*zii/thv(c))**0.333_r8
-                  ugust_total(p) = sqrt(ugust(t)**2 + wc**2)
+                  ugust_total(f) = sqrt(ugust(t)**2 + wc**2)
                   um(f) = sqrt(ur(f)*ur(f)+wc*wc)
                else
                   um(f) = max(ur(f),0.1_r8)

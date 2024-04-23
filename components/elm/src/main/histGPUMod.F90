@@ -2,7 +2,7 @@ module histGPUMod
 
   use shr_kind_mod  , only : r8 => shr_kind_r8
   use decompMod     , only : bounds_type
-  use histFileMod   , only : elmptr_rs, elmptr_ra, elmpoint_rs
+  use histFileMod   , only : elmptr_rs, elmptr_ra
   use elm_varcon    , only : spval, ispval, dzsoi_decomp
   use elm_varcon    , only : grlnd, nameg, namet, namel, namec, namep
   use GridcellType  , only : grc_pp
@@ -53,8 +53,6 @@ module histGPUMod
 
   type (history_entry_gpu), public, allocatable :: tape_gpu(:)   ! array concat htapes
   !$acc declare create(tape_gpu(:))
-!   type(elmpoint_rs) , public, allocatable :: gpu_elmptr_rs(:)
-!!!!$acc declare create(gpu_elmptr_rs(:))  
   public :: hist_update_hbuf_gpu
 contains
 

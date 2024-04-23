@@ -12,8 +12,6 @@ module domainMod
   use elm_varctl  , only : iulog
   use spmdMod  , only : masterproc
   use shr_sys_mod, only : shr_sys_abort 
-  #define nan 1e36
-
 !
 ! !PUBLIC TYPES:
   implicit none
@@ -67,30 +65,10 @@ module domainMod
   type(domain_type)    , public :: ldomain
   real(r8), allocatable, public :: lon1d(:), lat1d(:) ! 1d lat/lons for 2d grids
 
-  type, public :: domain_params_type
-     !! This is a type that holds only physically relevant fields of ldomain
-     !! Needed to workaround gpu compiler issues.  Alternative may be to pass ldomain
-     !! as arguments instead of by USE.
-     real(r8), pointer :: f_grd(:) 
-     real(r8), pointer :: f_surf(:)
-     real(r8), pointer :: firrig(:)
-     real(r8), pointer :: latc(:)    ! latitude of grid cell (deg)
-     real(r8), pointer :: lonc(:)    ! longitude of grid cell (deg)
-
-     !real(r8), pointer :: area(:)  !Only in CNPBudgetMod?
-     !real(r8), pointer :: frac(:)
-     integer, pointer :: glcmask(:)
-
-  end type domain_params_type
-
-  type(domain_params_type), public :: ldomain_gpu
-  !$acc declare create(ldomain_gpu)
-
 ! !PUBLIC MEMBER FUNCTIONS:
   public domain_init          ! allocates/nans domain types
   public domain_clean         ! deallocates domain types
   public domain_check         ! write out domain info
-  public :: domain_transfer
 !
 ! !REVISION HISTORY:
 ! Originally elm_varsur by Mariana Vertenstein
@@ -109,6 +87,7 @@ contains
 !
 ! !INTERFACE:
 subroutine domain_init(domain,isgrid2d,ni,nj,nbeg,nend,elmlevel)
+   use shr_infnan_mod, only : nan => shr_infnan_nan, assignment(=)
    !
    ! !DESCRIPTION:
    ! This subroutine allocates and nans the domain type
@@ -258,9 +237,14 @@ subroutine domain_clean(domain)
          write(iulog,*) 'domain_clean: cleaning ',domain%ni,domain%nj
       endif
       deallocate(domain%mask,domain%frac,domain%latc, &
-            domain%lonc,domain%area,domain%firrig,domain%pftm, &
-            domain%topo,domain%f_surf,domain%f_grd,domain%num_tunits_per_grd,domain%glcmask, &
-            domain%xCell,domain%yCell,stat=ier)
+            domain%pftm,domain%area,domain%lonc, &
+            domain%topo,domain%num_tunits_per_grd,domain%glcmask, &
+            domain%xCell,domain%yCell, &
+            domain%stdev_elev,domain%sky_view,domain%terrain_config, &
+            domain%sinsl_cosas,domain%sinsl_sinas,stat=ier)
+       if (ier /= 0) then
+          call shr_sys_abort('domain_clean ERROR: deallocate mask, frac, lat, lon, area ')
+       endif
 
       ! pflotran:beg-----------------------------------------------------
       ! 'nv' is user-defined, so it must be initialized or assigned value prior to call this subroutine
@@ -361,29 +345,5 @@ subroutine domain_check(domain)
   endif
 
 end subroutine domain_check
-
-subroutine domain_transfer()
-
-   implicit none
-   integer :: nend
-
-   nend = ubound(ldomain%f_grd,1)
-
-   allocate(ldomain_gpu%f_grd  (1:nend) )
-   allocate(ldomain_gpu%f_surf (1:nend) )
-   allocate(ldomain_gpu%firrig (1:nend) )
-   allocate(ldomain_gpu%glcmask(1:nend) )
-   allocate(ldomain_gpu%latc(1:nend))
-   allocate(ldomain_gpu%lonc(1:nend))
-   ldomain_gpu%f_grd(:)  = ldomain%f_grd(:)
-   ldomain_gpu%f_surf(:)  = ldomain%f_surf(:)
-   ldomain_gpu%firrig(:)  = ldomain%firrig(:)
-   ldomain_gpu%glcmask(:) = ldomain%glcmask(:)
-   ldomain_gpu%latc(:) = ldomain%latc(:)
-   ldomain_gpu%lonc(:) = ldomain%lonc(:)
-
-end subroutine domain_transfer
-
-!------------------------------------------------------------------------------
 
 end module domainMod

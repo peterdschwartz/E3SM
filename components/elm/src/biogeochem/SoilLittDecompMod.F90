@@ -31,9 +31,11 @@ module SoilLittDecompMod
   use ColumnDataType         , only : col_ns, col_nf
   use ColumnDataType         , only : col_ps, col_pf
   use VegetationDataType     , only : veg_ps, veg_pf
+  use ELMFatesInterfaceMod   , only : hlm_fates_interface_type
   ! clm interface & pflotran:
   use elm_varctl             , only : use_elm_interface, use_pflotran, pf_cmode
   use elm_varctl             , only : use_cn, use_fates
+  use elm_instMod            , only : alm_fates
   !
   implicit none
   save
@@ -129,9 +131,6 @@ contains
     real(r8):: cp_decomp_pools_new(num_soilc,1:nlevdecomp,1:ndecomp_pools)              !C:P ratio of new SOM
     integer, parameter :: i_atm = 0
     integer :: k_donor_pool
-    ! For methane code
-    !real(r8):: hrsum(num_soilc,1:nlevdecomp)          !sum of HR (gC/m2/s)
-    real :: startt, stopt
     real(r8) :: sum_1, sum_2, sum_3, sum_4
 
     character(len=64) :: event
@@ -198,17 +197,14 @@ contains
 
       ! column loop to calculate potential decomp rates and total immobilization
       ! demand.
-      call cpu_time(startt) 
       !$acc enter data create(cn_decomp_pools(:num_soilc,1:nlevdecomp,1:ndecomp_pools), &
       !$acc                                     p_decomp_cpool_loss(:num_soilc,1:nlevdecomp,1:ndecomp_cascade_transitions))
       !$acc enter data create(cp_decomp_pools(:num_soilc,1:nlevdecomp,1:ndecomp_pools),&
       !$acc                   immob(:num_soilc,1:nlevdecomp) ,immob_p(:num_soilc,1:nlevdecomp)  ) 
       !$acc enter data create(cp_decomp_pools_new(:num_soilc,1:nlevdecomp,1:ndecomp_pools)) 
-      call cpu_time(stopt) 
-      write(iulog,*) "SoilLittDecompAlloc1 :: create",(stopt-startt)*1.E+3,"ms" 
       !! calculate c:n ratios of applicable pools
 
-      !$acc parallel loop gang independent collapse(2) default(present)
+      !$acc parallel loop gang worker independent collapse(2) default(present)
       do l = 1, ndecomp_pools
          do j = 1,nlevdecomp
             !$acc loop vector independent private(c)
@@ -354,8 +350,8 @@ contains
       ! to resolve the competition between plants and soil heterotrophs
       ! for available soil mineral N resource.
       ! in addition, calculate fpi_vr, fpi_p_vr, & fgp
-      call Allocation2_ResolveNPLimit(bounds,num_soilc, filter_soilc, &
-               cnstate_vars, soilstate_vars, dtime)
+      call Allocation2_ResolveNPLimit(bounds,num_soilc, filter_soilc, num_soilp, filter_soilp, &
+               cnstate_vars, soilstate_vars, dtime, alm_fates)
       ! column loop to calculate actual immobilization and decomp rates, following
       ! resolution of plant/heterotroph  competition for mineral N
       !-------------------------------------------------------------------------------------------------
@@ -380,7 +376,6 @@ contains
                decomp_cascade_ntransfer_vr(c,j,k) = 0._r8 
                decomp_cascade_sminn_flux_vr(c,j,k) = 0._r8
                decomp_cascade_sminp_flux_vr(c,j,k) = 0._r8
-               if (decomp_cpools_vr(c,j,cascade_donor_pool(k)) > 0._r8) then
 
                if (decomp_cpools_vr(c,j,k_donor_pool) > 0._r8) then
                   if ( pmnf_decomp_cascade(c,j,k) > 0._r8 .and. pmpf_decomp_cascade(c,j,k) > 0._r8 ) then    ! N and P co-limitation
@@ -505,6 +500,8 @@ contains
    end if
 
       if (use_lch4) then
+         ! Nitrogen limitation / (low)-moisture limitation
+
          !$acc parallel loop independent gang worker collapse(2) private(c,sum_1) default(present)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
@@ -516,7 +513,6 @@ contains
                   do k = 1, ndecomp_cascade_transitions
                      sum_1 = sum_1 + rf_decomp_cascade(c,j,k) * p_decomp_cpool_loss(fc,j,k)
                   end do
-                  ! Nitrogen limitation / (low)-moisture limitation
                   fphr(c,j) = sum_1/phr_vr(c,j)* w_scalar(c,j)
                   fphr(c,j) = max(fphr(c,j),0.01_r8) ! Prevent overflow errors for 0 respiration
                else
@@ -725,13 +721,13 @@ contains
       !------------------------------------------------------------------
       ! phase-3 Allocation for plants
       if(.not.use_fates)then
-        ! event = 'CNAllocation - phase-3'
-        !call t_start_lnd(event)
+         event = 'CNAllocation - phase-3'
+        call t_start_lnd(event)
         call Allocation3_PlantCNPAlloc( &
                   num_soilc, filter_soilc, num_soilp, filter_soilp    , &
                   canopystate_vars                                    , &
                   cnstate_vars, crop_vars, dt)
-        !call t_stop_lnd(event)
+        call t_stop_lnd(event)
       end if
       !------------------------------------------------------------------
     if(use_pflotran.and.pf_cmode) then

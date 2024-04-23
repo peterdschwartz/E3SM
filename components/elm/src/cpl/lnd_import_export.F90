@@ -24,7 +24,7 @@ contains
       use elm_varcon       , only: rair, o2_molar_const, c13ratio
       use elm_varctl       , only: iulog
       use shr_const_mod    , only: SHR_CONST_TKFRZ, SHR_CONST_STEBOL
-      use clm_time_manager , only: get_curr_date
+      use elm_time_manager , only: get_curr_date
       ! !ARGUMENTS:
       type(bounds_type)  , intent(in)    :: bounds   ! bounds
       real(r8)           , intent(in)    :: x2l(:,:) ! driver import state to land model

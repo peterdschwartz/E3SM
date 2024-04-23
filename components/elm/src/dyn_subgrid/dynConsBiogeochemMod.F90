@@ -36,7 +36,7 @@ module dynConsBiogeochemMod
    use dynSubgridAdjustmentsMod , only : dyn_veg_cs_Adjustments, dyn_col_cs_Adjustments
    use dynSubgridAdjustmentsMod , only : dyn_veg_ns_Adjustments, dyn_col_ns_Adjustments
    use dynSubgridAdjustmentsMod , only : dyn_veg_ps_Adjustments, dyn_col_ps_Adjustments
-   
+   use GridcellType             , only : grc_pp 
    
    !
    ! !PUBLIC MEMBER FUNCTIONS:
@@ -136,7 +136,7 @@ module dynConsBiogeochemMod
       real(r8) :: froot, croot
       real(r8) :: fr_flab, fr_fcel, fr_flig
       real(r8) :: startt, stopt
-      real(r8) :: sum1, sum2, sum3, sum4 ,sum5
+      real(r8) :: sum1, sum2, sum3, sum4 ,sum5, sum6
       !-----------------------------------------------------------------------
       
       if ( use_c13 ) then
@@ -454,7 +454,7 @@ module dynConsBiogeochemMod
          sum4 = 0._r8; sum5 = 0._r8
          !$acc loop vector reduction(+:sum1) default(present)
          do p = grc_pp%pfti(g), grc_pp%pftf(g)
-            l = lun_pp%landunit(p)
+            l = veg_pp%landunit(p)
             if (lun_pp%itype(l) == istsoil .or. lun_pp%itype(l) == istcrop) then
                sum1 = sum1 + veg_cf%dwt_conv_cflux(p)
                sum2 = sum2 + veg_cf%dwt_prod10c_gain(p)
@@ -584,7 +584,7 @@ module dynConsBiogeochemMod
          sum4 = 0._r8; sum5 = 0._r8; sum6 = 0._r8
          !$acc loop vector reduction(+:sum1,sum2,sum3,sum4,sum5,sum6) default(present)
          do p = grc_pp%pfti(g), grc_pp%pftf(g)
-            l = lun_pp%landunit(p)
+            l = veg_pp%landunit(p)
             if (lun_pp%itype(l) == istsoil .or. lun_pp%itype(l) == istcrop) then
                sum1 = sum1 + veg_nf%dwt_conv_nflux(p)
                sum2 = sum2 + veg_nf%dwt_prod10n_gain(p)
@@ -726,7 +726,7 @@ module dynConsBiogeochemMod
          sum4 = 0._r8; sum5 = 0._r8; sum6 = 0._r8
          !$acc loop vector reduction(+:sum1,sum2,sum3,sum4,sum5,sum6) default(present)
          do p = grc_pp%pfti(g), grc_pp%pftf(g)
-            l = lun_pp%landunit(p)
+            l = veg_pp%landunit(p)
             if (lun_pp%itype(l) == istsoil .or. lun_pp%itype(l) == istcrop) then
                sum1 = sum1 + veg_pf%dwt_conv_pflux(p)
                sum2 = sum2 + veg_pf%dwt_prod10p_gain(p)

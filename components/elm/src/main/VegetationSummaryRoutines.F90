@@ -28,11 +28,11 @@ module VegetationSummaryRoutinesMod
    public :: veg_nf_setvalues_acc
 
    public :: summary_veg_flux_p2c, summary_veg_state_p2c
-   public :: veg_cf_summary_rr
+   public :: veg_cf_summary_rr_acc
 
 contains
    !------------------------------------------------------------
-  subroutine veg_cf_summary_rr(this, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
+  subroutine veg_cf_summary_rr_acc(this, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
    !
    ! !DESCRIPTION:
    ! summarize root respiration
@@ -70,7 +70,7 @@ contains
    call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
            this%rr, col_cf_input%rr)
 
- end subroutine veg_cf_summary_rr
+ end subroutine veg_cf_summary_rr_acc
 
 
    subroutine veg_cf_summary_for_ch4_acc( this,num_soilp,filter_soilp )

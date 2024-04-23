@@ -16,7 +16,7 @@ module PrecisionControlMod
   use VegetationType      , only : veg_pp
   use VegetationDataType  , only : veg_cs, c13_veg_cs, c14_veg_cs
   use VegetationDataType  , only : veg_ns, veg_ps
-  #define is_active_betr_bgc .false.
+  use Tracer_varcon       , only : is_active_betr_bgc
   !
   implicit none
   save

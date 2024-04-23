@@ -30,7 +30,6 @@ module CanopyHydrologyMod
   use pftvarcon         , only : irrigated
   use GridcellType      , only : grc_pp
   use timeinfoMod, only : dtime_mod
-  use domainMod ,only : ldomain_gpu
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -121,7 +120,6 @@ contains
      use elm_varpar         , only : nlevsoi,nlevsno
      use elm_varsur         , only : wt_lunit, f_grd, f_surf
      use atm2lndType        , only : atm2lnd_type
-     !use domainMod          , only : ldomain
      use TopounitType       , only : top_pp
      use subgridAveMod      , only : p2c,p2g
      use elm_time_manager   , only : get_step_size, get_prev_date, get_nstep

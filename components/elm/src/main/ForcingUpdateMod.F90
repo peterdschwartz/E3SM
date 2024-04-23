@@ -12,7 +12,7 @@ module ForcingUpdateMod
 
   use elm_varcon       , only: rair, o2_molar_const, c13ratio
   use decompMod        , only : bounds_type
-  use domainMod        , only : ldomain_gpu
+  use domainMod        , only : ldomain
 
   ! Constants to compute vapor pressure
   real(r8),parameter :: a0=6.107799961_r8, a1=4.436518521e-01_r8, &
@@ -197,8 +197,8 @@ contains
     !Shortwave radiation (cosine zenith angle interpolation)
     thishr = (tod-dtime/2)/3600
     if (thishr < 0) thishr=thishr+24
-    thismin = mod((tod-dtime/2)/60, 60)
-    thiscosz = max(cos(szenith(ldomain_gpu%lonc(g),ldomain_gpu%latc(g),0,int(thiscalday),thishr,thismin,0)* &
+    thismin = mod((tod-int(dtime)/2)/60, 60)
+    thiscosz = max(cos(szenith(ldomain%lonc(g),ldomain%latc(g),0,int(thiscalday),thishr,thismin,0)* &
                     3.14159265358979/180.0d0), 0.001d0)
     avgcosz = 0d0
     if (atm2lnd_vars%npf(4) - 1._r8 .gt. 1e-3) then
@@ -210,8 +210,8 @@ contains
         !Get the average cosine zenith angle over the time resolution of the input data
         thishr  = (swrad_period_start+(tm-1)*dtime+dtime/2)/3600
         if (thishr > 23) thishr=thishr-24
-        thismin = mod((swrad_period_start+(tm-1)*dtime+dtime/2)/60, 60)
-        avgcosz  = avgcosz + max(cos(szenith(ldomain_gpu%lonc(g),ldomain_gpu%latc(g),0,int(thiscalday),thishr, thismin, 0) &
+        thismin = mod((swrad_period_start+(tm-1)*int(dtime)+int(dtime)/2)/60, 60)
+        avgcosz  = avgcosz + max(cos(szenith(ldomain%lonc(g),ldomain%latc(g),0,int(thiscalday),thishr, thismin, 0) &
                    *3.14159265358979/180.0d0), 0.001d0)/atm2lnd_vars%npf(4)
       end do
 

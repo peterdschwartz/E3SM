@@ -13,8 +13,8 @@ module C14DecayMod
   use elm_varctl             , only : nu_com
   use ColumnDataType         , only : c14_col_cs
   use VegetationDataType     , only : c14_veg_cs
-  #define is_active_betr_bgc .false.
   use timeInfoMod
+  use Tracer_varcon , only : is_active_betr_bgc
   !
   implicit none
   save

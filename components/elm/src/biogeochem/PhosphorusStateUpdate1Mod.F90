@@ -29,7 +29,7 @@ module PhosphorusStateUpdate1Mod
   use GridcellDataType       , only : grc_ps, grc_pf
   use ColumnDataType         , only : col_ps, col_pf
   use VegetationDataType     , only : veg_ps, veg_pf
-  use timeinfoMod 
+  use timeinfoMod    
   !
   implicit none
   save
@@ -37,19 +37,9 @@ module PhosphorusStateUpdate1Mod
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: PhosphorusStateUpdateDynPatch
-  public :: PhosphorusStateUpdate1
-  !-----------------------------------------------------------------------
-   
-   !
-   implicit none
-   save
-   private
-   !
-   ! !PUBLIC MEMBER FUNCTIONS:
-   public :: PhosphorusStateUpdateDynPatch
-   public :: PhosphorusStateUpdate_Phase1_col
-   public :: PhosphorusStateUpdate_Phase1_pft
-   public :: PhosphorusStateDynGridUpdate 
+  public :: PhosphorusStateUpdate_Phase1_col
+  public :: PhosphorusStateUpdate_Phase1_pft
+  public :: PhosphorusStateDynGridUpdate 
 
    !-----------------------------------------------------------------------
    

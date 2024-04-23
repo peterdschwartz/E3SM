@@ -108,7 +108,7 @@ contains
     associate(                                                       &
          ivt                                 =>    veg_pp%itype    , & ! Input:  [integer  (:) ]  pft vegetation type
          woody                               =>    veg_vp%woody    , & ! Input:  [real(r8) (:) ]  binary flag for woody lifeform
-         k_mort                              =>    CNGapMortParamsInst%k_mort & ! set coeff of growth efficiency in mortality equation
+         k_mort                              =>    CNGapMortParamsInst%k_mort, & ! set coeff of growth efficiency in mortality equation
          croplive                            =>    crop_vars%croplive_patch & ! Input:  [logical  (:)   ]  flag, true if planted, not harvested
          )
 

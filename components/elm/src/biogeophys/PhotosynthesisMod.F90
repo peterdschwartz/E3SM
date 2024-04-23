@@ -1539,7 +1539,7 @@ contains
   subroutine PhotosynthesisHydraulicStress ( bounds, fn, filterp, &
        esat_tv, eair, oair, cair, rb, bsun, bsha, btran, dayl_factor,  &
        qsatl, qaf, &
-       atm2lnd_inst,  soilstate_inst,  &
+       soilstate_inst,  &
        surfalb_inst, solarabs_inst, canopystate_inst, &
        photosyns_inst)
 
@@ -1580,7 +1580,6 @@ contains
     real(r8)               , intent(out)   :: bsha( bounds%begp: )           ! shaded canopy transpiration wetness factor (0 to 1)
     real(r8)               , intent(out)   :: btran( bounds%begp: )          ! transpiration wetness factor (0 to 1) [pft]
 
-    type(atm2lnd_type)     , intent(in)    :: atm2lnd_inst
     type(surfalb_type)     , intent(in)    :: surfalb_inst
     type(solarabs_type)    , intent(in)    :: solarabs_inst
     type(canopystate_type) , intent(inout) :: canopystate_inst
@@ -2359,7 +2358,7 @@ contains
 
 
                call calcstress(p,c,t,vegwp(p,:),bsun(p),bsha(p),gb_mol(p),bbb(p),bbb(p), &
-                    qsatl(p),qaf(p), atm2lnd_inst,canopystate_inst, &
+                    qsatl(p),qaf(p), canopystate_inst, &
                     soilstate_inst)
 
                ac(p,sun,iv) = 0._r8
@@ -2430,7 +2429,7 @@ contains
                call hybrid_PHS(ci_z_sun(p,iv), ci_z_sha(p,iv), p, iv, c, t, gb_mol(p), bsun(p),bsha(p), je_sun, &
                                je_sha, cair(p), oair(p), lmr_z_sun(p,iv), lmr_z_sha(p,iv), &
                                par_z_sun(p,iv), par_z_sha(p,iv), rh_can, gs_mol_sun(p,iv), gs_mol_sha(p,iv), &
-                               qsatl(p), qaf(p), iter1, iter2, atm2lnd_inst, photosyns_inst, &
+                               qsatl(p), qaf(p), iter1, iter2,  photosyns_inst, &
                                canopystate_inst,  soilstate_inst)
 
                gsminsun     = bbb(p)
@@ -2632,7 +2631,7 @@ contains
   !--------------------------------------------------------------------------------
   subroutine hybrid_PHS(x0sun, x0sha, p, iv, c, t, gb_mol, bsun, bsha, jesun, jesha, &
        cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha, rh_can, &
-       gs_mol_sun, gs_mol_sha, qsatl, qaf, iter1, iter2, atm2lnd_inst, photosyns_inst, &
+       gs_mol_sun, gs_mol_sha, qsatl, qaf, iter1, iter2, photosyns_inst, &
        canopystate_inst, soilstate_inst )
     !
     !! DESCRIPTION:
@@ -2674,7 +2673,6 @@ contains
     real(r8), intent(in)    :: qaf                      ! humidity of canopy air [kg/kg]
     integer,  intent(out)   :: iter1                    ! number of iterations used to find appropriate bsun/bsha
     integer,  intent(out)   :: iter2                    ! number of iterations used to find cisun/cisha
-    type(atm2lnd_type)     , intent(in)    :: atm2lnd_inst
     type(photosyns_type)   , intent(inout) :: photosyns_inst
     type(canopystate_type) , intent(inout) :: canopystate_inst
     type(soilstate_type)   , intent(inout) :: soilstate_inst
@@ -2740,7 +2738,7 @@ contains
        ! this ci_func_PHS call updates bsun/bsha (except on first iter)
        call ci_func_PHS(x,x0sun, x0sha, f0sun, f0sha, p, iv, c, t, bsun, bsha, bflag, gb_mol, gs0sun, gs0sha,&
             gs_mol_sun, gs_mol_sha, jesun, jesha, cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha, rh_can, &
-            qsatl, qaf, atm2lnd_inst, photosyns_inst, canopystate_inst, soilstate_inst )
+            qsatl, qaf, photosyns_inst, canopystate_inst, soilstate_inst )
 
        ! update bsun/bsha convergence vars
        dbsun=b0sun-bsun
@@ -2752,7 +2750,7 @@ contains
        ! this ci_func_PHS call creates second point for ci interpolation
        call ci_func_PHS(x,x1sun, x1sha, f1sun, f1sha, p, iv, c, t, bsun, bsha, bflag, gb_mol, gs0sun, gs0sha,&
             gs_mol_sun, gs_mol_sha, jesun, jesha, cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha, rh_can, &
-            qsatl, qaf, atm2lnd_inst, photosyns_inst, canopystate_inst, soilstate_inst  )
+            qsatl, qaf, photosyns_inst, canopystate_inst, soilstate_inst  )
 
        do                !inner loop finds ci
           if ( (abs(f0sun) < eps1) .and. (abs(f0sha) < eps1) ) then
@@ -2783,7 +2781,7 @@ contains
 
           call ci_func_PHS(x,x1sun, x1sha, f1sun, f1sha, p, iv, c, t, bsun, bsha, bflag, gb_mol, gs0sun, gs0sha,&
                gs_mol_sun, gs_mol_sha, jesun, jesha, cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha, rh_can, &
-               qsatl, qaf, atm2lnd_inst, photosyns_inst, canopystate_inst, soilstate_inst )
+               qsatl, qaf, photosyns_inst, canopystate_inst, soilstate_inst )
 
           if ( (abs(dxsun) < tolsun ) .and. (abs(dxsha) <tolsha) ) then
              x0sun=x1sun
@@ -2812,7 +2810,7 @@ contains
 
              call brent_PHS(xsun, x0sun, x1sun, f0sun, f1sun, xsha, x0sha, x1sha, f0sha, f1sha, &
                   tolsun, p, iv, c, t, gb_mol, jesun, jesha, cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha,&
-                  rh_can, gs_mol_sun, gs_mol_sha, bsun, bsha, qsatl, qaf, atm2lnd_inst, photosyns_inst, &
+                  rh_can, gs_mol_sun, gs_mol_sha, bsun, bsha, qsatl, qaf, photosyns_inst, &
                   canopystate_inst,  soilstate_inst )
              x0sun=xsun
              x0sha=xsha
@@ -2824,7 +2822,7 @@ contains
              x1sha=minxsha
              call ci_func_PHS(x,x1sun, x1sha, f1sun, f1sha, p, iv, c, t, bsun, bsha, bflag, gb_mol, gs0sun, gs0sha,&
                   gs_mol_sun, gs_mol_sha, jesun, jesha, cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha, rh_can, &
-                  qsatl, qaf, atm2lnd_inst, photosyns_inst, canopystate_inst,  soilstate_inst  )
+                  qsatl, qaf, photosyns_inst, canopystate_inst,  soilstate_inst  )
              exit
           endif
 
@@ -2854,7 +2852,7 @@ contains
 
     !set vegwp for the final gs_mol solution
     call getvegwp(p, c, t, x, gb_mol, gs_mol_sun, gs_mol_sha, qsatl, qaf, soilflux, &
-         atm2lnd_inst, canopystate_inst,  soilstate_inst )
+         canopystate_inst,  soilstate_inst )
     vegwp(p,:)=x
     if (soilflux<0._r8) soilflux = 0._r8
     qflx_tran_veg(p) = soilflux
@@ -2867,7 +2865,7 @@ contains
   !------------------------------------------------------------------------------
   subroutine brent_PHS(xsun, x1sun, x2sun, f1sun, f2sun, xsha, x1sha, x2sha, f1sha, f2sha, &
        tol, ip, iv, ic, it, gb_mol, jesun, jesha, cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha,&
-       rh_can, gs_mol_sun, gs_mol_sha, bsun, bsha, qsatl, qaf, atm2lnd_inst, photosyns_inst, &
+       rh_can, gs_mol_sun, gs_mol_sha, bsun, bsha, qsatl, qaf, photosyns_inst, &
        canopystate_inst,  soilstate_inst )
     !------------------------------------------------------------------------------
       !$acc routine seq
@@ -2901,7 +2899,6 @@ contains
     real(r8), intent(inout) :: bsha                 ! shaded canopy transpiration wetness factor (0 to 1)
     real(r8), intent(in)    :: qsatl                ! leaf specific humidity [kg/kg]
     real(r8), intent(in)    :: qaf                  ! humidity of canopy air [kg/kg]
-    type(atm2lnd_type)     , intent(in)       :: atm2lnd_inst
     type(photosyns_type)   , intent(inout)    :: photosyns_inst
     type(canopystate_type) , intent(inout)    :: canopystate_inst
     type(soilstate_type)   , intent(inout)    :: soilstate_inst
@@ -3002,7 +2999,7 @@ contains
 
        call ci_func_PHS(x,b(sun), b(sha), fb(sun), fb(sha), ip, iv, ic, it, bsun, bsha, bflag, gb_mol, gs_mol_sun, gs_mol_sha,&
             gs_mol_sun, gs_mol_sha, jesun, jesha, cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha, rh_can, &
-            qsatl, qaf, atm2lnd_inst, photosyns_inst, canopystate_inst,  soilstate_inst )
+            qsatl, qaf, photosyns_inst, canopystate_inst,  soilstate_inst )
 
        if( (fb(sun) == 0._r8) .and. (fb(sha) == 0._r8) ) exit
     enddo
@@ -3020,7 +3017,7 @@ contains
   !------------------------------------------------------------------------------
   subroutine ci_func_PHS(x,cisun, cisha, fvalsun, fvalsha, p, iv, c, t, bsun, bsha, bflag, gb_mol, gs0sun, gs0sha,&
        gs_mol_sun, gs_mol_sha, jesun, jesha, cair, oair, lmr_z_sun, lmr_z_sha, par_z_sun, par_z_sha, rh_can, &
-       qsatl, qaf, atm2lnd_inst, photosyns_inst, canopystate_inst, soilstate_inst )
+       qsatl, qaf, photosyns_inst, canopystate_inst, soilstate_inst )
     !------------------------------------------------------------------------------
     !
     ! !DESCRIPTION:
@@ -3054,7 +3051,6 @@ contains
     real(r8)               , intent(in)    :: rh_can             ! canopy air relative humidity
     real(r8)               , intent(in)    :: qsatl              ! leaf specific humidity [kg/kg]
     real(r8)               , intent(in)    :: qaf                ! humidity of canopy air [kg/kg]
-    type(atm2lnd_type)     , intent(in)    :: atm2lnd_inst
     type(photosyns_type)   , intent(inout) :: photosyns_inst
     type(canopystate_type) , intent(in)    :: canopystate_inst
     type(soilstate_type)   , intent(in)    :: soilstate_inst
@@ -3101,7 +3097,7 @@ contains
     if (bflag) then   !zqz what if bsun==0 ... doesn't break... but follow up
 
        call calcstress(p,c,t,x,bsun,bsha,gb_mol,gs0sun,gs0sha,qsatl,qaf, &
-            atm2lnd_inst,canopystate_inst,soilstate_inst)
+            canopystate_inst,soilstate_inst)
     endif
 
     if (c3flag(p)) then
@@ -3222,7 +3218,7 @@ contains
 
   !------------------------------------------------------------------------------
   subroutine calcstress(p,c,t,x,bsun,bsha,gb_mol,gs_mol_sun,gs_mol_sha,qsatl,qaf, &
-       atm2lnd_inst,canopystate_inst,soilstate_inst )
+       canopystate_inst,soilstate_inst )
     !
     ! DESCRIPTIONS
     ! compute the transpiration stress using a plant hydraulics approach
@@ -3248,7 +3244,6 @@ contains
     real(r8)               , intent(in)  :: gs_mol_sha      ! Ball-Berry minimum leaf conductance (umol H2O/m**2/s)
     real(r8)               , intent(in)  :: qsatl           ! leaf specific humidity [kg/kg]
     real(r8)               , intent(in)  :: qaf             ! humidity of canopy air [kg/kg]
-    type(atm2lnd_type)     , intent(in)  :: atm2lnd_inst
     type(canopystate_type) , intent(in)  :: canopystate_inst
     type(soilstate_type)   , intent(in)  :: soilstate_inst
     !
@@ -3307,7 +3302,7 @@ contains
     !compute transpiration demand
     havegs=.true.
     call getqflx(p,c,t,gb_mol,gs0sun,gs0sha,qflx_sun,qflx_sha,qsatl,qaf,havegs, &
-         atm2lnd_inst, canopystate_inst  )
+          canopystate_inst  )
 
     if ((laisun(p)>tol_lai .or. laisha(p)>tol_lai).and.&
          (qflx_sun>0._r8 .or. qflx_sha>0._r8))then
@@ -3319,7 +3314,7 @@ contains
        iter=iter+1
 
        call spacF(p,c,x,f,qflx_sun,qflx_sha, &
-            atm2lnd_inst,canopystate_inst,soilstate_inst )
+            canopystate_inst,soilstate_inst )
 
        if ( sqrt(sum(f*f)) < tolf*(qflx_sun+qflx_sha) ) then  !fluxes balanced -> exit
           flag = .false.
@@ -3331,7 +3326,7 @@ contains
        end if
 
        call spacA(p,c,x,A,qflx_sun,qflx_sha,flag, &
-            atm2lnd_inst,canopystate_inst,soilstate_inst)
+            canopystate_inst,soilstate_inst)
 
        if (flag) then
           ! cannot invert the matrix, solve for x algebraically assuming no flux
@@ -3365,7 +3360,7 @@ contains
     if (flag) then
        ! solve algebraically
        call getvegwp(p, c, t, x, gb_mol, gs0sun, gs0sha, qsatl, qaf, soilflux, &
-               atm2lnd_inst, canopystate_inst,  soilstate_inst)
+               canopystate_inst,  soilstate_inst)
        bsun = plc(x(sun),p,c,sun,veg)
        bsha = plc(x(sha),p,c,sha,veg)
     else
@@ -3376,7 +3371,7 @@ contains
     ! retrieve stressed stomatal conductance
     havegs=.FALSE.
     call getqflx(p,c,t,gb_mol,gs0sun,gs0sha,qsun,qsha,qsatl,qaf,havegs, &
-         atm2lnd_inst, canopystate_inst )
+         canopystate_inst )
 
     ! compute water stress
     ! .. generally -> B= gs_stressed / gs_unstressed
@@ -3402,7 +3397,7 @@ contains
        gs0sun=bsun*gs_mol_sun
        gs0sha=bsha*gs_mol_sha
        call getvegwp(p, c, t, x, gb_mol, gs0sun, gs0sha, qsatl, qaf, soilflux, &
-            atm2lnd_inst, canopystate_inst, soilstate_inst)
+            canopystate_inst, soilstate_inst)
        if (soilflux<0._r8) soilflux = 0._r8
        qflx_tran_veg(p) = soilflux
     endif
@@ -3416,7 +3411,7 @@ contains
 
   !------------------------------------------------------------------------------
   subroutine spacA(p,c,x,invA,qflx_sun,qflx_sha,flag, &
-       atm2lnd_inst,canopystate_inst,soilstate_inst)
+       canopystate_inst,soilstate_inst)
 
     !
     ! DESCRIPTION
@@ -3442,7 +3437,6 @@ contains
     real(r8)               , intent(in)  :: qflx_sun        ! Sunlit leaf transpiration [kg/m2/s]
     real(r8)               , intent(in)  :: qflx_sha        ! Shaded leaf transpiration [kg/m2/s]
     logical                , intent(out) :: flag            ! tells calling function that the matrix is not invertible
-    type(atm2lnd_type)     , intent(in)  :: atm2lnd_inst
     type(canopystate_type) , intent(in)  :: canopystate_inst
     type(soilstate_type)   , intent(in)  :: soilstate_inst
     !
@@ -3575,7 +3569,7 @@ contains
 
   !------------------------------------------------------------------------------
   subroutine spacF(p,c,x,f,qflx_sun,qflx_sha, &
-       atm2lnd_inst,canopystate_inst,soilstate_inst )
+       canopystate_inst,soilstate_inst )
     !
     ! DESCRIPTION
     ! Returns f, the flux divergence across each vegetation segment
@@ -3594,7 +3588,6 @@ contains
     real(r8)               , intent(out) :: f(nvegwcs)      ! water flux divergence [mm/s]
     real(r8)               , intent(in)  :: qflx_sun        ! Sunlit leaf transpiration [kg/m2/s]
     real(r8)               , intent(in)  :: qflx_sha        ! Shaded leaf transpiration [kg/m2/s]
-    type(atm2lnd_type)     , intent(in)  :: atm2lnd_inst
     type(canopystate_type) , intent(in)  :: canopystate_inst
     type(soilstate_type)   , intent(in)  :: soilstate_inst
     !
@@ -3657,7 +3650,7 @@ contains
 
   !--------------------------------------------------------------------------------
   subroutine getvegwp(p, c, t, x, gb_mol, gs_mol_sun, gs_mol_sha, qsatl, qaf, soilflux, &
-       atm2lnd_inst, canopystate_inst,  soilstate_inst )
+       canopystate_inst,  soilstate_inst )
     ! !DESCRIPTION:
     !  Calculates transpiration and returns corresponding vegwp in x
     !
@@ -3679,7 +3672,6 @@ contains
     real(r8)               , intent(in)  :: qsatl            ! leaf specific humidity [kg/kg]
     real(r8)               , intent(in)  :: qaf              ! humidity of canopy air [kg/kg]
     real(r8)               , intent(out) :: soilflux         ! total soil column transpiration [mm/s]
-    type(atm2lnd_type)     , intent(in)  :: atm2lnd_inst
     type(canopystate_type) , intent(in)  :: canopystate_inst
     type(soilstate_type)   , intent(in)  :: soilstate_inst
     !
@@ -3715,7 +3707,7 @@ contains
     !compute transpiration demand
     havegs=.true.
     call getqflx(p,c,t,gb_mol,gs_mol_sun,gs_mol_sha,qflx_sun,qflx_sha,qsatl,qaf,havegs, &
-         atm2lnd_inst, canopystate_inst )
+         canopystate_inst )
 
     !calculate root water potential
     if ( abs(sum(k_soil_root(p,1:nlevsoi))) == 0._r8 ) then
@@ -3758,7 +3750,7 @@ contains
 
   !--------------------------------------------------------------------------------
   subroutine getqflx(p,c,t,gb_mol,gs_mol_sun,gs_mol_sha,qflx_sun,qflx_sha,qsatl,qaf,havegs, &
-       atm2lnd_inst, canopystate_inst)
+       canopystate_inst)
     ! !DESCRIPTION:
     !  calculate sunlit and shaded transpiration using gb_MOL and gs_MOL
     ! !USES:
@@ -3779,7 +3771,6 @@ contains
     real(r8) , intent(in)     :: qsatl      ! leaf specific humidity [kg/kg]
     real(r8) , intent(in)     :: qaf        ! humidity of canopy air [kg/kg]
     logical  , intent(in)     :: havegs     ! signals direction of calculation gs->qflx or qflx->gs
-    type(atm2lnd_type)     , intent(in)  :: atm2lnd_inst
     type(canopystate_type) , intent(in)  :: canopystate_inst
     !
     ! !LOCAL VARIABLES:

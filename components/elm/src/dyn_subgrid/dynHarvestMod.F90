@@ -30,7 +30,7 @@ module dynHarvestMod
   use elm_varctl            , only : use_cn, use_fates, iulog
   use FatesConstantsMod     , only : hlm_harvest_area_fraction
   use FatesConstantsMod     , only : hlm_harvest_carbon
-
+  use timeInfoMod 
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   implicit none
@@ -362,7 +362,7 @@ contains
    )
 
 
-   days_per_year = dayspyr_mod !get_days_per_year()
+   days_per_year = dayspyr_mod
 
    ! patch loop
    do fp = 1,num_soilp

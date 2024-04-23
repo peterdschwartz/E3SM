@@ -310,7 +310,7 @@ contains
     
     ! Read surface dataset and set up subgrid weight arrays
     call surfrd_get_data(begg, endg, ldomain, fsurdat)
-    call domain_transfer() 
+   !  call domain_transfer() 
 
     ! ------------------------------------------------------------------------
     ! Ask Fates to evaluate its own dimensioning needs.
@@ -536,7 +536,7 @@ contains
     use UrbanParamsType       , only : urban_hac, urban_hac_off, urban_hac_on, urban_wasteheat_on
     use elm_instMod           , only : patch_state_updater, column_state_updater
     use subgridAveMod, only :  initialize_scale_l2g_lookup, initialize_scale_c2l
-    use domainMod, only : domain_transfer
+   !  use domainMod, only : domain_transfer
     !
     ! !ARGUMENTS
     implicit none
@@ -718,7 +718,7 @@ contains
 
     ! FATES is instantiated in the following call.  The global is in clm_inst
     call elm_inst_biogeochem(bounds_proc)
-    call domain_transfer()
+   !  call domain_transfer()
     ! ------------------------------------------------------------------------
     ! Initialize accumulated fields
     ! ------------------------------------------------------------------------

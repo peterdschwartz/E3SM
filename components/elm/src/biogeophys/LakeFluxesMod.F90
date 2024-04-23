@@ -105,6 +105,7 @@ contains
     real(r8) :: ur       ! wind speed at reference height [m/s]
     real(r8) :: ustar    ! friction velocity [m/s]
     real(r8) :: wc       ! convective velocity [m/s]
+    real(r8) :: ugust_total  ! gustiness including convective velocity [m/s]
     real(r8) :: zeta     ! dimensionless height used in Monin-Obukhov theory
     real(r8) :: zldis     ! reference height "minus" zero displacement height [m]
     real(r8) :: displa    ! displacement (always zero) [m]
@@ -132,12 +133,12 @@ contains
     real(r8), parameter :: prn = 0.713             ! Prandtl # for air at neutral stability
     real(r8), parameter :: sch = 0.66              ! Schmidt # for water in air at neutral stability
 
-    real(r8) :: wind_speed0(bounds%begp:bounds%endp)    ! Wind speed from atmosphere at start of iteration
-    real(r8) :: wind_speed_adj(bounds%begp:bounds%endp) ! Adjusted wind speed for iteration
-    real(r8) :: tau(bounds%begp:bounds%endp)      ! Stress used in iteration
-    real(r8) :: tau_diff(bounds%begp:bounds%endp) ! Difference from previous iteration tau
-    real(r8) :: prev_tau(bounds%begp:bounds%endp) ! Previous iteration tau
-    real(r8) :: prev_tau_diff(bounds%begp:bounds%endp) ! Previous difference in iteration tau
+    real(r8) :: wind_speed0 ! (bounds%begp:bounds%endp)   ! Wind speed from atmosphere at start of iteration
+    real(r8) :: wind_speed_adj !(bounds%begp:bounds%endp) ! Adjusted wind speed for iteration
+    real(r8) :: tau !(bounds%begp:bounds%endp)      ! Stress used in iteration
+    real(r8) :: tau_diff !(bounds%begp:bounds%endp) ! Difference from previous iteration tau
+    real(r8) :: prev_tau !(bounds%begp:bounds%endp) ! Previous iteration tau
+    real(r8) :: prev_tau_diff !(bounds%begp:bounds%endp) ! Previous difference in iteration tau
     !-----------------------------------------------------------------------
 
     associate(                                                           &
@@ -156,6 +157,9 @@ contains
          forc_rain        =>    top_af%rain                            , & ! Input:  [real(r8) (:)   ]  rain rate (kg H2O/m**2/s, or mm liquid H2O/s)
          forc_u           =>    top_as%ubot                            , & ! Input:  [real(r8) (:)   ]  atmospheric wind speed in east direction (m/s)
          forc_v           =>    top_as%vbot                            , & ! Input:  [real(r8) (:)   ]  atmospheric wind speed in north direction (m/s)
+         wsresp           =>    top_as%wsresp                          , & ! Input:  [real(r8) (:)   ]  response of wind to surface stress (m/s/Pa)
+         tau_est          =>    top_as%tau_est                         , & ! Input:  [real(r8) (:)   ]  approximate atmosphere change to zonal wind (m/s)
+         ugust            =>    top_as%ugust                           , & ! Input:  [real(r8) (:)   ]  gustiness from atmosphere (m/s)
 
          fsds_nir_d       =>    solarabs_vars%fsds_nir_d_patch         , & ! Input:  [real(r8) (:)   ]  incident direct beam nir solar radiation (W/m**2)
          fsds_nir_i       =>    solarabs_vars%fsds_nir_i_patch         , & ! Input:  [real(r8) (:)   ]  incident diffuse nir solar radiation (W/m**2)
@@ -330,11 +334,11 @@ contains
 
          ! Initialize winds for iteration.
          if (implicit_stress) then
-            wind_speed0(p) = max(0.01_r8, hypot(forc_u(t), forc_v(t)))
-            wind_speed_adj(p) = wind_speed0(p)
-            ur = max(1.0_r8, sqrt(wind_speed_adj(p)**2 + ugust(t)**2))
+            wind_speed0 = max(0.01_r8, hypot(forc_u(t), forc_v(t)))
+            wind_speed_adj = wind_speed0
+            ur = max(1.0_r8, sqrt(wind_speed_adj**2 + ugust(t)**2))
          
-            prev_tau(p) = tau_est(t)
+            prev_tau = tau_est(t)
          else
             ur  = max(1.0_r8,sqrt(forc_u(t)*forc_u(t)+forc_v(t)*forc_v(t)+ugust(t)*ugust(t)))
          end if
@@ -347,9 +351,9 @@ contains
 
          call MoninObukIni(ur, thv, dthv, zldis, z0mg, um, obu)
 
-      iter = 1
+         iter = 1
       
-      ! Begin stability iteration
+         ! Begin stability iteration
       
       ITERATION : do while (iter <= niters )
 
@@ -359,7 +363,7 @@ contains
 
          call FrictionVelocity_noloop( &
               displa, z0mg, z0hg, z0qg, &
-              obu, iter, ur, um,  ugust_total(p),ustar, &
+              obu, iter, ur, um,ustar, &
               temp1, temp2, temp12m, temp22m, &
               fm, forc_hgt_u_patch(p), forc_hgt_t_patch(p), forc_hgt_q_patch(p), &
               vds(p), u10(p), u10_elm(p), va(p), fv(p))
@@ -395,11 +399,11 @@ contains
 
          ! Calculate magnitude of stress and update wind speed.
          if (implicit_stress) then
-            tau(p) = forc_rho(t)*wind_speed_adj(p)/ram
-            call shr_flux_update_stress(wind_speed0(p), wsresp(t), tau_est(t), &
-                 tau(p), prev_tau(p), tau_diff(p), prev_tau_diff(p), &
-                 wind_speed_adj(p))
-            ur = max(1.0_r8, sqrt(wind_speed_adj(p)**2 + ugust(t)**2))
+            tau = forc_rho(t)*wind_speed_adj/ram
+            call shr_flux_update_stress(wind_speed0, wsresp(t), tau_est(t), &
+                 tau, prev_tau, tau_diff, prev_tau_diff, &
+                 wind_speed_adj)
+            ur = max(1.0_r8, sqrt(wind_speed_adj**2 + ugust(t)**2))
          end if
 
          ! Get derivative of fluxes with respect to ground temperature
@@ -457,7 +461,7 @@ contains
             zeta = max(-100._r8,min(zeta,-0.01_r8))
             if ((.not. atm_gustiness) .or. force_land_gustiness) then
                wc = beta1*(-grav*ustar*thvstar*zii/thv)**0.333_r8
-               ugust_total(p) = sqrt(ugust(t)**2 + wc**2)
+               ugust_total = sqrt(ugust(t)**2 + wc**2)
                um = sqrt(ur*ur+wc*wc)
             else
                um = max(ur,0.1_r8)
@@ -601,11 +605,11 @@ contains
       z0hg_col(c) = z0hg
       z0qg_col(c) = z0qg
       ust_lake(c) = ustar
-   enddo
+   enddo ! end num_lakep
 
    !NOTE : this loop only uses global variables so keep it separate for potential
    !       cache benefits?
-   !$acc parallel loop independendent gang vector default(present)
+   !$acc parallel loop independent gang vector default(present)
    do fp = 1, num_lakep
      p = filter_lakep(fp)
      t = veg_pp%topounit(p)
