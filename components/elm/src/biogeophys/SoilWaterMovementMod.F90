@@ -449,7 +449,8 @@ contains
       ! compute jwt index
       ! The layer index of the first unsaturated layer, i.e., the layer right above
       ! the water table
-      !$acc parallel loop independent gang worker default(present)
+      !$acc parallel loop independent gang worker default(present) present(zwt(:),zi(:,:),vwc_liq(:,:),&
+      !$acc  h2osoi_vol(:,:),watsat(:,:),sucsat(:,:),bsw(:,:))
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -610,7 +611,7 @@ contains
       end do
 
       ! aquifer (11th) layer
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) present(zmm(:,:),dzmm(:,:))
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -1337,9 +1338,6 @@ contains
             !$acc loop vector reduction(+:sum1)
             do p = col_pp%pfti(c), col_pp%pftf(c) 
                if (veg_pp%active(p)) then
-                  if(c == 1 .and. j ==1 ) then 
-                     print *, p,qflx_tran_veg_patch(p),veg_pp%wtcol(p)
-                  end if 
                   sum1 = sum1 + rootr_patch(p,j) * qflx_tran_veg_patch(p) * veg_pp%wtcol(p)
                   qflx_rootsoi_frac_patch(p,j) = rootr_patch(p,j) * qflx_tran_veg_patch(p) * veg_pp%wtcol(p)
                end if
