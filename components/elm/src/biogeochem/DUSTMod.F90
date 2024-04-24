@@ -344,8 +344,8 @@ contains
       ! Loop through patches
 
       ! initialize variables which get passed to the atmosphere
-      ! flx_mss_vrt_dst(bounds%begp:bounds%endp,:)=0._r8
-
+      flx_mss_vrt_dst(bounds%begp:bounds%endp,:)=0._r8
+      
       !$acc parallel loop independent gang vector default(present)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
@@ -1041,11 +1041,11 @@ contains
       do m = 1, ndst
          stk_crc(m) = vlc_grv(m) / vlc_stk(m)
       end do
-      !$acc update device(ovr_src_snk_mss(:,:))
-      !$acc update device(dmt_vwr(:)          )
-      !$acc update device(stk_crc(:)          )
-      !$acc update device(tmp1)
-      !$acc update device(dns_aer)
+      !! !$acc update device(ovr_src_snk_mss(:,:))
+      !! !$acc update device(dmt_vwr(:)          )
+      !! !$acc update device(stk_crc(:)          )
+      !! !$acc update device(tmp1)
+      !! !$acc update device(dns_aer)
     end associate
 
   end subroutine InitDustVars

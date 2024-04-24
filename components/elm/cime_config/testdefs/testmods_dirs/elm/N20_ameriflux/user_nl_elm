@@ -4,7 +4,7 @@
  hist_empty_htapes = .true.
  hist_dov2xy = .true.
  finidat = ''
- fsurdat = '$DIN_LOC_ROOT/lnd/clm2/surfdata_map/surfdata_lakes.nc'
+ fsurdat = '$DIN_LOC_ROOT/lnd/clm2/surfdata_map/surfdata_AMFLX_N840.nc'
  paramfile = '$DIN_LOC_ROOT/lnd/clm2/paramdata/clm_params_lakes.nc'
  fsoilordercon = '$DIN_LOC_ROOT/lnd/clm2/paramdata/CNP_parameters_lakes.nc'
  stream_fldfilename_ndep = '$DIN_LOC_ROOT/lnd/clm2/ndepdata/fndep_clm_rcp4.5_simyr1849-2106_1.9x2.5_c100428.nc'
