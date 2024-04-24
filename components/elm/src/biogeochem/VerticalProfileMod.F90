@@ -31,7 +31,6 @@ module VerticalProfileMod
   !$acc declare copyin(rootprof_exp,surfprof_exp)
   !$acc declare copyin(exponential_rooting_profile, pftspecific_rootingprofile)
   !-----------------------------------------------------------------------
-
 contains
 
   !-----------------------------------------------------------------------
@@ -90,6 +89,7 @@ contains
     logical , parameter :: debug=.false.
     real(r8) :: temp_sum
     integer  :: erridx 
+    integer  :: begc, endc, begp, endp 
     character(len=32) :: subname = 'decomp_vertprofiles'
     !-----------------------------------------------------------------------
 
@@ -106,14 +106,15 @@ contains
          leaf_prof            => cnstate_vars%leaf_prof_patch              , & ! Output:  [real(r8) (:,:) ]  (1/m) profile of leaves                         
          froot_prof           => cnstate_vars%froot_prof_patch             , & ! Output:  [real(r8) (:,:) ]  (1/m) profile of fine roots                     
          croot_prof           => cnstate_vars%croot_prof_patch             , & ! Output:  [real(r8) (:,:) ]  (1/m) profile of coarse roots                   
-         stem_prof            => cnstate_vars%stem_prof_patch              , & ! Output:  [real(r8) (:,:) ]  (1/m) profile of stems                          
+         stem_prof            => cnstate_vars%stem_prof_patch               & ! Output:  [real(r8) (:,:) ]  (1/m) profile of stems                          
          
-         begp                 => bounds%begp                               , &
-         endp                 => bounds%endp                               , &
-         begc                 => bounds%begc                               , &
-         endc                 => bounds%endc                                 &
          )
 
+      begp = bounds%begp  
+      endp = bounds%endp  
+      begc = bounds%begc  
+      endc = bounds%endc
+      !$acc enter data copyin(surfprof_exp,rootprof_exp)  
       !$acc enter data create(&
       !$acc surface_prof(:), &
       !$acc cinput_rootfr(:,:) , &
@@ -129,10 +130,11 @@ contains
       if (use_vertsoilc) then
 
          ! define a single shallow surface profile for surface additions (leaves, stems, and N deposition)
+        !$ acc parallel loop independent default(present) vector        
          do j = 1, nlevdecomp
             surface_prof(j) = exp(-surfprof_exp * zsoi(j)) / dzsoi_decomp(j)
          end do
-
+         
          ! initialize profiles to zero
          !$acc parallel loop independent gang vector collapse(2) default(present) 
          do j = 1,nlevdecomp_full
