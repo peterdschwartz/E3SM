@@ -337,22 +337,22 @@ end subroutine domain_check
 subroutine domain_transfer()
 
    implicit none
-   integer :: nend
+   integer :: nbeg,nend
 
    nend = ubound(ldomain%f_grd,1)
-
-   allocate(ldomain_gpu%f_grd  (1:nend) )
-   allocate(ldomain_gpu%f_surf (1:nend) )
-   allocate(ldomain_gpu%firrig (1:nend) )
-   allocate(ldomain_gpu%glcmask(1:nend) )
-   allocate(ldomain_gpu%latc(1:nend))
-   allocate(ldomain_gpu%lonc(1:nend))
-   ldomain_gpu%f_grd(:)  = ldomain%f_grd(:)
-   ldomain_gpu%f_surf(:)  = ldomain%f_surf(:)
-   ldomain_gpu%firrig(:)  = ldomain%firrig(:)
-   ldomain_gpu%glcmask(:) = ldomain%glcmask(:)
-   ldomain_gpu%latc(:) = ldomain%latc(:)
-   ldomain_gpu%lonc(:) = ldomain%lonc(:)
+   nbeg = lbound(ldomain%f_grd,1) 
+   allocate(ldomain_gpu%f_grd  (nbeg:nend) )
+   allocate(ldomain_gpu%f_surf (nbeg:nend) )
+   allocate(ldomain_gpu%firrig (nbeg:nend) )
+   allocate(ldomain_gpu%glcmask(nbeg:nend) )
+   allocate(ldomain_gpu%latc(nbeg:nend))
+   allocate(ldomain_gpu%lonc(nbeg:nend))
+   ldomain_gpu%f_grd(nbeg:nend)  = ldomain%f_grd(nbeg:nend)
+   ldomain_gpu%f_surf(nbeg:nend)  = ldomain%f_surf(nbeg:nend)
+   ldomain_gpu%firrig(nbeg:nend)  = ldomain%firrig(nbeg:nend)
+   ldomain_gpu%glcmask(nbeg:nend) = ldomain%glcmask(nbeg:nend)
+   ldomain_gpu%latc(nbeg:nend) = ldomain%latc(nbeg:nend)
+   ldomain_gpu%lonc(nbeg:nend) = ldomain%lonc(nbeg:nend)
 
 end subroutine domain_transfer
 

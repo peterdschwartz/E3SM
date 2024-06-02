@@ -11,7 +11,7 @@ module VegetationSummaryRoutinesMod
    use ColumnDataType , only : column_nitrogen_flux, column_nitrogen_state
    use ColumnDataType , only : column_phosphorus_flux, column_phosphorus_state
    use CNDecompCascadeConType
-
+   use decompMod , only : bounds_type
    use elm_varpar
    use elm_varctl
    use elm_varcon
@@ -28,11 +28,12 @@ module VegetationSummaryRoutinesMod
    public :: veg_nf_setvalues_acc
 
    public :: summary_veg_flux_p2c, summary_veg_state_p2c
-   public :: veg_cf_summary_rr
+   public :: veg_cf_summary_rr_acc
 
 contains
    !------------------------------------------------------------
-  subroutine veg_cf_summary_rr(this, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
+  subroutine veg_cf_summary_rr_acc(this, bounds, num_soilp, filter_soilp,&
+                               num_soilc, filter_soilc, col_cf_input)
    !
    ! !DESCRIPTION:
    ! summarize root respiration
@@ -42,6 +43,7 @@ contains
    !
    ! !ARGUMENTS:
    type(vegetation_carbon_flux) :: this
+   type(bounds_type)   :: bounds 
    integer, intent(in) :: num_soilp
    integer, intent(in) :: filter_soilp(:)
    integer, intent(in) :: num_soilc
@@ -50,6 +52,7 @@ contains
    !
    ! !LOCAL VARIABLES
    integer :: fp, p
+   integer :: begc,endc,begp,endp
    !------------------------------------------------------------
    !$acc parallel loop independent gang vector private(p) default(present)
    do fp = 1,num_soilp
@@ -67,10 +70,16 @@ contains
      this%cpool_livecroot_storage_gr(p) + &
      this%cpool_deadcroot_storage_gr(p)
    enddo
-   call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
-           this%rr, col_cf_input%rr)
-
- end subroutine veg_cf_summary_rr
+    begc = bounds%begc 
+    endc = bounds%endc
+    begp = bounds%begp
+    endp = bounds%endp 
+ 
+    call p2c_1d_filter_parallel(begc,begp,num_soilc, filter_soilc, &
+      this%rr(begp:endp), &
+      col_cf_input%rr(begc:endc))
+   
+ end subroutine veg_cf_summary_rr_acc
 
 
    subroutine veg_cf_summary_for_ch4_acc( this,num_soilp,filter_soilp )

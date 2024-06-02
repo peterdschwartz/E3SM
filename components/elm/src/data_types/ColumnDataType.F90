@@ -62,7 +62,7 @@ module ColumnDataType
   !
   ! (days) time over which to exponentially relax the npp flux for N fixation term
   real(r8), public :: nfix_timeconst = -1.2345_r8
-  !$acc declare copyin(nfix_timeconst)
+  !$acc declare create(nfix_timeconst)
   !
 
   !-----------------------------------------------------------------------
@@ -1065,23 +1065,9 @@ module ColumnDataType
   type(column_carbon_flux)           , public, target :: c14_col_cf ! column carbon flux
   type(column_nitrogen_flux)         , public, target :: col_nf     ! column nitrogen flux
   type(column_phosphorus_flux)       , public, target :: col_pf     ! column phosphorus flux
-
-  !$acc declare create(col_es)
-  !$acc declare create(col_ef)
-  !$acc declare create(col_ws)
-  !$acc declare create(col_wf)
-  !$acc declare create(col_cs)
-  !$acc declare create(c13_col_cs)
-  !$acc declare create(c14_col_cs)
-  !$acc declare create(col_ns    )
-  !$acc declare create(col_ps    )
-
-  !$acc declare create(col_cf    )
-  !$acc declare create(c13_col_cf)
-  !$acc declare create(c14_col_cf)
-  !$acc declare create(col_nf    )
-  !$acc declare create(col_pf    )
   !------------------------------------------------------------------------
+  !$acc declare create(col_ws,col_cf)
+  !$acc declare create(col_ef,col_es,col_cs)
 
 contains
 
@@ -1457,16 +1443,16 @@ contains
           avgflag='A', long_name='Snow liquid water content', &
            ptr_col=data2dptr, no_snow_behavior=no_snow_normal, default='inactive')
 
-    data2dptr => this%h2osoi_ice(:,-nlevsno+1:0)
+     data2dptr => this%h2osoi_ice(begc:endc,-nlevsno+1:0)
      call hist_addfld2d (fname='SNO_ICE', units='kg/m2', type2d='levsno',  &
           avgflag='A', long_name='Snow ice content', &
            ptr_col=data2dptr, no_snow_behavior=no_snow_normal, default='inactive')
 
     this%h2osoi_liq(begc:endc,:) = spval
-
+    data2dptr => this%h2osoi_liq(begc:endc,1:) 
     call hist_addfld2d (fname='SOILLIQ',  units='kg/m2', type2d='levgrnd', &
          avgflag='A', long_name='soil liquid water (vegetated landunits only)', &
-         ptr_col=this%h2osoi_liq, l2g_scale_type='veg')
+         ptr_col=data2dptr, l2g_scale_type='veg')
 
     this%h2osoi_liq(begc:endc,:) = spval
     call hist_addfld2d (fname='SOILLIQ_ICE',  units='kg/m2', type2d='levgrnd', &
@@ -1474,12 +1460,13 @@ contains
          ptr_col=this%h2osoi_liq, l2g_scale_type='ice')
 
     this%h2osoi_ice(begc:endc,:) = spval
+    data2dptr => this%h2osoi_ice(begc:endc,1:)
     call hist_addfld2d (fname='SOILICE',  units='kg/m2', type2d='levgrnd', &
          avgflag='A', long_name='soil ice (vegetated landunits only)', &
-         ptr_col=this%h2osoi_ice, l2g_scale_type='veg')
+         ptr_col=data2dptr, l2g_scale_type='veg')
 
     this%h2osoi_ice(begc:endc,:) = spval
-        call hist_addfld2d (fname='SOILICE_ICE',  units='kg/m2', type2d='levgrnd', &
+    call hist_addfld2d (fname='SOILICE_ICE',  units='kg/m2', type2d='levgrnd', &
         avgflag='A', long_name='soil ice (ice landunits only)', &
         ptr_col=this%h2osoi_ice, l2g_scale_type='ice')
 
@@ -5171,7 +5158,6 @@ end subroutine col_cs_restart
     !
     ! !DESCRIPTION:
     ! Set phosphorus state variables, column-level
-    !$acc routine seq
     ! !ARGUMENTS:
     class (column_phosphorus_state) :: this
     integer , intent(in)            :: num_column

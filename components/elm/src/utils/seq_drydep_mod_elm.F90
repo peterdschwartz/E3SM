@@ -47,7 +47,6 @@ module seq_drydep_mod_elm
   character(16),public,parameter :: DD_XLND = 'xactive_lnd'! dry-dep land
   character(16),public,parameter :: DD_TABL = 'table'      ! dry-dep table (atm and lnd)
   character(16),public :: drydep_method = DD_XLND          ! Which option choosen
-  !$acc declare copyin(drydep_method)
 
   real(r8), public, parameter :: ph     = 1.e-5_r8         ! measure of the acidity (dimensionless)
 
@@ -312,12 +311,12 @@ module seq_drydep_mod_elm
        /)
 
   ! PRIVATE DATA:
-  !$acc declare copyin(rac)
-  !$acc declare copyin(rlu)
-  !$acc declare copyin(rgso)
-  !$acc declare copyin(rcls)
-  !$acc declare copyin(rgss)
-  !$acc declare copyin(rclo)
+  !$acc declare create(rac)
+  !$acc declare create(rlu)
+  !$acc declare create(rgso)
+  !$acc declare create(rcls)
+  !$acc declare create(rgss)
+  !$acc declare create(rclo)
   !$acc declare create(n_drydep)
   Interface seq_drydep_setHCoeff                      ! overload subroutine
      Module Procedure set_hcoeff_scalar

@@ -239,7 +239,7 @@ contains
    ! !ARGUMENTS:
    type(bounds_type), intent(in) :: bounds
    real(r8), intent(in)  :: parr( bounds%begp: )   ! patch array
-   real(r8), intent(out) :: carr(1:)   ! column array
+   real(r8), intent(out) :: carr(bounds%begc:)   ! column array
    integer, intent(in) :: p2c_scale_type ! scale type
    logical, intent(in) :: para 
    !
@@ -396,7 +396,7 @@ contains
 
 
   !-----------------------------------------------------------------------
-  subroutine p2c_1d_filter_parallel( numfc, filterc,  pftarr, colarr)
+  subroutine p2c_1d_filter_parallel(begc,begp,numfc, filterc, pftarr, colarr)
     !
     ! !DESCRIPTION:
     ! perform pft to column averaging for single level pft arrays
@@ -404,28 +404,29 @@ contains
     !      not divisble by clumps
     !
     ! !ARGUMENTS:
+    integer , intent(in)  :: begc, begp
     integer , intent(in)  :: numfc
     integer , intent(in)  :: filterc(numfc)
-    real(r8), intent(in)  :: pftarr(:)
-    real(r8), intent(out) :: colarr(:)
-
+    real(r8), intent(in)  :: pftarr(begp:)
+    real(r8), intent(out) :: colarr(begc:)
+    !
     ! !LOCAL VARIABLES:
     integer :: fc,c,p  ! indices
-    real(r8) :: sum1
+    real(r8) :: sum_patch
     !-----------------------------------------------------------------------
 
     ! Enforce expected array sizes
 
-    !$acc parallel loop independent gang worker private(c,sum1) &
-    !$acc default(present) create(sum1)
+    !$acc parallel loop independent gang worker private(c,sum_patch) &
+    !$acc default(present) create(sum_patch)
     do fc = 1,numfc
        c = filterc(fc)
-       sum1 = 0._r8
-       !$acc loop vector reduction(+:sum1)
+       sum_patch = 0._r8
+       !$acc loop vector reduction(+:sum_patch)
        do p = col_pp%pfti(c), col_pp%pftf(c)
-          if (veg_pp%active(p)) sum1 = sum1 + pftarr(p) * veg_pp%wtcol(p)
+          if (veg_pp%active(p)) sum_patch = sum_patch + pftarr(p) * veg_pp%wtcol(p)
        end do
-       colarr(c) = sum1
+       colarr(c) = sum_patch
     end do
 
 end subroutine p2c_1d_filter_parallel

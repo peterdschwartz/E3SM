@@ -16,6 +16,14 @@ module VegetationPropertiesType
   !
   ! !PUBLIC TYPES:
   type, public :: vegetation_properties_type
+     real(r8) :: km_decomp_nh4          ! km for microbial decomposer nh4 uptake
+     real(r8) :: km_decomp_no3          ! km for microbial decomposer no3 uptake
+     real(r8) :: km_decomp_p            ! km for microbial decomposer p uptake
+     real(r8) :: km_nit                 ! km for nitrifier nh4 uptake
+     real(r8) :: km_den                 ! km for denitrifier no3 uptake
+     real(r8) :: km_ptase                ! km of biochemical p production
+     real(r8) :: lamda_ptase             ! critical value that incur biochemical production
+     real(r8) :: tc_stress    !Critial temperature for moisture stress
      integer , pointer :: noveg         (:)   => null() ! value for not vegetated
      !integer , pointer :: tree          (:)   => null() ! tree or not?
      real(r8), pointer :: smpso         (:)   => null() ! soil water potential at full stomatal opening (mm)
@@ -102,17 +110,10 @@ module VegetationPropertiesType
      real(r8), pointer :: km_plant_no3(:)        => null()   ! km for plant no3 uptake
      real(r8), pointer :: km_plant_p(:)          => null()   ! km for plant p uptake
      real(r8), pointer :: km_minsurf_p_vr(:,:)   => null()   ! km for p adsorption
-     real(r8), pointer :: km_decomp_nh4          => null()  ! km for microbial decomposer nh4 uptake
-     real(r8), pointer :: km_decomp_no3          => null()  ! km for microbial decomposer no3 uptake
-     real(r8), pointer :: km_decomp_p            => null()  ! km for microbial decomposer p uptake
-     real(r8), pointer :: km_nit                 => null()  ! km for nitrifier nh4 uptake
-     real(r8), pointer :: km_den                 => null()  ! km for denitrifier no3 uptake
      real(r8), pointer :: decompmicc_patch_vr(:,:) => null()! microbial decomposer biomass gc/m3
      real(r8), pointer :: vmax_nfix(:)             => null()! vmax of symbiotic n2 fixation
      real(r8), pointer :: km_nfix(:)               => null()! km of symbiotic n2 fixation
      real(r8), pointer :: vmax_ptase(:)            => null()! vmax of biochemical p production
-     real(r8), pointer :: km_ptase                 => null()! km of biochemical p production
-     real(r8), pointer :: lamda_ptase              => null()! critical value that incur biochemical production
      real(r8), pointer :: i_vc(:)          => null()        ! intercept of photosynthesis vcmax ~ leaf n content regression model
      real(r8), pointer :: s_vc(:)          => null()        ! slope of photosynthesis vcmax ~ leaf n content regression model
      real(r8), pointer :: nsc_rtime(:)     => null()        ! non-structural carbon residence time
@@ -309,17 +310,6 @@ contains
     allocate( this%mbbopt(0:numpft))                             ; this%mbbopt(:)                =spval
     allocate( this%nstor(0:numpft))                              ; this%nstor(:)                 =spval
     allocate( this%br_xr(0:numpft))                              ; this%br_xr(:)                 =spval
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-    allocate(this%km_decomp_nh4)
-    allocate(this%km_decomp_no3)
-    allocate(this%km_decomp_p  )
-    allocate(this%km_nit       )
-    allocate(this%km_den       )
-    allocate(this%km_ptase     )
-    allocate(this%lamda_ptase  )
-    allocate(this%tc_stress    )
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     ! new properties for flexible PFT
     allocate( this%climatezone(0:numpft))                        ; this%climatezone(:)           =spval

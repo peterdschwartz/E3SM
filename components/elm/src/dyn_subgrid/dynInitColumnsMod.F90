@@ -52,7 +52,7 @@ contains
     ! !ARGUMENTS:
       !$acc routine seq
     type(bounds_type)        , intent(in)    :: bounds                        ! bounds
-    logical                  , intent(in)    :: cactive_prior(:) ! column-level active flags from prior time step
+    logical                  , intent(in)    :: cactive_prior(bounds%begc:)   ! column-level active flags from prior time step
     type(soilhydrology_type) , intent(inout) :: soilhydrology_vars
     !
     ! !LOCAL VARIABLES:
@@ -62,7 +62,6 @@ contains
     !-----------------------------------------------------------------------
     do c = bounds%begc, bounds%endc
        ! If this column is newly-active, then we need to initialize it using the routines in this module
-       !write(iulog,*) "activ, cactive prior", c , col_pp%active(c), cactive_prior(c)
        if (col_pp%active(c) .and. .not. cactive_prior(c)) then
           c_template = initial_template_col_dispatcher(bounds, c, cactive_prior(bounds%begc:bounds%endc))
           if (c_template /= ispval) then

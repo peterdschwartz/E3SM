@@ -26,7 +26,6 @@ module CarbonIsoFluxMod
   private
   integer, parameter :: c13 = 0
   integer, parameter :: c14 = 1
-  !$acc declare copyin(c13,c14)
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public  :: CarbonIsoFlux1

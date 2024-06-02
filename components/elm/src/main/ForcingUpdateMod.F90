@@ -25,10 +25,7 @@ module ForcingUpdateMod
        b4=5.824720280e-06_r8, b5=4.838803174e-08_r8, &
        b6=1.838826904e-10_r8
 
-  integer, dimension(13) :: caldaym = (/ 1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 /)
-  !$acc declare copyin(caldaym)
-  !$acc declare copyin(a0,a1,a2,a3,a4,a5,a6)
-  !$acc declare copyin(b0,b1,b2,b3,b4,b5,b6)
+  integer,parameter, dimension(13) :: caldaym = (/ 1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 /)
 
   public :: update_forcings_cplbypass
   private :: szenith

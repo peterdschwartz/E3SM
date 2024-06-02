@@ -103,20 +103,16 @@ module PhenologyMod
   integer, parameter :: NOT_Harvested = 999 ! If not harvested yet in year
   integer, parameter :: inNH          = 1      ! Northern Hemisphere
   integer, parameter :: inSH          = 2      ! Southern Hemisphere
-  !$acc declare copyin(NOT_Planted  )
-  !$acc declare copyin(NOT_Harvested)
-  !$acc declare copyin(inNH         )
-  !$acc declare copyin(inSH         )
   integer, pointer     :: inhemi(:)           ! Hemisphere that pft is in
   integer, allocatable :: minplantjday(:,:) ! minimum planting julian day
   integer, allocatable :: maxplantjday(:,:) ! maximum planting julian day
   integer              :: jdayyrstart(inSH) ! julian day of start of year
 
   real(r8),parameter :: secspqtrday = secspday / 4._r8  ! seconds per quarter day
-  !$acc declare create(inhemi        )
-  !$acc declare create(minplantjday)
-  !$acc declare create(maxplantjday)
-  !$acc declare create(jdayyrstart)
+  !$acc declare create(inhemi  (:)      )
+  !$acc declare create(minplantjday(:))
+  !$acc declare create(maxplantjday(:))
+  !$acc declare create(jdayyrstart(:))
   !-----------------------------------------------------------------------
 
 contains
@@ -3452,9 +3448,9 @@ contains
      do j = 1, nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
-           sum1 = 0.0_r8 
-           sum2 = 0.0_r8 
-           sum3 = 0.0_r8
+           sum1 = phenology_c_to_litr_met_c(c,j) 
+           sum2 = phenology_c_to_litr_cel_c(c,j)
+           sum3 = phenology_c_to_litr_lig_c(c,j)
            !$acc loop vector reduction(+:sum1,sum2,sum3) private(wt_col,ivt)
            do p = col_pp%pfti(c), col_pp%pftf(c)
              if(veg_pp%active(p)) then 
@@ -3465,11 +3461,10 @@ contains
                sum1 = sum1 + leafc_to_litter(p) * lf_flab(ivt) * wt_col * leaf_prof(p,j)
                sum2 = sum2 + leafc_to_litter(p) * lf_fcel(ivt) * wt_col * leaf_prof(p,j)
                sum3 = sum3 + leafc_to_litter(p) * lf_flig(ivt) * wt_col * leaf_prof(p,j)
-
                ! fine root litter carbon fluxes
-               sum1 = sum1 + frootc_to_litter(p) * lf_flab(ivt) * wt_col * leaf_prof(p,j)
-               sum2 = sum2 + frootc_to_litter(p) * lf_fcel(ivt) * wt_col * leaf_prof(p,j)
-               sum3 = sum3 + frootc_to_litter(p) * lf_flig(ivt) * wt_col * leaf_prof(p,j)
+               sum1 = sum1 + frootc_to_litter(p) * fr_flab(ivt) * wt_col * froot_prof(p,j)
+               sum2 = sum2 + frootc_to_litter(p) * fr_fcel(ivt) * wt_col * froot_prof(p,j)
+               sum3 = sum3 + frootc_to_litter(p) * fr_flig(ivt) * wt_col * froot_prof(p,j)
 
               ! agroibis puts crop stem litter together with leaf litter
               ! so I've used the leaf lf_f* parameters instead of making
@@ -3485,9 +3480,9 @@ contains
 
              end if
            end do 
-           phenology_c_to_litr_met_c(c,j) = phenology_c_to_litr_met_c(c,j) + sum1 
-           phenology_c_to_litr_cel_c(c,j) = phenology_c_to_litr_cel_c(c,j) + sum2 
-           phenology_c_to_litr_lig_c(c,j) = phenology_c_to_litr_lig_c(c,j) + sum3
+           phenology_c_to_litr_met_c(c,j) =  sum1 
+           phenology_c_to_litr_cel_c(c,j) =  sum2 
+           phenology_c_to_litr_lig_c(c,j) =  sum3
         end do 
      end do 
 
@@ -3495,9 +3490,9 @@ contains
      do j = 1, nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
-           sum1 = 0.0_r8 
-           sum2 = 0.0_r8 
-           sum3 = 0.0_r8
+           sum1 =  phenology_n_to_litr_met_n(c,j) 
+           sum2 =  phenology_n_to_litr_cel_n(c,j) 
+           sum3 =  phenology_n_to_litr_lig_n(c,j) 
            !$acc loop vector reduction(+:sum1,sum2,sum3) private(wt_col,ivt)
            do p = col_pp%pfti(c), col_pp%pftf(c)
               if(veg_pp%active(p)) then  
@@ -3509,35 +3504,35 @@ contains
                   sum2 = sum2 + leafn_to_litter(p) * lf_fcel(ivt) * wt_col * leaf_prof(p,j)
                   sum3 = sum3 + leafn_to_litter(p) * lf_flig(ivt) * wt_col * leaf_prof(p,j)
                   ! fine root litter nitrogen fluxes
-                  sum1 = sum1 + frootn_to_litter(p) * lf_flab(ivt) * wt_col * leaf_prof(p,j)
-                  sum2 = sum2 + frootn_to_litter(p) * lf_fcel(ivt) * wt_col * leaf_prof(p,j)
-                  sum3 = sum3 + frootn_to_litter(p) * lf_flig(ivt) * wt_col * leaf_prof(p,j)
+                  sum1 = sum1 + frootn_to_litter(p) * fr_flab(ivt) * wt_col * froot_prof(p,j)
+                  sum2 = sum2 + frootn_to_litter(p) * fr_fcel(ivt) * wt_col * froot_prof(p,j)
+                  sum3 = sum3 + frootn_to_litter(p) * fr_flig(ivt) * wt_col * froot_prof(p,j)
 
-              ! agroibis puts crop stem litter together with leaf litter
-              ! so I've used the leaf lf_f* parameters instead of making
-              ! new ones for now (slevis)
-              ! The food is now directed to the product pools (BDrewniak)
-              if (iscft(ivt)) then ! add livestemc to litter
-                 ! stem litter nitrogen fluxes
-                 sum1 = sum1 + livestemn_to_litter(p) * lf_flab(ivt) * wt_col * leaf_prof(p,j)
-                 sum2 = sum2 + livestemn_to_litter(p) * lf_fcel(ivt) * wt_col * leaf_prof(p,j)
-                 sum3 = sum3 + livestemn_to_litter(p) * lf_flig(ivt) * wt_col * leaf_prof(p,j)
+                 ! agroibis puts crop stem litter together with leaf litter
+                 ! so I've used the leaf lf_f* parameters instead of making
+                 ! new ones for now (slevis)
+                 ! The food is now directed to the product pools (BDrewniak)
+                 if (iscft(ivt)) then ! add livestemc to litter
+                    ! stem litter nitrogen fluxes
+                    sum1 = sum1 + livestemn_to_litter(p) * lf_flab(ivt) * wt_col * leaf_prof(p,j)
+                    sum2 = sum2 + livestemn_to_litter(p) * lf_fcel(ivt) * wt_col * leaf_prof(p,j)
+                    sum3 = sum3 + livestemn_to_litter(p) * lf_flig(ivt) * wt_col * leaf_prof(p,j)
 
                   end if 
               end if 
            end do 
-           phenology_n_to_litr_met_n(c,j) = phenology_n_to_litr_met_n(c,j) + sum1 
-           phenology_n_to_litr_cel_n(c,j) = phenology_n_to_litr_cel_n(c,j) + sum2 
-           phenology_n_to_litr_lig_n(c,j) = phenology_n_to_litr_lig_n(c,j) + sum3
+           phenology_n_to_litr_met_n(c,j) = sum1 
+           phenology_n_to_litr_cel_n(c,j) = sum2 
+           phenology_n_to_litr_lig_n(c,j) = sum3
         end do 
      end do 
      !$acc parallel loop independent gang worker collapse(2) private(sum1,sum2,sum3) default(present) 
      do j = 1, nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
-           sum1 = 0.0_r8 
-           sum2 = 0.0_r8 
-           sum3 = 0.0_r8
+           sum1 = phenology_p_to_litr_met_p(c,j)
+           sum2 = phenology_p_to_litr_cel_p(c,j)
+           sum3 = phenology_p_to_litr_lig_p(c,j)
            !$acc loop vector reduction(+:sum1,sum2,sum3) private(wt_col,ivt)
            do p = col_pp%pfti(c), col_pp%pftf(c)
              if(veg_pp%active(p) ) then 
@@ -3549,9 +3544,9 @@ contains
               sum3 = sum3 + leafp_to_litter(p) * lf_flig(ivt) * wt_col * leaf_prof(p,j)
 
               ! fine root litter phosphorus fluxes
-              sum1 = sum1 + frootp_to_litter(p) * lf_flab(ivt) * wt_col * leaf_prof(p,j)
-              sum2 = sum2 + frootp_to_litter(p) * lf_fcel(ivt) * wt_col * leaf_prof(p,j)
-              sum3 = sum3 + frootp_to_litter(p) * lf_flig(ivt) * wt_col * leaf_prof(p,j)
+              sum1 = sum1 + frootp_to_litter(p) * fr_flab(ivt) * wt_col * froot_prof(p,j)
+              sum2 = sum2 + frootp_to_litter(p) * fr_fcel(ivt) * wt_col * froot_prof(p,j)
+              sum3 = sum3 + frootp_to_litter(p) * fr_flig(ivt) * wt_col * froot_prof(p,j)
 
               ! agroibis puts crop stem litter together with leaf litter
               ! so I've used the leaf lf_f* parameters instead of making
@@ -3566,9 +3561,9 @@ contains
               end if 
             endif 
            end do
-           phenology_p_to_litr_met_p(c,j) = phenology_p_to_litr_met_p(c,j) + sum1 
-           phenology_p_to_litr_cel_p(c,j) = phenology_p_to_litr_cel_p(c,j) + sum2 
-           phenology_p_to_litr_lig_p(c,j) = phenology_p_to_litr_lig_p(c,j) + sum3
+           phenology_p_to_litr_met_p(c,j) = sum1 
+           phenology_p_to_litr_cel_p(c,j) = sum2 
+           phenology_p_to_litr_lig_p(c,j) = sum3
         end do 
      end do
 

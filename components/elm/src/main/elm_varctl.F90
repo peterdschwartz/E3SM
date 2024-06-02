@@ -159,7 +159,7 @@ module elm_varctl
 
   ! true => make ALL patches, cols & landunits active (even if weight is 0)
   logical, public :: all_active = .false.
-  !$acc declare copyin(all_active)
+  !$acc declare create(all_active)
   !----------------------------------------------------------
   ! BGC logic and datasets
   !----------------------------------------------------------
@@ -172,14 +172,14 @@ module elm_varctl
   integer, public  :: spinup_state            = 0
   integer, public  :: nyears_ad_carbon_only   = 0
   real(r8), public :: spinup_mortality_factor = 1._r8
-  !$acc declare copyin(spinup_state           )
-  !$acc declare copyin(nyears_ad_carbon_only  )
-  !$acc declare copyin(spinup_mortality_factor)
+  !$acc declare create(spinup_state           ,&
+  !$acc                nyears_ad_carbon_only  ,&
+  !$acc                spinup_mortality_factor)
 
   ! true => anoxia is applied to heterotrophic respiration also considered in CH4 model
   ! default value reset in controlMod
   logical, public :: anoxia  = .true.
-  !$acc declare copyin(anoxia)
+  !$acc declare create(anoxia)
   ! used to override an error check on reading in restart files
   logical, public :: override_bgc_restart_mismatch_dump = .false.
 
@@ -187,9 +187,9 @@ module elm_varctl
   logical, public  :: carbon_only
   logical, public  :: carbonnitrogen_only
   logical, public  :: carbonphosphorus_only
-  !$acc declare create(carbon_only          )
-  !$acc declare create(carbonnitrogen_only  )
-  !$acc declare create(carbonphosphorus_only)
+  !$acc declare create(carbon_only,&
+  !$acc carbonnitrogen_only  ,&
+  !$acc carbonphosphorus_only)
   !----------------------------------------------------------
   ! Physics
   !----------------------------------------------------------
@@ -202,12 +202,12 @@ module elm_varctl
 
   ! atmospheric CO2 molar ratio (by volume) (umol/mol)
   real(r8), public :: co2_ppmv     = 355._r8
-  !$acc declare copyin(co2_ppmv)
+  !$acc declare create(co2_ppmv)
 
   ! Use constant climate during transient run (CPL_BYPASS only)
   logical, public :: const_climate_hist  = .false.
 
-  !$acc declare copyin(const_climate_hist)
+  !$acc declare create(const_climate_hist)
   !----------------------------------------------------------
   ! C isotopes
   !----------------------------------------------------------
@@ -261,7 +261,6 @@ module elm_varctl
   !  BeTR switches
   !----------------------------------------------------------
   logical, public :: use_betr = .false.          ! true=> use BeTR
-  !$acc declare create(use_betr)
 
   !----------------------------------------------------------
   ! lai streams switch for Sat. Phenology
@@ -297,7 +296,7 @@ module elm_varctl
 
   ! true => CLM glacier area & topography changes dynamically
   logical , public :: glc_do_dynglacier = .false.
-  !$acc declare copyin(glc_do_dynglacier)
+  !$acc declare create(glc_do_dynglacier)
   ! true => downscale precip division into rain & snow
   logical , public :: glcmec_downscale_rain_snow_convert = .false.
 
@@ -306,7 +305,7 @@ module elm_varctl
 
   ! number of days before one considers the perennially snow-covered point 'land ice'
   integer , public :: glc_snow_persistence_max_days = 7300
-  !$acc declare copyin(glc_snow_persistence_max_days)
+  !$acc declare create(glc_snow_persistence_max_days)
 
   ! glc_grid used to determine fglcmask
   character(len=256), public :: glc_grid = ' '
@@ -426,17 +425,17 @@ module elm_varctl
   !-----------------------------------------------------------------------
   ! nutrient competition (nu_com), default is relative demand approach (RD)
   character(len=15), public :: nu_com = 'RD'
-  !$acc declare copyin(nu_com)
+  !$acc declare create(nu_com)
 
   !-----------------------------------------------------------------------
   ! forest N/P fertilization
   logical, public :: forest_fert_exp = .false.
-  !$acc declare copyin(forest_fert_exp)
+  !$acc declare create(forest_fert_exp)
   !-----------------------------------------------------------------------
   ! ECA regular spinup with P on, keep labile, secondary, occluded, parent
   ! material P being constant or not
   logical, public :: ECA_Pconst_RGspin = .false.
-  !$acc declare copyin(ECA_Pconst_RGspin)
+  !$acc declare create(ECA_Pconst_RGspin)
   !-----------------------------------------------------------------------
   ! Priority of plant to get symbiotic N fixation, phosphatase
   logical, public :: NFIX_PTASE_plant = .false.
@@ -468,9 +467,9 @@ module elm_varctl
   logical, public :: use_erosion    = .false.   ! switch for turning on the soil erosion model
   logical, public :: ero_ccycle     = .false.   ! switch for turning on soil C, N and P loss by erosion (only valid when user_erosion = .true.)
 
-  !$acc declare copyin(use_pheno_flux_limiter)
-  !$acc declare copyin(use_erosion)
-  !$acc declare copyin(ero_ccycle )
+  !$acc declare create(use_pheno_flux_limiter)
+  !$acc declare create(use_erosion)
+  !$acc declare create(ero_ccycle )
   !-----------------------------------------------------------------------
   ! bgc & pflotran interface
   !
@@ -479,10 +478,10 @@ module elm_varctl
   logical, public :: use_pflotran       = .false.
   logical, public :: pf_surfaceflow     = .false.
 
-  !$acc declare copyin(use_elm_interface)
-  !$acc declare copyin(use_elm_bgc      )
-  !$acc declare copyin(use_pflotran     )
-  !$acc declare copyin(pf_surfaceflow   )
+  !$acc declare create(use_elm_interface)
+  !$acc declare create(use_elm_bgc      )
+  !$acc declare create(use_pflotran     )
+  !$acc declare create(pf_surfaceflow   )
 
   ! the following switches will allow flexibility of coupling CLM with PFLOTRAN (which in fact runs in 3 modes individually or coupled)
   logical, public :: pf_cmode      = .false.                 ! switch for 'C' mode coupling (will be updated in interface)
@@ -491,12 +490,12 @@ module elm_varctl
   logical, public :: pf_frzmode    = .false.                 ! switch for 'freezing' mode availablity in PF-thmode (will be updated in interface)
   logical, public :: initth_pf2clm = .false.                 ! switch for initializing CLM TH states from pflotran
   integer, public :: pf_elmnstep0  = 0                       ! the ELM timestep of start/restart
-  !$acc declare copyin(pf_cmode     )
-  !$acc declare copyin(pf_hmode     )
-  !$acc declare copyin(pf_tmode     )
-  !$acc declare copyin(pf_frzmode   )
-  !$acc declare copyin(initth_pf2clm)
-  !$acc declare copyin(pf_elmnstep0 )
+  !$acc declare create(pf_cmode     )
+  !$acc declare create(pf_hmode     )
+  !$acc declare create(pf_tmode     )
+  !$acc declare create(pf_frzmode   )
+  !$acc declare create(initth_pf2clm)
+  !$acc declare create(pf_elmnstep0 )
 
   ! cpl_bypass
    character(len=fname_len), public :: metdata_type   = ' '    ! metdata type for CPL_BYPASS mode
@@ -507,30 +506,32 @@ module elm_varctl
 
   !$acc declare create(use_fates)
 
-  !$acc declare copyin(use_c13, use_cn, use_lch4, glcmec_downscale_rain_snow_convert)
-  !$acc declare copyin(use_c14)
-  !$acc declare copyin(glcmec_downscale_longwave, subgridflag)
-  !$acc declare copyin(use_nofire         )
-  !$acc declare copyin(use_lch4           )
-  !$acc declare copyin(use_nitrif_denitrif)
-  !$acc declare copyin(use_vertsoilc      )
-  !$acc declare copyin(use_extralakelayers)
-  !$acc declare copyin(use_vichydro       )
-  !$acc declare copyin(use_century_decomp )
-  !$acc declare copyin(use_cn             )
-  !$acc declare copyin(use_crop           )
-  !$acc declare copyin(use_snicar_frc     )
-  !$acc declare copyin(use_snicar_ad      )
-  !$acc declare copyin(use_vancouver      )
-  !$acc declare copyin(use_mexicocity     )
-  !$acc declare copyin(use_noio           )
-  !$acc declare copyin(use_var_soil_thick )
-  !$acc declare copyin(tw_irr)
-  !$acc declare copyin(use_vsfm                   )
-  !$acc declare copyin(vsfm_use_dynamic_linesearch)
-  !$acc declare copyin(vsfm_include_seepage_bc    )
-  !$acc declare copyin(vsfm_satfunc_type          )
-  !$acc declare copyin(vsfm_lateral_model_type    )
+  !$acc declare create(use_c13, use_cn, use_lch4, glcmec_downscale_rain_snow_convert)
+  !$acc declare create(use_c14)
+  !$acc declare create(glcmec_downscale_longwave, subgridflag)
+  !$acc declare create(use_nofire         )
+  !$acc declare create(use_lch4           )
+  !$acc declare create(use_vertsoilc      )
+  !$acc declare create(use_extralakelayers)
+  !$acc declare create(use_vichydro       )
+  !$acc declare create(use_century_decomp )
+  !$acc declare create(use_crop           )
+  !$acc declare create(use_snicar_frc     )
+  !$acc declare create(use_snicar_ad      )
+  !$acc declare create(use_vancouver      )
+  !$acc declare create(use_mexicocity     )
+  !$acc declare create(use_noio           )
+  !$acc declare create(use_var_soil_thick )
+  !$acc declare create(irrigate)
+  !$acc declare create(tw_irr)
+  !$acc declare create(use_vsfm                   )
+  !$acc declare create(vsfm_use_dynamic_linesearch)
+  !$acc declare create(vsfm_include_seepage_bc    )
+  !$acc declare create(vsfm_satfunc_type          )
+  !$acc declare create(vsfm_lateral_model_type    )
+  !$acc declare create(use_extrasnowlayers)
+  !$acc declare create(extra_gw_irr)
+  !$acc declare create(use_lake_wat_storage) 
   !----------------------------------------------------------
   ! Budgets
   !----------------------------------------------------------

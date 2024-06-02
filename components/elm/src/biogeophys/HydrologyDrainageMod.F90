@@ -258,6 +258,7 @@ contains
       do c = bounds%begc,bounds%endc
          qflx_irr_demand(c) = 0._r8
       end do
+      
       !$acc parallel loop independent gang vector default(present)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)

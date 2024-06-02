@@ -331,7 +331,7 @@ contains
     real(r8) :: disp_conc                              ! dissolved mineral N concentration (gP/kg water)
     real(r8), parameter :: depth_runoff_Ploss = 0.05   ! (m) depth over which runoff mixes with soil water for P loss to runoff
     real(r8)  :: tot_water(num_soilc)     ! total column liquid water (kg water/m2)
-    real :: sum1 
+    real(r8) :: sum1 
     !-----------------------------------------------------------------------
 
     associate(&
@@ -352,49 +352,49 @@ contains
       !$acc parallel loop independent gang worker  private(sum1,c,nlevbed) default(present) 
       do fc = 1,num_soilc
          c = filter_soilc(fc)
-         nlevbed = col_pp%nlevbed(c)
+         nlevbed = nlev2bed(c)
          sum1 = 0._r8 
          !$acc loop vector reduction(+:sum1)
          do j = 1,nlevbed
-            sum1 = sum1 + col_ws%h2osoi_liq(c,j)
+            sum1 = sum1 + h2osoi_liq(c,j)
          end do
          tot_water(fc) = sum1
       end do
-       
-         !$acc parallel loop independent gang vector collapse(2) default(present) 
-         do j = 1,nlevdecomp
-            do fc = 1,num_soilc
-               c = filter_soilc(fc)
+         
+      !$acc parallel loop independent gang vector collapse(2) default(present) 
+      do j = 1,nlevdecomp
+         do fc = 1,num_soilc
+            c = filter_soilc(fc)
 
-               if (.not. use_vertsoilc) then
-                  disp_conc = 0._r8
-                  if (tot_water(fc) > 0._r8) then
-                     disp_conc = ( solutionp_vr(c,j) ) / tot_water(fc)
-                  end if
-
-                  ! calculate the P leaching flux as a function of the dissolved
-                  ! concentration and the sub-surface drainage flux
-                  sminp_leached_vr(c,j) = disp_conc * qflx_drain(c)
-               else
-                  disp_conc = 0._r8
-                  if (h2osoi_liq(c,j) > 0._r8) then
-                     disp_conc = (solutionp_vr(c,j) * col_pp%dz(c,j))/(h2osoi_liq(c,j) )
-                  end if
-
-                  ! calculate the P leaching flux as a function of the dissolved
-                  ! concentration and the sub-surface drainage flux
-                  sminp_leached_vr(c,j) = disp_conc * qflx_drain(c) *h2osoi_liq(c,j) / ( tot_water(fc) * col_pp%dz(c,j) )
-
+            if (.not. use_vertsoilc) then
+               disp_conc = 0._r8
+               if (tot_water(fc) > 0._r8) then
+                  disp_conc = ( solutionp_vr(c,j) ) / tot_water(fc)
                end if
-               ! limit the flux based on current sminp state
-               ! only let at most the assumed soluble fraction
-               ! of sminp be leached on any given timestep
-               sminp_leached_vr(c,j) = min(sminp_leached_vr(c,j), (solutionp_vr(c,j))/dt)
 
-               ! limit the flux to a positive value
-               sminp_leached_vr(c,j) = max(sminp_leached_vr(c,j), 0._r8)
-            end do
+               ! calculate the P leaching flux as a function of the dissolved
+               ! concentration and the sub-surface drainage flux
+               sminp_leached_vr(c,j) = disp_conc * qflx_drain(c)
+            else
+               disp_conc = 0._r8
+               if (h2osoi_liq(c,j) > 0._r8) then
+                  disp_conc = (solutionp_vr(c,j) * col_pp%dz(c,j))/(h2osoi_liq(c,j) )
+               end if
+
+               ! calculate the P leaching flux as a function of the dissolved
+               ! concentration and the sub-surface drainage flux
+               sminp_leached_vr(c,j) = disp_conc * qflx_drain(c) *h2osoi_liq(c,j) / ( tot_water(fc) * col_pp%dz(c,j) )
+
+            end if
+            ! limit the flux based on current sminp state
+            ! only let at most the assumed soluble fraction
+            ! of sminp be leached on any given timestep
+            sminp_leached_vr(c,j) = min(sminp_leached_vr(c,j), (solutionp_vr(c,j))/dt)
+
+            ! limit the flux to a positive value
+            sminp_leached_vr(c,j) = max(sminp_leached_vr(c,j), 0._r8)
          end do
+      end do
      !$acc end data  
 
     end associate

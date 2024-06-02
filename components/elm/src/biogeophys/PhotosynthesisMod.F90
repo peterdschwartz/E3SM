@@ -84,14 +84,6 @@ module  PhotosynthesisMod
   integer, parameter, private :: stomatalcond_mtd_medlyn2011 = 2   ! Medlyn 2011 method for photosynthesis
   ! !PUBLIC VARIABLES:
 
-  !$acc declare copyin(sun )
-  !$acc declare copyin(sha )
-  !$acc declare copyin(xyl )
-  !$acc declare copyin(root)
-  !$acc declare copyin(veg )
-  !$acc declare copyin(soil)
-  !$acc declare copyin(stomatalcond_mtd_bb1987)
-  !$acc declare copyin(stomatalcond_mtd_medlyn2011)
   type :: photo_params_type
      real(r8),pointer , public :: krmax              (:)   => null()
      real(r8),pointer , public :: kmax               (:,:) => null()
@@ -357,7 +349,6 @@ contains
     real(r8) :: sum_nscaler
     real(r8) :: total_lai
     integer  :: rad_layers_patch,i_type
-    real :: startt, stopt
     !------------------------------------------------------------------------------
     ! Temperature and soil water response functions
     !------------------------------------------------------------------------------
@@ -883,7 +874,7 @@ contains
          lmrcan = 0._r8
          gscan = 0._r8
          laican = 0._r8
-         !$acc loop vector reduction(+:psncan,psncan_wc,psncan_wj, psncan_wp,lmrcan,gscan,laican)
+         !$acc loop seq 
          do iv = 1, nrad(p)
             psncan = psncan + psn_z(p,iv) * lai_z(p,iv)
             psncan_wc = psncan_wc + psn_wc_z(f,iv) * lai_z(p,iv)

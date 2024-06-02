@@ -81,6 +81,8 @@ subroutine update_acc_variables()
   !$acc       ,zlak(:)        &
   !$acc       ,dzlak(:)       &
   !$acc       ,zsoi(:)        &
+  !$acc update device(&
+  !$acc       zsoi(:)        &
   !$acc       ,dzsoi(:)       &
   !$acc       ,zisoi(:)       &
   !$acc       ,dzsoi_decomp(:)&
