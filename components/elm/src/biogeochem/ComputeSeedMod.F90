@@ -35,11 +35,6 @@ module ComputeSeedMod
   integer  , parameter :: COMPONENT_SEED       = 3
   real(r8) , parameter :: leafc_seed_param     = 1._r8
   real(r8) , parameter :: deadstemc_seed_param = 0.1_r8
-  !$acc declare copyin (COMPONENT_LEAF      )
-  !$acc declare copyin (COMPONENT_DEADWOOD  )
-  !$acc declare copyin (COMPONENT_SEED      )
-  !$acc declare copyin (leafc_seed_param    )
-  !$acc declare copyin (deadstemc_seed_param)
 
   character(len=*), parameter, private :: sourcefile = &
        __FILE__

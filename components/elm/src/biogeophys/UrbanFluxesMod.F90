@@ -490,10 +490,8 @@ contains
       converged_landunits(begl:endl) = .false.
       !$acc update device(converged_landunits(:))
       ITERATION: do iter = 1, loopmax
-
          ! Get friction velocity, relation for potential
          ! temperature and humidity profiles of surface boundary layer.
-
          call FrictionVelocity_loops(begl, endl, &
                  num_urbanl, filter_urbanl, &
                  z_d_town(begl:endl), z_0_town(begl:endl), z_0_town(begl:endl), z_0_town(begl:endl), &
@@ -553,7 +551,6 @@ contains
 
             ! Determine magnitude of canyon wind by using horizontal wind determined
             ! previously and vertical wind from friction velocity (Masson 2000)
-
             canyon_wind(fl) = sqrt(canyon_u_wind(fl)**2._r8 + ustar(fl)**2._r8)
 
             ! Determine canyon_resistance (currently this single resistance determines the
@@ -745,48 +742,47 @@ contains
                !call endrun(decomp_index=l, elmlevel=namel, msg="ERROR, ctype out of range"//errmsg(__FILE__, __LINE__))
             end if
            ! Made seperate reduction loop 
-           ! taf_numer(fl) = taf_numer(fl) + t_grnd(c)*wtus(fc)
-           ! taf_denom(fl) = taf_denom(fl) + wtus(fc)
+           !  taf_numer(fl) = taf_numer(fl) + t_grnd(c)*wtus(fc)
+           !  taf_denom(fl) = taf_denom(fl) + wtus(fc)
            ! qaf_numer(fl) = qaf_numer(fl) + qg(c)*wtuq(fc)
            ! qaf_denom(fl) = qaf_denom(fl) + wtuq(fc)
 
          end do
-        !$acc parallel loop independent gang worker default(present) private(sum_denom,sum_numer)&
-        !$acc present(converged_landunits(:))
-        do fl = 1, num_urbanl
-           sum_denom = 0._r8
-           sum_numer = 0._r8
-           l = filter_urbanl(fl)
-           if(converged_landunits(l)) cycle
-           !$acc loop vector reduction(+:sum_denom,sum_numer)
-           do c = lun_pp%coli(l), lun_pp%colf(l)
-              if(col_pp%active(c)) then
-                 fc = col_to_urban_filter(c)
-                 sum_denom = sum_denom + wtus(fc)
-                 sum_numer = sum_numer + t_grnd(c)*wtus(fc)
-              end if
-           end do
-           taf_denom(fl) = taf_denom(fl) + sum_denom
-           taf_numer(fl) = taf_numer(fl) + sum_numer
-        end do
-
-        !$acc parallel loop independent gang worker default(present) private(sum_denom,sum_numer)&
-        !$acc present(qg(:),col_pp%active(:),lun_pp%coli(:),lun_pp%colf(:),col_to_urban_filter(:))
-        do fl = 1, num_urbanl
-           sum_denom = 0._r8
-           sum_numer = 0._r8
-           l = filter_urbanl(fl)
-           !$acc loop vector reduction(+:sum_denom,sum_numer)
-           do c = lun_pp%coli(l), lun_pp%colf(l)
-              if(col_pp%active(c)) then
-                 fc = col_to_urban_filter(c)
-                 sum_denom = sum_denom + wtuq(fc)
-                 sum_numer = sum_numer + qg(c)*wtuq(fc)
-              end if
-           end do
-           qaf_denom(fl) = qaf_denom(fl) + sum_denom
-           qaf_numer(fl) = qaf_numer(fl) + sum_numer
-        end do
+      !$acc parallel loop independent gang worker default(present) private(sum_denom,sum_numer)&
+      !$acc present(converged_landunits(:))
+      do fl = 1, num_urbanl
+         sum_denom = taf_denom(fl)
+         sum_numer = taf_numer(fl) 
+         l = filter_urbanl(fl)
+         if(converged_landunits(l)) cycle
+         !$acc loop vector reduction(+:sum_denom,sum_numer)
+         do c = lun_pp%coli(l), lun_pp%colf(l)
+            if(col_pp%active(c)) then
+               fc = col_to_urban_filter(c)
+               sum_denom = sum_denom + wtus(fc)
+               sum_numer = sum_numer + t_grnd(c)*wtus(fc)
+            end if
+         end do
+         taf_denom(fl) =  sum_denom
+         taf_numer(fl) =  sum_numer
+      end do
+      !$acc parallel loop independent gang worker default(present) private(sum_denom,sum_numer)&
+      !$acc present(qg(:),col_pp%active(:),lun_pp%coli(:),lun_pp%colf(:),col_to_urban_filter(:))
+      do fl = 1, num_urbanl
+         sum_denom = qaf_denom(fl)
+         sum_numer = qaf_numer(fl)
+         l = filter_urbanl(fl)
+         !$acc loop vector reduction(+:sum_denom,sum_numer)
+         do c = lun_pp%coli(l), lun_pp%colf(l)
+            if(col_pp%active(c)) then
+               fc = col_to_urban_filter(c)
+               sum_denom = sum_denom + wtuq(fc)
+               sum_numer = sum_numer + qg(c)*wtuq(fc)
+            end if
+         end do
+         qaf_denom(fl) =  sum_denom
+         qaf_numer(fl) =  sum_numer
+      end do
 
          ! Calculate new urban canopy air temperature and specific humidity
 
@@ -844,6 +840,7 @@ contains
             dqh(fl) = forc_q(t)-qaf(l)
             tstar = temp1(fl)*dth(fl)
             qstar = temp2(fl)*dqh(fl)
+
             thvstar = tstar*(1._r8+0.61_r8*forc_q(t)) + 0.61_r8*forc_th(t)*qstar
             zeta = zldis(fl)*vkc*grav*thvstar/(ustar(fl)**2*thv_g(fl))
            
@@ -855,7 +852,6 @@ contains
                wc = beta*(-grav*ustar(fl)*thvstar*zii/thv_g(fl))**0.333_r8
                um(fl) = sqrt(ur(fl)*ur(fl) + wc*wc)
             end if
-
             obu(fl) = zldis(fl)/zeta
          end do
 
@@ -893,7 +889,6 @@ contains
          eflx_sh_grnd_scale(p) = 0._r8
          qflx_evap_soi_scale(p) = 0._r8
       enddo
-       
       !$acc parallel loop independent gang vector default(present) &
       !$acc present(qaf(:), taf(:), lnd_to_urban_filter(:))
       do f = 1, num_urbanp

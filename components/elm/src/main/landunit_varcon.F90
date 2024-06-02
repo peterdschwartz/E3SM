@@ -68,18 +68,6 @@ module landunit_varcon
   private :: set_polygon_names    ! set the polygon_names vector
 
 !-----------------------------------------------------------------------
-!$acc declare copyin(istsoil    )
-!$acc declare copyin(istcrop    )
-!$acc declare copyin(istice     )
-!$acc declare copyin(istice_mec )
-!$acc declare copyin(istdlak    )
-!$acc declare copyin(istwet     )
-!$acc declare copyin(isturb_MIN )
-!$acc declare copyin(isturb_tbd )
-!$acc declare copyin(isturb_hd  )
-!$acc declare copyin(isturb_md  )
-!$acc declare copyin(isturb_MAX )
-!$acc declare copyin(max_lunit  )
 contains
 
   !-----------------------------------------------------------------------

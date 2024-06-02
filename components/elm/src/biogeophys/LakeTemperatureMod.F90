@@ -1473,7 +1473,6 @@ contains
        !$acc parallel loop independent gang vector default(present) private(c, melt) 
        do fc = 1,num_lakec
           c = filter_lakec(fc)
-
           if (snl(c) == 0 .and. h2osno(c) > 0._r8 .and. t_lake(c,1) > tfrz) then
              heatavail = (t_lake(c,1) - tfrz) * cv_lake(fc,1)
              melt = min(h2osno(c), heatavail/hfus)

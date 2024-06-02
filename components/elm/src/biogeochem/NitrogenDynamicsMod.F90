@@ -47,12 +47,12 @@ module NitrogenDynamicsMod
   !
   ! !PRIVATE DATA:
   type, public :: CNNDynamicsParamsType
-     real(r8), pointer :: sf     => null()    ! soluble fraction of mineral N (unitless)
-     real(r8), pointer :: sf_no3 => null()    ! soluble fraction of NO3 (unitless)
+     real(r8) :: sf      ! soluble fraction of mineral N (unitless)
+     real(r8) :: sf_no3  ! soluble fraction of NO3 (unitless)
   end type CNNDynamicsParamsType
 
   type(CNNDynamicsParamsType), public ::  CNNDynamicsParamsInst
-  !$acc declare create(CNNDynamicsParamsInst)
+  !$acc declare copyin(CNNDynamicsParamsInst)
 
   logical, private, parameter :: debug_fan = .false.
 
@@ -101,8 +101,6 @@ contains
 
     call NitrogenDynamicsInit()
 
-    allocate(CNNDynamicsParamsInst%sf)
-    allocate(CNNDynamicsParamsInst%sf_no3)
     tString='sf_minn'
     call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)
     if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
@@ -396,7 +394,7 @@ contains
  end subroutine NitrogenLeaching
 
   !-----------------------------------------------------------------------
-  subroutine NitrogenFert( num_soilc, filter_soilc )
+  subroutine NitrogenFert(bounds, num_soilc, filter_soilc )
     !
     ! !DESCRIPTION:
     ! On the radiation time step, update the nitrogen fertilizer for crops
@@ -407,6 +405,7 @@ contains
     use elm_varctl,   only : fan_to_bgc_crop
     !
     ! !ARGUMENTS:
+    type(bounds_type)       , intent(in)    :: bounds
     integer                 , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                 , intent(in)    :: filter_soilc(:) ! filter for soil columns
     integer , intent(in) :: num_pcropp       ! number of prog. crop patches in filter
@@ -415,6 +414,8 @@ contains
     ! !LOCAL VARIABLES:
     integer :: c,fc,p, fp                 ! indices
     real(r8) :: manure_col(bounds%begc:bounds%endc)
+    integer :: begp, begc
+    integer :: endp,endc
     !-----------------------------------------------------------------------
 
     associate(&
@@ -426,19 +427,28 @@ contains
       if (.not. fan_to_bgc_crop) then
          ! => Crop columns/patches are not handled by FAN. Use synthfert directly and add
          ! the default CLM manure. No N input to non-crop columns in this case.
-         call p2c(bounds, num_soilc, filter_soilc, &
-              synthfert(bounds%begp:bounds%endp), &
-              fert_to_sminn(bounds%begc:bounds%endc))
-         call p2c(bounds, num_soilc, filter_soilc, &
-              manure(bounds%begp:bounds%endp), &
-              manure_col(bounds%begc:bounds%endc))
+
+        begc = bounds%begc 
+        endc = bounds%endc
+        begp = bounds%begp
+        endp = bounds%endp 
+
+        call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+           synthfert(begp:endp),  fert_to_sminn(begc:endc) )
+
+        call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+           manure(begp:endp),  manure_col(begc:endc) )
+
          ! Add the manure N processed above:
+         !$acc parallel loop independent gang vector default(present)
          do fc = 1, num_soilc
             c = filter_soilc(fc)
             fert_to_sminn(c) = fert_to_sminn(c) + manure_col(c)
          end do
+
          ! Add up synthetic fertilizer and manure to the nfertilization output
          ! variable.
+         !$acc parallel loop independent gang vector default(present)
          do fp = 1, num_pcropp
             p = filter_pcropp(fp)
             totalfert(p) = synthfert(p) + manure(p)
@@ -448,12 +458,11 @@ contains
       ! if fan_to_bgc_crop == .true., FAN fills in the fert_to_sminn and totalfert for
       ! crops. It might also fill in the non-crop columns if enabled.
       call fan_to_sminn(bounds, filter_soilc, num_soilc, totalfert)
-
     end associate
   end subroutine NitrogenFert
 
   !-----------------------------------------------------------------------
-  subroutine CNSoyfix ( num_soilc, filter_soilc, num_soilp, filter_soilp, &
+  subroutine CNSoyfix (bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
        crop_vars, cnstate_vars)
     !
     ! !DESCRIPTION:
@@ -466,6 +475,7 @@ contains
     use pftvarcon  , only : nsoybean
     !
     ! !ARGUMENTS:
+    type(bounds_type)        , intent(in)    :: bounds 
     integer                  , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:) ! filter for soil columns
     integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
@@ -474,7 +484,7 @@ contains
     type(cnstate_type)       , intent(in)    :: cnstate_vars
     !
     ! !LOCAL VARIABLES:
-    integer :: fp,p,c
+    integer :: fp,p,c, begc,endc,begp,endp
     real(r8):: fxw,fxn,fxg,fxr             ! soil water factor, nitrogen factor, growth stage factor
     real(r8):: soy_ndemand                 ! difference between nitrogen supply and demand
     real(r8):: GDDfrac
@@ -499,6 +509,10 @@ contains
          soyfixn_to_sminn =>  col_nf%soyfixn_to_sminn   & ! Output: [real(r8) (:) ]
          )
 
+     begc = bounds%begc 
+     endc = bounds%endc
+     begp = bounds%begp
+     endp = bounds%endp 
       !$acc parallel loop independent gang vector default(present) private(p,c)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
@@ -572,8 +586,8 @@ contains
          end if
       end do
 
-      call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
-           soyfixn(:), soyfixn_to_sminn(:))
+      call p2c_1d_filter_parallel(begc,begp,num_soilc,filter_soilc, &
+        soyfixn(begp:endp), soyfixn_to_sminn(begc:endc))
 
     end associate
 

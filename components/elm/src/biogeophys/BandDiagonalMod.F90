@@ -45,7 +45,6 @@ contains
     integer  :: j,ci,fc,info,n,nmax, k,jstart,jstop        !indices
     integer, parameter  :: kl=(nband-1)/2,ku=kl              !number of sub/super diagonals
     integer, parameter  :: m=2*kl+ku+1
-    !integer, allocatable :: ipiv(:,:)             !temporary
     real(r8),allocatable :: ab(:,:,:),temp(:,:,:) !compact storage array
     real(r8),allocatable :: result(:,:)
 
@@ -168,7 +167,6 @@ contains
    allocate(ab(1:m,1:nmax,1:numf), temp(1:m,1:nmax,1:numf), result(1:nmax,1:numf) ) 
    !$acc enter data create(ab(:,:,:) ,temp(:,:,:), result(:,:) )
     
-   !!! ipiv(1:nmax,1:numf), 
     ! initialize the matrices
    !$acc parallel loop independent gang vector default(present) collapse(3)
    do fc = 1, numf  
@@ -224,39 +222,34 @@ contains
       do j = 1, nmax 
          do k = 1, m
             temp(k,j,fc) = ab(k,j,fc)
-
          end do 
       end do 
    end do 
  
+   print *, "bd:"
    !$acc parallel loop independent gang vector default(present)  
    do fc = 1,numf
       ci = filter(fc)
       n = jbot(ci)-jtop(ci)+1
-        
-      call dgbsv_oacc(n, kl, ku, 1, ab(1:m,1:n,fc), m , result(1:n,fc),n,info)
-      ! ! DGBSV( N, KL, KU, NRHS, AB, LDAB, IPIV, B, LDB, INFO )
-      !  call dgbsv( n, kl, ku, 1, ab, m, ipiv, result, n, info )
-
-       u(ci,jtop(ci):jbot(ci))=result(1:n,fc)
-      
-       if(info /= 0) then
-          print *, 'index: ', ci
-         write(iulog,*)'n,kl,ku,m ',n,kl,ku,m
-         write(iulog,*)'dgbsv info: ',ci,info
-
-         write(iulog,*) ''
-         write(iulog,*) 'ab matrix'
-         write(iulog,*) ''
-          stop
-       endif
+     call dgbsv_oacc(n, kl, ku, 1, ab(1:m,1:n,fc), m , result(1:n,fc),n,info)
+     ! ! ! DGBSV( N, KL, KU, NRHS, AB, LDAB, IPIV, B, LDB, INFO )
+     ! !  call dgbsv( n, kl, ku, 1, ab, m, ipiv, result, n, info )
 
     end do
+    
+    !$acc parallel loop independent gang vector default(present) 
+    do fc = 1, numf
+      ci = filter(fc) 
+      n = jbot(ci)-jtop(ci)+1
+      !$acc loop seq 
+      do j =1, n
+        u(ci, jtop(ci)+j-1) = result(j,fc)
+      end do 
+    end do 
 
     !$acc exit data delete(ab(:,:,:) ,temp(:,:,:), result(:,:) )  !!!!!!ipiv(:nmax,:numf)
     deallocate(temp)
     deallocate(ab)
-    !deallocate(ipiv)
     deallocate(result)
   end subroutine BandDiagonal
 

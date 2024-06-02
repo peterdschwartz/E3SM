@@ -451,7 +451,6 @@ contains
     nc = bounds%clump_index
 
     ! Create lake and non-lake filters at column-level
-
     fl  = 0
     fnl = 0
     do c = bounds%begc,bounds%endc
@@ -713,7 +712,7 @@ contains
     type(bounds_type) , intent(in)   :: bounds
     type(procfilter)  , intent(inout) :: this_filter           ! the group of filters to set
     logical           , intent(in)   :: include_inactive            ! whether inactive points should be included in the filters
-    real(r8) , intent(in) :: icemask_grc(:) 
+    real(r8) , intent(in) :: icemask_grc(bounds%begg:) 
     !
     ! LOCAL VARAIBLES:
     integer :: nc        ! clump index
