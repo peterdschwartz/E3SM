@@ -37,7 +37,6 @@ module dynSubgridAdjustmentsMod
 
   real(r8) , parameter :: npool_seed_param     = 0.1_r8
   real(r8) , parameter :: ppool_seed_param     = 0.01_r8
-  !$acc declare copyin(npool_seed_param, ppool_seed_param)
 
   public :: dyn_veg_cs_Adjustments
   public :: dyn_col_cs_Adjustments

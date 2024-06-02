@@ -359,7 +359,7 @@ contains
     stream_fldFileName_lightng = ' '
     stream_fldFileName_popdens = ' '
 
-    write(iulog, *) "Modified LND_IMPORT TO DUPLICATE -- REVERT IF DOING PRODUCTION RUNS"
+    !write(iulog, *) "Modified LND_IMPORT TO DUPLICATE -- REVERT IF DOING PRODUCTION RUNS"
     call shr_sys_flush(iulog)
 
     co2_type_idx = 0
@@ -1666,12 +1666,12 @@ contains
                                     + lnd2atm_vars%qflx_rofliq_qsubp_grc(g)   !  perched drainiage
        l2x(index_l2x_Flrl_rofgwl,i) = lnd2atm_vars%qflx_rofliq_qgwl_grc(g)
 
-       l2x(index_l2x_Flrl_demand,i) =  lnd2atm_vars%qflx_irr_demand_grc(g)   ! needs to be filled in
-       if (l2x(index_l2x_Flrl_demand,i) > 0.0_r8) then
-           write(iulog,*)'lnd2atm_vars%qflx_irr_demand_grc is',lnd2atm_vars%qflx_irr_demand_grc(g)
-           write(iulog,*)'l2x(index_l2x_Flrl_demand,i) is',l2x(index_l2x_Flrl_demand,i)
-           call endrun( sub//' ERROR: demand must be <= 0.')
-       endif
+       ! l2x(index_l2x_Flrl_demand,i) =  lnd2atm_vars%qflx_irr_demand_grc(g)   ! needs to be filled in
+       ! if (l2x(index_l2x_Flrl_demand,i) > 0.0_r8) then
+       !     write(iulog,*)'lnd2atm_vars%qflx_irr_demand_grc is',lnd2atm_vars%qflx_irr_demand_grc(g)
+       !     write(iulog,*)'l2x(index_l2x_Flrl_demand,i) is',l2x(index_l2x_Flrl_demand,i)
+       !     call endrun( sub//' ERROR: demand must be <= 0.')
+       ! endif
        l2x(index_l2x_Flrl_Tqsur,i)  = lnd2atm_vars%Tqsur_grc(g)
        l2x(index_l2x_Flrl_Tqsub,i)  = lnd2atm_vars%Tqsub_grc(g)
        l2x(index_l2x_coszen_str,i)  = lnd2atm_vars%coszen_str(g)

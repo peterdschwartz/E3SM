@@ -49,18 +49,6 @@ module landunit_varcon
   ! !PRIVATE MEMBER FUNCTIONS:
   private :: set_landunit_names   ! set the landunit_names vector
 !-----------------------------------------------------------------------
-!$acc declare copyin(istsoil    )
-!$acc declare copyin(istcrop    )
-!$acc declare copyin(istice     )
-!$acc declare copyin(istice_mec )
-!$acc declare copyin(istdlak    )
-!$acc declare copyin(istwet     )
-!$acc declare copyin(isturb_MIN )
-!$acc declare copyin(isturb_tbd )
-!$acc declare copyin(isturb_hd  )
-!$acc declare copyin(isturb_md  )
-!$acc declare copyin(isturb_MAX )
-!$acc declare copyin(max_lunit  )
 contains
 
   !-----------------------------------------------------------------------

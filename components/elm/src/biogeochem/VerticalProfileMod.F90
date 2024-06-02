@@ -29,7 +29,6 @@ module VerticalProfileMod
   ! how steep profile is for surface components (1/ e_folding depth) (1/m)
   real(r8), public :: surfprof_exp  = 10._r8
   !$acc declare copyin(rootprof_exp,surfprof_exp)
-  !$acc declare copyin(exponential_rooting_profile, pftspecific_rootingprofile)
   !-----------------------------------------------------------------------
 contains
 
@@ -114,7 +113,6 @@ contains
       endp = bounds%endp  
       begc = bounds%begc  
       endc = bounds%endc
-      !$acc enter data copyin(surfprof_exp,rootprof_exp)  
       !$acc enter data create(&
       !$acc surface_prof(:), &
       !$acc cinput_rootfr(:,:) , &

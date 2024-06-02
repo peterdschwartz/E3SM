@@ -70,8 +70,6 @@ module FireMod
   !$acc declare create(forc_hdm )
   real(r8), parameter   :: secsphr = 3600._r8  ! Seconds in an hour
   real(r8), parameter   :: borealat = 40._r8   ! Latitude for boreal peat fires
-  !$acc declare copyin(secsphr )
-  !$acc declare copyin(borealat)
 
  type(shr_strdata_type) :: sdat_hdm    ! Human population density input data stream
  type(shr_strdata_type) :: sdat_lnfm   ! Lightning input data stream
@@ -259,11 +257,11 @@ contains
       begc = bounds%begc; endc = bounds%endc 
       
       !pft to column average
-      call p2c_1d_filter_parallel( num_soilc, filter_soilc, &
+      call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
            totvegc(begp:endp), totvegc_col(begc:endc))
-      call p2c_1d_filter_parallel( num_soilc, filter_soilc, &
+      call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
            leafc(begp:endp), leafc_col(begc:endc))
-      call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
+      call p2c_1d_filter_parallel(begc,begp,num_soilc,filter_soilc, &
            deadstemc(begp:endp), deadstemc_col(begc:endc))
 
      ! On first time-step, just set area burned to zero and exit
@@ -601,7 +599,10 @@ contains
                             decomp_cascade_con%spinup_factor(i_cwd) / cnstate_vars%scalaravg_col(c,j)
              enddo
            else
+             !$acc loop vector reduction(+:sum1)
+             do j=1,nlevdecomp
                sum1 = sum1 + decomp_cpools_vr(c,j,i_cwd) * dzsoi_decomp(j)
+             enddo
            end if
 
            fuelc(c) = sum1/(1._r8-cropf_col(c))

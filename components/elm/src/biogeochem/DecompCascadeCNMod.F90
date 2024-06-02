@@ -37,45 +37,45 @@ module DecompCascadeCNMod
 
   type, public :: DecompCNParamsType
 
-     real(r8), pointer :: cn_s1_cn         => null() !C:N for SOM 1
-     real(r8), pointer :: cn_s2_cn         => null() !C:N for SOM 2
-     real(r8), pointer :: cn_s3_cn         => null() !C:N for SOM 3
-     real(r8), pointer :: cn_s4_cn         => null() !C:N for SOM 4
+     real(r8) :: cn_s1_cn          !C:N for SOM 1
+     real(r8) :: cn_s2_cn          !C:N for SOM 2
+     real(r8) :: cn_s3_cn          !C:N for SOM 3
+     real(r8) :: cn_s4_cn          !C:N for SOM 4
 
-     real(r8), pointer :: np_s1_new_cn     => null()     !C:P for SOM 1
-     real(r8), pointer :: np_s2_new_cn     => null()     !C:P for SOM 2
-     real(r8), pointer :: np_s3_new_cn     => null()     !C:P for SOM 3
-     real(r8), pointer :: np_s4_new_cn     => null()     !C:P for SOM 4
+     real(r8) :: np_s1_new_cn      !C:P for SOM 1
+     real(r8) :: np_s2_new_cn      !C:P for SOM 2
+     real(r8) :: np_s3_new_cn      !C:P for SOM 3
+     real(r8) :: np_s4_new_cn      !C:P for SOM 4
 
-     real(r8), pointer :: cp_s1_new_cn     => null()     !C:P for SOM 1
-     real(r8), pointer :: cp_s2_new_cn     => null()     !C:P for SOM 2
-     real(r8), pointer :: cp_s3_new_cn     => null()     !C:P for SOM 3
-     real(r8), pointer :: cp_s4_new_cn     => null()     !C:P for SOM 4
+     real(r8) :: cp_s1_new_cn      !C:P for SOM 1
+     real(r8) :: cp_s2_new_cn      !C:P for SOM 2
+     real(r8) :: cp_s3_new_cn      !C:P for SOM 3
+     real(r8) :: cp_s4_new_cn      !C:P for SOM 4
 
-     real(r8), pointer :: rf_l1s1_cn       => null() !respiration fraction litter 1 -> SOM 1
-     real(r8), pointer :: rf_l2s2_cn       => null() !respiration fraction litter 2 -> SOM 2
-     real(r8), pointer :: rf_l3s3_cn       => null() !respiration fraction litter 3 -> SOM 3
-     real(r8), pointer :: rf_s1s2_cn       => null() !respiration fraction SOM 1 -> SOM 2
-     real(r8), pointer :: rf_s2s3_cn       => null() !respiration fraction SOM 2 -> SOM 3
-     real(r8), pointer :: rf_s3s4_cn       => null() !respiration fraction SOM 3 -> SOM 4
+     real(r8) :: rf_l1s1_cn        !respiration fraction litter 1 -> SOM 1
+     real(r8) :: rf_l2s2_cn        !respiration fraction litter 2 -> SOM 2
+     real(r8) :: rf_l3s3_cn        !respiration fraction litter 3 -> SOM 3
+     real(r8) :: rf_s1s2_cn        !respiration fraction SOM 1 -> SOM 2
+     real(r8) :: rf_s2s3_cn        !respiration fraction SOM 2 -> SOM 3
+     real(r8) :: rf_s3s4_cn        !respiration fraction SOM 3 -> SOM 4
 
-     real(r8), pointer  :: cwd_fcel_cn     => null() !cellulose fraction for CWD
-     real(r8), pointer  :: cwd_flig_cn     => null() !
+     real(r8)  :: cwd_fcel_cn      !cellulose fraction for CWD
+     real(r8)  :: cwd_flig_cn      !
 
-     real(r8), pointer  :: k_l1_cn         => null() !decomposition rate for litter 1
-     real(r8), pointer  :: k_l2_cn         => null() !decomposition rate for litter 2
-     real(r8), pointer  :: k_l3_cn         => null() !decomposition rate for litter 3
-     real(r8), pointer  :: k_s1_cn         => null() !decomposition rate for SOM 1
-     real(r8), pointer  :: k_s2_cn         => null() !decomposition rate for SOM 2
-     real(r8), pointer  :: k_s3_cn         => null() !decomposition rate for SOM 3
-     real(r8), pointer  :: k_s4_cn         => null() !decomposition rate for SOM 4
+     real(r8)  :: k_l1_cn          !decomposition rate for litter 1
+     real(r8)  :: k_l2_cn          !decomposition rate for litter 2
+     real(r8)  :: k_l3_cn          !decomposition rate for litter 3
+     real(r8)  :: k_s1_cn          !decomposition rate for SOM 1
+     real(r8)  :: k_s2_cn          !decomposition rate for SOM 2
+     real(r8)  :: k_s3_cn          !decomposition rate for SOM 3
+     real(r8)  :: k_s4_cn          !decomposition rate for SOM 4
 
-     real(r8), pointer  :: k_frag_cn       => null() !fragmentation rate for CWD
-     real(r8), pointer  :: minpsi_cn       => null() !minimum soil water potential for heterotrophic resp
+     real(r8)  :: k_frag_cn        !fragmentation rate for CWD
+     real(r8)  :: minpsi_cn        !minimum soil water potential for heterotrophic resp
 
-     integer , pointer :: nsompools        => null() !4
-     integer , pointer :: nlitpools        => null() !3
-     integer , pointer :: ncwdpools        => null() !1
+     integer  :: nsompools         !4
+     integer  :: nlitpools         !3
+     integer  :: ncwdpools         !1
      real(r8), pointer :: spinup_vector(:) => null() ! multipliers for soil decomp during accelerated spinup
 
 
@@ -113,38 +113,38 @@ contains
 
      !EOP
      !-----------------------------------------------------------------------
-     allocate(DecompCNParamsInst%cn_s1_cn    ); DecompCNParamsInst%cn_s1_cn    =spval
-     allocate(DecompCNParamsInst%cn_s2_cn    ); DecompCNParamsInst%cn_s2_cn    =spval
-     allocate(DecompCNParamsInst%cn_s3_cn    ); DecompCNParamsInst%cn_s3_cn    =spval
-     allocate(DecompCNParamsInst%cn_s4_cn    ); DecompCNParamsInst%cn_s4_cn    =spval
-     allocate(DecompCNParamsInst%np_s1_new_cn); DecompCNParamsInst%np_s1_new_cn=spval
-     allocate(DecompCNParamsInst%np_s2_new_cn); DecompCNParamsInst%np_s2_new_cn=spval
-     allocate(DecompCNParamsInst%np_s3_new_cn); DecompCNParamsInst%np_s3_new_cn=spval
-     allocate(DecompCNParamsInst%np_s4_new_cn); DecompCNParamsInst%np_s4_new_cn=spval
-     allocate(DecompCNParamsInst%cp_s1_new_cn); DecompCNParamsInst%cp_s1_new_cn=spval
-     allocate(DecompCNParamsInst%cp_s2_new_cn); DecompCNParamsInst%cp_s2_new_cn=spval
-     allocate(DecompCNParamsInst%cp_s3_new_cn); DecompCNParamsInst%cp_s3_new_cn=spval
-     allocate(DecompCNParamsInst%cp_s4_new_cn); DecompCNParamsInst%cp_s4_new_cn=spval
-     allocate(DecompCNParamsInst%rf_l1s1_cn  ); DecompCNParamsInst%rf_l1s1_cn  =spval
-     allocate(DecompCNParamsInst%rf_l2s2_cn  ); DecompCNParamsInst%rf_l2s2_cn  =spval
-     allocate(DecompCNParamsInst%rf_l3s3_cn  ); DecompCNParamsInst%rf_l3s3_cn  =spval
-     allocate(DecompCNParamsInst%rf_s1s2_cn  ); DecompCNParamsInst%rf_s1s2_cn  =spval
-     allocate(DecompCNParamsInst%rf_s2s3_cn  ); DecompCNParamsInst%rf_s2s3_cn  =spval
-     allocate(DecompCNParamsInst%rf_s3s4_cn  ); DecompCNParamsInst%rf_s3s4_cn  =spval
-     allocate(DecompCNParamsInst%cwd_fcel_cn ); DecompCNParamsInst%cwd_fcel_cn =spval
-     allocate(DecompCNParamsInst%cwd_flig_cn ); DecompCNParamsInst%cwd_flig_cn =spval
-     allocate(DecompCNParamsInst%k_l1_cn     ); DecompCNParamsInst%k_l1_cn     =spval
-     allocate(DecompCNParamsInst%k_l2_cn     ); DecompCNParamsInst%k_l2_cn     =spval
-     allocate(DecompCNParamsInst%k_l3_cn     ); DecompCNParamsInst%k_l3_cn     =spval
-     allocate(DecompCNParamsInst%k_s1_cn     ); DecompCNParamsInst%k_s1_cn     =spval
-     allocate(DecompCNParamsInst%k_s2_cn     ); DecompCNParamsInst%k_s2_cn     =spval
-     allocate(DecompCNParamsInst%k_s3_cn     ); DecompCNParamsInst%k_s3_cn     =spval
-     allocate(DecompCNParamsInst%k_s4_cn     ); DecompCNParamsInst%k_s4_cn     =spval
-     allocate(DecompCNParamsInst%k_frag_cn   ); DecompCNParamsInst%k_frag_cn   =spval
-     allocate(DecompCNParamsInst%minpsi_cn   ); DecompCNParamsInst%minpsi_cn   =spval
-     allocate(DecompCNParamsInst%nsompools   ); DecompCNParamsInst%nsompools = 4
-     allocate(DecompCNParamsInst%nlitpools   ); DecompCNParamsInst%nlitpools = 3
-     allocate(DecompCNParamsInst%ncwdpools   ); DecompCNParamsInst%ncwdpools = 1
+     DecompCNParamsInst%cn_s1_cn    =spval
+     DecompCNParamsInst%cn_s2_cn    =spval
+     DecompCNParamsInst%cn_s3_cn    =spval
+     DecompCNParamsInst%cn_s4_cn    =spval
+     DecompCNParamsInst%np_s1_new_cn=spval
+     DecompCNParamsInst%np_s2_new_cn=spval
+     DecompCNParamsInst%np_s3_new_cn=spval
+     DecompCNParamsInst%np_s4_new_cn=spval
+     DecompCNParamsInst%cp_s1_new_cn=spval
+     DecompCNParamsInst%cp_s2_new_cn=spval
+     DecompCNParamsInst%cp_s3_new_cn=spval
+     DecompCNParamsInst%cp_s4_new_cn=spval
+     DecompCNParamsInst%rf_l1s1_cn  =spval
+     DecompCNParamsInst%rf_l2s2_cn  =spval
+     DecompCNParamsInst%rf_l3s3_cn  =spval
+     DecompCNParamsInst%rf_s1s2_cn  =spval
+     DecompCNParamsInst%rf_s2s3_cn  =spval
+     DecompCNParamsInst%rf_s3s4_cn  =spval
+     DecompCNParamsInst%cwd_fcel_cn =spval
+     DecompCNParamsInst%cwd_flig_cn =spval
+     DecompCNParamsInst%k_l1_cn     =spval
+     DecompCNParamsInst%k_l2_cn     =spval
+     DecompCNParamsInst%k_l3_cn     =spval
+     DecompCNParamsInst%k_s1_cn     =spval
+     DecompCNParamsInst%k_s2_cn     =spval
+     DecompCNParamsInst%k_s3_cn     =spval
+     DecompCNParamsInst%k_s4_cn     =spval
+     DecompCNParamsInst%k_frag_cn   =spval
+     DecompCNParamsInst%minpsi_cn   =spval
+     DecompCNParamsInst%nsompools = 4
+     DecompCNParamsInst%nlitpools = 3
+     DecompCNParamsInst%ncwdpools = 1
 
      ! These are not read off of netcdf file
      allocate(DecompCNParamsInst%spinup_vector(DecompCNParamsInst%nsompools+DecompCNParamsInst%nlitpools+ &

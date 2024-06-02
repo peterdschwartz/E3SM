@@ -1043,23 +1043,9 @@ module VegetationDataType
   type(vegetation_carbon_flux)           , public, target :: c14_veg_cf ! vegetation carbon flux (C14)
   type(vegetation_nitrogen_flux)         , public, target :: veg_nf     ! vegetation nitrogen flux
   type(vegetation_phosphorus_flux)       , public, target :: veg_pf     ! vegetation phosphorus flux
-
-   !$acc declare create(veg_es    )
-   !$acc declare create(veg_ws    )
-   !$acc declare create(veg_cs    )
-   !$acc declare create(c13_veg_cs)
-   !$acc declare create(c14_veg_cs)
-   !$acc declare create(veg_ns    )
-   !$acc declare create(veg_ps    )
-   !$acc declare create(veg_ef    )
-   !$acc declare create(veg_wf    )
-   !$acc declare create(veg_cf    )
-   !$acc declare create(c13_veg_cf)
-   !$acc declare create(c14_veg_cf)
-   !$acc declare create(veg_nf    )
-   !$acc declare create(veg_pf    )
-
   !------------------------------------------------------------------------
+  !$acc declare create(veg_cs,veg_cf)
+
 
   contains
 
@@ -1830,45 +1816,37 @@ module VegetationDataType
     !-----------------------------------------------------------------------
     ! initialize history fields for select members of veg_ws
     !-----------------------------------------------------------------------
-    this%h2ocan(begp:endp) = spval
     call hist_addfld1d (fname='H2OCAN', units='mm',  &
          avgflag='A', long_name='intercepted water', &
          ptr_patch=this%h2ocan, set_lake=0._r8)
 
-    this%q_ref2m(begp:endp) = spval
     call hist_addfld1d (fname='Q2M', units='kg/kg',  &
          avgflag='A', long_name='2m specific humidity', &
          ptr_patch=this%q_ref2m)
 
-    this%rh_ref2m(begp:endp) = spval
     call hist_addfld1d (fname='RH2M', units='%',  &
          avgflag='A', long_name='2m relative humidity', &
          ptr_patch=this%rh_ref2m)
 
-    this%rh_ref2m_r(begp:endp) = spval
     call hist_addfld1d (fname='RH2M_R', units='%',  &
          avgflag='A', long_name='Rural 2m specific humidity', &
          ptr_patch=this%rh_ref2m_r, set_spec=spval)
 
-    this%rh_ref2m_u(begp:endp) = spval
     call hist_addfld1d (fname='RH2M_U', units='%',  &
          avgflag='A', long_name='Urban 2m relative humidity', &
          ptr_patch=this%rh_ref2m_u, set_nourb=spval)
 
-    this%rh_af(begp:endp) = spval
     call hist_addfld1d (fname='RHAF', units='fraction', &
          avgflag='A', long_name='fractional humidity of canopy air', &
          ptr_patch=this%rh_af, set_spec=spval, default='inactive')
 
     if (use_cn) then
-       this%fwet(begp:endp) = spval
        call hist_addfld1d (fname='FWET', units='proportion', &
             avgflag='A', long_name='fraction of canopy that is wet', &
             ptr_patch=this%fwet, default='inactive')
     end if
 
     if (use_cn) then
-       this%fdry(begp:endp) = spval
        call hist_addfld1d (fname='FDRY', units='proportion', &
             avgflag='A', long_name='fraction of foliage that is green and dry', &
             ptr_patch=this%fdry, default='inactive')
@@ -8516,7 +8494,7 @@ module VegetationDataType
   end subroutine veg_cf_summary
 
   !------------------------------------------------------------
-  subroutine veg_cf_summary_rr(this, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
+  subroutine veg_cf_summary_rr(this,bounds, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
     !
     ! !DESCRIPTION:
     ! summarize root respiration
@@ -8526,6 +8504,7 @@ module VegetationDataType
     !
     ! !ARGUMENTS:
     type(vegetation_carbon_flux) :: this
+    type(bounds_type)   :: bounds 
     integer, intent(in) :: num_soilp
     integer, intent(in) :: filter_soilp(:)
     integer, intent(in) :: num_soilc
@@ -8534,8 +8513,8 @@ module VegetationDataType
     !
     ! !LOCAL VARIABLES
     integer :: fp, p
+    integer :: begc,endc,begp,endp
     !------------------------------------------------------------
-    !$acc parallel loop independent gang vector private(p) default(present)
     do fp = 1,num_soilp
       p = filter_soilp(fp)
       ! root respiration (RR)
@@ -8551,9 +8530,14 @@ module VegetationDataType
       this%cpool_livecroot_storage_gr(p) + &
       this%cpool_deadcroot_storage_gr(p)
     enddo
-    call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
-            this%rr, &
-            col_cf_input%rr)
+
+    begc = bounds%begc 
+    endc = bounds%endc
+    begp = bounds%begp
+    endp = bounds%endp 
+    call p2c_1d_filter_parallel(begc,begp,num_soilc, filter_soilc, &
+      this%rr(begp:endp), &
+      col_cf_input%rr(begc:endc))
 
   end subroutine veg_cf_summary_rr
 
