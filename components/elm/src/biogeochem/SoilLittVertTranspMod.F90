@@ -45,12 +45,12 @@ module SoilLittVertTranspMod
   !$acc declare create(transport_ptr_list(:))
 
   real(r8), public :: som_adv_flux =  0._r8
-  !$acc declare copyin(som_adv_flux)
+  !$acc declare create(som_adv_flux)
   real(r8), public :: max_depth_cryoturb = 3._r8   ! (m) this is the maximum depth of cryoturbation
-  !$acc declare copyin(max_depth_cryoturb)
-  real(r8) :: som_diffus                   ! [m^2/sec] = 1 cm^2 / yr
-  real(r8) :: cryoturb_diffusion_k         ! [m^2/sec] = 5 cm^2 / yr = 1m^2 / 200 yr
-  real(r8) :: max_altdepth_cryoturbation   ! (m) maximum active layer thickness for cryoturbation to occur
+  !$acc declare create(max_depth_cryoturb)
+  !! real(r8) :: som_diffus                   ! [m^2/sec] = 1 cm^2 / yr
+  !! real(r8) :: cryoturb_diffusion_k         ! [m^2/sec] = 5 cm^2 / yr = 1m^2 / 200 yr
+  !! real(r8) :: max_altdepth_cryoturbation   ! (m) maximum active layer thickness for cryoturbation to occur
   !-----------------------------------------------------------------------
 
 contains
@@ -230,12 +230,9 @@ contains
           max_altdepth_cryoturbation => SoilLittVertTranspParamsInst%max_altdepth_cryoturbation &
          )
       
-      call cpu_time(startt)
       !$acc enter data create(a_tri(:,:,:),b_tri(:,:,:),&
       !$acc     c_tri(:,:,:),r_tri(:,:,:), &
       !$acc     conc_trcr(:,:,:), gam(:) )
-      call cpu_time(stopt) 
-      write(iulog,*) "TIMING SoilLittVertTransp::data",(stopt-startt)*1.E+3,"ms" 
       ntype = 3
       if ( use_c13 ) then
          ntype = ntype+1
@@ -335,7 +332,6 @@ contains
                         if (j == 1) then
                           call calc_diffus_advflux(spinup_term,year_curr, som_diffus_coef(c,j+1), som_adv_coef(c,j+1), &
                                                    cnstate_vars%scalaravg_col(c,j+1),adv_flux_jp1, diffus_jp1)
-
                            dz_nodep1 =  zsoi(j+1) - zsoi(j)
                            d_m1_zm1 = 0._r8
                            w_p1 = (zsoi(j+1) - zisoi(j)) / dz_nodep1

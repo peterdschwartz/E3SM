@@ -45,7 +45,6 @@ module dynColumnTemplateMod
 
   ! if no template column was found, this value is returned
   integer, parameter, public :: TEMPLATE_NONE_FOUND = ispval
-  !$acc declare copyin(TEMPLATE_NONE_FOUND)
 
   character(len=*), parameter, private :: sourcefile = &
        __FILE__

@@ -26,7 +26,7 @@
   public :: SoilWater            ! Calculate soil hydrology
   public :: init_soilwater_movement
   public :: Compute_EffecRootFrac_And_VertTranSink
-!  public :: Compute_EffecRootFrac_And_VertTranSink_HydStress
+  !  public :: Compute_EffecRootFrac_And_VertTranSink_HydStress
   !
   ! !PUBLIC DATA MEMBERS:
   logical, public :: zengdecker_2009_with_var_soil_thick
@@ -37,9 +37,6 @@
   integer, parameter, public :: vsfm = 1
   integer, public :: soilroot_water_method !0: use the Zeng and deck method, this will be readin from namelist in the future
 
-  !$acc declare copyin(zengdecker_2009)
-  !$acc declare copyin(vsfm)
-  !$acc declare copyin(soilroot_water_method)
 
   !-----------------------------------------------------------------------
 

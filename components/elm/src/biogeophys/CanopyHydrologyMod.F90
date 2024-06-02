@@ -94,6 +94,7 @@ contains
     end if
     ! Broadcast namelist variables read in
     call shr_mpi_bcast(oldfflag, mpicom)
+    !$acc update device(oldfflag) 
 
    end subroutine CanopyHydrology_readnl
 

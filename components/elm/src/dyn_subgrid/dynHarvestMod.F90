@@ -83,6 +83,7 @@ module dynHarvestMod
   logical, private              :: do_harvest ! whether we're in a period when we should do harvest
   !---------------------------------------------------------------------------
 
+  !$acc declare create(harvest_rates(:,:))
 contains
 
   !-----------------------------------------------------------------------

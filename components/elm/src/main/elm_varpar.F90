@@ -101,7 +101,7 @@ module elm_varpar
   integer :: maxpatch_glcmec    ! max number of elevation classes
   integer :: max_patch_per_col
 
-  real(r8) :: mach_eps            ! machine epsilon
+  real(r8), parameter :: mach_eps=epsilon(1.0_r8)    ! machine epsilon
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public elm_varpar_init          ! set parameters
@@ -116,20 +116,6 @@ module elm_varpar
   !$acc declare create(nlevsno    )
 
 
-  !$acc declare copyin(nlev_equalspace  )
-  !$acc declare copyin(toplev_equalspace)
-  !$acc declare copyin(ngases     )
-  !$acc declare copyin(nlevcan    )
-  !$acc declare copyin(nvegwcs    )
-  !$acc declare copyin(numwat     )
-  !$acc declare copyin(numrad     )
-  !$acc declare copyin(ivis       )
-  !$acc declare copyin(inir       )
-  !$acc declare copyin(numsolar   )
-  !$acc declare copyin(ndst       )
-  !$acc declare copyin(dst_src_nbr)
-  !$acc declare copyin(sz_nbr     )
-  !$acc declare copyin(mxpft      )
   !$acc declare create(nlevsoi        )
   !$acc declare create(nlevsoifl      )
   !$acc declare create(nlevurb        )
@@ -139,6 +125,7 @@ module elm_varpar
   !$acc declare create(nlevtrc_soil   )
   !$acc declare create(nlevtrc_full   )
   !$acc declare create(nlevgrnd)
+
   !$acc declare create(natpft_lb  )
   !$acc declare create(natpft_ub  )
   !$acc declare create(natpft_size)
@@ -151,9 +138,7 @@ module elm_varpar
   !$acc declare create(i_cwd      )
   !$acc declare create(maxpatch_glcmec )
   !$acc declare create(max_patch_per_col)
-  !$acc declare create(mach_eps)
 
-  !$acc declare create(nlayert)
 
 contains
 
@@ -234,7 +219,6 @@ contains
     ! following this routine
     
     max_patch_per_col= max(numpft+1, numcft, maxpatch_urb)
-    mach_eps       = epsilon(1.0_r8)
 
     nlevsoifl   =  10
     nlevurb     =  5
@@ -292,9 +276,6 @@ contains
        i_lig_lit = 3
        i_cwd = 4
     end if
-
-
-
 
   end subroutine elm_varpar_init
 

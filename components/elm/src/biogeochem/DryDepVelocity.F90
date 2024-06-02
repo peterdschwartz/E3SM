@@ -76,7 +76,7 @@ Module DryDepVelocity
   !
   type, public :: drydepvel_type
 
-     real(r8), pointer, public :: velocity_patch (:,:) ! Dry Deposition Velocity
+     real(r8), pointer, public :: velocity_patch (:,:) => null() ! Dry Deposition Velocity
 
    contains
 
