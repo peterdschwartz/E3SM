@@ -13,7 +13,7 @@ module CH4Mod
   use shr_infnan_mod     , only : nan => shr_infnan_nan
   use shr_log_mod        , only : errMsg => shr_log_errMsg
   use elm_varpar         , only : nlevsoi, ngases, nlevsno, nlevdecomp
-  use elm_varcon         , only : denh2o, denice, tfrz, grav, spval, rgas, grlnd
+  use elm_varcon         , only : denh2o, denice, tfrz, grav, nan, rgas, grlnd, spval
   use elm_varcon         , only : catomw, s_con, d_con_w, d_con_g, c_h_inv, kh_theta, kh_tbase
   use landunit_varcon    , only : istdlak
   use elm_time_manager   , only : get_step_size, get_nstep
@@ -223,7 +223,7 @@ contains
     ! Allocate module variables and data structures
     !
     ! !USES:
-    use shr_infnan_mod, only: spval => shr_infnan_nan, assignment(=)
+    ! use shr_infnan_mod, only: nan => shr_infnan_nan, assignment(=)
     use elm_varpar    , only: nlevgrnd
     !
     ! !ARGUMENTS:
@@ -267,8 +267,8 @@ contains
     allocate(this%ch4_surf_ebul_sat_col      (begc:endc))            ;  this%ch4_surf_ebul_sat_col      (:)   = nan
     allocate(this%ch4_surf_ebul_unsat_col    (begc:endc))            ;  this%ch4_surf_ebul_unsat_col    (:)   = nan
     allocate(this%ch4_surf_ebul_lake_col     (begc:endc))            ;  this%ch4_surf_ebul_lake_col     (:)   = nan
-    allocate(this%conc_ch4_sat_col           (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_sat_col           (:,:) = spval ! detect file input
-    allocate(this%conc_ch4_unsat_col         (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_unsat_col         (:,:) = spval ! detect file input
+    allocate(this%conc_ch4_sat_col           (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_sat_col           (:,:) = nan ! detect file input
+    allocate(this%conc_ch4_unsat_col         (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_unsat_col         (:,:) = nan ! detect file input
     allocate(this%conc_ch4_lake_col          (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_lake_col          (:,:) = nan
     allocate(this%ch4_surf_diff_sat_col      (begc:endc))            ;  this%ch4_surf_diff_sat_col      (:)   = nan
     allocate(this%ch4_surf_diff_unsat_col    (begc:endc))            ;  this%ch4_surf_diff_unsat_col    (:)   = nan
@@ -277,7 +277,7 @@ contains
     allocate(this%ch4_dfsat_flux_col         (begc:endc))            ;  this%ch4_dfsat_flux_col         (:)   = nan
     allocate(this%zwt_ch4_unsat_col          (begc:endc))            ;  this%zwt_ch4_unsat_col          (:)   = nan
     allocate(this%fsat_bef_col               (begc:endc))            ;  this%fsat_bef_col               (:)   = nan
-    allocate(this%lake_soilc_col             (begc:endc,1:nlevgrnd)) ;  this%lake_soilc_col             (:,:) = spval !first time-step
+    allocate(this%lake_soilc_col             (begc:endc,1:nlevgrnd)) ;  this%lake_soilc_col             (:,:) = nan !first time-step
     allocate(this%totcolch4_col              (begc:endc))            ;  this%totcolch4_col              (:)   = nan
     allocate(this%annsum_counter_col         (begc:endc))            ;  this%annsum_counter_col         (:)   = nan
     allocate(this%tempavg_somhr_col          (begc:endc))            ;  this%tempavg_somhr_col          (:)   = nan
@@ -348,101 +348,101 @@ contains
        active = "inactive"
     end if
 
-    this%finundated_col(begc:endc) = spval
+    this%finundated_col(begc:endc) = nan
     call hist_addfld1d (fname='FINUNDATED', units='1', &
          avgflag='A', long_name='fractional inundated area of vegetated columns', &
          ptr_col=this%finundated_col)
 
-    this%finundated_lag_col(begc:endc) = spval
+    this%finundated_lag_col(begc:endc) = nan
     call hist_addfld1d (fname='FINUNDATED_LAG', units='1',  &
          avgflag='A', long_name='time-lagged inundated fraction of vegetated columns', &
          ptr_col=this%finundated_lag_col)
 
-    this%ch4_surf_diff_sat_col(begc:endc) = spval
+    this%ch4_surf_diff_sat_col(begc:endc) = nan
     call hist_addfld1d (fname='CH4_SURF_DIFF_SAT', units='mol/m2/s',  &
          avgflag='A', long_name='diffusive surface CH4 flux for inundated / lake area; (+ to atm)', &
          ptr_col=this%ch4_surf_diff_sat_col)
 
-    this%ch4_surf_diff_unsat_col(begc:endc) = spval
+    this%ch4_surf_diff_unsat_col(begc:endc) = nan
     call hist_addfld1d (fname='CH4_SURF_DIFF_UNSAT', units='mol/m2/s',  &
          avgflag='A', long_name='diffusive surface CH4 flux for non-inundated area; (+ to atm)', &
          ptr_col=this%ch4_surf_diff_unsat_col)
 
-    this%ch4_ebul_total_sat_col(begc:endc) = spval
+    this%ch4_ebul_total_sat_col(begc:endc) = nan
     call hist_addfld1d (fname='CH4_EBUL_TOTAL_SAT', units='mol/m2/s',  &
          avgflag='A', long_name='ebullition surface CH4 flux; (+ to atm)', &
          ptr_col=this%ch4_ebul_total_sat_col, default='inactive')
 
-    this%ch4_ebul_total_unsat_col(begc:endc) = spval
+    this%ch4_ebul_total_unsat_col(begc:endc) = nan
     call hist_addfld1d (fname='CH4_EBUL_TOTAL_UNSAT', units='mol/m2/s',  &
          avgflag='A', long_name='ebullition surface CH4 flux; (+ to atm)', &
          ptr_col=this%ch4_ebul_total_unsat_col, default='inactive')
 
-    this%ch4_surf_ebul_sat_col(begc:endc) = spval
+    this%ch4_surf_ebul_sat_col(begc:endc) = nan
     call hist_addfld1d (fname='CH4_SURF_EBUL_SAT', units='mol/m2/s',  &
          avgflag='A', long_name='ebullition surface CH4 flux for inundated / lake area; (+ to atm)', &
          ptr_col=this%ch4_surf_ebul_sat_col)
 
-    this%ch4_surf_ebul_unsat_col(begc:endc) = spval
+    this%ch4_surf_ebul_unsat_col(begc:endc) = nan
     call hist_addfld1d (fname='CH4_SURF_EBUL_UNSAT', units='mol/m2/s',  &
          avgflag='A', long_name='ebullition surface CH4 flux for non-inundated area; (+ to atm)', &
          ptr_col=this%ch4_surf_ebul_unsat_col)
 
-    this%ch4_surf_aere_sat_col(begc:endc) = spval
+    this%ch4_surf_aere_sat_col(begc:endc) = nan
     call hist_addfld1d (fname='CH4_SURF_AERE_SAT', units='mol/m2/s',  &
          avgflag='A', long_name='aerenchyma surface CH4 flux for inundated area; (+ to atm)', &
          ptr_col=this%ch4_surf_aere_sat_col)
 
-    this%ch4_surf_aere_unsat_col(begc:endc) = spval
+    this%ch4_surf_aere_unsat_col(begc:endc) = nan
     call hist_addfld1d (fname='CH4_SURF_AERE_UNSAT', units='mol/m2/s',  &
          avgflag='A', long_name='aerenchyma surface CH4 flux for non-inundated area; (+ to atm)', &
          ptr_col=this%ch4_surf_aere_unsat_col)
 
-    this%totcolch4_col(begc:endc) = spval
+    this%totcolch4_col(begc:endc) = nan
     call hist_addfld1d (fname='TOTCOLCH4', units='gC/m2',  &
          avgflag='A', long_name='total belowground CH4, (0 for non-lake special landunits)', &
          ptr_col=this%totcolch4_col)
 
-    this%conc_ch4_sat_col(begc:endc,1:nlevgrnd) = spval
+    this%conc_ch4_sat_col(begc:endc,1:nlevgrnd) = nan
     call hist_addfld2d (fname='CONC_CH4_SAT', units='mol/m3', type2d='levgrnd', &
          avgflag='A', long_name='CH4 soil Concentration for inundated / lake area', &
          ptr_col=this%conc_ch4_sat_col)
 
-    this%conc_ch4_unsat_col(begc:endc,1:nlevgrnd) = spval
+    this%conc_ch4_unsat_col(begc:endc,1:nlevgrnd) = nan
     call hist_addfld2d (fname='CONC_CH4_UNSAT', units='mol/m3', type2d='levgrnd', &
          avgflag='A', long_name='CH4 soil Concentration for non-inundated area', &
          ptr_col=this%conc_ch4_unsat_col)
 
     if (hist_wrtch4diag) then
-       this%ch4_prod_depth_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_prod_depth_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_PROD_DEPTH_SAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil production for inundated / lake area', &
             ptr_col=this%ch4_prod_depth_sat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_prod_depth_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_prod_depth_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_PROD_DEPTH_UNSAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil production for non-inundated area', &
             ptr_col=this%ch4_prod_depth_unsat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_oxid_depth_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_oxid_depth_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_OXID_DEPTH_SAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil oxidation for inundated / lake area', &
             ptr_col=this%ch4_oxid_depth_sat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_oxid_depth_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_oxid_depth_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_OXID_DEPTH_UNSAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil oxidation for non-inundated area', &
             ptr_col=this%ch4_oxid_depth_unsat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_aere_depth_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_aere_depth_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_AERE_DEPTH_SAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil aerenchyma loss for inundated / lake area '// &
             ' (including transpiration flux if activated)', &
@@ -450,7 +450,7 @@ contains
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_aere_depth_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_aere_depth_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_AERE_DEPTH_UNSAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil aerenchyma loss for non-inundated area '// &
             ' (including transpiration flux if activated)', &
@@ -458,14 +458,14 @@ contains
     end if
 
     if (hist_wrtch4diag) then
-       this%o2_aere_depth_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%o2_aere_depth_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='O2_AERE_DEPTH_SAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='O2 aerenchyma diffusion into soil for inundated / lake area', &
             ptr_col=this%o2_aere_depth_sat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%o2_aere_depth_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%o2_aere_depth_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='O2_AERE_DEPTH_UNSAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='O2 aerenchyma diffusion into soil for non-inundated area', &
             ptr_col=this%o2_aere_depth_unsat_col)
@@ -477,9 +477,9 @@ contains
             ptr_col=this%o2_decomp_depth_sat_col)
     end if
 
-    this%o2_decomp_depth_unsat_col(begc:endc,1:nlevgrnd) = spval
+    this%o2_decomp_depth_unsat_col(begc:endc,1:nlevgrnd) = nan
     if (hist_wrtch4diag) then
-       this%o2_decomp_depth_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%o2_decomp_depth_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='O2_DECOMP_DEPTH_UNSAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='O2 consumption from HR and AR for non-inundated area', &
             ptr_col=this%o2_decomp_depth_unsat_col)
@@ -490,167 +490,167 @@ contains
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_tran_depth_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_tran_depth_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_TRAN_DEPTH_SAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil loss from transpiration for inundated / lake area', &
             ptr_col=this%ch4_tran_depth_sat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_tran_depth_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_tran_depth_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_TRAN_DEPTH_UNSAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil loss from transpiration for non-inundated area', &
             ptr_col=this%ch4_tran_depth_unsat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_ebul_depth_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_ebul_depth_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_EBUL_DEPTH_SAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil ebullition for inundated / lake area', &
             ptr_col=this%ch4_ebul_depth_sat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4_ebul_depth_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_ebul_depth_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_EBUL_DEPTH_UNSAT', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 soil ebullition for non-inundated area', &
             ptr_col=this%ch4_ebul_depth_unsat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%o2stress_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%o2stress_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='O2STRESS_SAT', units='1', type2d='levgrnd',  &
             avgflag='A', long_name='Ratio of oxygen available to demanded for non-inundated area', &
             ptr_col=this%o2stress_sat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%o2stress_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%o2stress_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='O2STRESS_UNSAT', units='1', type2d='levgrnd',  &
             avgflag='A', long_name='Ratio of oxygen available to demanded for inundated / lake area', &
             ptr_col=this%o2stress_unsat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4stress_unsat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4stress_unsat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4STRESS_UNSAT', units='1', type2d='levgrnd',  &
             avgflag='A', long_name='Ratio of methane available to total potential sink for inundated / lake area', &
             ptr_col=this%ch4stress_unsat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%ch4stress_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4stress_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4STRESS_SAT', units='1', type2d='levgrnd',  &
             avgflag='A', long_name='Ratio of methane available to total potential sink for non-inundated area', &
             ptr_col=this%ch4stress_sat_col)
     end if
 
     if (hist_wrtch4diag .and. allowlakeprod) then
-       this%ch4_prod_depth_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_prod_depth_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_PROD_DEPTH_LAKE', units='mol/m3/s', type2d='levgrnd', &
             avgflag='A', long_name='CH4 production in each soil layer, lake col. only', &
             ptr_col=this%ch4_prod_depth_sat_col)
     end if
 
     if (hist_wrtch4diag .and. allowlakeprod) then
-       this%conc_ch4_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%conc_ch4_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CONC_CH4_LAKE', units='mol/m3', type2d='levgrnd', &
             avgflag='A', long_name='CH4 Concentration each soil layer, lake col. only', &
             ptr_col=this%conc_ch4_sat_col)
     end if
 
     if (hist_wrtch4diag .and. allowlakeprod) then
-       this%conc_o2_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%conc_o2_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CONC_O2_LAKE', units='mol/m3', type2d='levgrnd', &
             avgflag='A', long_name='O2 Concentration each soil layer, lake col. only', &
             ptr_col=this%conc_o2_sat_col)
     end if
 
     if (hist_wrtch4diag .and. allowlakeprod) then
-       this%ch4_surf_diff_sat_col(begc:endc) = spval
+       this%ch4_surf_diff_sat_col(begc:endc) = nan
        call hist_addfld1d (fname='CH4_SURF_DIFF_LAKE', units='mol/m2/s',  &
             avgflag='A', long_name='diffusive surface CH4 flux, lake col. only (+ to atm)', &
             ptr_col=this%ch4_surf_diff_sat_col)
     end if
 
     if (hist_wrtch4diag .and. allowlakeprod) then
-       this%ch4_surf_ebul_sat_col(begc:endc) = spval
+       this%ch4_surf_ebul_sat_col(begc:endc) = nan
        call hist_addfld1d (fname='CH4_SURF_EBUL_LAKE', units='mol/m2/s',  &
             avgflag='A', long_name='ebullition surface CH4 flux, lake col. only (+ to atm)', &
             ptr_col=this%ch4_surf_ebul_sat_col)
     end if
 
     if (hist_wrtch4diag .and. allowlakeprod) then
-       this%ch4_oxid_depth_sat_col(begc:endc,1:nlevgrnd) = spval
+       this%ch4_oxid_depth_sat_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='CH4_OXID_DEPTH_LAKE', units='mol/m2/s', type2d='levgrnd',  &
             avgflag='A', long_name='CH4 oxidation in each soil layer, lake col. only', &
             ptr_col=this%ch4_oxid_depth_sat_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%layer_sat_lag_col(begc:endc,1:nlevgrnd) = spval
+       this%layer_sat_lag_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='LAYER_SAT_LAG', units='1', type2d='levgrnd',  &
             avgflag='A', long_name='lagged saturation status of layer in unsat. zone', &
             ptr_col=this%layer_sat_lag_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%annavg_finrw_col(begc:endc) = spval
+       this%annavg_finrw_col(begc:endc) = nan
        call hist_addfld1d (fname='ANNAVG_FINRW', units='1',  &
             avgflag='A', long_name='annual average respiration-weighted FINUNDATED', &
             ptr_col=this%annavg_finrw_col)
     end if
 
     if (hist_wrtch4diag) then
-       this%sif_col(begc:endc) = spval
+       this%sif_col(begc:endc) = nan
        call hist_addfld1d (fname='SIF', units='1',  &
             avgflag='A', long_name='seasonal inundation factor calculated for sat. CH4 prod. (non-lake)', &
             ptr_col=this%sif_col)
     end if
 
-    this%conc_o2_sat_col(begc:endc,1:nlevgrnd) = spval
+    this%conc_o2_sat_col(begc:endc,1:nlevgrnd) = nan
     call hist_addfld2d (fname='CONC_O2_SAT', units='mol/m3', type2d='levgrnd', &
          avgflag='A', long_name='O2 soil Concentration for inundated / lake area', &
          ptr_col=this%conc_o2_sat_col)
 
-    this%conc_o2_unsat_col(begc:endc,1:nlevgrnd) = spval
+    this%conc_o2_unsat_col(begc:endc,1:nlevgrnd) = nan
     call hist_addfld2d (fname='CONC_O2_UNSAT', units='mol/m3', type2d='levgrnd', &
          avgflag='A', long_name='O2 soil Concentration for non-inundated area', &
          ptr_col=this%conc_o2_unsat_col)
 
-    this%ch4co2f_grc(begg:endg) = spval
+    this%ch4co2f_grc(begg:endg) = nan
     call hist_addfld1d (fname='FCH4TOCO2', units='gC/m2/s', &
          avgflag='A', long_name='Gridcell oxidation of CH4 to CO2', &
          ptr_lnd=this%ch4co2f_grc)
 
-    this%ch4prodg_grc(begg:endg) = spval
+    this%ch4prodg_grc(begg:endg) = nan
     call hist_addfld1d (fname='CH4PROD', units='gC/m2/s', &
          avgflag='A', long_name='Gridcell total production of CH4', &
          ptr_lnd=this%ch4prodg_grc)
 
-    this%ch4_dfsat_flux_col(begc:endc) = spval
+    this%ch4_dfsat_flux_col(begc:endc) = nan
     call hist_addfld1d (fname='FCH4_DFSAT', units='kgC/m2/s',  &
          avgflag='A', long_name='CH4 additional flux due to changing fsat, vegetated landunits only', &
          ptr_col=this%ch4_dfsat_flux_col)
 
-    this%zwt_ch4_unsat_col(begc:endc) = spval
+    this%zwt_ch4_unsat_col(begc:endc) = nan
     call hist_addfld1d (fname='ZWT_CH4_UNSAT', units='m',  &
          avgflag='A', long_name='depth of water table for methane production used in non-inundated area', &
          ptr_col=this%zwt_ch4_unsat_col)
 
-    this%qflx_surf_lag_col(begc:endc) = spval
+    this%qflx_surf_lag_col(begc:endc) = nan
     call hist_addfld1d (fname='QOVER_LAG', units='mm/s',  &
          avgflag='A', long_name='time-lagged surface runoff for soil columns', &
          ptr_col=this%qflx_surf_lag_col)
 
     if (allowlakeprod) then
-       this%lake_soilc_col(begc:endc,1:nlevgrnd) = spval
+       this%lake_soilc_col(begc:endc,1:nlevgrnd) = nan
        call hist_addfld2d (fname='LAKE_SOILC', units='gC/m3', type2d='levgrnd', &
             avgflag='A', long_name='Soil carbon under lakes', &
             ptr_col=this%lake_soilc_col)
     end if
 
-    this%grnd_ch4_cond_col(begc:endc) = spval
+    this%grnd_ch4_cond_col(begc:endc) = nan
     call hist_addfld1d (fname='WTGQ', units='m/s',  &
          avgflag='A', long_name='surface tracer conductance', &
          ptr_col=this%grnd_ch4_cond_col)
@@ -667,7 +667,7 @@ contains
     ! lake_soilc, o2stress, finunduated
     ! - Sets variables for ch4 code that will not be input
     ! from restart/inic file.
-    ! - Sets values for inactive CH4 columns to spval so that they will
+    ! - Sets values for inactive CH4 columns to nan so that they will
     ! not be averaged in history file.
     !
     ! !USES:
@@ -764,30 +764,30 @@ contains
     do c = bounds%begc,bounds%endc
 
        ! To detect first time-step
-       this%fsat_bef_col       (c) = spval
-       this%annsum_counter_col (c) = spval
-       this%totcolch4_col      (c) = spval
+       this%fsat_bef_col       (c) = nan
+       this%annsum_counter_col (c) = nan
+       this%totcolch4_col      (c) = nan
 
        ! To detect first year
-       this%annavg_somhr_col(c)   = spval
-       this%annavg_finrw_col(c)   = spval
+       this%annavg_somhr_col(c)   = nan
+       this%annavg_finrw_col(c)   = nan
 
        ! To detect file input
-       this%qflx_surf_lag_col  (c)   = spval
-       this%finundated_lag_col (c)   = spval
-       this%layer_sat_lag_col  (c,:) = spval
-       this%conc_ch4_sat_col   (c,:) = spval
-       this%conc_ch4_unsat_col (c,:) = spval
-       this%conc_o2_sat_col    (c,:) = spval
-       this%conc_o2_unsat_col  (c,:) = spval
-       this%o2stress_sat_col   (c,:) = spval
-       this%o2stress_unsat_col (c,:) = spval
-       this%ch4stress_sat_col  (c,:) = spval
-       this%ch4stress_unsat_col(c,:) = spval
-       this%lake_soilc_col     (c,:) = spval
+       this%qflx_surf_lag_col  (c)   = nan
+       this%finundated_lag_col (c)   = nan
+       this%layer_sat_lag_col  (c,:) = nan
+       this%conc_ch4_sat_col   (c,:) = nan
+       this%conc_ch4_unsat_col (c,:) = nan
+       this%conc_o2_sat_col    (c,:) = nan
+       this%conc_o2_unsat_col  (c,:) = nan
+       this%o2stress_sat_col   (c,:) = nan
+       this%o2stress_unsat_col (c,:) = nan
+       this%ch4stress_sat_col  (c,:) = nan
+       this%ch4stress_unsat_col(c,:) = nan
+       this%lake_soilc_col     (c,:) = nan
 
        ! To detect first time-step for denitrification code
-       this%o2_decomp_depth_unsat_col(c,:)= spval
+       this%o2_decomp_depth_unsat_col(c,:)= nan
 
        l = col_pp%landunit(c)
        if (lun_pp%itype(l) == istsoil .or. lun_pp%itype(l) == istcrop) then
@@ -853,81 +853,81 @@ contains
 
        if (lun_pp%itype(l) == istsoil .or. lun_pp%itype(l) == istcrop) then
 
-          this%conc_ch4_lake_col       (c,:) = spval
-          this%conc_o2_lake_col        (c,:) = spval
-          this%ch4_surf_diff_lake_col  (c)   = spval
-          this%ch4_surf_ebul_lake_col  (c)   = spval
-          this%ch4_prod_depth_lake_col (c,:) = spval
-          this%ch4_oxid_depth_lake_col (c,:) = spval
+          this%conc_ch4_lake_col       (c,:) = nan
+          this%conc_o2_lake_col        (c,:) = nan
+          this%ch4_surf_diff_lake_col  (c)   = nan
+          this%ch4_surf_ebul_lake_col  (c)   = nan
+          this%ch4_prod_depth_lake_col (c,:) = nan
+          this%ch4_oxid_depth_lake_col (c,:) = nan
 
        else if (lun_pp%itype(l) == istdlak .and. allowlakeprod) then
 
-          this%ch4_prod_depth_unsat_col   (c,:) = spval
-          this%ch4_oxid_depth_unsat_col   (c,:) = spval
-          this%o2_oxid_depth_unsat_col    (c,:) = spval
-          this%o2_decomp_depth_unsat_col  (c,:) = spval
-          this%o2_aere_depth_unsat_col    (c,:) = spval
-          this%co2_decomp_depth_unsat_col (c,:) = spval
-          this%co2_oxid_depth_unsat_col   (c,:) = spval
-          this%ch4_aere_depth_unsat_col   (c,:) = spval
-          this%ch4_tran_depth_unsat_col   (c,:) = spval
-          this%ch4_surf_aere_unsat_col    (c)   = spval
-          this%ch4_ebul_depth_unsat_col   (c,:) = spval
-          this%ch4_ebul_total_unsat_col   (c)   = spval
-          this%ch4_surf_ebul_unsat_col    (c)   = spval
-          this%ch4_surf_diff_unsat_col    (c)   = spval
-          this%ch4_dfsat_flux_col         (c)   = spval
-          this%zwt_ch4_unsat_col          (c)   = spval
-          this%sif_col                    (c)   = spval
-          this%o2stress_unsat_col         (c,:) = spval
-          this%ch4stress_unsat_col        (c,:) = spval
-          this%finundated_col             (c)   = spval
+          this%ch4_prod_depth_unsat_col   (c,:) = nan
+          this%ch4_oxid_depth_unsat_col   (c,:) = nan
+          this%o2_oxid_depth_unsat_col    (c,:) = nan
+          this%o2_decomp_depth_unsat_col  (c,:) = nan
+          this%o2_aere_depth_unsat_col    (c,:) = nan
+          this%co2_decomp_depth_unsat_col (c,:) = nan
+          this%co2_oxid_depth_unsat_col   (c,:) = nan
+          this%ch4_aere_depth_unsat_col   (c,:) = nan
+          this%ch4_tran_depth_unsat_col   (c,:) = nan
+          this%ch4_surf_aere_unsat_col    (c)   = nan
+          this%ch4_ebul_depth_unsat_col   (c,:) = nan
+          this%ch4_ebul_total_unsat_col   (c)   = nan
+          this%ch4_surf_ebul_unsat_col    (c)   = nan
+          this%ch4_surf_diff_unsat_col    (c)   = nan
+          this%ch4_dfsat_flux_col         (c)   = nan
+          this%zwt_ch4_unsat_col          (c)   = nan
+          this%sif_col                    (c)   = nan
+          this%o2stress_unsat_col         (c,:) = nan
+          this%ch4stress_unsat_col        (c,:) = nan
+          this%finundated_col             (c)   = nan
 
        else  ! Inactive CH4 columns
 
-          this%ch4_prod_depth_sat_col     (c,:) = spval
-          this%ch4_prod_depth_unsat_col   (c,:) = spval
-          this%ch4_prod_depth_lake_col    (c,:) = spval
-          this%ch4_oxid_depth_sat_col     (c,:) = spval
-          this%ch4_oxid_depth_unsat_col   (c,:) = spval
-          this%ch4_oxid_depth_lake_col    (c,:) = spval
-          this%o2_oxid_depth_sat_col      (c,:) = spval
-          this%o2_oxid_depth_unsat_col    (c,:) = spval
-          this%o2_decomp_depth_sat_col    (c,:) = spval
-          this%o2_decomp_depth_unsat_col  (c,:) = spval
-          this%o2_aere_depth_sat_col      (c,:) = spval
-          this%o2_aere_depth_unsat_col    (c,:) = spval
-          this%co2_decomp_depth_sat_col   (c,:) = spval
-          this%co2_decomp_depth_unsat_col (c,:) = spval
-          this%co2_oxid_depth_sat_col     (c,:) = spval
-          this%co2_oxid_depth_unsat_col   (c,:) = spval
-          this%ch4_aere_depth_sat_col     (c,:) = spval
-          this%ch4_aere_depth_unsat_col   (c,:) = spval
-          this%ch4_tran_depth_sat_col     (c,:) = spval
-          this%ch4_tran_depth_unsat_col   (c,:) = spval
-          this%ch4_surf_aere_sat_col      (c)   = spval
-          this%ch4_surf_aere_unsat_col    (c)   = spval
-          this%ch4_ebul_depth_sat_col     (c,:) = spval
-          this%ch4_ebul_depth_unsat_col   (c,:) = spval
-          this%ch4_ebul_total_sat_col     (c)   = spval
-          this%ch4_ebul_total_unsat_col   (c)   = spval
-          this%ch4_surf_ebul_sat_col      (c)   = spval
-          this%ch4_surf_ebul_unsat_col    (c)   = spval
-          this%ch4_surf_ebul_lake_col     (c)   = spval
-          this%ch4_surf_diff_sat_col      (c)   = spval
-          this%ch4_surf_diff_unsat_col    (c)   = spval
-          this%ch4_surf_diff_lake_col     (c)   = spval
-          this%ch4_dfsat_flux_col         (c)   = spval
-          this%zwt_ch4_unsat_col          (c)   = spval
-          this%conc_ch4_lake_col          (c,:) = spval
-          this%conc_o2_lake_col           (c,:) = spval
-          this%sif_col                    (c)   = spval
-          this%o2stress_unsat_col         (c,:) = spval
-          this%o2stress_sat_col           (c,:) = spval
-          this%ch4stress_unsat_col        (c,:) = spval
-          this%ch4stress_sat_col          (c,:) = spval
-          this%finundated_col             (c)   = spval
-          this%grnd_ch4_cond_col          (c)   = spval
+          this%ch4_prod_depth_sat_col     (c,:) = nan
+          this%ch4_prod_depth_unsat_col   (c,:) = nan
+          this%ch4_prod_depth_lake_col    (c,:) = nan
+          this%ch4_oxid_depth_sat_col     (c,:) = nan
+          this%ch4_oxid_depth_unsat_col   (c,:) = nan
+          this%ch4_oxid_depth_lake_col    (c,:) = nan
+          this%o2_oxid_depth_sat_col      (c,:) = nan
+          this%o2_oxid_depth_unsat_col    (c,:) = nan
+          this%o2_decomp_depth_sat_col    (c,:) = nan
+          this%o2_decomp_depth_unsat_col  (c,:) = nan
+          this%o2_aere_depth_sat_col      (c,:) = nan
+          this%o2_aere_depth_unsat_col    (c,:) = nan
+          this%co2_decomp_depth_sat_col   (c,:) = nan
+          this%co2_decomp_depth_unsat_col (c,:) = nan
+          this%co2_oxid_depth_sat_col     (c,:) = nan
+          this%co2_oxid_depth_unsat_col   (c,:) = nan
+          this%ch4_aere_depth_sat_col     (c,:) = nan
+          this%ch4_aere_depth_unsat_col   (c,:) = nan
+          this%ch4_tran_depth_sat_col     (c,:) = nan
+          this%ch4_tran_depth_unsat_col   (c,:) = nan
+          this%ch4_surf_aere_sat_col      (c)   = nan
+          this%ch4_surf_aere_unsat_col    (c)   = nan
+          this%ch4_ebul_depth_sat_col     (c,:) = nan
+          this%ch4_ebul_depth_unsat_col   (c,:) = nan
+          this%ch4_ebul_total_sat_col     (c)   = nan
+          this%ch4_ebul_total_unsat_col   (c)   = nan
+          this%ch4_surf_ebul_sat_col      (c)   = nan
+          this%ch4_surf_ebul_unsat_col    (c)   = nan
+          this%ch4_surf_ebul_lake_col     (c)   = nan
+          this%ch4_surf_diff_sat_col      (c)   = nan
+          this%ch4_surf_diff_unsat_col    (c)   = nan
+          this%ch4_surf_diff_lake_col     (c)   = nan
+          this%ch4_dfsat_flux_col         (c)   = nan
+          this%zwt_ch4_unsat_col          (c)   = nan
+          this%conc_ch4_lake_col          (c,:) = nan
+          this%conc_o2_lake_col           (c,:) = nan
+          this%sif_col                    (c)   = nan
+          this%o2stress_unsat_col         (c,:) = nan
+          this%o2stress_sat_col           (c,:) = nan
+          this%ch4stress_unsat_col        (c,:) = nan
+          this%ch4stress_sat_col          (c,:) = nan
+          this%finundated_col             (c)   = nan
+          this%grnd_ch4_cond_col          (c)   = nan
 
           ! totcolch4 Set to zero for inactive columns so that this can be used
           ! as an appropriate area-weighted gridcell average soil methane content.
@@ -1057,7 +1057,7 @@ contains
     !
     ! !USES:
     use shr_kind_mod , only : r8 => shr_kind_r8
-    use shr_infnan_mod, only: spval => shr_infnan_nan, assignment(=)
+    use shr_infnan_mod, only: nan => shr_infnan_nan, assignment(=)
     use ncdio_pio    , only : file_desc_t,ncd_io
     use CH4varcon    , only : use_aereoxid_prog
     !
@@ -1451,13 +1451,13 @@ contains
       rgasm = rgas / 1000._r8
 
       jwt(begc:endc)            = huge(1)
-      totcolch4_bef(begc:endc)  = spval
+      totcolch4_bef(begc:endc)  = nan
 
       ! Initialize local fluxes to zero: necessary for columns outside the filters because averaging up to gridcell will be done
       ch4_surf_flux_tot(begc:endc) = 0._r8
       ch4_prod_tot(begc:endc)      = 0._r8
       ch4_oxid_tot(begc:endc)      = 0._r8
-      rootfraction(begp:endp,:)    = spval
+      rootfraction(begp:endp,:)    = nan
 
       ! Adjustment to NEE for methane production - oxidation
       nem_col(begc:endc)           = 0._r8
@@ -1545,10 +1545,10 @@ contains
                ch4_dfsat_flux(c) = 0._r8
             end if
 
-            if (fsat_bef(c) /= spval .and. finundated(c) > fsat_bef(c)) then !Reduce conc_ch4_sat
+            if (fsat_bef(c) /= nan .and. finundated(c) > fsat_bef(c)) then !Reduce conc_ch4_sat
                dfsat = finundated(c) - fsat_bef(c)
                conc_ch4_sat(c,j) = (fsat_bef(c)*conc_ch4_sat(c,j) + dfsat*conc_ch4_unsat(c,j)) / finundated(c)
-            else if (fsat_bef(c) /= spval .and. finundated(c) < fsat_bef(c)) then
+            else if (fsat_bef(c) /= nan .and. finundated(c) < fsat_bef(c)) then
                ch4_dfsat_flux(c) = ch4_dfsat_flux(c) + (fsat_bef(c) - finundated(c))*(conc_ch4_sat(c,j) - conc_ch4_unsat(c,j)) * &
                     dz(c,j) / dtime * catomw / 1000._r8 ! mol --> kg
             end if
@@ -1571,7 +1571,7 @@ contains
 
          nc = bounds%clump_index
          
-         ! Set rootfraction to spval for non-veg points, unless veg_pp%wtcol > 0.99,
+         ! Set rootfraction to nan for non-veg points, unless veg_pp%wtcol > 0.99,
          ! in which case set it equal to uniform dist.
 
          do fp = 1, num_soilp
@@ -1583,7 +1583,7 @@ contains
                   if (veg_pp%itype(p) /= noveg) then
                      rootfraction(p,j) = rootfr(p,j)
                   else if (veg_pp%wtcol(p) < 0.99_r8) then
-                     rootfraction(p,j) = spval
+                     rootfraction(p,j) = nan
                   else
                      rootfraction(p,j) = dz(c,j) / zi(c,nlevsoi)   ! Set equal to uniform distribution
                   end if
@@ -1612,7 +1612,7 @@ contains
       end if
 
       ! Determine grnd_ch4_cond_col
-      ! Needed to use non-filter form above so that spval would be treated properly.
+      ! Needed to use non-filter form above so that nan would be treated properly.
 
       call p2c (bounds, num_soilc, filter_soilc, &
            grnd_ch4_cond_patch(bounds%begp:bounds%endp), &
@@ -1793,7 +1793,7 @@ contains
       do fc = 1, num_soilc
          c = filter_soilc(fc)
 
-         if (fsat_bef(c) /= spval) then ! not first timestep
+         if (fsat_bef(c) /= nan) then ! not first timestep
             ch4_surf_flux_tot(c) = ch4_surf_flux_tot(c) + ch4_dfsat_flux(c)
          end if
          fsat_bef(c) = finundated(c)
@@ -1861,7 +1861,7 @@ contains
                  (finundated(c)*conc_ch4_sat(c,j) + (1._r8-finundated(c))*conc_ch4_unsat(c,j))*dz(c,j)*catomw
             ! mol CH4 --> g C
 
-            if (j == nlevsoi .and. totcolch4_bef(c) /= spval) then ! not first timestep
+            if (j == nlevsoi .and. totcolch4_bef(c) /= nan) then ! not first timestep
                ! Check balance
                errch4 = totcolch4(c) - totcolch4_bef(c) - dtime*(ch4_prod_tot(c) - ch4_oxid_tot(c) &
                     - ch4_surf_flux_tot(c)*1000._r8) ! kg C --> g C
@@ -1881,7 +1881,7 @@ contains
 
                totcolch4(c) = totcolch4(c) + conc_ch4_sat(c,j)*dz(c,j)*catomw ! mol CH4 --> g C
 
-               if (j == nlevsoi .and. totcolch4_bef(c) /= spval) then ! not first timestep
+               if (j == nlevsoi .and. totcolch4_bef(c) /= nan) then ! not first timestep
                   ! Check balance
                   errch4 = totcolch4(c) - totcolch4_bef(c) - dtime*(ch4_prod_tot(c) - ch4_oxid_tot(c) &
                        - ch4_surf_flux_tot(c)*1000._r8) ! kg C --> g C
@@ -2053,7 +2053,7 @@ contains
 
       ! PATCH loop to calculate vertically resolved column-averaged root respiration
       if (.not. lake) then
-         rr_vr(bounds%begc:bounds%endc,:) = spval
+         rr_vr(bounds%begc:bounds%endc,:) = nan
 
          do fp = 1, num_methc
             c = filter_methc(fp)
@@ -2107,7 +2107,7 @@ contains
                   if (sat == 1) then
                      sif(c) = 1._r8
                      if (.not. anoxia) then
-                        if (annavg_finrw(c) /= spval) then
+                        if (annavg_finrw(c) /= nan) then
                            seasonalfin = max(finundated(c)-annavg_finrw(c), 0._r8)
                            if (seasonalfin > 0._r8) then
                               sif(c) = (annavg_finrw(c) + mino2lim*seasonalfin) / finundated(c)
@@ -2731,7 +2731,7 @@ contains
           anpp = annsum_npp ! g C / m^2/yr
           anpp = max(anpp, 0._r8) ! NPP can be negative b/c of consumption of storage pools
 
-          if (annavg_agnpp /= spval .and. annavg_bgnpp /= spval .and. &
+          if (annavg_agnpp /= nan .and. annavg_bgnpp /= spval .and. &
                annavg_agnpp > 0._r8 .and. annavg_bgnpp > 0._r8) then
              nppratio = annavg_bgnpp / (annavg_agnpp + annavg_bgnpp)
           else
@@ -3836,7 +3836,7 @@ contains
       do fc = 1,num_methc
          c = filter_methc(fc)
 
-         if (annsum_counter(c) == spval) then
+         if (annsum_counter(c) == nan) then
             ! These variables are now in restart files for completeness, but might not be in inicFile and are not.
             ! set for arbinit.
             newrun = .true.
@@ -3853,7 +3853,7 @@ contains
          p = filter_methp(fp)
          c = veg_pp%column(p)
          if(.not.col_pp%is_fates(c)) then
-            if (newrun .or. tempavg_agnpp(p) == spval) then ! Extra check needed because for back-compatibility
+            if (newrun .or. tempavg_agnpp(p) == nan) then ! Extra check needed because for back-compatibility
                tempavg_agnpp(p) = 0._r8
                tempavg_bgnpp(p) = 0._r8
             end if
