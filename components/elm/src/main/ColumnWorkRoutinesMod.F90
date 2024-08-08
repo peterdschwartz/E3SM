@@ -1768,15 +1768,15 @@ contains
    end do
 
    ! vertically integrate leaching flux
-  !$acc parallel loop independent gang worker default(present) private(c,sum5)
+   !$acc parallel loop independent gang worker default(present) private(c,sum5)
    do fc = 1,num_soilc
-      c = filter_soilc(fc)
-      sum5 = 0._r8
-      !$acc loop vector reduction(+:sum5)
-      do j = 1, nlevdecomp
-         sum5 = sum5 + this%sminp_leached_vr(c,j) * dzsoi_decomp(j)
-      end do
-      this%sminp_leached(c) = this%sminp_leached(c) + sum5 
+     c = filter_soilc(fc)
+     sum5 = 0._r8
+     !$acc loop vector reduction(+:sum5)
+     do j = 1, nlevdecomp
+        sum5 = sum5 + this%sminp_leached_vr(c,j) * dzsoi_decomp(j)
+     end do
+     this%sminp_leached(c) = this%sminp_leached(c) + sum5 
    end do
 
    ! vertically integrate column-level fire P losses

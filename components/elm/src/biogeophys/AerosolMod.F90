@@ -50,7 +50,7 @@ contains
     integer  :: g,l,c,j,fc,snl_idx      ! indices
     real(r8) :: snowmass        ! liquid+ice snow mass in a layer [kg/m2]
     real(r8) :: snowcap_scl_fct ! temporary factor used to correct for snow capping
-    real(r8) :: sum1,sum2,sum3 
+    real(r8) :: sum_bc,sum_oc,sum_dst 
     !-----------------------------------------------------------------------
 
     associate(                                                &
@@ -91,7 +91,7 @@ contains
          mss_cnc_dst4  => aerosol_vars%mss_cnc_dst4_col       & ! Output: [real(r8) (:,:) ]  mass concentration of dust species 4 (col,lyr) [kg/kg]
          )
 
-      !$acc enter data create(sum1,sum2,sum3)
+      !$acc enter data create(sum_bc,sum_oc,sum_dst)
       if(.not. use_extrasnowlayers) then 
          !$acc parallel loop independent gang vector collapse(2) default(present) 
          do j = -nlevsno+1, 0
@@ -133,7 +133,6 @@ contains
             snowmass = h2osoi_ice(c,j) + h2osoi_liq(c,j)
 
             if (j >= snl(c)+1) then
-
                mss_bctot(c,j)     = mss_bcpho(c,j) + mss_bcphi(c,j)
                mss_cnc_bcphi(c,j) = mss_bcphi(c,j) / snowmass
                mss_cnc_bcpho(c,j) = mss_bcpho(c,j) / snowmass
@@ -189,23 +188,23 @@ contains
          mss_dst_top(c) = mss_dsttot(c,snl_idx)
       end do
       
-      !$acc parallel loop gang worker independent default(present) private(sum1,sum2,sum3)
+      !$acc parallel loop gang worker independent default(present) private(sum_bc,sum_oc,sum_dst)
       do fc = 1, num_on
          c = filter_on(fc)
-         sum1 = 0._r8
-         sum2 = 0._r8 
-         sum3 = 0._r8
-         !$acc loop vector reduction(+:sum1,sum2,sum3) 
-         do j = snl(c)+1,0
+         sum_bc = 0._r8
+         sum_oc = 0._r8 
+         sum_dst = 0._r8
+         !$acc loop vector reduction(+:sum_bc,sum_oc,sum_dst) 
+         do j = -nlevsno+1,0
             if (j >= snl(c)+1) then
-               sum1 = sum1 + mss_bctot(c,j)
-               sum2 = sum2 + mss_octot(c,j)
-               sum3 = sum3 + mss_dsttot(c,j)
+               sum_bc = sum_bc + mss_bctot(c,j)
+               sum_oc = sum_oc + mss_octot(c,j)
+               sum_dst = sum_dst + mss_dsttot(c,j)
             end if
          end do 
-         mss_bc_col(c) = sum1 
-         mss_bc_col(c) = sum2 
-         mss_dst_col(c) = sum3 
+         mss_bc_col(c) = sum_bc
+         mss_oc_col(c) = sum_oc
+         mss_dst_col(c) = sum_dst
       end do 
 
       ! Zero mass variables in columns without snow
@@ -249,7 +248,7 @@ contains
             mss_cnc_bcpho(c,j) = 0._r8
          end do 
       end do 
-      !$acc exit data delete(sum1,sum2,sum3)
+      !$acc exit data delete(sum_bc,sum_oc,sum_dst)
 
     end associate
 

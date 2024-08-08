@@ -283,7 +283,7 @@ contains
          qflx_rain_grnd_col(c) = qflx_rain_grnd(p)
 
       end do ! (end pft loop)
-
+      
       ! Determine snow height and snow water
       !$acc parallel loop independent gang vector default(present) 
       do fc = 1, num_lakec
@@ -442,13 +442,12 @@ contains
          end if
 
       end do
-
       !$acc parallel loop independent gang worker default(present) private(sum1,jtop,h2osno_temp)
       do fc = 1, num_lakec
          c = filter_lakec(fc)
          jtop = snl(c)+1
          
-         sum1 = 0._r8 
+         sum1 = h2osno(c) 
          if(jtop > 0) then
             h2osno_temp = h2osno(c)
 
@@ -462,7 +461,7 @@ contains
                   end if
                end if
             end do
-            h2osno(c) =  h2osno(c) + sum1 
+            h2osno(c) =  sum1
             if (h2osno_temp > 0._r8) then
                snow_depth(c) = snow_depth(c) * h2osno(c) / h2osno_temp
             else
@@ -646,11 +645,10 @@ contains
             heatsum(fc) = sum2 
          end if
       end do
-
       !$acc parallel loop independent gang vector default(present)
       do fc = 1, num_lakec
          c = filter_lakec(fc)
-
+         g = col_pp%gridcell(c) ! DEBUG
          if (unfrozen(fc)) then
             heatsum(fc) = heatsum(fc) + sumsnowice(fc)*hfus
             heatrem = (t_lake(c,1) - tfrz)*cpliq*denh2o*dz_lake(c,1) - heatsum(fc)
@@ -660,7 +658,6 @@ contains
                qflx_snomelt(c) = qflx_snomelt(c) + h2osno(c)/dtime_mod
 
                eflx_snomelt(c) = eflx_snomelt(c) + h2osno(c)*hfus/dtime_mod
-
                ! update snow melt for this case
                qflx_snow_melt(c)     = qflx_snow_melt(c)  + qflx_snomelt(c)
 

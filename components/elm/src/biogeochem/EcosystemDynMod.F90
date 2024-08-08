@@ -129,7 +129,6 @@ contains
     use PrecisionControlMod       , only: PrecisionControl
     use PhosphorusDynamicsMod     , only: PhosphorusBiochemMin_balance
     use elm_varctl , only : iulog 
-
     !
     ! !ARGUMENTS:
     integer                  , intent(in)    :: num_soilc         ! number of soil columns in filter
@@ -144,6 +143,7 @@ contains
     real :: startt, stopt 
     integer :: nlevbed,c,fc,j,p,fp
     !-----------------------------------------------------------------------
+    
     call PhosphorusMinFluxes(num_soilc, filter_soilc, cnstate_vars, dtime_mod)
     if (.not. nu_com_phosphatase) then
       event = 'PhosphorusBiochemMin'
@@ -156,13 +156,12 @@ contains
     ! pflotran: when both 'pf-bgc' and 'pf-h' on, no need to call ELM-CN's N leaching module
     if (.not. (pf_cmode .and. pf_hmode)) then
 
-
      call NitrogenLeaching(num_soilc, filter_soilc, dtime_mod)
 
      call PhosphorusLeaching(num_soilc, filter_soilc, dtime_mod)
 
     end if !(.not. (pf_cmode .and. pf_hmode))
-      !-----------------------------------------------------------------------
+    !-----------------------------------------------------------------------
    event = 'CNUpdate3'
    call t_start_lnd(event)
    call NitrogenStateUpdate3(num_soilc, filter_soilc, num_soilp, filter_soilp,dtime_mod)
@@ -207,7 +206,6 @@ contains
     call col_ps_summary_acc(col_ps, num_soilc, filter_soilc)
 
     call t_stop_lnd(event)
-
   end subroutine EcosystemDynLeaching
 
 

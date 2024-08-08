@@ -583,7 +583,10 @@ contains
                             decomp_cascade_con%spinup_factor(i_cwd) / cnstate_vars%scalaravg_col(c,j)
              enddo
            else
+             !$acc loop vector reduction(+:sum1)
+             do j=1,nlevdecomp
                sum1 = sum1 + decomp_cpools_vr(c,j,i_cwd) * dzsoi_decomp(j)
+             enddo
            end if
 
            fuelc(c) = sum1/(1._r8-cropf_col(c))
