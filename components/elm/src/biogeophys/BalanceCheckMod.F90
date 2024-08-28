@@ -768,6 +768,7 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: c, p, f, j, fc,g                  ! indices
+    integer  :: begc, endc, begp, endp 
     real(r8) :: h2osoi_vol
     real(r8) :: h2ocan_col(bounds%begc:bounds%endc)
     real(r8) :: begwb_col (bounds%begc:bounds%endc)
@@ -805,9 +806,13 @@ contains
       !$acc h2osoi_ice_depth_intg(:), &
       !$acc wa_local_col(:), sum1,sum2,sum3 &
       !$acc )
-      
+        
+      begc = bounds%begc 
+      endc = bounds%endc
+      begp = bounds%begp
+      endp = bounds%endp 
       !$acc parallel loop independent gang vector default(present) 
-      do c = bounds%begc, bounds%endc 
+      do c = begc, endc 
          h2osoi_liq_depth_intg_col(c) = 0._r8
          h2osoi_ice_depth_intg_col(c) = 0._r8
          wa_local_col(c) = wa(c)
@@ -815,10 +820,9 @@ contains
 
       ! Determine beginning water balance for time step
       ! pft-level canopy water averaged to column
-
-      call p2c_1d_filter_parallel(num_nolakec, filter_nolakec, &
-            h2ocan_patch(bounds%begp:bounds%endp), &
-            h2ocan_col(bounds%begc:bounds%endc))
+      call p2c_1d_filter_parallel(begc,begp,num_nolakec,filter_nolakec, &
+            h2ocan_patch(begp:endp), &
+            h2ocan_col(begc:endc))
 
       !$acc parallel loop independent gang vector default(present)
       do f = 1, num_nolakec

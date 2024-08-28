@@ -225,7 +225,6 @@ end subroutine CarbonStateUpdateDynPatch
                        col_cf%phenology_c_to_litr_lig_c(c,j) * dt
 
                   col_cs%decomp_som2c_vr(c,j) = col_cs%decomp_cpools_vr(c,j,6)
-
                end do
             end do
          end if

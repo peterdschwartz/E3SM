@@ -198,14 +198,11 @@ contains
 
       ! column loop to calculate potential decomp rates and total immobilization
       ! demand.
-      call cpu_time(startt) 
       !$acc enter data create(cn_decomp_pools(:num_soilc,1:nlevdecomp,1:ndecomp_pools), &
       !$acc                                     p_decomp_cpool_loss(:num_soilc,1:nlevdecomp,1:ndecomp_cascade_transitions))
       !$acc enter data create(cp_decomp_pools(:num_soilc,1:nlevdecomp,1:ndecomp_pools),&
       !$acc                   immob(:num_soilc,1:nlevdecomp) ,immob_p(:num_soilc,1:nlevdecomp)  ) 
       !$acc enter data create(cp_decomp_pools_new(:num_soilc,1:nlevdecomp,1:ndecomp_pools)) 
-      call cpu_time(stopt) 
-      write(iulog,*) "SoilLittDecompAlloc1 :: create",(stopt-startt)*1.E+3,"ms" 
       !! calculate c:n ratios of applicable pools
 
       !$acc parallel loop gang independent collapse(2) default(present)
@@ -264,7 +261,6 @@ contains
                          endif
                          pmnf_decomp_cascade(c,j,k) = (p_decomp_cpool_loss(fc,j,k) * (1.0_r8 - rf_decomp_cascade(c,j,k) - ratio) &
                               / cn_decomp_pools(fc,j,cascade_receiver_pool(k)) )
-
                       else   ! 100% respiration
                          pmnf_decomp_cascade(c,j,k) = - p_decomp_cpool_loss(fc,j,k) / cn_decomp_pools(fc,j,k_donor_pool)
                       endif
@@ -291,7 +287,7 @@ contains
              end do
           end do
        end do
-       
+
       !$acc enter data create(sum_1,sum_2,sum_3,sum_4)
       !$acc  parallel loop independent gang collapse(2) default(present) private(c,sum_1,sum_2,sum_3,sum_4)
       do j = 1,nlevdecomp
@@ -531,7 +527,7 @@ contains
 
 !-------------------------------------------------------------------------------------------------
 
-  subroutine SoilLittDecompAlloc2 ( num_soilc, filter_soilc, num_soilp, filter_soilp,   &
+  subroutine SoilLittDecompAlloc2 ( bounds, num_soilc, filter_soilc, num_soilp, filter_soilp,   &
         canopystate_vars, soilstate_vars,          &
        cnstate_vars, crop_vars,  dt)
     !-----------------------------------------------------------------------------
@@ -546,6 +542,7 @@ contains
     use AllocationMod , only: Allocation3_PlantCNPAlloc ! Phase-3 of CNAllocation
     !
     ! !ARGUMENT:
+    type(bounds_type)        , intent(in)    :: bounds 
     integer                  , intent(in)    :: num_soilc          ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:)    ! filter for soil columns
     integer                  , intent(in)    :: num_soilp          ! number of soil patches in filter
@@ -719,12 +716,12 @@ contains
       ! phase-3 Allocation for plants
       if(.not.use_fates)then
         ! event = 'CNAllocation - phase-3'
-        !call t_start_lnd(event)
-        call Allocation3_PlantCNPAlloc( &
+        call t_startf('CNAllocation - phase-3')
+        call Allocation3_PlantCNPAlloc( bounds, &
                   num_soilc, filter_soilc, num_soilp, filter_soilp    , &
                   canopystate_vars                                    , &
                   cnstate_vars, crop_vars, dt)
-        !call t_stop_lnd(event)
+        call t_stopf('CNAllocation - phase-3')
       end if
       !------------------------------------------------------------------
     if(use_pflotran.and.pf_cmode) then

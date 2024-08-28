@@ -241,7 +241,6 @@ module elm_driver
       use decompMod , only : init_proc_clump_info, gpu_clumps, gpu_procinfo
       use decompMod , only : get_clump_bounds_gpu
       use ColumnDataType, only : col_cf_setvalues, col_nf_SetValues, col_pf_SetValues
-      use VegetationDataType, only : veg_cf_summary_rr
       use VegetationSummaryRoutinesMod
       use NitrogenDynamicsMod, only : NitrogenDeposition, NitrogenFixation, NitrogenFixation_balance, NitrogenFert
       use NitrogenDynamicsMod, only : CNSoyFix
@@ -348,7 +347,7 @@ module elm_driver
       call get_prev_date(year_prev,mon_prev,day_prev,secs_prev)
       dayspyr_mod = get_days_per_year()
       jday_mod = get_curr_calday()
-       print *, "NSTEP = ",nstep_mod 
+      print *, "nstep : ",nstep_mod 
       if (do_budgets) then
          call WaterBudget_Reset()
          
@@ -374,11 +373,11 @@ module elm_driver
         #endif
          call init_proc_clump_info()
          call createLitterTransportList() 
-
+        
          begg = bounds_proc%begg; endg = bounds_proc%endg 
          begc = bounds_proc%begc; endc = bounds_proc%endc 
          begp = bounds_proc%begp; endp = bounds_proc%endp 
-         
+
          allocate(ncols(begg:endg)); ncols(:) = 0 
           do c = bounds_proc%begc, bounds_proc%endc
               g = col_pp%gridcell(c) 
@@ -633,7 +632,6 @@ module elm_driver
       call setProcFilters(bounds_proc, proc_filter_inactive_and_active, .true., glc2lnd_vars%icemask_grc)
       !$acc enter data copyin(cpl_bypass_input%atm_input(:,:,:,1:5))
       end if
-      
       !$acc enter data copyin(nstep_mod, dtime_mod, &
       !$acc   year_curr,mon_curr,day_curr,secs_curr,&
       !$acc   year_prev,mon_prev,day_prev,secs_prev, dayspyr_mod,jday_mod)
@@ -705,6 +703,7 @@ module elm_driver
       ! ============================================================================
       call t_startf('cnpinit')
          
+      call shr_sys_flush(iulog)  
       call t_startf('beggridwbal')
       call BeginGridWaterBalance(bounds_proc,               &
          proc_filter%num_nolakec, proc_filter%nolakec,       &
@@ -778,14 +777,13 @@ module elm_driver
 
      !$acc parallel loop independent gang vector default(present) private(nc,bounds_clump) 
      do nc = 1, nclumps
-        call get_clump_bounds_gpu(nc, bounds_clump)
+        call get_clump_bounds(nc, bounds_clump)
         call set_prior_weights(prior_weights, bounds_clump)
-        call set_old_patch_weightsAcc  (patch_state_updater,bounds_clump)
+        call set_old_patch_weightsAcc  (patch_state_updater, bounds_clump)
         call set_old_column_weightsAcc (column_state_updater,bounds_clump)
      end do
      call cpu_time(stopt) 
      write(iulog,*) iam, "TIMING dynhwcontent_init :: ",(stopt-startt)*1.E+3,"ms"
-     
       ! ==========================================================================
       ! Do land cover change that requires I/O, and thus must be outside a threaded region
       ! ==========================================================================
@@ -805,7 +803,7 @@ module elm_driver
       ! ==========================================================================
       !$acc parallel loop independent gang vector default(present) private(nc, bounds_clump)
       do nc = 1, nclumps
-         call get_clump_bounds_gpu(nc, bounds_clump)
+         call get_clump_bounds(nc, bounds_clump)
          #ifndef _OPENACC 
          if (use_fates) then
          end if
@@ -829,11 +827,10 @@ module elm_driver
       call cpu_time(startt)  
       !$acc parallel loop independent gang vector default(present) private(bounds_clump)
       do nc = 1, nclumps 
-         call get_clump_bounds_gpu(nc, bounds_clump) 
+         call get_clump_bounds(nc, bounds_clump) 
          call set_subgrid_diagnostic_fields(bounds_clump)
-         
          call initialize_new_columns(bounds_clump, &
-            prior_weights%cactive, soilhydrology_vars )
+            prior_weights%cactive(bounds_clump%begc:bounds_clump%endc), soilhydrology_vars )
       end do 
 
       call dyn_hwcontent_final(bounds_proc, &
@@ -1543,9 +1540,9 @@ module elm_driver
             if(.not.use_fates) then 
               call t_startf('MaintenanceResp')
               if (crop_prog) then
-                 call NitrogenFert(proc_filter%num_soilc,proc_filter%soilc )
+                 call NitrogenFert(bounds_proc, proc_filter%num_soilc, proc_filter%soilc )
                  
-                 call CNSoyfix( proc_filter%num_soilc, proc_filter%soilc,&
+                 call CNSoyfix(bounds_proc, proc_filter%num_soilc, proc_filter%soilc,&
                  proc_filter%num_soilp, proc_filter%soilp, &
                  crop_vars, cnstate_vars )
               end if
@@ -1613,7 +1610,7 @@ module elm_driver
             if(.not.use_fates)then
                call cpu_time(startt)
                call t_startf('CNAllocation - phase-1')
-               call Allocation1_PlantNPDemand ( &
+               call Allocation1_PlantNPDemand ( bounds_proc, &
                    proc_filter%num_soilc, proc_filter%soilc, &
                    proc_filter%num_soilp, proc_filter%soilp, &
                    photosyns_vars, crop_vars, canopystate_vars, cnstate_vars, &
@@ -1625,7 +1622,7 @@ module elm_driver
             
             call cpu_time(startt)
 
-            call t_startf('SoilLittDecompAlloc2')
+            call t_startf('SoilLittDecompAlloc')
             if(.not.use_elm_interface ) then 
                ! directly run elm-bgc
                ! if (use_elm_interface & use_elm_bgc), then CNDecomAlloc is called in elm_driver
@@ -1645,10 +1642,10 @@ module elm_driver
             ! pflotran & elm-bgc : 'Allocation3_AG' and vertically integrate net and gross mineralization fluxes
             call cpu_time(startt)
             call t_startf('SoilLittDecompAlloc2') 
-            call SoilLittDecompAlloc2 (proc_filter%num_soilc, proc_filter%soilc,&
-            proc_filter%num_soilp, proc_filter%soilp,  &
-            canopystate_vars, soilstate_vars,          &
-            cnstate_vars, crop_vars, dtime_mod )
+            call SoilLittDecompAlloc2( bounds_proc, proc_filter%num_soilc, proc_filter%soilc,&
+                          proc_filter%num_soilp, proc_filter%soilp,  &
+                          canopystate_vars, soilstate_vars,          &
+                          cnstate_vars, crop_vars, dtime_mod )
             call t_stopf('SoilLittDecompAlloc2') 
 
             call cpu_time(stopt)
@@ -1680,7 +1677,7 @@ module elm_driver
                call GrowthResp(proc_filter%num_soilp, proc_filter%soilp)
                call t_stopf('GrowthResp') 
 
-               call veg_cf_summary_rr(veg_cf, proc_filter%num_soilp, proc_filter%soilp, &
+               call veg_cf_summary_rr_acc(veg_cf,bounds_proc,proc_filter%num_soilp, proc_filter%soilp, &
                                       proc_filter%num_soilc, proc_filter%soilc, col_cf)
             
                !--------------------------------------------
@@ -2010,13 +2007,13 @@ module elm_driver
             ! ============================================================================
             ! Determine albedos for next time step
             ! ============================================================================
-            if (.false.) then
+            if (doalb) then
                !if(nstep_mod >1 ) call write_vars() 
                !$acc parallel loop independent gang private(nc,bounds_clump)
                do nc = 1,nclumps
                   call get_clump_bounds_gpu(nc, bounds_clump)
                   ! Albedos for  non-urban columns
-                  !call t_startf('surfalb')
+                  call t_startf('surfalb')
                   call SurfaceAlbedo(bounds_clump,                      &
                   filter_inactive_and_active(nc)%num_nourbanc,     &
                   filter_inactive_and_active(nc)%nourbanc,         &
@@ -2029,21 +2026,21 @@ module elm_driver
                   nextsw_cday, declinp1,                           &
                   aerosol_vars, canopystate_vars, &
                   lakestate_vars, surfalb_vars )
-                  !call t_stopf('surfalb')
+                  call t_stopf('surfalb')
                   
-                  ! Albedos for urban columns
-                  if (filter_inactive_and_active(nc)%num_urbanl > 0) then
-                     !call t_startf('urbsurfalb')
-                     call UrbanAlbedo(         &
-                     filter_inactive_and_active(nc)%num_urbanl, &
-                     filter_inactive_and_active(nc)%urbanl,     &
-                     filter_inactive_and_active(nc)%num_urbanc, &
-                     filter_inactive_and_active(nc)%urbanc,     &
-                     filter_inactive_and_active(nc)%num_urbanp, &
-                     filter_inactive_and_active(nc)%urbanp,     &
-                     urbanparams_vars, solarabs_vars, surfalb_vars)
-                     !call t_stopf('urbsurfalb')
-                  end if
+                 ! ! Albedos for urban columns
+                 ! if (filter_inactive_and_active(nc)%num_urbanl > 0) then
+                 !    !call t_startf('urbsurfalb')
+                 !    call UrbanAlbedo(         &
+                 !    filter_inactive_and_active(nc)%num_urbanl, &
+                 !    filter_inactive_and_active(nc)%urbanl,     &
+                 !    filter_inactive_and_active(nc)%num_urbanc, &
+                 !    filter_inactive_and_active(nc)%urbanc,     &
+                 !    filter_inactive_and_active(nc)%num_urbanp, &
+                 !    filter_inactive_and_active(nc)%urbanp,     &
+                 !    urbanparams_vars, solarabs_vars, surfalb_vars)
+                 !    !call t_stopf('urbsurfalb')
+                 ! end if
                end do
             end if
             
@@ -2165,7 +2162,7 @@ module elm_driver
             ! ============================================================================
             ! History/Restart output
             ! ============================================================================
-            
+
             if (.not. use_noio) then
                
                call t_startf('elm_drv_io')

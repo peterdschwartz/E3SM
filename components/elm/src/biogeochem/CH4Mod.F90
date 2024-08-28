@@ -236,78 +236,78 @@ contains
     begc = bounds%begc; endc = bounds%endc
     begg = bounds%begg; endg = bounds%endg
 
-    allocate(this%ch4_prod_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_prod_depth_sat_col     (:,:) = nan
-    allocate(this%ch4_prod_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_prod_depth_unsat_col   (:,:) = nan
-    allocate(this%ch4_prod_depth_lake_col    (begc:endc,1:nlevgrnd)) ;  this%ch4_prod_depth_lake_col    (:,:) = nan
-    allocate(this%ch4_oxid_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_oxid_depth_sat_col     (:,:) = nan
-    allocate(this%ch4_oxid_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_oxid_depth_unsat_col   (:,:) = nan
-    allocate(this%ch4_oxid_depth_lake_col    (begc:endc,1:nlevgrnd)) ;  this%ch4_oxid_depth_lake_col    (:,:) = nan
-    allocate(this%o2_oxid_depth_sat_col      (begc:endc,1:nlevgrnd)) ;  this%o2_oxid_depth_sat_col      (:,:) = nan
-    allocate(this%o2_oxid_depth_unsat_col    (begc:endc,1:nlevgrnd)) ;  this%o2_oxid_depth_unsat_col    (:,:) = nan
-    allocate(this%o2_aere_depth_sat_col      (begc:endc,1:nlevgrnd)) ;  this%o2_aere_depth_sat_col      (:,:) = nan
-    allocate(this%o2_aere_depth_unsat_col    (begc:endc,1:nlevgrnd)) ;  this%o2_aere_depth_unsat_col    (:,:) = nan
-    allocate(this%co2_decomp_depth_sat_col   (begc:endc,1:nlevgrnd)) ;  this%co2_decomp_depth_sat_col   (:,:) = nan
-    allocate(this%co2_decomp_depth_unsat_col (begc:endc,1:nlevgrnd)) ;  this%co2_decomp_depth_unsat_col (:,:) = nan
-    allocate(this%co2_oxid_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%co2_oxid_depth_sat_col     (:,:) = nan
-    allocate(this%co2_oxid_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%co2_oxid_depth_unsat_col   (:,:) = nan
-    allocate(this%ch4_aere_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_aere_depth_sat_col     (:,:) = nan
-    allocate(this%ch4_aere_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_aere_depth_unsat_col   (:,:) = nan
-    allocate(this%ch4_tran_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_tran_depth_sat_col     (:,:) = nan
-    allocate(this%ch4_tran_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_tran_depth_unsat_col   (:,:) = nan
-    allocate(this%co2_aere_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%co2_aere_depth_sat_col     (:,:) = nan
-    allocate(this%co2_aere_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%co2_aere_depth_unsat_col   (:,:) = nan
-    allocate(this%ch4_surf_aere_sat_col      (begc:endc))            ;  this%ch4_surf_aere_sat_col      (:)   = nan
-    allocate(this%ch4_surf_aere_unsat_col    (begc:endc))            ;  this%ch4_surf_aere_unsat_col    (:)   = nan
-    allocate(this%ch4_ebul_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_ebul_depth_sat_col     (:,:) = nan
-    allocate(this%ch4_ebul_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_ebul_depth_unsat_col   (:,:) = nan
-    allocate(this%ch4_ebul_total_sat_col     (begc:endc))            ;  this%ch4_ebul_total_sat_col     (:)   = nan
-    allocate(this%ch4_ebul_total_unsat_col   (begc:endc))            ;  this%ch4_ebul_total_unsat_col   (:)   = nan
-    allocate(this%ch4_surf_ebul_sat_col      (begc:endc))            ;  this%ch4_surf_ebul_sat_col      (:)   = nan
-    allocate(this%ch4_surf_ebul_unsat_col    (begc:endc))            ;  this%ch4_surf_ebul_unsat_col    (:)   = nan
-    allocate(this%ch4_surf_ebul_lake_col     (begc:endc))            ;  this%ch4_surf_ebul_lake_col     (:)   = nan
+    allocate(this%ch4_prod_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_prod_depth_sat_col     (:,:) = spval
+    allocate(this%ch4_prod_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_prod_depth_unsat_col   (:,:) = spval
+    allocate(this%ch4_prod_depth_lake_col    (begc:endc,1:nlevgrnd)) ;  this%ch4_prod_depth_lake_col    (:,:) = spval
+    allocate(this%ch4_oxid_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_oxid_depth_sat_col     (:,:) = spval
+    allocate(this%ch4_oxid_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_oxid_depth_unsat_col   (:,:) = spval
+    allocate(this%ch4_oxid_depth_lake_col    (begc:endc,1:nlevgrnd)) ;  this%ch4_oxid_depth_lake_col    (:,:) = spval
+    allocate(this%o2_oxid_depth_sat_col      (begc:endc,1:nlevgrnd)) ;  this%o2_oxid_depth_sat_col      (:,:) = spval
+    allocate(this%o2_oxid_depth_unsat_col    (begc:endc,1:nlevgrnd)) ;  this%o2_oxid_depth_unsat_col    (:,:) = spval
+    allocate(this%o2_aere_depth_sat_col      (begc:endc,1:nlevgrnd)) ;  this%o2_aere_depth_sat_col      (:,:) = spval
+    allocate(this%o2_aere_depth_unsat_col    (begc:endc,1:nlevgrnd)) ;  this%o2_aere_depth_unsat_col    (:,:) = spval
+    allocate(this%co2_decomp_depth_sat_col   (begc:endc,1:nlevgrnd)) ;  this%co2_decomp_depth_sat_col   (:,:) = spval
+    allocate(this%co2_decomp_depth_unsat_col (begc:endc,1:nlevgrnd)) ;  this%co2_decomp_depth_unsat_col (:,:) = spval
+    allocate(this%co2_oxid_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%co2_oxid_depth_sat_col     (:,:) = spval
+    allocate(this%co2_oxid_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%co2_oxid_depth_unsat_col   (:,:) = spval
+    allocate(this%ch4_aere_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_aere_depth_sat_col     (:,:) = spval
+    allocate(this%ch4_aere_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_aere_depth_unsat_col   (:,:) = spval
+    allocate(this%ch4_tran_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_tran_depth_sat_col     (:,:) = spval
+    allocate(this%ch4_tran_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_tran_depth_unsat_col   (:,:) = spval
+    allocate(this%co2_aere_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%co2_aere_depth_sat_col     (:,:) = spval
+    allocate(this%co2_aere_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%co2_aere_depth_unsat_col   (:,:) = spval
+    allocate(this%ch4_surf_aere_sat_col      (begc:endc))            ;  this%ch4_surf_aere_sat_col      (:)   = spval
+    allocate(this%ch4_surf_aere_unsat_col    (begc:endc))            ;  this%ch4_surf_aere_unsat_col    (:)   = spval
+    allocate(this%ch4_ebul_depth_sat_col     (begc:endc,1:nlevgrnd)) ;  this%ch4_ebul_depth_sat_col     (:,:) = spval
+    allocate(this%ch4_ebul_depth_unsat_col   (begc:endc,1:nlevgrnd)) ;  this%ch4_ebul_depth_unsat_col   (:,:) = spval
+    allocate(this%ch4_ebul_total_sat_col     (begc:endc))            ;  this%ch4_ebul_total_sat_col     (:)   = spval
+    allocate(this%ch4_ebul_total_unsat_col   (begc:endc))            ;  this%ch4_ebul_total_unsat_col   (:)   = spval
+    allocate(this%ch4_surf_ebul_sat_col      (begc:endc))            ;  this%ch4_surf_ebul_sat_col      (:)   = spval
+    allocate(this%ch4_surf_ebul_unsat_col    (begc:endc))            ;  this%ch4_surf_ebul_unsat_col    (:)   = spval
+    allocate(this%ch4_surf_ebul_lake_col     (begc:endc))            ;  this%ch4_surf_ebul_lake_col     (:)   = spval
     allocate(this%conc_ch4_sat_col           (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_sat_col           (:,:) = spval ! detect file input
     allocate(this%conc_ch4_unsat_col         (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_unsat_col         (:,:) = spval ! detect file input
-    allocate(this%conc_ch4_lake_col          (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_lake_col          (:,:) = nan
-    allocate(this%ch4_surf_diff_sat_col      (begc:endc))            ;  this%ch4_surf_diff_sat_col      (:)   = nan
-    allocate(this%ch4_surf_diff_unsat_col    (begc:endc))            ;  this%ch4_surf_diff_unsat_col    (:)   = nan
-    allocate(this%ch4_surf_diff_lake_col     (begc:endc))            ;  this%ch4_surf_diff_lake_col     (:)   = nan
-    allocate(this%conc_o2_lake_col           (begc:endc,1:nlevgrnd)) ;  this%conc_o2_lake_col           (:,:) = nan
-    allocate(this%ch4_dfsat_flux_col         (begc:endc))            ;  this%ch4_dfsat_flux_col         (:)   = nan
-    allocate(this%zwt_ch4_unsat_col          (begc:endc))            ;  this%zwt_ch4_unsat_col          (:)   = nan
-    allocate(this%fsat_bef_col               (begc:endc))            ;  this%fsat_bef_col               (:)   = nan
+    allocate(this%conc_ch4_lake_col          (begc:endc,1:nlevgrnd)) ;  this%conc_ch4_lake_col          (:,:) = spval
+    allocate(this%ch4_surf_diff_sat_col      (begc:endc))            ;  this%ch4_surf_diff_sat_col      (:)   = spval
+    allocate(this%ch4_surf_diff_unsat_col    (begc:endc))            ;  this%ch4_surf_diff_unsat_col    (:)   = spval
+    allocate(this%ch4_surf_diff_lake_col     (begc:endc))            ;  this%ch4_surf_diff_lake_col     (:)   = spval
+    allocate(this%conc_o2_lake_col           (begc:endc,1:nlevgrnd)) ;  this%conc_o2_lake_col           (:,:) = spval
+    allocate(this%ch4_dfsat_flux_col         (begc:endc))            ;  this%ch4_dfsat_flux_col         (:)   = spval
+    allocate(this%zwt_ch4_unsat_col          (begc:endc))            ;  this%zwt_ch4_unsat_col          (:)   = spval
+    allocate(this%fsat_bef_col               (begc:endc))            ;  this%fsat_bef_col               (:)   = spval
     allocate(this%lake_soilc_col             (begc:endc,1:nlevgrnd)) ;  this%lake_soilc_col             (:,:) = spval !first time-step
-    allocate(this%totcolch4_col              (begc:endc))            ;  this%totcolch4_col              (:)   = nan
-    allocate(this%annsum_counter_col         (begc:endc))            ;  this%annsum_counter_col         (:)   = nan
-    allocate(this%tempavg_somhr_col          (begc:endc))            ;  this%tempavg_somhr_col          (:)   = nan
-    allocate(this%annavg_somhr_col           (begc:endc))            ;  this%annavg_somhr_col           (:)   = nan
-    allocate(this%tempavg_finrw_col          (begc:endc))            ;  this%tempavg_finrw_col          (:)   = nan
-    allocate(this%annavg_finrw_col           (begc:endc))            ;  this%annavg_finrw_col           (:)   = nan
-    allocate(this%sif_col                    (begc:endc))            ;  this%sif_col                    (:)   = nan
-    allocate(this%ch4stress_unsat_col        (begc:endc,1:nlevgrnd)) ;  this%ch4stress_unsat_col        (:,:) = nan
-    allocate(this%ch4stress_sat_col          (begc:endc,1:nlevgrnd)) ;  this%ch4stress_sat_col          (:,:) = nan
-    allocate(this%qflx_surf_lag_col          (begc:endc))            ;  this%qflx_surf_lag_col          (:)   = nan
-    allocate(this%finundated_lag_col         (begc:endc))            ;  this%finundated_lag_col         (:)   = nan
-    allocate(this%layer_sat_lag_col          (begc:endc,1:nlevgrnd)) ;  this%layer_sat_lag_col          (:,:) = nan
-    allocate(this%zwt0_col                   (begc:endc))            ;  this%zwt0_col                   (:)   = nan
-    allocate(this%f0_col                     (begc:endc))            ;  this%f0_col                     (:)   = nan
-    allocate(this%p3_col                     (begc:endc))            ;  this%p3_col                     (:)   = nan
-    allocate(this%pH_col                     (begc:endc))            ;  this%pH_col                     (:)   = nan
-    allocate(this%ch4_surf_flux_tot_col      (begc:endc))            ;  this%ch4_surf_flux_tot_col      (:)   = nan
+    allocate(this%totcolch4_col              (begc:endc))            ;  this%totcolch4_col              (:)   = spval
+    allocate(this%annsum_counter_col         (begc:endc))            ;  this%annsum_counter_col         (:)   = spval
+    allocate(this%tempavg_somhr_col          (begc:endc))            ;  this%tempavg_somhr_col          (:)   = spval
+    allocate(this%annavg_somhr_col           (begc:endc))            ;  this%annavg_somhr_col           (:)   = spval
+    allocate(this%tempavg_finrw_col          (begc:endc))            ;  this%tempavg_finrw_col          (:)   = spval
+    allocate(this%annavg_finrw_col           (begc:endc))            ;  this%annavg_finrw_col           (:)   = spval
+    allocate(this%sif_col                    (begc:endc))            ;  this%sif_col                    (:)   = spval
+    allocate(this%ch4stress_unsat_col        (begc:endc,1:nlevgrnd)) ;  this%ch4stress_unsat_col        (:,:) = spval
+    allocate(this%ch4stress_sat_col          (begc:endc,1:nlevgrnd)) ;  this%ch4stress_sat_col          (:,:) = spval
+    allocate(this%qflx_surf_lag_col          (begc:endc))            ;  this%qflx_surf_lag_col          (:)   = spval
+    allocate(this%finundated_lag_col         (begc:endc))            ;  this%finundated_lag_col         (:)   = spval
+    allocate(this%layer_sat_lag_col          (begc:endc,1:nlevgrnd)) ;  this%layer_sat_lag_col          (:,:) = spval
+    allocate(this%zwt0_col                   (begc:endc))            ;  this%zwt0_col                   (:)   = spval
+    allocate(this%f0_col                     (begc:endc))            ;  this%f0_col                     (:)   = spval
+    allocate(this%p3_col                     (begc:endc))            ;  this%p3_col                     (:)   = spval
+    allocate(this%pH_col                     (begc:endc))            ;  this%pH_col                     (:)   = spval
+    allocate(this%ch4_surf_flux_tot_col      (begc:endc))            ;  this%ch4_surf_flux_tot_col      (:)   = spval
 
-    allocate(this%c_atm_grc                  (begg:endg,1:ngases))   ;  this%c_atm_grc                  (:,:) = nan
-    allocate(this%ch4co2f_grc                (begg:endg))            ;  this%ch4co2f_grc                (:)   = nan
-    allocate(this%ch4prodg_grc               (begg:endg))            ;  this%ch4prodg_grc               (:)   = nan
+    allocate(this%c_atm_grc                  (begg:endg,1:ngases))   ;  this%c_atm_grc                  (:,:) = spval
+    allocate(this%ch4co2f_grc                (begg:endg))            ;  this%ch4co2f_grc                (:)   = spval
+    allocate(this%ch4prodg_grc               (begg:endg))            ;  this%ch4prodg_grc               (:)   = spval
 
-    allocate(this%finundated_col             (begc:endc))            ;  this%finundated_col             (:)   = nan
-    allocate(this%o2stress_unsat_col         (begc:endc,1:nlevgrnd)) ;  this%o2stress_unsat_col         (:,:) = nan
-    allocate(this%o2stress_sat_col           (begc:endc,1:nlevgrnd)) ;  this%o2stress_sat_col           (:,:) = nan
-    allocate(this%conc_o2_sat_col            (begc:endc,1:nlevgrnd)) ;  this%conc_o2_sat_col            (:,:) = nan
-    allocate(this%conc_o2_unsat_col          (begc:endc,1:nlevgrnd)) ;  this%conc_o2_unsat_col          (:,:) = nan
-    allocate(this%o2_decomp_depth_sat_col    (begc:endc,1:nlevgrnd)) ;  this%o2_decomp_depth_sat_col    (:,:) = nan
-    allocate(this%o2_decomp_depth_unsat_col  (begc:endc,1:nlevgrnd)) ;  this%o2_decomp_depth_unsat_col  (:,:) = nan
+    allocate(this%finundated_col             (begc:endc))            ;  this%finundated_col             (:)   = spval
+    allocate(this%o2stress_unsat_col         (begc:endc,1:nlevgrnd)) ;  this%o2stress_unsat_col         (:,:) = spval
+    allocate(this%o2stress_sat_col           (begc:endc,1:nlevgrnd)) ;  this%o2stress_sat_col           (:,:) = spval
+    allocate(this%conc_o2_sat_col            (begc:endc,1:nlevgrnd)) ;  this%conc_o2_sat_col            (:,:) = spval
+    allocate(this%conc_o2_unsat_col          (begc:endc,1:nlevgrnd)) ;  this%conc_o2_unsat_col          (:,:) = spval
+    allocate(this%o2_decomp_depth_sat_col    (begc:endc,1:nlevgrnd)) ;  this%o2_decomp_depth_sat_col    (:,:) = spval
+    allocate(this%o2_decomp_depth_unsat_col  (begc:endc,1:nlevgrnd)) ;  this%o2_decomp_depth_unsat_col  (:,:) = spval
 
-    allocate(this%grnd_ch4_cond_patch        (begp:endp)) ;  this%grnd_ch4_cond_patch(:) = nan
-    allocate(this%grnd_ch4_cond_col          (begc:endc)) ;  this%grnd_ch4_cond_col  (:) = nan
+    allocate(this%grnd_ch4_cond_patch        (begp:endp)) ;  this%grnd_ch4_cond_patch(:) = spval
+    allocate(this%grnd_ch4_cond_col          (begc:endc)) ;  this%grnd_ch4_cond_col  (:) = spval
 
   end subroutine InitAllocate
 
@@ -1116,7 +1116,7 @@ contains
         CH4ParamsInst%aereoxid=tempr
      else
         ! value should never be used.
-        CH4ParamsInst%aereoxid=nan
+        CH4ParamsInst%aereoxid=spval
      endif
 
      tString='q10ch4'
@@ -1644,9 +1644,9 @@ contains
       ! Determine grnd_ch4_cond_col
       ! Needed to use non-filter form above so that spval would be treated properly.
 
-      call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
-           grnd_ch4_cond_patch(bounds%begp:bounds%endp), &
-           grnd_ch4_cond_col(bounds%begc:bounds%endc))
+      call p2c_1d_filter_parallel(begc,begp,num_soilc, filter_soilc, &
+           grnd_ch4_cond_patch(begp:endp), &
+           grnd_ch4_cond_col(begc:endc))
 
       ! Set the gridcell atmospheric CH4 and O2 concentrations
       !$acc parallel loop independent gang vector default(present)

@@ -208,7 +208,6 @@ contains
     real(r8) :: conc_trcr(num_soilc,0:nlevdecomp+1,ndecomp_pools)                  !
     real(r8) :: bet
     real(r8) :: gam(0:nlevdecomp+1)
-    real :: startt, stopt
     !-----------------------------------------------------------------------
 
 
@@ -228,12 +227,9 @@ contains
           max_altdepth_cryoturbation => SoilLittVertTranspParamsInst%max_altdepth_cryoturbation &
          )
       
-      call cpu_time(startt)
       !$acc enter data create(a_tri(:,:,:),b_tri(:,:,:),&
       !$acc     c_tri(:,:,:),r_tri(:,:,:), &
       !$acc     conc_trcr(:,:,:), gam(:) )
-      call cpu_time(stopt) 
-      write(iulog,*) "TIMING SoilLittVertTransp::data",(stopt-startt)*1.E+3,"ms" 
       ntype = 3
       if ( use_c13 ) then
          ntype = ntype+1
@@ -333,7 +329,6 @@ contains
                         if (j == 1) then
                           call calc_diffus_advflux(spinup_term,year_curr, som_diffus_coef(c,j+1), som_adv_coef(c,j+1), &
                                                    cnstate_vars%scalaravg_col(c,j+1),adv_flux_jp1, diffus_jp1)
-
                            dz_nodep1 =  zsoi(j+1) - zsoi(j)
                            d_m1_zm1 = 0._r8
                            w_p1 = (zsoi(j+1) - zisoi(j)) / dz_nodep1

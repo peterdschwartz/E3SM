@@ -522,7 +522,7 @@ contains
        ! energy of the soil-to-root water flux.
       
        ! NOTE: Why multiply by 0._r8?
-       liqcan = (h2ocan_col(fc) + total_plant_stored_h2o_col(c))*0._r8
+       liqcan = (h2ocan_col(c) + total_plant_stored_h2o_col(c))*0._r8
        call AccumulateLiquidWaterHeat( &
             temp = heat_base_temp, &
             h2o = liqcan, &

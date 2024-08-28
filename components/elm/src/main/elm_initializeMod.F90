@@ -84,6 +84,7 @@ contains
     use reweightMod               , only: reweight_wrapup
     use ELMFatesInterfaceMod      , only: ELMFatesGlobals
     use topounit_varcon           , only: max_topounits, has_topounit, topounit_varcon_init    
+    use decompMod , only : procinfo 
     !
     ! !LOCAL VARIABLES:
     integer           :: ier                     ! error status
@@ -832,7 +833,6 @@ contains
        finidat = trim(finidat_interp_dest)
 
     end if
-    print *, "Rewegiths!!!"
     !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
     do nc = 1, nclumps
        call get_clump_bounds(nc, bounds_clump)

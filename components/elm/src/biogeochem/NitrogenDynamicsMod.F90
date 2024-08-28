@@ -362,7 +362,7 @@ contains
  end subroutine NitrogenLeaching
 
   !-----------------------------------------------------------------------
-  subroutine NitrogenFert( num_soilc, filter_soilc )
+  subroutine NitrogenFert(bounds, num_soilc, filter_soilc )
     !
     ! !DESCRIPTION:
     ! On the radiation time step, update the nitrogen fertilizer for crops
@@ -371,26 +371,33 @@ contains
     ! !USES:
     !
     ! !ARGUMENTS:
+    type(bounds_type)       , intent(in)    :: bounds
     integer                 , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                 , intent(in)    :: filter_soilc(:) ! filter for soil columns
     !
     ! !LOCAL VARIABLES:
     integer :: c,fc                 ! indices
+    integer :: begp, begc
+    integer :: endp,endc
     !-----------------------------------------------------------------------
 
     associate(&
          fert          =>    veg_nf%fert          , & ! Input:  [real(r8) (:)]  nitrogen fertilizer rate (gN/m2/s)
          fert_to_sminn =>    col_nf%fert_to_sminn   & ! Output: [real(r8) (:)]
          )
+     begc = bounds%begc 
+     endc = bounds%endc
+     begp = bounds%begp
+     endp = bounds%endp 
 
-      call p2c_1d_filter_parallel( num_soilc, filter_soilc, &
-           fert,  fert_to_sminn )
+     call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+        fert(begp:endp),  fert_to_sminn(begc:endc) )
 
     end associate
   end subroutine NitrogenFert
 
   !-----------------------------------------------------------------------
-  subroutine CNSoyfix ( num_soilc, filter_soilc, num_soilp, filter_soilp, &
+  subroutine CNSoyfix (bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
        crop_vars, cnstate_vars)
     !
     ! !DESCRIPTION:
@@ -403,6 +410,7 @@ contains
     use pftvarcon  , only : nsoybean
     !
     ! !ARGUMENTS:
+    type(bounds_type)        , intent(in)    :: bounds 
     integer                  , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:) ! filter for soil columns
     integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
@@ -411,7 +419,7 @@ contains
     type(cnstate_type)       , intent(in)    :: cnstate_vars
     !
     ! !LOCAL VARIABLES:
-    integer :: fp,p,c
+    integer :: fp,p,c, begc,endc,begp,endp
     real(r8):: fxw,fxn,fxg,fxr             ! soil water factor, nitrogen factor, growth stage factor
     real(r8):: soy_ndemand                 ! difference between nitrogen supply and demand
     real(r8):: GDDfrac
@@ -436,6 +444,10 @@ contains
          soyfixn_to_sminn =>  col_nf%soyfixn_to_sminn   & ! Output: [real(r8) (:) ]
          )
 
+     begc = bounds%begc 
+     endc = bounds%endc
+     begp = bounds%begp
+     endp = bounds%endp 
       !$acc parallel loop independent gang vector default(present) private(p,c)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
@@ -509,8 +521,8 @@ contains
          end if
       end do
 
-      call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
-           soyfixn(:), soyfixn_to_sminn(:))
+      call p2c_1d_filter_parallel(begc,begp,num_soilc,filter_soilc, &
+        soyfixn(begp:endp), soyfixn_to_sminn(begc:endc))
 
     end associate
 

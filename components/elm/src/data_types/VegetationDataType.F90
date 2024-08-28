@@ -8471,7 +8471,7 @@ module VegetationDataType
   end subroutine veg_cf_summary
 
   !------------------------------------------------------------
-  subroutine veg_cf_summary_rr(this, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
+  subroutine veg_cf_summary_rr(this,bounds, num_soilp, filter_soilp, num_soilc, filter_soilc, col_cf_input)
     !
     ! !DESCRIPTION:
     ! summarize root respiration
@@ -8481,6 +8481,7 @@ module VegetationDataType
     !
     ! !ARGUMENTS:
     type(vegetation_carbon_flux) :: this
+    type(bounds_type)   :: bounds 
     integer, intent(in) :: num_soilp
     integer, intent(in) :: filter_soilp(:)
     integer, intent(in) :: num_soilc
@@ -8489,8 +8490,8 @@ module VegetationDataType
     !
     ! !LOCAL VARIABLES
     integer :: fp, p
+    integer :: begc,endc,begp,endp
     !------------------------------------------------------------
-    !$acc parallel loop independent gang vector private(p) default(present)
     do fp = 1,num_soilp
       p = filter_soilp(fp)
       ! root respiration (RR)
@@ -8506,9 +8507,14 @@ module VegetationDataType
       this%cpool_livecroot_storage_gr(p) + &
       this%cpool_deadcroot_storage_gr(p)
     enddo
-    call p2c_1d_filter_parallel(num_soilc, filter_soilc, &
-            this%rr, &
-            col_cf_input%rr)
+
+    begc = bounds%begc 
+    endc = bounds%endc
+    begp = bounds%begp
+    endp = bounds%endp 
+    call p2c_1d_filter_parallel(begc,begp,num_soilc, filter_soilc, &
+      this%rr(begp:endp), &
+      col_cf_input%rr(begc:endc))
 
   end subroutine veg_cf_summary_rr
 
