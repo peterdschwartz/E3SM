@@ -53,8 +53,6 @@ module histGPUMod
 
   type (history_entry_gpu), public, allocatable :: tape_gpu(:)   ! array concat htapes
   !$acc declare create(tape_gpu(:))
-!   type(elmpoint_rs) , public, allocatable :: gpu_elmptr_rs(:)
-!!!!$acc declare create(gpu_elmptr_rs(:))  
   public :: hist_update_hbuf_gpu
 contains
 
@@ -67,7 +65,6 @@ contains
     integer :: size1,size2,t,f,field
     integer :: num1dflds, num2dflds 
     integer :: hp
-    integer, parameter :: maxflds = 100 
     total_flds = 0
     num1dflds = 0
     num2dflds = 0 
@@ -123,14 +120,6 @@ contains
         tape_gpu(field)%num2d      = tape(t)%hlist(f)%field%num2d
         tape_gpu(field)%hpindex    = tape(t)%hlist(f)%field%hpindex
         
-      !   if(tape_gpu(field)%numdims == 1 .and. num1dflds < maxflds  ) then 
-      !       num1dflds = num1dflds + 1
-      !       hp = tape_gpu(f)%hpindex
-      !       gpu_elmptr_rs(num1dflds)%ptr => elmptr_rs(hp)%ptr
-      !   else
-      !       num2dflds = num2dflds + 1 
-      !   end if 
-
         if(trim(tape(t)%hlist(f)%field%p2c_scale_type) =='unity') then
             tape_gpu(field)%p2c_scale_type = unity
         elseif(trim(tape(t)%hlist(f)%field%p2c_scale_type) =='urbanf')Then
@@ -193,7 +182,6 @@ contains
     integer :: field 
     !----------------------------------------------------------------------
       
-    print *, "History Buffer with ",total_flds,"fields" 
     !$acc parallel loop gang vector collapse(2) independent default(present) private(nc,f,hp,numdims,num2d,bounds)
     do nc = 1, nclumps
       do f = 1, total_flds
@@ -201,12 +189,12 @@ contains
 
         numdims = tape_gpu(f)%numdims
         if ( numdims == 1) then
-              hp = tape_gpu(f)%hpindex
-              call hist_update_hbuf_field_1d_gpu( f, hp ,bounds,elmptr_rs(hp)%ptr)
+          hp = tape_gpu(f)%hpindex
+          call hist_update_hbuf_field_1d_gpu( f, hp ,bounds)
         else
-              hp = tape_gpu(f)%hpindex
-              num2d = tape_gpu(f)%num2d
-              call hist_update_hbuf_field_2d_gpu( f, hp , bounds, num2d,elmptr_ra(hp)%ptr)
+          hp = tape_gpu(f)%hpindex
+          num2d = tape_gpu(f)%num2d
+          call hist_update_hbuf_field_2d_gpu( f, hp , bounds, num2d)
         end if
 
       enddo
@@ -221,7 +209,7 @@ contains
   end subroutine hist_update_hbuf_gpu
 
   !-----------------------------------------------------------------------
-  subroutine hist_update_hbuf_field_1d_gpu( f, hpindex, bounds,field)
+  subroutine hist_update_hbuf_field_1d_gpu( f, hpindex, bounds)
     !$acc routine seq
     ! !DESCRIPTION:
     ! Accumulate (or take min, max, etc. as appropriate) input field
@@ -240,7 +228,7 @@ contains
     integer,value, intent(in) :: f            ! field index
     integer,value, intent(in) :: hpindex
     type(bounds_type), intent(in) :: bounds
-    real(r8), intent(inout) :: field(:) 
+    !real(r8), intent(inout) :: field(:) 
     !
     ! !LOCAL VARIABLES:
     integer  :: k                       ! gridcell, landunit, column or pft index
@@ -252,8 +240,8 @@ contains
     integer  :: j
     integer  :: k_offset                    ! offset for mapping sliced subarray pointers when outputting variables in PFT/col vector form
     !-----------------------------------------------------------------------
-
     associate(&
+      field          =>  elmptr_rs(hpindex)%ptr    ,&
       avgflag        =>  tape_gpu(f)%avgflag  ,&
       nacs           =>  tape_gpu(f)%nacs       ,&
       hbuf           =>  tape_gpu(f)%hbuf       ,&
@@ -264,7 +252,6 @@ contains
       p2c_scale_type =>  tape_gpu(f)%p2c_scale_type,&
       c2l_scale_type =>  tape_gpu(f)%c2l_scale_type,&
       l2g_scale_type =>  tape_gpu(f)%l2g_scale_type &
-      !field          =>  elmptr_rs(hpindex)%ptr &
       )
     ! set variables to check weights when allocate all pfts
 
@@ -389,7 +376,6 @@ contains
           if ( end1d .eq. ubound(field,1) ) then
              k_offset = 0
           else
-             print *, "koffset != 0"
              k_offset = 1 - beg1d
           endif
           do k = beg1d,end1d
@@ -454,7 +440,7 @@ contains
 end subroutine hist_update_hbuf_field_1d_gpu
 
   !-----------------------------------------------------------------------
-  subroutine hist_update_hbuf_field_2d_gpu ( f,hpindex, bounds, num2d, field)
+  subroutine hist_update_hbuf_field_2d_gpu ( f,hpindex, bounds, num2d)
     !$acc routine seq
     ! !DESCRIPTION:
     ! Accumulate (or take min, max, etc. as appropriate) input field
@@ -472,7 +458,7 @@ end subroutine hist_update_hbuf_field_1d_gpu
     integer,value, intent(in) :: hpindex
     type(bounds_type), intent(in) :: bounds
     integer, intent(in) :: num2d        ! size of second dimension
-    real(r8), intent(inout) :: field(:,:) 
+    !real(r8), intent(inout) :: field(:,:) 
     !
     ! !LOCAL VARIABLES:
     integer  :: k                       ! gridcell, landunit, column or pft index
@@ -488,9 +474,10 @@ end subroutine hist_update_hbuf_field_1d_gpu
     !-----------------------------------------------------------------------
 
     associate(&
+    field               =>  elmptr_ra(hpindex)%ptr      ,&
     avgflag             =>  tape_gpu(f)%avgflag         ,&
-    nacs                =>  tape_gpu(f)%nacs             ,&
-    hbuf                =>  tape_gpu(f)%hbuf             ,&
+    nacs                =>  tape_gpu(f)%nacs            ,&
+    hbuf                =>  tape_gpu(f)%hbuf            ,&
     beg1d               =>  tape_gpu(f)%beg1d           ,&
     end1d               =>  tape_gpu(f)%end1d           ,&
     type1d              =>  tape_gpu(f)%type1d          ,&
@@ -514,7 +501,6 @@ end subroutine hist_update_hbuf_field_1d_gpu
        ! hist_set_snow_field_2d rather than relying on beg1d & end1d (which give the proc,
        ! bounds not the clump bounds)
 
-       !allocate(field(lbound(elmptr_ra(hpindex)%ptr, 1) : ubound(elmptr_ra(hpindex)%ptr, 1), num2d))
        field_allocated = .true.
        print *, "calling hist set snow field 2d:"
        stop
@@ -817,14 +803,12 @@ end subroutine hist_update_hbuf_field_1d_gpu
     implicit none
     integer :: size1,size2,t,f, field
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    print *, "updating tape_gpu on cpu:"
     !$acc update self(tape_gpu(:))
 
     !loop is done on cpu --- could accelerate using openACC cpu threading?
-    print *, "update tape on cpu"
+    print *, "update history tape on cpu"
     do field = 1, total_flds
       t = map_tapes(field) ; f = map_fields(field);
-      if(tape(t)%hlist(f)%field%name  == "ALTMAX") print *, "ALTMAX is field # ",field 
       tape(t)%hlist(f)%hbuf(:,:) = tape_gpu(f)%hbuf(:,:)
       tape(t)%hlist(f)%nacs(:,:) = tape_gpu(f)%nacs(:,:)
     end do
@@ -833,20 +817,15 @@ end subroutine hist_update_hbuf_field_1d_gpu
   end subroutine
 
   subroutine set_gpu_tape()
-         use histFileMod, only : tape, ntapes
-          implicit none
-          integer  :: t
-          integer :: f
-
-          do f = 1, total_flds
-            t = map_tapes(f)
-            if(tape(t)%is_endhist) then
-                tape_gpu(f)%hbuf(:,:) = 0d0
-                tape_gpu(f)%nacs(:,:) = 0
-                !$acc update device(tape_gpu(f))
-            end if
-          end do
-
+    use histFileMod, only : tape, ntapes
+    implicit none
+    integer :: f
+    
+    do f = 1, total_flds
+      tape_gpu(f)%hbuf(:,:) = 0d0
+      tape_gpu(f)%nacs(:,:) = 0
+      !$acc update device(tape_gpu(f))
+    end do
 
   end subroutine set_gpu_tape
 

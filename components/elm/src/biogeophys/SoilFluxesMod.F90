@@ -358,7 +358,6 @@ contains
 
          qflx_evap_can(p)  = qflx_evap_veg(p) - qflx_tran_veg(p)
          eflx_lh_vege(p)   = (qflx_evap_veg(p) - qflx_tran_veg(p)) * hvap
-         
          eflx_lh_vegt(p)   = qflx_tran_veg(p) * hvap
          eflx_lh_grnd(p)   = qflx_evap_soi(p) * htvp(c)
 

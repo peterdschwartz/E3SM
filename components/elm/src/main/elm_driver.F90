@@ -2136,8 +2136,8 @@ module elm_driver
                end if
             end do 
             call t_startf('hbuf')
-            !call hist_update_hbuf_gpu(nstep_mod,transfer_tapes, nclumps)
-            call hist_update_hbuf(bounds_proc)  
+            call hist_update_hbuf_gpu(nstep_mod,transfer_tapes, nclumps)
+            !call hist_update_hbuf(bounds_proc)  
             call t_stopf('hbuf')
             write(iulog,*) iam, "TIMING hist_update_hbuf :: ",(stopt-startt)*1.E+3,"ms"
             

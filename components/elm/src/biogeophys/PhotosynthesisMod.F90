@@ -358,7 +358,6 @@ contains
     real(r8) :: sum_nscaler
     real(r8) :: total_lai
     integer  :: rad_layers_patch,i_type
-    real :: startt, stopt
     !------------------------------------------------------------------------------
     ! Temperature and soil water response functions
     !------------------------------------------------------------------------------
@@ -881,7 +880,7 @@ contains
          lmrcan = 0._r8
          gscan = 0._r8
          laican = 0._r8
-         !$acc loop vector reduction(+:psncan,psncan_wc,psncan_wj, psncan_wp,lmrcan,gscan,laican)
+         !$acc loop seq 
          do iv = 1, nrad(p)
             psncan = psncan + psn_z(p,iv) * lai_z(p,iv)
             psncan_wc = psncan_wc + psn_wc_z(f,iv) * lai_z(p,iv)
