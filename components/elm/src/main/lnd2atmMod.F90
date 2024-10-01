@@ -449,7 +449,7 @@ contains
     do g = bounds%begg,bounds%endg
        ! TODO temperary treatment in case weird values after c2g
        if(lnd2atm_vars%t_soisno_grc(g, 1) > 400._r8) then
-             write(iulog,*)'lnd2atm_vars%t_soisno_grc(g, 1) is',lnd2atm_vars%t_soisno_grc(g, 1)
+             write(iulog,*)'g,lnd2atm_vars%t_soisno_grc is',g, lnd2atm_vars%t_soisno_grc(g, 1)
              call endrun( msg=' lnd2atm ERROR: lnd2atm_vars%t_soisno_grc >  400 Kelvin degree.'//errMsg(__FILE__, __LINE__))
        end if
        lnd2atm_vars%Tqsur_grc(g) = avg_tsoil_surf(t_soisno_grc(g,:))
