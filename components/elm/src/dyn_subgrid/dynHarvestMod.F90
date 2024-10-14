@@ -57,7 +57,7 @@ module dynHarvestMod
   real(r8) , allocatable   :: harvest(:,:) ! harvest rates
   logical                  :: do_harvest ! whether we're in a period when we should do harvest
   !---------------------------------------------------------------------------
-  !$acc declare create(harvest(:))
+  !$acc declare create(harvest(:,:))
   !$acc declare create(do_harvest) 
 contains
 
