@@ -69,9 +69,7 @@ subroutine update_acc_variables()
   !$acc       ,maxpatch_pft )
   !--------- elm_varcon --------------------!
   !$acc update device(&
-  !$acc       zlak(:)        &
-  !$acc       ,dzlak(:)       &
-  !$acc       ,zsoi(:)        &
+  !$acc       zsoi(:)        &
   !$acc       ,dzsoi(:)       &
   !$acc       ,zisoi(:)       &
   !$acc       ,dzsoi_decomp(:) &

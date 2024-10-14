@@ -127,15 +127,9 @@ module LakeCon
   real(r8), public :: lake_puddle_thick = 0.2_r8
   !-----------------------------------------------------------------------
   !$acc declare create(betavis)
-  !$acc declare copyin(z0frzlake)
-  !$acc declare copyin(za_lake)
-  !$acc declare copyin(cur0)
-  !$acc declare copyin(cus )
-  !$acc declare copyin(curm)
   !$acc declare create(fcrit     )
   !$acc declare create(minz0lake )
-  !$acc declare copyin(n2min)
-  !$acc declare copyin(lsadz)
+  !$acc declare create(lsadz)
   !$acc declare create(pudz)
   !$acc declare create(depthcrit)
   !$acc declare create(mixfact)

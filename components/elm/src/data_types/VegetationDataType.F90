@@ -1786,60 +1786,52 @@ module VegetationDataType
     !-----------------------------------------------------------------------
     ! allocate for each member of veg_ws
     !-----------------------------------------------------------------------
-    allocate(this%h2ocan              (begp:endp))          ; this%h2ocan            (:) = nan
-    allocate(this%q_ref2m             (begp:endp))          ; this%q_ref2m           (:) = nan
-    allocate(this%rh_ref2m            (begp:endp))          ; this%rh_ref2m          (:) = nan
-    allocate(this%rh_ref2m_r          (begp:endp))          ; this%rh_ref2m_r        (:) = nan
-    allocate(this%rh_ref2m_u          (begp:endp))          ; this%rh_ref2m_u        (:) = nan
-    allocate(this%rh_af               (begp:endp))          ; this%rh_af             (:) = nan
-    allocate(this%fwet                (begp:endp))          ; this%fwet              (:) = nan
-    allocate(this%fdry                (begp:endp))          ; this%fdry              (:) = nan
-    allocate(this%begwb               (begp:endp))          ; this%begwb             (:) = nan
-    allocate(this%endwb               (begp:endp))          ; this%endwb             (:) = nan
-    allocate(this%errh2o              (begp:endp))          ; this%errh2o            (:) = nan
+    allocate(this%h2ocan              (begp:endp))          ; this%h2ocan            (begp:endp) = spval
+    allocate(this%q_ref2m             (begp:endp))          ; this%q_ref2m           (begp:endp) = spval
+    allocate(this%rh_ref2m            (begp:endp))          ; this%rh_ref2m          (begp:endp) = spval
+    allocate(this%rh_ref2m_r          (begp:endp))          ; this%rh_ref2m_r        (begp:endp) = spval
+    allocate(this%rh_ref2m_u          (begp:endp))          ; this%rh_ref2m_u        (begp:endp) = spval
+    allocate(this%rh_af               (begp:endp))          ; this%rh_af             (begp:endp) = spval
+    allocate(this%fwet                (begp:endp))          ; this%fwet              (begp:endp) = spval
+    allocate(this%fdry                (begp:endp))          ; this%fdry              (begp:endp) = spval
+    allocate(this%begwb               (begp:endp))          ; this%begwb             (begp:endp) = spval
+    allocate(this%endwb               (begp:endp))          ; this%endwb             (begp:endp) = spval
+    allocate(this%errh2o              (begp:endp))          ; this%errh2o            (begp:endp) = spval
 
     !-----------------------------------------------------------------------
     ! initialize history fields for select members of veg_ws
     !-----------------------------------------------------------------------
-    this%h2ocan(begp:endp) = spval
     call hist_addfld1d (fname='H2OCAN', units='mm',  &
          avgflag='A', long_name='intercepted water', &
          ptr_patch=this%h2ocan, set_lake=0._r8)
 
-    this%q_ref2m(begp:endp) = spval
     call hist_addfld1d (fname='Q2M', units='kg/kg',  &
          avgflag='A', long_name='2m specific humidity', &
          ptr_patch=this%q_ref2m)
 
-    this%rh_ref2m(begp:endp) = spval
     call hist_addfld1d (fname='RH2M', units='%',  &
          avgflag='A', long_name='2m relative humidity', &
          ptr_patch=this%rh_ref2m)
 
-    this%rh_ref2m_r(begp:endp) = spval
     call hist_addfld1d (fname='RH2M_R', units='%',  &
          avgflag='A', long_name='Rural 2m specific humidity', &
          ptr_patch=this%rh_ref2m_r, set_spec=spval)
 
-    this%rh_ref2m_u(begp:endp) = spval
     call hist_addfld1d (fname='RH2M_U', units='%',  &
          avgflag='A', long_name='Urban 2m relative humidity', &
          ptr_patch=this%rh_ref2m_u, set_nourb=spval)
 
-    this%rh_af(begp:endp) = spval
     call hist_addfld1d (fname='RHAF', units='fraction', &
          avgflag='A', long_name='fractional humidity of canopy air', &
          ptr_patch=this%rh_af, set_spec=spval, default='inactive')
 
     if (use_cn) then
-       this%fwet(begp:endp) = spval
        call hist_addfld1d (fname='FWET', units='proportion', &
             avgflag='A', long_name='fraction of canopy that is wet', &
             ptr_patch=this%fwet, default='inactive')
     end if
 
     if (use_cn) then
-       this%fdry(begp:endp) = spval
        call hist_addfld1d (fname='FDRY', units='proportion', &
             avgflag='A', long_name='fraction of foliage that is green and dry', &
             ptr_patch=this%fdry, default='inactive')
@@ -1849,9 +1841,9 @@ module VegetationDataType
     ! set cold-start initial values for select members of veg_ws
     !-----------------------------------------------------------------------
     do p = begp,endp
-       this%h2ocan(begp:endp) = 0._r8
-       this%fwet(begp:endp)   = 0._r8
-       this%fdry(begp:endp)   = 0._r8
+       this%h2ocan(p) = 0._r8
+       this%fwet(p)   = 0._r8
+       this%fdry(p)   = 0._r8
     end do
 
   end subroutine veg_ws_init

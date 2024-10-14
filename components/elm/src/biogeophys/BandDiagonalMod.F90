@@ -226,6 +226,7 @@ contains
       end do 
    end do 
  
+   print *, "bd:"
    !$acc parallel loop independent gang vector default(present)  
    do fc = 1,numf
       ci = filter(fc)

@@ -431,12 +431,6 @@ contains
 
     call soilstate_vars%init(bounds_proc)
 
-    call waterstate_vars%init(bounds_proc,         &
-         h2osno_col(begc:endc),                    &
-         snow_depth_col(begc:endc),                &
-         soilstate_vars%watsat_col(begc:endc, 1:), &
-         col_es%t_soisno(begc:endc, -nlevsno+1:) )
-
     call grc_ws%Init(bounds_proc%begg_all, bounds_proc%endg_all)
     call lun_ws%Init(bounds_proc%begl_all, bounds_proc%endl_all)
     call col_ws%Init(bounds_proc%begc_all, bounds_proc%endc_all, &
@@ -451,7 +445,6 @@ contains
     call col_wf%Init(bounds_proc%begc_all, bounds_proc%endc_all)
     call veg_wf%Init(bounds_proc%begp_all, bounds_proc%endp_all)
 
-    call chemstate_vars%Init(bounds_proc)
     ! WJS (6-24-14): Without the following write statement, the assertion in
     ! energyflux_vars%init fails with pgi 13.9 on yellowstone. So for now, I'm leaving
     ! this write statement in place as a workaround for this problem.

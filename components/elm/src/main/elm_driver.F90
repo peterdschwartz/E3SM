@@ -279,7 +279,8 @@ module elm_driver
       use dynpftFileMod, only : dynpft_interp
       use dynHarvestMod, only : dynHarvest_interp
       use dyncropFileMod      , only : dyncrop_init, dyncrop_interp
-      !!use writeMod , only : write_vars 
+      use writeMod , only : write_vars 
+
       use histFileMod, only : ntapes  
       use dynSubgridAdjustmentsMod, only : dyn_col_cs_Adjustments,dyn_col_ns_Adjustments,dyn_col_ps_Adjustments
       use ForcingUpdateMod , only : update_forcings_cplbypass
@@ -287,6 +288,7 @@ module elm_driver
       use elm_varpar , only : ndecomp_pools 
       use UrbanParamsType, only : urban_hac_int 
       use RootDynamicsMod, only : RootDynamics
+      use verificationMod, only : update_vars_surfacealbedo
       !
       ! !ARGUMENTS:
       implicit none
@@ -630,13 +632,13 @@ module elm_driver
       #endif
       call setProcFilters(bounds_proc, proc_filter, .false., glc2lnd_vars%icemask_grc)
       call setProcFilters(bounds_proc, proc_filter_inactive_and_active, .true., glc2lnd_vars%icemask_grc)
-      !$acc enter data copyin(cpl_bypass_input%atm_input(:,:,:,1:5))
       end if
       !$acc enter data copyin(nstep_mod, dtime_mod, &
       !$acc   year_curr,mon_curr,day_curr,secs_curr,&
       !$acc   year_prev,mon_prev,day_prev,secs_prev, dayspyr_mod,jday_mod)
      #ifdef CPL_BYPASS 
       ! NOTE: still need to update forcings in datm mode on GPU?
+      !$acc enter data copyin(cpl_bypass_input%atm_input(:,:,:,1:5))
      call update_forcings_cplbypass(bounds_proc, atm2lnd_vars, cpl_bypass_input, &
             dtime_mod, thiscalday_mod,secs_curr, year_curr, mon_curr, nstep_mod) 
      #endif
@@ -769,6 +771,7 @@ module elm_driver
       ! and or dynamic landunits), and do related adjustments. Note that this
       ! call needs to happen outside loops over nclumps.
       ! ============================================================================
+      call cpu_time(startt) 
       call t_startf('dyn_subgrid')
       call dyn_hwcontent_init(bounds_proc, &
         proc_filter%num_nolakec, proc_filter%nolakec, &
@@ -777,7 +780,7 @@ module elm_driver
 
      !$acc parallel loop independent gang vector default(present) private(nc,bounds_clump) 
      do nc = 1, nclumps
-        call get_clump_bounds(nc, bounds_clump)
+        call get_clump_bounds_gpu(nc, bounds_clump)
         call set_prior_weights(prior_weights, bounds_clump)
         call set_old_patch_weightsAcc  (patch_state_updater, bounds_clump)
         call set_old_column_weightsAcc (column_state_updater,bounds_clump)
@@ -803,11 +806,7 @@ module elm_driver
       ! ==========================================================================
       !$acc parallel loop independent gang vector default(present) private(nc, bounds_clump)
       do nc = 1, nclumps
-         call get_clump_bounds(nc, bounds_clump)
-         #ifndef _OPENACC 
-         if (use_fates) then
-         end if
-         #endif
+         call get_clump_bounds_gpu(nc, bounds_clump)
          if (create_glacier_mec_landunit) then
             call glc2lnd_vars_update_glc2lnd_acc(glc2lnd_vars ,bounds_clump)
          end if
@@ -827,7 +826,7 @@ module elm_driver
       call cpu_time(startt)  
       !$acc parallel loop independent gang vector default(present) private(bounds_clump)
       do nc = 1, nclumps 
-         call get_clump_bounds(nc, bounds_clump) 
+         call get_clump_bounds_gpu(nc, bounds_clump) 
          call set_subgrid_diagnostic_fields(bounds_clump)
          call initialize_new_columns(bounds_clump, &
             prior_weights%cactive(bounds_clump%begc:bounds_clump%endc), soilhydrology_vars )
@@ -1987,14 +1986,6 @@ module elm_driver
               do nc = 1,nclumps
                  call get_clump_bounds_gpu(nc, bounds_clump)
                
-                 call ColCBalanceCheck( &
-                 filter(nc)%num_soilc, filter(nc)%soilc, &
-                 col_cs, col_cf)
-                 
-                 call ColNBalanceCheck(bounds_clump, &
-                 filter(nc)%num_soilc, filter(nc)%soilc, &
-                 col_ns, col_nf)
-                 
                  call ColPBalanceCheck(bounds_clump, &
                  filter(nc)%num_soilc, filter(nc)%soilc, &
                  col_ps, col_pf)
@@ -2002,13 +1993,23 @@ module elm_driver
                  call GridCBalanceCheck(bounds_clump, col_cs, col_cf, grc_cs, grc_cf)
                
                end do
+               !$acc parallel loop independent gang vector default(present) present(filter(:))
+               do nc =1, nclumps
+                 call ColCBalanceCheck( &
+                 filter(nc)%num_soilc, filter(nc)%soilc, &
+                 col_cs, col_cf)
+                 
+                 call ColNBalanceCheck(&
+                 filter(nc)%num_soilc, filter(nc)%soilc, &
+                 col_ns, col_nf)
+               end do 
                call t_stopf('cnbalchk')
             end if
             ! ============================================================================
             ! Determine albedos for next time step
             ! ============================================================================
-            if (doalb) then
-               !if(nstep_mod >1 ) call write_vars() 
+            if (.false.) then
+               if(nstep_mod == 48) call update_vars_surfacealbedo(0,"TestBefore")
                !$acc parallel loop independent gang private(nc,bounds_clump)
                do nc = 1,nclumps
                   call get_clump_bounds_gpu(nc, bounds_clump)
@@ -2027,20 +2028,21 @@ module elm_driver
                   aerosol_vars, canopystate_vars, &
                   lakestate_vars, surfalb_vars )
                   call t_stopf('surfalb')
+                 if(nstep_mod == 48) call update_vars_surfacealbedo(0,"TestAfter")
                   
-                 ! ! Albedos for urban columns
-                 ! if (filter_inactive_and_active(nc)%num_urbanl > 0) then
-                 !    !call t_startf('urbsurfalb')
-                 !    call UrbanAlbedo(         &
-                 !    filter_inactive_and_active(nc)%num_urbanl, &
-                 !    filter_inactive_and_active(nc)%urbanl,     &
-                 !    filter_inactive_and_active(nc)%num_urbanc, &
-                 !    filter_inactive_and_active(nc)%urbanc,     &
-                 !    filter_inactive_and_active(nc)%num_urbanp, &
-                 !    filter_inactive_and_active(nc)%urbanp,     &
-                 !    urbanparams_vars, solarabs_vars, surfalb_vars)
-                 !    !call t_stopf('urbsurfalb')
-                 ! end if
+                  ! ! Albedos for urban columns
+                  ! if (filter_inactive_and_active(nc)%num_urbanl > 0) then
+                  !    call t_startf('urbsurfalb')
+                  !    call UrbanAlbedo(         &
+                  !    filter_inactive_and_active(nc)%num_urbanl, &
+                  !    filter_inactive_and_active(nc)%urbanl,     &
+                  !    filter_inactive_and_active(nc)%num_urbanc, &
+                  !    filter_inactive_and_active(nc)%urbanc,     &
+                  !    filter_inactive_and_active(nc)%num_urbanp, &
+                  !    filter_inactive_and_active(nc)%urbanp,     &
+                  !    urbanparams_vars, solarabs_vars, surfalb_vars)
+                  !    call t_stopf('urbsurfalb')
+                  ! end if
                end do
             end if
             
@@ -2136,10 +2138,9 @@ module elm_driver
                end if
             end do 
             call t_startf('hbuf')
-            call hist_update_hbuf_gpu(nstep_mod,transfer_tapes, nclumps)
-            !call hist_update_hbuf(bounds_proc)  
+            !call hist_update_hbuf_gpu(nstep_mod,transfer_tapes, nclumps)
+            ! call hist_update_hbuf(bounds_proc)  
             call t_stopf('hbuf')
-            write(iulog,*) iam, "TIMING hist_update_hbuf :: ",(stopt-startt)*1.E+3,"ms"
             
             ! ============================================================================
             ! Compute water budget

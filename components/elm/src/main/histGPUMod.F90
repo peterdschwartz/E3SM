@@ -274,6 +274,12 @@ contains
                field(bounds%begc:bounds%endc), &
                field_gcell(bounds%begg:bounds%endg), &
                c2l_scale_type, l2g_scale_type)
+       
+             ! if(f == 66) then 
+             !   do k = bounds%begc, bounds%endc 
+             !     print *, field_gcell(k)
+             !   end do 
+             ! end if 
 
           map2gcell = .true.
        else if (type1d == namel) then
@@ -814,7 +820,7 @@ end subroutine hist_update_hbuf_field_1d_gpu
     end do
 
 
-  end subroutine
+  end subroutine transfer_tape_to_cpu
 
   subroutine set_gpu_tape()
     use histFileMod, only : tape, ntapes

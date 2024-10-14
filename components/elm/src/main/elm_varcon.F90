@@ -34,7 +34,7 @@ module elm_varcon
   ! Initialize mathmatical constants
   !------------------------------------------------------------------
 
-  real(r8) :: rpi    = SHR_CONST_PI
+  real(r8), parameter :: rpi    = SHR_CONST_PI
 
   !------------------------------------------------------------------
   ! Initialize physical constants
@@ -102,6 +102,16 @@ module elm_varcon
                                     ! (Clauser and Huenges, 1995)(W/m/K)
   !$acc declare copyin(thk_bedrock)
 
+  !$acc declare copyin(zlnd )
+  !$acc declare copyin(zsno )
+  !$acc declare copyin(csoilc)
+  !$acc declare copyin(capr  )
+  !$acc declare copyin(cnfac )
+  !$acc declare copyin(ssi   )
+  !$acc declare copyin(wimp  )
+  !$acc declare copyin(pondmx)
+  !$acc declare copyin(pondmx_urban)
+
   real(r8), parameter :: aquifer_water_baseline = 5000._r8 ! baseline value for water in the unconfined aquifer [mm]
 
   !!! C13
@@ -142,6 +152,7 @@ module elm_varcon
   !$acc declare copyin(ac_wasteheat_factor)
   !$acc declare copyin(wasteheat_limit    )
   real(r8)  :: h2osno_max = 1000._r8    ! max allowed snow thickness (mm H2O)
+  !$acc declare copyin(h2osno_max)
   real(r8), parameter :: lapse_glcmec = 0.006_r8  ! surface temperature lapse rate (deg m-1)
                                                   ! Pritchard et al. (GRL, 35, 2008) use 0.006
   real(r8), parameter :: glcmec_rain_snow_threshold = SHR_CONST_TKFRZ  ! temperature dividing rain & snow in downscaling (K)
@@ -151,8 +162,6 @@ module elm_varcon
  !real(r8), parameter :: nitrif_n2o_loss_frac = 0.02_r8  ! fraction of N lost as N2O in nitrification (Parton et al., 2001)
   real(r8), parameter :: nitrif_n2o_loss_frac = 6.e-4_r8 ! fraction of N lost as N2O in nitrification (Li et al., 2000)
   real(r8), parameter :: frac_minrlztn_to_no3 = 0.2_r8   ! fraction of N mineralized that is dieverted to the nitrification stream (Parton et al., 2001)
-  !$acc declare copyin(nitrif_n2o_loss_frac)
-  !$acc declare copyin(frac_minrlztn_to_no3)
 
   !------------------------------------------------------------------
   ! Set subgrid names
@@ -166,7 +175,6 @@ module elm_varcon
   character(len=16), parameter :: namec  = 'column'       ! name of columns
   character(len=16), parameter :: namep  = 'pft'          ! name of patches
   character(len=16), parameter :: nameCohort = 'cohort'   ! name of cohorts (ED specific)
-  !$acc declare copyin(grlnd,nameg,namet,namel,namec,namep )
   !------------------------------------------------------------------
   ! Initialize miscellaneous radiation constants
   !------------------------------------------------------------------
@@ -207,10 +215,15 @@ module elm_varcon
   real(r8), parameter :: catomw = 12.011_r8     ! molar mass of C atoms (g/mol)
   real(r8), parameter :: natomw = 14.007_r8     ! molar mass of N atoms (g/mol)
 
-  real(r8) :: s_con(ngases,4)    ! Schmidt # calculation constants (spp, #)
-  data (s_con(1,i),i=1,4) /1898_r8, -110.1_r8, 2.834_r8, -0.02791_r8/ ! CH4
-  data (s_con(2,i),i=1,4) /1801_r8, -120.1_r8, 3.7818_r8, -0.047608_r8/ ! O2
-  data (s_con(3,i),i=1,4) /1911_r8, -113.7_r8, 2.967_r8, -0.02943_r8/ ! CO2
+  real(r8),parameter :: s_con(ngases,4) = reshape([1898_r8, -110.1_r8, 2.834_r8, -0.02791_r8, & ! CH4
+                                       1801_r8, -120.1_r8, 3.7818_r8, -0.047608_r8, & ! O2
+                                       1911_r8, -113.7_r8, 2.967_r8, -0.02943_r8], &  ! CO2
+                                       shape=[ngases, 4])
+
+  ! real(r8) :: s_con(ngases,4)    ! Schmidt # calculation constants (spp, #)
+  ! data (s_con(1,i),i=1,4) /1898_r8, -110.1_r8, 2.834_r8, -0.02791_r8/ ! CH4
+  ! data (s_con(2,i),i=1,4) /1801_r8, -120.1_r8, 3.7818_r8, -0.047608_r8/ ! O2
+  ! data (s_con(3,i),i=1,4) /1911_r8, -113.7_r8, 2.967_r8, -0.02943_r8/ ! CO2
 
   real(r8) :: d_con_w(ngases,3)    ! water diffusivity constants (spp, #)  (mult. by 10^-4)
   data (d_con_w(1,i),i=1,3) /0.9798_r8, 0.02986_r8, 0.0004381_r8/ ! CH4
@@ -229,13 +242,11 @@ module elm_varcon
   data kh_theta(1:3) /714.29_r8, 769.23_r8, 29.4_r8/ ! CH4, O2, CO2
 
   real(r8) :: kh_tbase = 298._r8 ! base temperature for calculation of Henry's constant (K)
-  !$acc declare copyin(catomw)
-  !$acc declare copyin(natomw)
-  !$acc declare copyin(s_con)
-  !$acc declare copyin(d_con_w)
-  !$acc declare copyin(d_con_g)
-  !$acc declare copyin(c_h_inv)
-  !$acc declare copyin(kh_theta)
+  !! !$acc declare copyin(s_con(:,:))
+  !$acc declare copyin(d_con_w(:,:))
+  !$acc declare copyin(d_con_g(:,:))
+  !$acc declare copyin(c_h_inv(:))
+  !$acc declare copyin(kh_theta(:))
   !$acc declare copyin(kh_tbase)
 
   !------------------------------------------------------------------
@@ -245,44 +256,8 @@ module elm_varcon
   real(r8), public, parameter :: snw_rds_min = 54.526_r8
   !-----------------------------------------------------------------------
   !# acc variable declarations
-
-  !$acc declare copyin(spval, ispval,rpi,zlnd, tfrz,h2osno_max)
-  !$acc declare copyin(glcmec_rain_snow_threshold, snw_rds_min)
-  !$acc declare copyin(lapse_glcmec)
-  !$acc declare copyin(degpsec  )
-  !$acc declare copyin(secspday )
-  !$acc declare copyin(isecspday)
-  !$acc declare copyin(grav  )
-  !$acc declare copyin(sb    )
-  !$acc declare copyin(vkc   )
-  !$acc declare copyin(rwat  )
-  !$acc declare copyin(rair  )
-  !$acc declare copyin(roverg)
-  !$acc declare copyin(cpliq )
-  !$acc declare copyin(cpice )
-  !$acc declare copyin(cpair )
-  !$acc declare copyin(hvap  )
-  !$acc declare copyin(hsub  )
-  !$acc declare copyin(hfus  )
-  !$acc declare copyin(denh2o)
-  !$acc declare copyin(denice)
-  !$acc declare copyin(rgas  )
-  !$acc declare copyin(tkair )
-  !$acc declare copyin(tkice )
-  !$acc declare copyin(tkwat )
-
-  !$acc declare copyin(zlnd )
-  !$acc declare copyin(zsno )
-  !$acc declare copyin(csoilc)
-  !$acc declare copyin(capr  )
-  !$acc declare copyin(cnfac )
-  !$acc declare copyin(ssi   )
-  !$acc declare copyin(wimp  )
-  !$acc declare copyin(pondmx)
-  !$acc declare copyin(pondmx_urban)
-
   !$acc declare create(zlak(:)        )
-  !$acc declare create(dzlak(:)       )
+  !! !$acc declare create(dzlak(:)       )
   !$acc declare create(zsoi(:)        )
   !$acc declare create(dzsoi(:)       )
   !$acc declare create(zisoi(:)       )

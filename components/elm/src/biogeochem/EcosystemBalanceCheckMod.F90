@@ -334,8 +334,7 @@ contains
   end subroutine ColCBalanceCheck
 
   !-----------------------------------------------------------------------
-  subroutine ColNBalanceCheck(bounds, &
-       num_soilc, filter_soilc, &
+  subroutine ColNBalanceCheck( num_soilc, filter_soilc, &
        col_ns, col_nf)
     !
     ! !DESCRIPTION:
@@ -343,7 +342,6 @@ contains
     ! for column and pft
     !$acc routine seq 
     ! !ARGUMENTS:
-    type(bounds_type)         , intent(in)    :: bounds
     integer                   , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                   , intent(in)    :: filter_soilc(:) ! filter for soil columns
     type(column_nitrogen_state) , intent(inout) :: col_ns

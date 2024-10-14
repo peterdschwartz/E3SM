@@ -3478,7 +3478,7 @@
     <DESC>ORNL Summit. Node: 2x POWER9 + 6x Volta V100, 22 cores/socket, 4 HW threads/core.</DESC>
     <NODENAME_REGEX>.*summit.*</NODENAME_REGEX>
     <OS>LINUX</OS>
-    <COMPILERS>ibm,ibmgpu,pgi,pgigpu,gnu,gnugpu</COMPILERS>
+    <COMPILERS>ibm,ibmgpu,pgi,pgigpu,gnu,gnugpu,pgielmacc</COMPILERS>
     <MPILIBS>spectrum-mpi,mpi-serial</MPILIBS>
 
     <PROJECT>cli180</PROJECT>
@@ -3566,14 +3566,19 @@
       <modules>
         <command name="load">parallel-netcdf/1.12.2</command>
         <command name="load">hdf5/1.14.3</command>
+        <command name="load">parallel-netcdf/1.12.2</command>
+        <command name="load">netcdf-c/4.9.2</command>
+        <command name="load">netcdf-fortran/4.6.1</command>
+        <!-- CHEN: we can add more modules here -->
       </modules>
     </module_system>
     <RUNDIR>$CIME_OUTPUT_ROOT/$CASE/run</RUNDIR>
     <EXEROOT>$CIME_OUTPUT_ROOT/$CASE/bld</EXEROOT>
     <TEST_TPUT_TOLERANCE>0.1</TEST_TPUT_TOLERANCE>
     <environment_variables>
-      <env name="NETCDF_C_PATH">/ccs/proj/cli180/lei/software/netcdf-c/build/installdir/</env>
-      <env name="NETCDF_FORTRAN_PATH">/ccs/proj/cli180/lei/software/netcdf-fortran/build/installdir/</env>
+      <env name="NETCDF_C_PATH">$ENV{OLCF_NETCDF_C_ROOT}</env>
+      <env name="NETCDF_FORTRAN_PATH">$ENV{OLCF_NETCDF_FORTRAN_ROOT}</env>
+      <env name="HDF5_PATH">$ENV{OLCF_HDF5_ROOT}</env>
       <env name="ESSL_PATH">$ENV{OLCF_ESSL_ROOT}</env>
       <env name="PGI_ACC_POOL_ALLOC">0</env>
     </environment_variables>

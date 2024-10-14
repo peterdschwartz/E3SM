@@ -668,7 +668,7 @@ contains
 
         if (stem_leaf(ivt) < 0._r8) then
            if (stem_leaf(ivt) == -1._r8) then
-                f3 = (2.7/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4
+                f3 = max( (2.7/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4_r8,0.2_r8)
            else
                 f3 = max((-1.0_r8*stem_leaf(ivt)*2.7_r8)/(1.0_r8+exp(-0.004_r8*(annsum_npp(p) - &
                           300.0_r8))) - 0.4_r8, 0.2_r8)
@@ -1638,7 +1638,7 @@ contains
 
             if (stem_leaf(ivt) < 0._r8) then
                 if (stem_leaf(ivt) == -1._r8) then
-                    f3 = (2.7/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4
+                    f3 = max( (2.7/(1.0+exp(-0.004*(annsum_npp(p) - 300.0)))) - 0.4_r8,0.2_r8)
                 else
                     f3 = max((-1.0_r8*stem_leaf(ivt)*2.7_r8)/(1.0_r8+exp(-0.004_r8*(annsum_npp(p) - &
                               300.0_r8))) - 0.4_r8, 0.2_r8)
