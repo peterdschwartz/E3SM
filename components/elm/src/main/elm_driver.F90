@@ -425,8 +425,6 @@ module elm_driver
           end do
 
          deallocate(npfts(:))
-         ! Summarize grc_pp additions:
-         ! columns: 
          !$acc update device( &
          !$acc        spinup_state            &
          !$acc       ,nyears_ad_carbon_only   &

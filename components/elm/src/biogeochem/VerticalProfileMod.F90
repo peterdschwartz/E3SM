@@ -28,6 +28,7 @@ module VerticalProfileMod
   real(r8), public :: rootprof_exp  = 3._R8
   ! how steep profile is for surface components (1/ e_folding depth) (1/m)
   real(r8), public :: surfprof_exp  = 10._r8
+  !$acc declare copyin(surfprof_exp,rootprof_exp)  
   !-----------------------------------------------------------------------
 contains
 
@@ -109,7 +110,6 @@ contains
       endp = bounds%endp  
       begc = bounds%begc  
       endc = bounds%endc
-      !$acc enter data copyin(surfprof_exp,rootprof_exp)  
       !$acc enter data create(&
       !$acc surface_prof(:), &
       !$acc cinput_rootfr(:,:) , &
@@ -252,10 +252,10 @@ contains
                end do
             else
                ! if fully frozen, or no roots, put everything in the top layer
-               froot_prof(p,1) = 1./dzsoi_decomp(1)
-               croot_prof(p,1) = 1./dzsoi_decomp(1)
-               leaf_prof(p,1) = 1./dzsoi_decomp(1)
-               stem_prof(p,1) = 1./dzsoi_decomp(1)
+               froot_prof(p,1) = 1._r8/dzsoi_decomp(1)
+               croot_prof(p,1) = 1._r8/dzsoi_decomp(1)
+               leaf_prof(p,1) = 1._r8/dzsoi_decomp(1)
+               stem_prof(p,1) = 1._r8/dzsoi_decomp(1)
             endif
 
          end do
@@ -408,8 +408,7 @@ contains
       !$acc ndep_prof_sum , &
       !$acc nfixation_prof_sum , & 
       !$acc pdep_prof_sum , &
-      !$acc rootfr_tot, sum_rootfr,&
-      !$acc rootprof_exp, surfprof_exp) 
+      !$acc rootfr_tot, sum_rootfr) 
     end associate 
 
   end subroutine decomp_vertprofiles
