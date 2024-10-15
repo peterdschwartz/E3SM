@@ -20,7 +20,7 @@ module DaylengthMod
   ! !PRIVATE DATA MEMBERS:
   logical, public :: first_step = .true.        ! is this the first step since initialization?
 
-  !$acc declare copyin(first_step)
+  !$acc declare create(first_step)
 
   !
   !-----------------------------------------------------------------------

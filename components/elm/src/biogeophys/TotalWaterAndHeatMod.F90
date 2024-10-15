@@ -73,7 +73,6 @@ module TotalWaterAndHeatMod
   ! Minimum and maximum temperatures for the water temperature used by AdjustDeltaHeatForDeltaLiq
   real(r8), parameter :: DeltaLiqMinTemp = tfrz  ! [K]
   real(r8), parameter :: DeltaLiqMaxTemp = tfrz + 35._r8  ! [K]
-  !$acc declare copyin(heat_base_temp, DeltaLiqMinTemp,DeltaLiqMaxTemp)
   !
   ! !PRIVATE MEMBER FUNCTIONS:
   private :: AccumulateLiquidWaterHeat ! For use by ComputeHeat* routines: accumulate quantities that we need to count for liquid water, for a single column

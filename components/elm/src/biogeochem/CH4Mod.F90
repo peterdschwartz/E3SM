@@ -42,10 +42,8 @@ module CH4Mod
   private
 
   ! Non-tunable constants
-  real(r8) :: rgasm  ! J/mol.K; rgas / 1000; will be set below
+  real(r8),parameter  :: rgasm = rgas/1000._r8  ! J/mol.K; rgas / 1000; will be set below
   real(r8), parameter :: rgasLatm = 0.0821_r8 ! L.atm/mol.K
-  !$acc declare copyin(rgasLatm)
-  !$acc declare copyin(rgasm)
 
   ! !PUBLIC MEMBER FUNCTIONS:
   public  :: readCH4Params
@@ -1483,10 +1481,8 @@ contains
       dtime_ch4 = dtime_mod
       redoxlags = redoxlag*secspday ! days --> s
       redoxlags_vertical = redoxlag_vertical*secspday ! days --> s
-      rgasm = rgas / 1000._r8
       lake = .false.; sat = 0 
       !$acc enter data copyin(redoxlags,redoxlags_vertical, dtime_ch4, lake, sat)
-      !$acc update device(rgasm) 
 
       ! Initialize local fluxes to zero: necessary for columns outside the filters because averaging up to gridcell will be done
       ! ch4_surf_flux_tot(begc:endc) = 0._r8
@@ -2118,7 +2114,7 @@ contains
     !$acc totsoilcolch4_bef(:), &
     !$acc totlakecolch4_bef(:), &
     !$acc dummyfilter(:),sum1,sum2,sum3)
-   !$acc exit data delete(redoxlags,redoxlags_vertical,rgasm, dtime_ch4, lake, sat)
+   !$acc exit data delete(redoxlags,redoxlags_vertical, dtime_ch4, lake, sat)
 
     end associate
 

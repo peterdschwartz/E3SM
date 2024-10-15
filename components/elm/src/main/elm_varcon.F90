@@ -64,20 +64,14 @@ module elm_varcon
   real(r8), parameter :: tkwat  = 0.57_r8                              ! thermal conductivity of water [W/m/K]
   real(r8), parameter :: tfrz   = SHR_CONST_TKFRZ                      ! freezing temperature [K]
   real(r8), parameter :: tcrit  = 2.5_r8                    ! critical temperature to determine rain or snow
-  real(r8) :: o2_molar_const = 0.209_r8                     ! constant atmospheric O2 molar ratio (mol/mol)
-  real(r8) :: oneatm = 1.01325e5_r8                         ! one standard atmospheric pressure [Pa]
-  !$acc declare copyin(o2_molar_const)
-  !$acc declare copyin(oneatm        )
+  real(r8), parameter :: o2_molar_const = 0.209_r8                     ! constant atmospheric O2 molar ratio (mol/mol)
+  real(r8), parameter :: oneatm = 1.01325e5_r8                         ! one standard atmospheric pressure [Pa]
 
-  real(r8) :: bdsno = 250._r8                               ! bulk density snow (kg/m**3)
-  real(r8) :: alpha_aero = 1.0_r8                           ! constant for aerodynamic parameter weighting
-  real(r8) :: tlsai_crit = 2.0_r8                           ! critical value of elai+esai for which aerodynamic parameters are maximum
-  real(r8) :: watmin = 0.01_r8                              ! minimum soil moisture (mm)
-  !$acc declare copyin(bdsno     )
-  !$acc declare copyin(alpha_aero)
-  !$acc declare copyin(tlsai_crit)
-  !$acc declare copyin(watmin    )
-  real(r8) :: re = SHR_CONST_REARTH*0.001_r8                ! radius of earth (km)
+  real(r8),parameter :: bdsno = 250._r8                               ! bulk density snow (kg/m**3)
+  real(r8),parameter :: alpha_aero = 1.0_r8                           ! constant for aerodynamic parameter weighting
+  real(r8),parameter :: tlsai_crit = 2.0_r8                           ! critical value of elai+esai for which aerodynamic parameters are maximum
+  real(r8),parameter :: watmin = 0.01_r8                              ! minimum soil moisture (mm)
+  real(r8),parameter :: re = SHR_CONST_REARTH*0.001_r8                ! radius of earth (km)
 
   real(r8), public, parameter :: degpsec = 15._r8/3600.0_r8 ! Degree's earth rotates per second
   real(r8), public, parameter ::  secspday= SHR_CONST_CDAY  ! Seconds per day
@@ -88,37 +82,25 @@ module elm_varcon
 
   ! These are tunable constants from clm2_3
 
-  real(r8) :: zlnd = 0.01_r8        ! Roughness length for soil [m]
-  real(r8) :: zsno = 0.0024_r8      ! Roughness length for snow [m]
-  real(r8) :: csoilc = 0.004_r8     ! Drag coefficient for soil under canopy [-]
-  real(r8) :: capr   = 0.34_r8      ! Tuning factor to turn first layer T into surface T
-  real(r8) :: cnfac  = 0.5_r8       ! Crank Nicholson factor between 0 and 1
-  real(r8) :: ssi    = 0.033_r8     ! Irreducible water saturation of snow
-  real(r8) :: wimp   = 0.05_r8      ! Water impremeable if porosity less than wimp
-  real(r8) :: pondmx = 0.0_r8       ! Ponding depth (mm)
-  real(r8) :: pondmx_urban = 1.0_r8 ! Ponding depth for urban roof and impervious road (mm)
+  real(r8),parameter :: zlnd = 0.01_r8        ! Roughness length for soil [m]
+  real(r8),parameter :: zsno = 0.0024_r8      ! Roughness length for snow [m]
+  real(r8),parameter :: csoilc = 0.004_r8     ! Drag coefficient for soil under canopy [-]
+  real(r8),parameter :: capr   = 0.34_r8      ! Tuning factor to turn first layer T into surface T
+  real(r8),parameter :: cnfac  = 0.5_r8       ! Crank Nicholson factor between 0 and 1
+  real(r8),parameter :: ssi    = 0.033_r8     ! Irreducible water saturation of snow
+  real(r8),parameter :: wimp   = 0.05_r8      ! Water impremeable if porosity less than wimp
+  real(r8),parameter :: pondmx = 0.0_r8       ! Ponding depth (mm)
+  real(r8),parameter :: pondmx_urban = 1.0_r8 ! Ponding depth for urban roof and impervious road (mm)
 
-  real(r8) :: thk_bedrock = 3.0_r8  ! thermal conductivity of 'typical' saturated granitic rock
+  real(r8),parameter :: thk_bedrock = 3.0_r8  ! thermal conductivity of 'typical' saturated granitic rock
                                     ! (Clauser and Huenges, 1995)(W/m/K)
-  !$acc declare copyin(thk_bedrock)
-
-  !$acc declare copyin(zlnd )
-  !$acc declare copyin(zsno )
-  !$acc declare copyin(csoilc)
-  !$acc declare copyin(capr  )
-  !$acc declare copyin(cnfac )
-  !$acc declare copyin(ssi   )
-  !$acc declare copyin(wimp  )
-  !$acc declare copyin(pondmx)
-  !$acc declare copyin(pondmx_urban)
 
   real(r8), parameter :: aquifer_water_baseline = 5000._r8 ! baseline value for water in the unconfined aquifer [mm]
 
   !!! C13
   real(r8), parameter :: preind_atm_del13c = -6.0   ! preindustrial value for atmospheric del13C
   real(r8), parameter :: preind_atm_ratio = SHR_CONST_PDB + (preind_atm_del13c * SHR_CONST_PDB)/1000.0  ! 13C/12C
-  real(r8) :: c13ratio = preind_atm_ratio/(1.0+preind_atm_ratio) ! 13C/(12+13)C preind atmosphere
-  !$acc declare copyin(c13ratio)
+  real(r8), parameter :: c13ratio = preind_atm_ratio/(1.0+preind_atm_ratio) ! 13C/(12+13)C preind atmosphere
 
    ! typical del13C for C3 photosynthesis (permil, relative to PDB)
   real(r8), parameter :: c3_del13c = -28._r8
@@ -139,20 +121,15 @@ module elm_varcon
   real(r8), parameter :: c4_r2 = c4_r1/(1._r8 + c4_r1)
 
   !!! C14
-  real(r8) :: c14ratio = 1.e-12_r8
-  ! real(r8) :: c14ratio = 1._r8  ! debug lets set to 1 to try to avoid numerical errors
-  !$acc declare copyin(c14ratio)
+  real(r8),parameter :: c14ratio = 1.e-12_r8
 
   ! Note that the wasteheat factors are currently set to zero until a better parameterization can be developed
   ! The prior parameterization appeared to be significantly overestimating wasteheat
-  real(r8) :: ht_wasteheat_factor = 0.0_r8  !wasteheat factor for urban heating (-)
-  real(r8) :: ac_wasteheat_factor = 0.0_r8  !wasteheat factor for urban air conditioning (-)
-  real(r8) :: wasteheat_limit = 100._r8  !limit on wasteheat (W/m2)
-  !$acc declare copyin(ht_wasteheat_factor)
-  !$acc declare copyin(ac_wasteheat_factor)
-  !$acc declare copyin(wasteheat_limit    )
+  real(r8),parameter :: ht_wasteheat_factor = 0.0_r8  !wasteheat factor for urban heating (-)
+  real(r8),parameter :: ac_wasteheat_factor = 0.0_r8  !wasteheat factor for urban air conditioning (-)
+  real(r8),parameter :: wasteheat_limit = 100._r8  !limit on wasteheat (W/m2)
   real(r8)  :: h2osno_max = 1000._r8    ! max allowed snow thickness (mm H2O)
-  !$acc declare copyin(h2osno_max)
+  !$acc declare create(h2osno_max)
   real(r8), parameter :: lapse_glcmec = 0.006_r8  ! surface temperature lapse rate (deg m-1)
                                                   ! Pritchard et al. (GRL, 35, 2008) use 0.006
   real(r8), parameter :: glcmec_rain_snow_threshold = SHR_CONST_TKFRZ  ! temperature dividing rain & snow in downscaling (K)
@@ -179,13 +156,10 @@ module elm_varcon
   ! Initialize miscellaneous radiation constants
   !------------------------------------------------------------------
 
-  real(r8) :: betads  = 0.5_r8            ! two-stream parameter betad for snow
-  real(r8) :: betais  = 0.5_r8            ! two-stream parameter betai for snow
-  real(r8) :: omegas(numrad)           ! two-stream parameter omega for snow by band
-  data (omegas(i),i=1,numrad) /0.8_r8, 0.4_r8/
-  !$acc declare copyin(betads)
-  !$acc declare copyin(betais)
-  !$acc declare copyin(omegas)
+  real(r8),parameter :: betads  = 0.5_r8            ! two-stream parameter betad for snow
+  real(r8),parameter :: betais  = 0.5_r8            ! two-stream parameter betai for snow
+  ! two-stream parameter omega for snow by band 
+  real(r8),parameter :: omegas(numrad) = [0.8_r8, 0.4_r8]
 
   ! Lake Model Constants will be defined in LakeCon.
 
@@ -214,7 +188,8 @@ module elm_varcon
 
   real(r8), parameter :: catomw = 12.011_r8     ! molar mass of C atoms (g/mol)
   real(r8), parameter :: natomw = 14.007_r8     ! molar mass of N atoms (g/mol)
-
+  
+  ! Schmidt # calculation constants (spp, #)
   real(r8),parameter :: s_con(ngases,4) = reshape([1898_r8, -110.1_r8, 2.834_r8, -0.02791_r8, & ! CH4
                                        1801_r8, -120.1_r8, 3.7818_r8, -0.047608_r8, & ! O2
                                        1911_r8, -113.7_r8, 2.967_r8, -0.02943_r8], &  ! CO2
@@ -225,29 +200,26 @@ module elm_varcon
   ! data (s_con(2,i),i=1,4) /1801_r8, -120.1_r8, 3.7818_r8, -0.047608_r8/ ! O2
   ! data (s_con(3,i),i=1,4) /1911_r8, -113.7_r8, 2.967_r8, -0.02943_r8/ ! CO2
 
-  real(r8) :: d_con_w(ngases,3)    ! water diffusivity constants (spp, #)  (mult. by 10^-4)
-  data (d_con_w(1,i),i=1,3) /0.9798_r8, 0.02986_r8, 0.0004381_r8/ ! CH4
-  data (d_con_w(2,i),i=1,3) /1.172_r8, 0.03443_r8, 0.0005048_r8/ ! O2
-  data (d_con_w(3,i),i=1,3) /0.939_r8, 0.02671_r8, 0.0004095_r8/ ! CO2
+  ! water diffusivity constants (spp, #)  (mult. by 10^-4)
+  real(r8),parameter :: d_con_w(ngases,3) = reshape([  0.9798_r8, 0.02986_r8, 0.0004381_r8,& ! CH4
+                                  1.172_r8, 0.03443_r8, 0.0005048_r8,& ! O2
+                                  0.939_r8, 0.02671_r8, 0.0004095_r8],& ! CO2
+                                  shape=[ngases,3])
 
-  real(r8) :: d_con_g(ngases,2)    ! gas diffusivity constants (spp, #) (cm^2/s) (mult. by 10^-9)
-  data (d_con_g(1,i),i=1,2) /0.1875_r8, 0.0013_r8/ ! CH4
-  data (d_con_g(2,i),i=1,2) /0.1759_r8, 0.00117_r8/ ! O2
-  data (d_con_g(3,i),i=1,2) /0.1325_r8, 0.0009_r8/ ! CO2
 
-  real(r8) :: c_h_inv(ngases)    ! constant (K) for Henry's law (4.12, Wania)
-  data c_h_inv(1:3) /1600._r8, 1500._r8, 2400._r8/ ! CH4, O2, CO2
+  ! gas diffusivity constants (spp, #) (cm^2/s) (mult. by 10^-9)
+  real(r8),parameter :: d_con_g(ngases,2) = reshape([0.1875_r8, 0.0013_r8, & ! CH4
+                                  0.1759_r8, 0.00117_r8, & ! O2
+                                  0.1325_r8, 0.0009_r8], & ! CO2
+                                  shape=[ngases,2])
 
-  real(r8) :: kh_theta(ngases)    ! Henry's constant (L.atm/mol) at standard temperature (298K)
-  data kh_theta(1:3) /714.29_r8, 769.23_r8, 29.4_r8/ ! CH4, O2, CO2
+  ! constant (K) for Henry's law (4.12, Wania)
+  real(r8), parameter :: c_h_inv(ngases) = [1600._r8, 1500._r8, 2400._r8] ! CH4, O2, CO2
+  
+  ! Henry's constant (L.atm/mol) at standard temperature (298K)
+  real(r8), parameter :: kh_theta(ngases) = [714.29_r8, 769.23_r8, 29.4_r8] ! CH4, O2, CO2
 
-  real(r8) :: kh_tbase = 298._r8 ! base temperature for calculation of Henry's constant (K)
-  !! !$acc declare copyin(s_con(:,:))
-  !$acc declare copyin(d_con_w(:,:))
-  !$acc declare copyin(d_con_g(:,:))
-  !$acc declare copyin(c_h_inv(:))
-  !$acc declare copyin(kh_theta(:))
-  !$acc declare copyin(kh_tbase)
+  real(r8), parameter :: kh_tbase = 298._r8 ! base temperature for calculation of Henry's constant (K)
 
   !------------------------------------------------------------------
   ! snow physical constants
@@ -256,8 +228,7 @@ module elm_varcon
   real(r8), public, parameter :: snw_rds_min = 54.526_r8
   !-----------------------------------------------------------------------
   !# acc variable declarations
-  !$acc declare create(zlak(:)        )
-  !! !$acc declare create(dzlak(:)       )
+  !$acc declare create(zlak(:)      )
   !$acc declare create(zsoi(:)        )
   !$acc declare create(dzsoi(:)       )
   !$acc declare create(zisoi(:)       )

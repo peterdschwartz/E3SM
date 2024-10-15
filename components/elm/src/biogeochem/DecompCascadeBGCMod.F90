@@ -36,12 +36,9 @@ module DecompCascadeBGCMod
   public :: decomp_rate_constants_bgc
   !
   ! !PUBLIC DATA MEMBERS
-  logical , public :: normalize_q10_to_century_tfunc = .true.! do we normalize the century decomp. rates so that they match the CLM Q10 at a given tep?
-  logical , public :: use_century_tfunc = .false.
-  real(r8), public :: normalization_tref = 15._r8            ! reference temperature for normalizaion (degrees C)
-  !$acc declare copyin(normalize_q10_to_century_tfunc)
-  !$acc declare copyin(use_century_tfunc )
-  !$acc declare copyin(normalization_tref)
+  logical,parameter , public :: normalize_q10_to_century_tfunc = .true.! do we normalize the century decomp. rates so that they match the CLM Q10 at a given tep?
+  logical,parameter , public :: use_century_tfunc = .false.
+  real(r8),parameter, public :: normalization_tref = 15._r8            ! reference temperature for normalizaion (degrees C)
   !
   ! !PRIVATE DATA MEMBERS
   type, public :: DecompBGCParamsType

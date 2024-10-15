@@ -284,9 +284,6 @@ subroutine update_acc_variables()
   !$acc    , nu_com_root_kinetics   &
   !$acc    , nu_com_phosphatase     &
   !$acc    , nu_com_nfix            &
-  !$acc    , bdnr                   &
-  !$acc    , dayscrecover           &
-  !!!!! NOTE: this is needed based on nu_com !$acc    , decompmicc(:)          &
   !$acc    , crop_supln             &
   !$acc     )
 

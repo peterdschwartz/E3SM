@@ -47,7 +47,7 @@ module CanopyHydrologyMod
   ! !PRIVATE DATA MEMBERS:
   integer :: oldfflag=0  ! use old fsno parameterization (N&Y07)
   !-----------------------------------------------------------------------
-  !$acc declare copyin(oldfflag)
+  !$acc declare create(oldfflag)
 contains
 
   !-----------------------------------------------------------------------
@@ -94,6 +94,7 @@ contains
     end if
     ! Broadcast namelist variables read in
     call shr_mpi_bcast(oldfflag, mpicom)
+    !$acc update device(oldfflag) 
 
    end subroutine CanopyHydrology_readnl
 

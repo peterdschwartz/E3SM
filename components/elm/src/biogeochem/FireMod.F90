@@ -71,8 +71,6 @@ module FireMod
   !$acc declare create(forc_hdm )
   real(r8), parameter   :: secsphr = 3600._r8  ! Seconds in an hour
   real(r8), parameter   :: borealat = 40._r8   ! Latitude for boreal peat fires
-  !$acc declare copyin(secsphr )
-  !$acc declare copyin(borealat)
 
  type(shr_strdata_type) :: sdat_hdm    ! Human population density input data stream
  type(shr_strdata_type) :: sdat_lnfm   ! Lightning input data stream

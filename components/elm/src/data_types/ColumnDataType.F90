@@ -65,7 +65,7 @@ module ColumnDataType
   !
   ! (days) time over which to exponentially relax the npp flux for N fixation term
   real(r8), public :: nfix_timeconst = -1.2345_r8
-  !$acc declare copyin(nfix_timeconst)
+  !$acc declare create(nfix_timeconst)
   !
 
   !-----------------------------------------------------------------------
@@ -2855,7 +2855,6 @@ end subroutine col_cs_restart
     !
     ! !DESCRIPTION:
     ! Column-level carbon state summary calculations
-    !$acc routine seq
     ! !ARGUMENTS:
     type(column_carbon_state) :: this
     type(bounds_type)      , intent(in)    :: bounds
@@ -3710,7 +3709,6 @@ end subroutine col_cs_restart
     !
     ! !DESCRIPTION:
     ! Set column-level nitrogen state variables
-    !$acc routine seq
     ! !ARGUMENTS:
     type (column_nitrogen_state) :: this
     integer , intent(in) :: num_column
@@ -3777,7 +3775,6 @@ end subroutine col_cs_restart
 
   !-----------------------------------------------------------------------
   subroutine col_ns_summary(this, bounds, num_soilc, filter_soilc)
-    !$acc routine seq
     ! !ARGUMENTS:
     type (column_nitrogen_state)  :: this
     type(bounds_type) , intent(in) :: bounds
@@ -4745,7 +4742,6 @@ end subroutine col_cs_restart
     !
     ! !DESCRIPTION:
     ! Set phosphorus state variables, column-level
-    !$acc routine seq
     ! !ARGUMENTS:
     type (column_phosphorus_state) :: this
     integer , intent(in)            :: num_column
@@ -4811,7 +4807,6 @@ end subroutine col_cs_restart
 
   !-----------------------------------------------------------------------
   subroutine col_ps_summary(this, bounds, num_soilc, filter_soilc)
-    !$acc routine seq
     ! !ARGUMENTS:
     type(column_phosphorus_state) :: this
     type(bounds_type) , intent(in)  :: bounds
@@ -6742,7 +6737,6 @@ end subroutine col_cs_restart
     ! !DESCRIPTION:
     ! column-level carbon flux summary calculations
     !
-    !$acc routine seq
     use timeinfoMod , only : dtime_mod
     ! !ARGUMENTS:
     type(column_carbon_flux)              :: this
@@ -7154,7 +7148,6 @@ end subroutine col_cs_restart
     ! summarize column-level fluxes for methane calculation
     !
     ! !USES:
-    !$acc routine seq
     ! !ARGUMENTS:
     type(column_carbon_flux)     :: this
     type(bounds_type), intent(in) :: bounds
@@ -7245,7 +7238,6 @@ end subroutine col_cs_restart
   subroutine col_cf_setvalues ( this, num_column, filter_column, value_column)
     ! !DESCRIPTION:
     ! Set column-level carbon fluxes
-    !$acc routine seq
     ! !ARGUMENTS:
     type (column_carbon_flux) :: this
     integer , intent(in) :: num_column
@@ -8707,7 +8699,6 @@ end subroutine col_cs_restart
     !
     ! !DESCRIPTION:
     ! Set column-level nitrogen fluxes
-    !$acc routine seq
     ! !ARGUMENTS:
     type (column_nitrogen_flux) :: this
     integer , intent(in)         :: num_column
@@ -9013,7 +9004,6 @@ end subroutine col_cs_restart
     !
     ! !DESCRIPTION:
     ! Column-level nitrogen summary calculations
-    !$acc routine seq
     ! !ARGUMENTS:
     type (column_nitrogen_flux)            :: this
     type(bounds_type)      , intent(in)    :: bounds
@@ -10276,7 +10266,6 @@ end subroutine col_cs_restart
     !
     ! !DESCRIPTION:
     ! Set phosphorus flux variables
-    !$acc routine seq
     ! !ARGUMENTS:
     type (column_phosphorus_flux) :: this
     integer , intent(in) :: num_column
@@ -10550,7 +10539,6 @@ end subroutine col_cs_restart
 
   !-----------------------------------------------------------------------
   subroutine col_pf_summary(this, bounds, num_soilc, filter_soilc)
-    !$acc routine seq
     ! !ARGUMENTS:
     type (column_phosphorus_flux) :: this
     type(bounds_type) , intent(in) :: bounds

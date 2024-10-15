@@ -133,9 +133,9 @@ module LakeCon
   !$acc declare create(pudz)
   !$acc declare create(depthcrit)
   !$acc declare create(mixfact)
-  !$acc declare copyin(lake_use_old_fcrit_minz0)
+  !$acc declare create(lake_use_old_fcrit_minz0)
   !$acc declare create(lakepuddling)
-  !$acc declare copyin(lake_puddle_thick)
+  !$acc declare create(lake_puddle_thick)
   !$acc declare create(lake_no_ed)
 
 contains

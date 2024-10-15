@@ -80,39 +80,39 @@ module pftvarcon
   integer :: nwillowirrig           !value for willow, irrigated (ir)  
   
 
-  !$acc declare create(noveg               )
-  !$acc declare create(ndllf_evr_tmp_tree  )
-  !$acc declare create(ndllf_evr_brl_tree  )
-  !$acc declare create(ndllf_dcd_brl_tree  )
-  !$acc declare create(nbrdlf_evr_trp_tree )
-  !$acc declare create(nbrdlf_evr_tmp_tree )
-  !$acc declare create(nbrdlf_dcd_trp_tree )
-  !$acc declare create(nbrdlf_dcd_tmp_tree )
-  !$acc declare create(nbrdlf_dcd_brl_tree )
-  !$acc declare create(ntree               )
-  !$acc declare create(nbrdlf_evr_shrub    )
-  !$acc declare create(nbrdlf_dcd_tmp_shrub)
-  !$acc declare create(nbrdlf_dcd_brl_shrub)
-  !$acc declare create(nc3_arctic_grass    )
-  !$acc declare create(nc3_nonarctic_grass )
-  !$acc declare create(nc4_grass           )
-  !$acc declare create(npcropmin           )
-  !$acc declare create(nppercropmin        )
-  !$acc declare create(ncorn               )
-  !$acc declare create(ncornirrig          )
-  !$acc declare create(nscereal            )
-  !$acc declare create(nscerealirrig       )
-  !$acc declare create(nwcereal            )
-  !$acc declare create(nwcerealirrig       )
-  !$acc declare create(nsoybean            )
-  !$acc declare create(nsoybeanirrig       )
-  !$acc declare create(npcropmax           )
-  !$acc declare create(nc3crop             )
-  !$acc declare create(nc3irrig            )
-  !$acc declare create(nmiscanthus      )
-  !$acc declare create(nmiscanthusirrig )
-  !$acc declare create(nswitchgrass     )
-  !$acc declare create(nswitchgrassirrig)
+  !$acc declare create(noveg , & 
+  !$acc ndllf_evr_tmp_tree  ,&
+  !$acc ndllf_evr_brl_tree  ,&
+  !$acc ndllf_dcd_brl_tree  ,&
+  !$acc nbrdlf_evr_trp_tree ,&
+  !$acc nbrdlf_evr_tmp_tree ,&
+  !$acc nbrdlf_dcd_trp_tree ,&
+  !$acc nbrdlf_dcd_tmp_tree ,&
+  !$acc nbrdlf_dcd_brl_tree ,&
+  !$acc ntree               ,&
+  !$acc nbrdlf_evr_shrub    ,&
+  !$acc nbrdlf_dcd_tmp_shrub,&
+  !$acc nbrdlf_dcd_brl_shrub,&
+  !$acc nc3_arctic_grass    ,&
+  !$acc nc3_nonarctic_grass ,&
+  !$acc nc4_grass           ,&
+  !$acc npcropmin           ,&
+  !$acc nppercropmin        ,&
+  !$acc ncorn               ,&
+  !$acc ncornirrig          ,&
+  !$acc nscereal            ,&
+  !$acc nscerealirrig       ,&
+  !$acc nwcereal            ,&
+  !$acc nwcerealirrig       ,&
+  !$acc nsoybean            ,&
+  !$acc nsoybeanirrig       ,&
+  !$acc npcropmax           ,&
+  !$acc nc3crop             ,&
+  !$acc nc3irrig            ,&
+  !$acc nmiscanthus      ,&
+  !$acc nmiscanthusirrig ,&
+  !$acc nswitchgrass     ,&
+  !$acc nswitchgrassirrig)
 
   ! Number of crop functional types actually used in the model. This includes each CFT for
   ! which is_pft_known_to_model is true. Note that this includes irrigated crops even if
@@ -443,13 +443,6 @@ module pftvarcon
   !$acc declare create(convfact(:) )
   !$acc declare create(fyield(:)   )
   !$acc declare create(root_dmx(:) )
-  !$acc declare copyin(reinickerp)
-  !$acc declare copyin(dwood     )
-  !$acc declare copyin(allom1    )
-  !$acc declare copyin(allom2    )
-  !$acc declare copyin(allom3    )
-  !$acc declare copyin(allom1s   )
-  !$acc declare copyin(allom2s   )
   !$acc declare create(VMAX_PLANT_NH4(:)   )
   !$acc declare create(VMAX_PLANT_NO3(:)   )
   !$acc declare create(VMAX_PLANT_P(:)     )

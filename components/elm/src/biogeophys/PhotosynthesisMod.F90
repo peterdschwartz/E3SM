@@ -84,14 +84,6 @@ module  PhotosynthesisMod
   integer, parameter, private :: stomatalcond_mtd_medlyn2011 = 2   ! Medlyn 2011 method for photosynthesis
   ! !PUBLIC VARIABLES:
 
-  !$acc declare copyin(sun )
-  !$acc declare copyin(sha )
-  !$acc declare copyin(xyl )
-  !$acc declare copyin(root)
-  !$acc declare copyin(veg )
-  !$acc declare copyin(soil)
-  !$acc declare copyin(stomatalcond_mtd_bb1987)
-  !$acc declare copyin(stomatalcond_mtd_medlyn2011)
   type :: photo_params_type
      real(r8),pointer , public :: krmax              (:)   => null()
      real(r8),pointer , public :: kmax               (:,:) => null()

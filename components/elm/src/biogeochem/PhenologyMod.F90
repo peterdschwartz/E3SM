@@ -96,20 +96,16 @@ module PhenologyMod
   integer, parameter :: NOT_Harvested = 999 ! If not harvested yet in year
   integer, parameter :: inNH          = 1      ! Northern Hemisphere
   integer, parameter :: inSH          = 2      ! Southern Hemisphere
-  !$acc declare copyin(NOT_Planted  )
-  !$acc declare copyin(NOT_Harvested)
-  !$acc declare copyin(inNH         )
-  !$acc declare copyin(inSH         )
   integer, pointer     :: inhemi(:)           ! Hemisphere that pft is in
   integer, allocatable :: minplantjday(:,:) ! minimum planting julian day
   integer, allocatable :: maxplantjday(:,:) ! maximum planting julian day
   integer              :: jdayyrstart(inSH) ! julian day of start of year
 
   real(r8),parameter :: secspqtrday = secspday / 4._r8  ! seconds per quarter day
-  !$acc declare create(inhemi        )
-  !$acc declare create(minplantjday)
-  !$acc declare create(maxplantjday)
-  !$acc declare create(jdayyrstart)
+  !$acc declare create(inhemi  (:)      )
+  !$acc declare create(minplantjday(:))
+  !$acc declare create(maxplantjday(:))
+  !$acc declare create(jdayyrstart(:))
   !-----------------------------------------------------------------------
 
 contains

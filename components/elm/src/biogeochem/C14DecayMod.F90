@@ -27,7 +27,7 @@ module C14DecayMod
 
   ! !PUBLIC TYPES:
   logical, public :: use_c14_bombspike = .false.         ! do we use time-varying atmospheric C14?
-  !$acc declare copyin(use_c14_bombspike)
+  !$acc declare create(use_c14_bombspike)
 
   character(len=256), public :: atm_c14_filename = ' '   ! file name of C14 input data
 

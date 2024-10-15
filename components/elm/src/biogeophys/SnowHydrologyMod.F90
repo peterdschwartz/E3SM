@@ -70,15 +70,6 @@ module SnowHydrologyMod
   real(r8), public, parameter :: scvng_fct_mlt_dst3  = 0.01_r8 ! scavenging factor for dust species 3 inclusion in meltwater  [frc]
   real(r8), public, parameter :: scvng_fct_mlt_dst4  = 0.01_r8 ! scavenging factor for dust species 4 inclusion in meltwater  [frc]
 
-  !$acc declare copyin(scvng_fct_mlt_bcphi)
-  !$acc declare copyin(scvng_fct_mlt_bcpho)
-  !$acc declare copyin(scvng_fct_mlt_ocphi)
-  !$acc declare copyin(scvng_fct_mlt_ocpho)
-  !$acc declare copyin(scvng_fct_mlt_dst1 )
-  !$acc declare copyin(scvng_fct_mlt_dst2 )
-  !$acc declare copyin(scvng_fct_mlt_dst3 )
-  !$acc declare copyin(scvng_fct_mlt_dst4 )
-
   !-----------------------------------------------------------------------
   !H. Wang ++
   !  "Rfast" parameters used by Flanner et al (2012, ACP)

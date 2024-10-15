@@ -45,12 +45,12 @@ module SoilLittVertTranspMod
   !$acc declare create(transport_ptr_list(:))
 
   real(r8), public :: som_adv_flux =  0._r8
-  !$acc declare copyin(som_adv_flux)
+  !$acc declare create(som_adv_flux)
   real(r8), public :: max_depth_cryoturb = 3._r8   ! (m) this is the maximum depth of cryoturbation
-  !$acc declare copyin(max_depth_cryoturb)
-  real(r8) :: som_diffus                   ! [m^2/sec] = 1 cm^2 / yr
-  real(r8) :: cryoturb_diffusion_k         ! [m^2/sec] = 5 cm^2 / yr = 1m^2 / 200 yr
-  real(r8) :: max_altdepth_cryoturbation   ! (m) maximum active layer thickness for cryoturbation to occur
+  !$acc declare create(max_depth_cryoturb)
+  !! real(r8) :: som_diffus                   ! [m^2/sec] = 1 cm^2 / yr
+  !! real(r8) :: cryoturb_diffusion_k         ! [m^2/sec] = 5 cm^2 / yr = 1m^2 / 200 yr
+  !! real(r8) :: max_altdepth_cryoturbation   ! (m) maximum active layer thickness for cryoturbation to occur
   !-----------------------------------------------------------------------
 
 contains

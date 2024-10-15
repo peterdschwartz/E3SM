@@ -107,11 +107,7 @@ module UrbanParamsType
   integer, public,parameter  :: urban_wasteheat_int = 2
   integer, public  :: urban_hac_int = urban_hac_off_int
   logical, public            :: urban_traffic      = .false.   ! urban traffic fluxes
-  !$acc declare copyin(urban_hac_off_int     )
-  !$acc declare copyin(urban_hac_on_int      )
-  !$acc declare copyin(urban_wasteheat_int)
-  !$acc declare copyin(urban_hac_int       )
-  !$acc declare copyin(urban_traffic     )
+  !$acc declare create (urban_hac_int, urban_traffic  )
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------

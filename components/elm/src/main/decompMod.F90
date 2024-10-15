@@ -25,17 +25,10 @@ module decompMod
   integer, parameter, public :: BOUNDS_SUBGRID_PATCH    = 5
   integer, parameter, public :: BOUNDS_SUBGRID_COHORT   = 6
 
-  !$acc declare copyin(BOUNDS_SUBGRID_GRIDCELL )
-  !$acc declare copyin(BOUNDS_SUBGRID_TOPOUNIT )
-  !$acc declare copyin(BOUNDS_SUBGRID_LANDUNIT )
-  !$acc declare copyin(BOUNDS_SUBGRID_COLUMN   )
-  !$acc declare copyin(BOUNDS_SUBGRID_PATCH    )
-  !$acc declare copyin(BOUNDS_SUBGRID_COHORT   )
   !
   ! Define possible bounds levels
   integer, parameter, public :: BOUNDS_LEVEL_PROC  = 1
   integer, parameter, public :: BOUNDS_LEVEL_CLUMP = 2
-  !$acc declare copyin(BOUNDS_LEVEL_PROC, BOUNDS_LEVEL_CLUMP)
   !
   ! !PUBLIC MEMBER FUNCTIONS:
 

@@ -171,10 +171,10 @@ contains
     call shr_file_getLogLevel(shrloglev)
     call shr_file_setLogUnit (iulog)
     
-!#ifdef _OPENACC
-!    if(masterproc) write(iulog,*), "Initializing OpenACC Devices"
-!    call acc_initialization()
-!#endif
+#ifdef _OPENACC
+    if(masterproc) write(iulog,*), "Initializing OpenACC Devices"
+    call acc_initialization()
+#endif
 
 #if _CUDA
     istat = cudaMemGetInfo(free1, total)
@@ -752,6 +752,6 @@ contains
      mygpu = acc_get_device_num(acc_device_nvidia)
      write(iulog,*) "iam, mygpu:",iam,mygpu, ngpus
 
-  end subroutine 
+  end subroutine acc_initialization
 
 end module lnd_comp_mct

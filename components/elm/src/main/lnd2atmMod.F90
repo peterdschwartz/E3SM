@@ -55,7 +55,6 @@ contains
     ! run started.
     !
     ! !USES:
-      !$acc routine seq
     use elm_varcon, only : sb
 
     !

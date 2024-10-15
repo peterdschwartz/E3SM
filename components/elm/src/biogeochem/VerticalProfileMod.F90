@@ -28,7 +28,7 @@ module VerticalProfileMod
   real(r8), public :: rootprof_exp  = 3._R8
   ! how steep profile is for surface components (1/ e_folding depth) (1/m)
   real(r8), public :: surfprof_exp  = 10._r8
-  !$acc declare copyin(surfprof_exp,rootprof_exp)  
+  !$acc declare create(surfprof_exp, rootprof_exp)  
   !-----------------------------------------------------------------------
 contains
 

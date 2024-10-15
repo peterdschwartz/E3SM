@@ -3478,7 +3478,7 @@
     <DESC>ORNL Summit. Node: 2x POWER9 + 6x Volta V100, 22 cores/socket, 4 HW threads/core.</DESC>
     <NODENAME_REGEX>.*summit.*</NODENAME_REGEX>
     <OS>LINUX</OS>
-    <COMPILERS>ibm,ibmgpu,pgi,pgigpu,gnu,gnugpu,pgielmacc</COMPILERS>
+    <COMPILERS>ibm,ibmgpu,pgi,pgigpu,gnu,gnugpu,pgielmacc,nvidiagpu</COMPILERS>
     <MPILIBS>spectrum-mpi,mpi-serial</MPILIBS>
 
     <PROJECT>cli180</PROJECT>
@@ -3543,6 +3543,9 @@
         <command name="list"/>
       </modules>
       <modules compiler="pgi.*">
+        <command name="load">nvhpc/23.9</command>
+      </modules>
+      <modules compiler="nvidiagpu">
         <command name="load">nvhpc/23.9</command>
       </modules>
       <modules compiler="pgigpu">

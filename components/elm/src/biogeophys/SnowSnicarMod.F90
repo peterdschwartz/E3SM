@@ -84,8 +84,7 @@ module SnowSnicarMod
                                                          ! [s-1] (50% mass removal/year)
 
   ! scaling of the snow aging rate (tuning option):
-  logical :: flg_snoage_scl    = .false.                 ! flag for scaling the snow aging rate by some arbitrary factor
-  !$acc declare copyin(flg_snoage_scl)
+  logical, parameter :: flg_snoage_scl    = .false.                 ! flag for scaling the snow aging rate by some arbitrary factor
   real(r8), parameter :: xdrdt = 1.0_r8                  ! arbitrary factor applied to snow aging rate
   ! snow and aerosol Mie parameters:
   ! (arrays declared here, but are set in iniTimeConst)

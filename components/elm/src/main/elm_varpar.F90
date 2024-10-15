@@ -124,9 +124,7 @@ module elm_varpar
   !$acc declare create(i_cwd      )
   !$acc declare create(maxpatch_glcmec )
   !$acc declare create(max_patch_per_col)
-  !$acc declare create(mach_eps)
 
-  !$acc declare create(nlayert)
 
 contains
 
@@ -233,9 +231,6 @@ contains
        i_lig_lit = 3
        i_cwd = 4
     end if
-
-
-
 
   end subroutine elm_varpar_init
 

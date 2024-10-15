@@ -25,16 +25,14 @@ module SurfaceAlbedoType
 
   ! albedo land ice by waveband (1=vis, 2=nir)
   real(r8), public  :: albice(numrad) = (/ 0.80_r8, 0.55_r8 /)
-  !$acc declare copyin(albice)
 
   ! namelist default setting for inputting alblakwi
   real(r8), public  :: lake_melt_icealb(numrad) = (/ 0.10_r8, 0.10_r8/)
-  !$acc declare copyin(lake_melt_icealb)
 
   ! albedo frozen lakes by waveband (1=vis, 2=nir)
   ! unclear what the reference is for this
   real(r8), public :: alblak(numrad) = (/0.60_r8, 0.40_r8/)
-  !$acc declare copyin(alblak)
+  !$acc declare create(albice, lake_melt_icealb, alblak)
 
   ! albedo of melting lakes due to puddling, open water, or white ice
   ! From D. Mironov (2010) Boreal Env. Research
@@ -220,12 +218,9 @@ contains
     end if
 
     ! Set alblakwi
-    write(iulog, *) "DEBUG: SurfAlb::alblakwi"
-    call shr_sys_flush(iulog) 
     alblakwi(:) = lake_melt_icealb(:)
 
-  !$acc enter data copyin(albsat,albdry,isoicol,alblakwi )
-  write(iulog, *) "DEBUG: SurfAlb::END"
+  !$acc update device(albsat,albdry,isoicol,alblakwi )
     call shr_sys_flush(iulog) 
   end subroutine SurfaceAlbedoInitTimeConst
 

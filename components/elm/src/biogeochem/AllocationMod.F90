@@ -96,12 +96,12 @@ module AllocationMod
   !$acc declare create(nu_com_nfix           )
   !
   ! !PRIVATE DATA MEMBERS:
-  real(r8)              :: bdnr                 !bulk denitrification rate (1/s)
+  !! real(r8)              :: bdnr                 !bulk denitrification rate (1/s)
   real(r8)              :: dayscrecover         !number of days to recover negative cpool
   real(r8), allocatable :: arepr(:)             !reproduction allocation coefficient
   real(r8), allocatable :: aroot(:)             !root allocation coefficient
 
-  !$acc declare create(bdnr                )
+  !! !$acc declare create(bdnr                )
   !$acc declare create(dayscrecover        )
   !$acc declare create(arepr(:)            )
   !$acc declare create(aroot(:)            )
@@ -117,12 +117,8 @@ module AllocationMod
   
   ! scaling factor for plant fine root biomass to calculate nutrient carrier enzyme abundance                                         
   real(r8), parameter :: e_decomp_scalar = 0.05_r8      
-
-  !$acc declare create(e_decomp_scalar)
-  !$acc declare create(e_plant_scalar)
   
-  !$acc declare copyin(crop_supln)
-  !!!!$acc declare create(filter_pcomp(:))
+  !$acc declare create(crop_supln)
   !$acc declare create(veg_rootc_bigleaf(:,:))
   !$acc declare create(ft_index_bigleaf)
   !-----------------------------------------------------------------------
@@ -260,7 +256,7 @@ contains
     dt = real( get_step_size(), r8 )
 
     ! set space-and-time parameters from parameter file
-    bdnr         = AllocParamsInst%bdnr * (dt/secspday)
+    ! bdnr         = AllocParamsInst%bdnr * (dt/secspday)
     dayscrecover = AllocParamsInst%dayscrecover
 
     ! Change namelist settings into private logical variables
