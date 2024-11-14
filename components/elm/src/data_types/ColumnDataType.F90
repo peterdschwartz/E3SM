@@ -988,21 +988,6 @@ module ColumnDataType
   type(column_nitrogen_flux)         , public, target :: col_nf     ! column nitrogen flux
   type(column_phosphorus_flux)       , public, target :: col_pf     ! column phosphorus flux
 
-  !$acc declare create(col_es)
-  !$acc declare create(col_ef)
-  !$acc declare create(col_ws)
-  !$acc declare create(col_wf)
-  !$acc declare create(col_cs)
-  !$acc declare create(c13_col_cs)
-  !$acc declare create(c14_col_cs)
-  !$acc declare create(col_ns    )
-  !$acc declare create(col_ps    )
-
-  !$acc declare create(col_cf    )
-  !$acc declare create(c13_col_cf)
-  !$acc declare create(c14_col_cf)
-  !$acc declare create(col_nf    )
-  !$acc declare create(col_pf    )
   !------------------------------------------------------------------------
 
 contains

@@ -1037,21 +1037,6 @@ module VegetationDataType
   type(vegetation_nitrogen_flux)         , public, target :: veg_nf     ! vegetation nitrogen flux
   type(vegetation_phosphorus_flux)       , public, target :: veg_pf     ! vegetation phosphorus flux
 
-   !$acc declare create(veg_es    )
-   !$acc declare create(veg_ws    )
-   !$acc declare create(veg_cs    )
-   !$acc declare create(c13_veg_cs)
-   !$acc declare create(c14_veg_cs)
-   !$acc declare create(veg_ns    )
-   !$acc declare create(veg_ps    )
-   !$acc declare create(veg_ef    )
-   !$acc declare create(veg_wf    )
-   !$acc declare create(veg_cf    )
-   !$acc declare create(c13_veg_cf)
-   !$acc declare create(c14_veg_cf)
-   !$acc declare create(veg_nf    )
-   !$acc declare create(veg_pf    )
-
   !------------------------------------------------------------------------
 
   contains
