@@ -58,57 +58,57 @@ module CH4Mod
   private :: ch4_annualupdate
   private :: get_jwt
 
-  type, private :: CH4ParamsType
+  type, public :: CH4ParamsType
      ! ch4 production constants
-     real(r8), pointer :: q10ch4            => null()    ! additional Q10 for methane production ABOVE the soil decomposition temperature relationship
-     real(r8), pointer :: q10ch4base        => null()    ! temperature at which the effective f_ch4 actually equals the constant f_ch4
-     real(r8), pointer :: f_ch4             => null()    ! ratio of CH4 production to total C mineralization
-     real(r8), pointer :: rootlitfrac       => null()    ! Fraction of soil organic matter associated with roots
-     real(r8), pointer :: cnscalefactor     => null()    ! scale factor on CN decomposition for assigning methane flux
-     real(r8), pointer :: redoxlag          => null()    ! Number of days to lag in the calculation of finundated_lag
-     real(r8), pointer :: lake_decomp_fact  => null()    ! Base decomposition rate (1/s) at 25C
-     real(r8), pointer :: redoxlag_vertical => null()    ! time lag (days) to inhibit production for newly unsaturated layers
-     real(r8), pointer :: pHmax             => null()    ! maximum pH for methane production(= 9._r8)
-     real(r8), pointer :: pHmin             => null()    ! minimum pH for methane production(= 2.2_r8)
-     real(r8), pointer :: oxinhib           => null()    ! inhibition of methane production by oxygen (m^3/mol)
+     real(r8) :: q10ch4               ! additional Q10 for methane production ABOVE the soil decomposition temperature relationship
+     real(r8) :: q10ch4base           ! temperature at which the effective f_ch4 actually equals the constant f_ch4
+     real(r8) :: f_ch4                ! ratio of CH4 production to total C mineralization
+     real(r8) :: rootlitfrac          ! Fraction of soil organic matter associated with roots
+     real(r8) :: cnscalefactor        ! scale factor on CN decomposition for assigning methane flux
+     real(r8) :: redoxlag             ! Number of days to lag in the calculation of finundated_lag
+     real(r8) :: lake_decomp_fact     ! Base decomposition rate (1/s) at 25C
+     real(r8) :: redoxlag_vertical    ! time lag (days) to inhibit production for newly unsaturated layers
+     real(r8) :: pHmax                ! maximum pH for methane production(= 9._r8)
+     real(r8) :: pHmin                ! minimum pH for methane production(= 2.2_r8)
+     real(r8) :: oxinhib              ! inhibition of methane production by oxygen (m^3/mol)
 
      ! ch4 oxidation constants
-     real(r8), pointer :: vmax_ch4_oxid     => null()     ! oxidation rate constant (= 45.e-6_r8 * 1000._r8 / 3600._r8) [mol/m3-w/s];
-     real(r8), pointer :: k_m               => null()     ! Michaelis-Menten oxidation rate constant for CH4 concentration
-     real(r8), pointer :: q10_ch4oxid       => null()     ! Q10 oxidation constant
-     real(r8), pointer :: smp_crit          => null()     ! Critical soil moisture potential
-     real(r8), pointer :: k_m_o2            => null()     ! Michaelis-Menten oxidation rate constant for O2 concentration
-     real(r8), pointer :: k_m_unsat         => null()     ! Michaelis-Menten oxidation rate constant for CH4 concentration
-     real(r8), pointer :: vmax_oxid_unsat   => null()     ! (= 45.e-6_r8 * 1000._r8 / 3600._r8 / 10._r8) [mol/m3-w/s]
+     real(r8) :: vmax_ch4_oxid        ! oxidation rate constant (= 45.e-6_r8 * 1000._r8 / 3600._r8) [mol/m3-w/s];
+     real(r8) :: k_m                  ! Michaelis-Menten oxidation rate constant for CH4 concentration
+     real(r8) :: q10_ch4oxid          ! Q10 oxidation constant
+     real(r8) :: smp_crit             ! Critical soil moisture potential
+     real(r8) :: k_m_o2               ! Michaelis-Menten oxidation rate constant for O2 concentration
+     real(r8) :: k_m_unsat            ! Michaelis-Menten oxidation rate constant for CH4 concentration
+     real(r8) :: vmax_oxid_unsat      ! (= 45.e-6_r8 * 1000._r8 / 3600._r8 / 10._r8) [mol/m3-w/s]
 
      ! ch4 aerenchyma constants
-     real(r8), pointer :: aereoxid => null()            ! fraction of methane flux entering aerenchyma rhizosphere that will be
+     real(r8) :: aereoxid             ! fraction of methane flux entering aerenchyma rhizosphere that will be
 
      ! oxidized rather than emitted
-     real(r8), pointer :: scale_factor_aere  => null()   ! scale factor on the aerenchyma area for sensitivity tests
-     real(r8), pointer :: nongrassporosratio => null()   ! Ratio of root porosity in non-grass to grass, used for aerenchyma transport
-     real(r8), pointer :: unsat_aere_ratio   => null()   ! Ratio to multiply upland vegetation aerenchyma porosity by compared to inundated systems (= 0.05_r8 / 0.3_r8)
-     real(r8), pointer :: porosmin           => null()   ! minimum aerenchyma porosity (unitless)(= 0.05_r8)
+     real(r8) :: scale_factor_aere    ! scale factor on the aerenchyma area for sensitivity tests
+     real(r8) :: nongrassporosratio   ! Ratio of root porosity in non-grass to grass, used for aerenchyma transport
+     real(r8) :: unsat_aere_ratio     ! Ratio to multiply upland vegetation aerenchyma porosity by compared to inundated systems (= 0.05_r8 / 0.3_r8)
+     real(r8) :: porosmin             ! minimum aerenchyma porosity (unitless)(= 0.05_r8)
 
      ! ch4 ebbulition constants
-     real(r8), pointer :: vgc_max => null()              ! ratio of saturation pressure triggering ebullition
+     real(r8) :: vgc_max              ! ratio of saturation pressure triggering ebullition
 
      ! ch4 transport constants
-     real(r8), pointer :: satpow               => null() ! exponent on watsat for saturated soil solute diffusion
-     real(r8), pointer :: scale_factor_gasdiff => null() ! For sensitivity tests; convection would allow this to be > 1
-     real(r8), pointer :: scale_factor_liqdiff => null() ! For sensitivity tests; convection would allow this to be > 1
-     real(r8), pointer :: capthick             => null() ! min thickness before assuming h2osfc is impermeable (mm) (= 100._r8)
+     real(r8) :: satpow                ! exponent on watsat for saturated soil solute diffusion
+     real(r8) :: scale_factor_gasdiff  ! For sensitivity tests; convection would allow this to be > 1
+     real(r8) :: scale_factor_liqdiff  ! For sensitivity tests; convection would allow this to be > 1
+     real(r8) :: capthick              ! min thickness before assuming h2osfc is impermeable (mm) (= 100._r8)
 
      ! additional constants
-     real(r8), pointer :: f_sat        => null()         ! volumetric soil water defining top of water table or where production is allowed (=0.95)
-     real(r8), pointer :: qflxlagd     => null()         ! days to lag qflx_surf_lag in the tropics (days) ( = 30._r8)
-     real(r8), pointer :: highlatfact  => null()         ! multiple of qflxlagd for high latitudes	(= 2._r8)
-     real(r8), pointer :: q10lakebase  => null()         ! (K) base temperature for lake CH4 production (= 298._r8)
-     real(r8), pointer :: atmch4       => null()         ! Atmospheric CH4 mixing ratio to prescribe if not provided by the atmospheric model (= 1.7e-6_r8) (mol/mol)
-     real(r8), pointer :: rob          => null()         ! ratio of root length to vertical depth ("root obliquity") (= 3._r8)
+     real(r8) :: f_sat                 ! volumetric soil water defining top of water table or where production is allowed (=0.95)
+     real(r8) :: qflxlagd              ! days to lag qflx_surf_lag in the tropics (days) ( = 30._r8)
+     real(r8) :: highlatfact           ! multiple of qflxlagd for high latitudes	(= 2._r8)
+     real(r8) :: q10lakebase           ! (K) base temperature for lake CH4 production (= 298._r8)
+     real(r8) :: atmch4                ! Atmospheric CH4 mixing ratio to prescribe if not provided by the atmospheric model (= 1.7e-6_r8) (mol/mol)
+     real(r8) :: rob                   ! ratio of root length to vertical depth ("root obliquity") (= 3._r8)
   end type CH4ParamsType
   type(CH4ParamsType), public ::  CH4ParamsInst
-  !$acc declare create(CH4ParamsInst)
+  !$acc declare copyin(CH4ParamsInst)
   type, public :: ch4_type
      real(r8), pointer :: ch4_prod_depth_sat_col     (:,:) =>null()! col CH4 production rate from methanotrophs (mol/m3/s) (nlevsoi)
      real(r8), pointer :: ch4_prod_depth_unsat_col   (:,:) =>null()! col CH4 production rate from methanotrophs (mol/m3/s) (nlevsoi)
@@ -1070,42 +1070,6 @@ contains
     real(r8)           :: tempr ! temporary to read in constant
     character(len=100) :: tString ! temp. var for reading
     !--------------------------------------------------------------------
-
-    allocate(CH4ParamsInst%q10ch4           )
-    allocate(CH4ParamsInst%q10ch4base       )
-    allocate(CH4ParamsInst%f_ch4            )
-    allocate(CH4ParamsInst%rootlitfrac      )
-    allocate(CH4ParamsInst%cnscalefactor    )
-    allocate(CH4ParamsInst%redoxlag         )
-    allocate(CH4ParamsInst%lake_decomp_fact )
-    allocate(CH4ParamsInst%redoxlag_vertical)
-    allocate(CH4ParamsInst%pHmax            )
-    allocate(CH4ParamsInst%pHmin            )
-    allocate(CH4ParamsInst%oxinhib          )
-    allocate(CH4ParamsInst%vmax_ch4_oxid    )
-    allocate(CH4ParamsInst%k_m              )
-    allocate(CH4ParamsInst%q10_ch4oxid      )
-    allocate(CH4ParamsInst%smp_crit         )
-    allocate(CH4ParamsInst%k_m_o2           )
-    allocate(CH4ParamsInst%k_m_unsat        )
-    allocate(CH4ParamsInst%vmax_oxid_unsat  )
-    allocate(CH4ParamsInst%aereoxid         )
-    allocate(CH4ParamsInst%scale_factor_aere )
-    allocate(CH4ParamsInst%nongrassporosratio)
-    allocate(CH4ParamsInst%unsat_aere_ratio  )
-    allocate(CH4ParamsInst%porosmin          )
-    allocate(CH4ParamsInst%vgc_max           )
-    allocate(CH4ParamsInst%satpow              )
-    allocate(CH4ParamsInst%scale_factor_gasdiff)
-    allocate(CH4ParamsInst%scale_factor_liqdiff)
-    allocate(CH4ParamsInst%capthick            )
-    allocate(CH4ParamsInst%f_sat               )
-    allocate(CH4ParamsInst%qflxlagd            )
-    allocate(CH4ParamsInst%highlatfact         )
-    allocate(CH4ParamsInst%q10lakebase         )
-    allocate(CH4ParamsInst%atmch4              )
-    allocate(CH4ParamsInst%rob                 )
-
 
     if ( .not. use_aereoxid_prog ) then
         tString='aereoxid'

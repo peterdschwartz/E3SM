@@ -31,13 +31,13 @@ module GapMortalityMod
   public :: readGapMortParams
 
   type, public :: CNGapMortParamsType
-      real(r8), pointer :: am     => null() ! mortality rate based on annual rate, fractional mortality (1/yr)
-      real(r8), pointer :: k_mort => null() ! coeff. of growth efficiency in mortality equation
+      real(r8) :: am     ! mortality rate based on annual rate, fractional mortality (1/yr)
+      real(r8) :: k_mort ! coeff. of growth efficiency in mortality equation
   end type CNGapMortParamsType
 
   type(CNGapMortParamsType),public ::  CNGapMortParamsInst
 
-  !$acc declare create(cngapmortparamsinst)
+  !$acc declare copyin(cngapmortparamsinst)
   !-----------------------------------------------------------------------
 
 contains
@@ -62,8 +62,6 @@ contains
       real(r8)           :: tempr ! temporary to read in constant
       character(len=100) :: tString ! temp. var for reading
       !-----------------------------------------------------------------------
-      allocate(CNGapMortParamsInst%am, CNGapMortParamsInst%k_mort)
-
       tString='r_mort'
       call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)
       if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))

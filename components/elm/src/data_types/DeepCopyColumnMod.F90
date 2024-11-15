@@ -1,29 +1,59 @@
-
-module DeepCopyColumnsMod
+module DeepCopyColumnMod
   use columntype,only: column_physical_properties
   use columndatatype,only: column_energy_state
   use columndatatype,only: column_water_state
   use columndatatype,only: column_carbon_state
+  use columndatatype,only: column_phosphorus_flux
   use columndatatype,only: column_nitrogen_state
   use columndatatype,only: column_phosphorus_state
   use columndatatype,only: column_energy_flux
   use columndatatype,only: column_water_flux
   use columndatatype,only: column_carbon_flux
   use columndatatype,only: column_nitrogen_flux
-  use columndatatype,only: column_phosphorus_flux
   implicit none
   public :: deepcopy_column_physical_properties
   public :: deepcopy_column_energy_state
   public :: deepcopy_column_water_state
   public :: deepcopy_column_carbon_state
+  public :: deepcopy_column_phosphorus_flux
   public :: deepcopy_column_nitrogen_state
   public :: deepcopy_column_phosphorus_state
   public :: deepcopy_column_energy_flux
   public :: deepcopy_column_water_flux
   public :: deepcopy_column_carbon_flux
   public :: deepcopy_column_nitrogen_flux
-  public :: deepcopy_column_phosphorus_flux
+
+  public :: deepcopy_column_types
 contains
+
+  subroutine deepcopy_column_types(col_pp, col_es, col_ef,col_ws,&
+                                  col_wf, col_cs,col_cf,col_ps,&
+                                  col_pf,col_ns,col_nf)
+    type(column_physical_properties), intent(inout) :: col_pp
+    type(column_energy_state), intent(inout) :: col_es
+    type(column_energy_flux), intent(inout) :: col_ef
+    type(column_water_state), intent(inout) :: col_ws
+    type(column_water_flux), intent(inout) :: col_wf
+    type(column_carbon_state), intent(inout) :: col_cs
+    type(column_carbon_flux), intent(inout) :: col_cf
+    type(column_phosphorus_state), intent(inout) :: col_ps
+    type(column_phosphorus_flux), intent(inout) :: col_pf
+    type(column_nitrogen_state), intent(inout) :: col_ns
+    type(column_nitrogen_flux), intent(inout) :: col_nf
+
+    call deepcopy_column_physical_properties(col_pp)
+    call deepcopy_column_energy_state(col_es)
+    call deepcopy_column_energy_flux(col_ef)
+    call deepcopy_column_water_state(col_ws)
+    call deepcopy_column_water_flux(col_wf)
+    call deepcopy_column_carbon_state(col_cs)
+    call deepcopy_column_carbon_flux(col_cf)
+    call deepcopy_column_phosphorus_state(col_ps)
+    call deepcopy_column_phosphorus_flux(col_pf)
+    call deepcopy_column_nitrogen_state(col_ns)
+    call deepcopy_column_nitrogen_flux(col_nf)
+
+  end subroutine deepcopy_column_types
 
   subroutine deepcopy_column_physical_properties(this_type)
     type(column_physical_properties), intent(inout) :: this_type
@@ -120,14 +150,12 @@ contains
     !$acc& this_type%snow_depth(:),&
     !$acc& this_type%snowdp(:),&
     !$acc& this_type%snow_persistence(:),&
-    !$acc& this_type%h2osoi_tend_tsl_col(:),&
     !$acc& this_type%snw_rds_top(:),&
     !$acc& this_type%do_capsnow(:),&
     !$acc& this_type%frac_sno(:),&
     !$acc& this_type%frac_sno_eff(:),&
     !$acc& this_type%frac_iceold(:,:),&
     !$acc& this_type%frac_h2osfc(:),&
-    !$acc& this_type%frac_h2osfc_act(:),&
     !$acc& this_type%wf(:),&
     !$acc& this_type%wf2(:),&
     !$acc& this_type%finundated(:),&
@@ -141,9 +169,7 @@ contains
     !$acc& this_type%vsfm_sat_col_1d(:),&
     !$acc& this_type%vsfm_mass_col_1d(:),&
     !$acc& this_type%vsfm_smpl_col_1d(:),&
-    !$acc& this_type%vsfm_soilp_col_1d(:),&
-    !$acc& this_type%h2orof(:),&
-    !$acc& this_type%frac_h2orof(:))
+    !$acc& this_type%vsfm_soilp_col_1d(:))
   end subroutine deepcopy_column_water_state
   subroutine deepcopy_column_carbon_state(this_type)
     type(column_carbon_state), intent(inout) :: this_type
@@ -177,9 +203,6 @@ contains
     !$acc& this_type%cwdc_beg(:),&
     !$acc& this_type%totlitc_beg(:),&
     !$acc& this_type%totsomc_beg(:),&
-    !$acc& this_type%som1c(:),&
-    !$acc& this_type%som2c(:),&
-    !$acc& this_type%som3c(:),&
     !$acc& this_type%totpftc_end(:),&
     !$acc& this_type%cwdc_end(:),&
     !$acc& this_type%totlitc_end(:),&
@@ -196,6 +219,131 @@ contains
     !$acc& this_type%totsomc(:),&
     !$acc& this_type%species)
   end subroutine deepcopy_column_carbon_state
+  subroutine deepcopy_column_phosphorus_flux(this_type)
+    type(column_phosphorus_flux), intent(inout) :: this_type
+    !$acc enter data copyin(this_type)
+    !$acc enter data copyin(&
+    !$acc& this_type%pdep_to_sminp(:),&
+    !$acc& this_type%fert_p_to_sminp(:),&
+    !$acc& this_type%hrv_deadstemp_to_prod10p(:),&
+    !$acc& this_type%hrv_deadstemp_to_prod100p(:),&
+    !$acc& this_type%hrv_cropp_to_prod1p(:),&
+    !$acc& this_type%sminp_to_plant(:),&
+    !$acc& this_type%potential_immob_p(:),&
+    !$acc& this_type%actual_immob_p(:),&
+    !$acc& this_type%gross_pmin(:),&
+    !$acc& this_type%net_pmin(:),&
+    !$acc& this_type%supplement_to_sminp(:),&
+    !$acc& this_type%prod1p_loss(:),&
+    !$acc& this_type%prod10p_loss(:),&
+    !$acc& this_type%prod100p_loss(:),&
+    !$acc& this_type%product_ploss(:),&
+    !$acc& this_type%pinputs(:),&
+    !$acc& this_type%poutputs(:),&
+    !$acc& this_type%fire_ploss(:),&
+    !$acc& this_type%fire_decomp_ploss(:),&
+    !$acc& this_type%fire_ploss_p2c(:),&
+    !$acc& this_type%som_p_leached(:),&
+    !$acc& this_type%somp_erode(:),&
+    !$acc& this_type%somp_deposit(:),&
+    !$acc& this_type%somp_yield(:),&
+    !$acc& this_type%labilep_erode(:),&
+    !$acc& this_type%labilep_deposit(:),&
+    !$acc& this_type%labilep_yield(:),&
+    !$acc& this_type%secondp_erode(:),&
+    !$acc& this_type%secondp_deposit(:),&
+    !$acc& this_type%secondp_yield(:),&
+    !$acc& this_type%occlp_erode(:),&
+    !$acc& this_type%occlp_deposit(:),&
+    !$acc& this_type%occlp_yield(:),&
+    !$acc& this_type%primp_erode(:),&
+    !$acc& this_type%primp_deposit(:),&
+    !$acc& this_type%primp_yield(:),&
+    !$acc& this_type%m_p_to_litr_met_fire(:,:),&
+    !$acc& this_type%m_p_to_litr_cel_fire(:,:),&
+    !$acc& this_type%m_p_to_litr_lig_fire(:,:),&
+    !$acc& this_type%potential_immob_p_vr(:,:),&
+    !$acc& this_type%actual_immob_p_vr(:,:),&
+    !$acc& this_type%sminp_to_plant_vr(:,:),&
+    !$acc& this_type%supplement_to_sminp_vr(:,:),&
+    !$acc& this_type%gross_pmin_vr(:,:),&
+    !$acc& this_type%net_pmin_vr(:,:),&
+    !$acc& this_type%biochem_pmin_to_ecosysp_vr(:,:),&
+    !$acc& this_type%biochem_pmin_ppools_vr(:,:,:),&
+    !$acc& this_type%biochem_pmin_vr(:,:),&
+    !$acc& this_type%biochem_pmin(:),&
+    !$acc& this_type%biochem_pmin_to_plant(:),&
+    !$acc& this_type%dwt_slash_pflux(:),&
+    !$acc& this_type%dwt_conv_pflux(:),&
+    !$acc& this_type%dwt_prod10p_gain(:),&
+    !$acc& this_type%dwt_prod100p_gain(:),&
+    !$acc& this_type%dwt_crop_productp_gain(:),&
+    !$acc& this_type%dwt_ploss(:),&
+    !$acc& this_type%wood_harvestp(:),&
+    !$acc& this_type%dwt_frootp_to_litr_met_p(:,:),&
+    !$acc& this_type%dwt_frootp_to_litr_cel_p(:,:),&
+    !$acc& this_type%dwt_frootp_to_litr_lig_p(:,:),&
+    !$acc& this_type%dwt_livecrootp_to_cwdp(:,:),&
+    !$acc& this_type%dwt_deadcrootp_to_cwdp(:,:),&
+    !$acc& this_type%decomp_cascade_ptransfer_vr(:,:,:),&
+    !$acc& this_type%decomp_cascade_sminp_flux_vr(:,:,:),&
+    !$acc& this_type%m_decomp_ppools_to_fire_vr(:,:,:),&
+    !$acc& this_type%decomp_cascade_ptransfer(:,:),&
+    !$acc& this_type%decomp_cascade_sminp_flux(:,:),&
+    !$acc& this_type%m_decomp_ppools_to_fire(:,:),&
+    !$acc& this_type%phenology_p_to_litr_met_p(:,:),&
+    !$acc& this_type%phenology_p_to_litr_cel_p(:,:),&
+    !$acc& this_type%phenology_p_to_litr_lig_p(:,:),&
+    !$acc& this_type%gap_mortality_p_to_litr_met_p(:,:),&
+    !$acc& this_type%gap_mortality_p_to_litr_cel_p(:,:),&
+    !$acc& this_type%gap_mortality_p_to_litr_lig_p(:,:),&
+    !$acc& this_type%gap_mortality_p_to_cwdp(:,:),&
+    !$acc& this_type%fire_mortality_p_to_cwdp(:,:),&
+    !$acc& this_type%harvest_p_to_litr_met_p(:,:),&
+    !$acc& this_type%harvest_p_to_litr_cel_p(:,:),&
+    !$acc& this_type%harvest_p_to_litr_lig_p(:,:),&
+    !$acc& this_type%harvest_p_to_cwdp(:,:),&
+    !$acc& this_type%primp_to_labilep_vr(:,:),&
+    !$acc& this_type%primp_to_labilep(:),&
+    !$acc& this_type%labilep_to_secondp_vr(:,:),&
+    !$acc& this_type%labilep_to_secondp(:),&
+    !$acc& this_type%secondp_to_labilep_vr(:,:),&
+    !$acc& this_type%secondp_to_labilep(:),&
+    !$acc& this_type%secondp_to_occlp_vr(:,:),&
+    !$acc& this_type%secondp_to_occlp(:),&
+    !$acc& this_type%sminp_leached_vr(:,:),&
+    !$acc& this_type%sminp_leached(:),&
+    !$acc& this_type%decomp_ppools_leached(:,:),&
+    !$acc& this_type%decomp_ppools_transport_tendency(:,:,:),&
+    !$acc& this_type%decomp_ppools_sourcesink(:,:,:),&
+    !$acc& this_type%labilep_yield_vr(:,:),&
+    !$acc& this_type%secondp_yield_vr(:,:),&
+    !$acc& this_type%occlp_yield_vr(:,:),&
+    !$acc& this_type%primp_yield_vr(:,:),&
+    !$acc& this_type%decomp_ppools_erode(:,:),&
+    !$acc& this_type%decomp_ppools_deposit(:,:),&
+    !$acc& this_type%decomp_ppools_yield(:,:),&
+    !$acc& this_type%decomp_ppools_yield_vr(:,:,:),&
+    !$acc& this_type%adsorb_to_labilep_vr(:,:),&
+    !$acc& this_type%desorb_to_solutionp_vr(:,:),&
+    !$acc& this_type%adsorb_to_labilep(:),&
+    !$acc& this_type%desorb_to_solutionp(:),&
+    !$acc& this_type%pmpf_decomp_cascade(:,:,:),&
+    !$acc& this_type%plant_p_uptake_flux(:),&
+    !$acc& this_type%soil_p_immob_flux(:),&
+    !$acc& this_type%soil_p_immob_flux_vr(:,:),&
+    !$acc& this_type%soil_p_grossmin_flux(:),&
+    !$acc& this_type%smin_p_to_plant(:),&
+    !$acc& this_type%plant_to_litter_pflux(:),&
+    !$acc& this_type%plant_to_cwd_pflux(:),&
+    !$acc& this_type%plant_pdemand(:),&
+    !$acc& this_type%plant_pdemand_vr(:,:),&
+    !$acc& this_type%col_plant_pdemand_vr(:,:),&
+    !$acc& this_type%externalp_to_decomp_ppools(:,:,:),&
+    !$acc& this_type%externalp_to_decomp_delta(:),&
+    !$acc& this_type%sminp_net_transport_vr(:,:),&
+    !$acc& this_type%sminp_net_transport_delta(:))
+  end subroutine deepcopy_column_phosphorus_flux
   subroutine deepcopy_column_nitrogen_state(this_type)
     type(column_nitrogen_state), intent(inout) :: this_type
     !$acc enter data copyin(this_type)
@@ -216,9 +364,6 @@ contains
     !$acc& this_type%cwdn(:),&
     !$acc& this_type%totlitn(:),&
     !$acc& this_type%totsomn(:),&
-    !$acc& this_type%som1n(:),&
-    !$acc& this_type%som2n(:),&
-    !$acc& this_type%som3n(:),&
     !$acc& this_type%totlitn_1m(:),&
     !$acc& this_type%totsomn_1m(:),&
     !$acc& this_type%totecosysn(:),&
@@ -236,29 +381,6 @@ contains
     !$acc& this_type%prod100n(:),&
     !$acc& this_type%totprodn(:),&
     !$acc& this_type%dyn_nbal_adjustments(:),&
-    !$acc& this_type%tan_g1(:),&
-    !$acc& this_type%tan_g2(:),&
-    !$acc& this_type%tan_g3(:),&
-    !$acc& this_type%tan_s0(:),&
-    !$acc& this_type%tan_s1(:),&
-    !$acc& this_type%tan_s2(:),&
-    !$acc& this_type%tan_s3(:),&
-    !$acc& this_type%tan_f1(:),&
-    !$acc& this_type%tan_f2(:),&
-    !$acc& this_type%tan_f3(:),&
-    !$acc& this_type%tan_f4(:),&
-    !$acc& this_type%fert_u1(:),&
-    !$acc& this_type%fert_u2(:),&
-    !$acc& this_type%manure_u_grz(:),&
-    !$acc& this_type%manure_a_grz(:),&
-    !$acc& this_type%manure_r_grz(:),&
-    !$acc& this_type%manure_u_app(:),&
-    !$acc& this_type%manure_a_app(:),&
-    !$acc& this_type%manure_r_app(:),&
-    !$acc& this_type%manure_n_stored(:),&
-    !$acc& this_type%manure_tan_stored(:),&
-    !$acc& this_type%fan_grz_fract(:),&
-    !$acc& this_type%fan_totn(:),&
     !$acc& this_type%totpftn_beg(:),&
     !$acc& this_type%totpftn_end(:),&
     !$acc& this_type%cwdn_beg(:),&
@@ -338,9 +460,6 @@ contains
     !$acc& this_type%secondp_beg(:),&
     !$acc& this_type%totlitp_beg(:),&
     !$acc& this_type%cwdp_beg(:),&
-    !$acc& this_type%som1p(:),&
-    !$acc& this_type%som2p(:),&
-    !$acc& this_type%som3p(:),&
     !$acc& this_type%totsomp_beg(:),&
     !$acc& this_type%totlitp_end(:),&
     !$acc& this_type%totpftp_end(:),&
@@ -449,7 +568,6 @@ contains
     !$acc& this_type%qflx_grnd_irrig(:),&
     !$acc& this_type%qflx_over_supply(:),&
     !$acc& this_type%qflx_irr_demand(:),&
-    !$acc& this_type%qflx_h2orof_drain(:),&
     !$acc& this_type%mflx_infl_1d(:),&
     !$acc& this_type%mflx_dew_1d(:),&
     !$acc& this_type%mflx_snowlyr_1d(:),&
@@ -486,7 +604,6 @@ contains
     !$acc& this_type%phr_vr(:,:),&
     !$acc& this_type%fphr(:,:),&
     !$acc& this_type%som_c_leached(:),&
-    !$acc& this_type%som_c_runoff(:),&
     !$acc& this_type%phenology_c_to_litr_met_c(:,:),&
     !$acc& this_type%phenology_c_to_litr_cel_c(:,:),&
     !$acc& this_type%phenology_c_to_litr_lig_c(:,:),&
@@ -551,7 +668,6 @@ contains
     !$acc& this_type%cwdc_loss(:),&
     !$acc& this_type%litterc_loss(:),&
     !$acc& this_type%rr(:),&
-    !$acc& this_type%rr_vr(:,:),&
     !$acc& this_type%ar(:),&
     !$acc& this_type%gpp(:),&
     !$acc& this_type%npp(:),&
@@ -578,8 +694,6 @@ contains
     !$acc enter data copyin(this_type)
     !$acc enter data copyin(&
     !$acc& this_type%ndep_to_sminn(:),&
-    !$acc& this_type%ndep_to_sminn_nh3(:),&
-    !$acc& this_type%ndep_to_sminn_no3(:),&
     !$acc& this_type%nfix_to_sminn(:),&
     !$acc& this_type%nfix_to_ecosysn(:),&
     !$acc& this_type%fert_to_sminn(:),&
@@ -604,7 +718,6 @@ contains
     !$acc& this_type%fire_decomp_nloss(:),&
     !$acc& this_type%fire_nloss_p2c(:),&
     !$acc& this_type%som_n_leached(:),&
-    !$acc& this_type%som_n_runoff(:),&
     !$acc& this_type%somn_erode(:),&
     !$acc& this_type%somn_deposit(:),&
     !$acc& this_type%somn_yield(:),&
@@ -635,11 +748,8 @@ contains
     !$acc& this_type%f_denit_vr(:,:),&
     !$acc& this_type%smin_no3_leached_vr(:,:),&
     !$acc& this_type%smin_no3_leached(:),&
-    !$acc& this_type%smin_nh4_leached(:),&
     !$acc& this_type%smin_no3_runoff_vr(:,:),&
     !$acc& this_type%smin_no3_runoff(:),&
-    !$acc& this_type%nh3_soi_flx(:),&
-    !$acc& this_type%smin_nh4_runoff(:),&
     !$acc& this_type%pot_f_nit_vr(:,:),&
     !$acc& this_type%pot_f_nit(:),&
     !$acc& this_type%pot_f_denit_vr(:,:),&
@@ -648,6 +758,8 @@ contains
     !$acc& this_type%actual_immob_nh4_vr(:,:),&
     !$acc& this_type%smin_no3_to_plant_vr(:,:),&
     !$acc& this_type%smin_nh4_to_plant_vr(:,:),&
+    !$acc& this_type%smin_no3_to_plant(:),&
+    !$acc& this_type%smin_nh4_to_plant(:),&
     !$acc& this_type%f_nit(:),&
     !$acc& this_type%f_denit(:),&
     !$acc& this_type%n2_n2o_ratio_denit_vr(:,:),&
@@ -712,8 +824,6 @@ contains
     !$acc& this_type%soil_n_grossmin_flux(:),&
     !$acc& this_type%actual_immob_no3(:),&
     !$acc& this_type%actual_immob_nh4(:),&
-    !$acc& this_type%smin_no3_to_plant(:),&
-    !$acc& this_type%smin_nh4_to_plant(:),&
     !$acc& this_type%plant_to_litter_nflux(:),&
     !$acc& this_type%plant_to_cwd_nflux(:),&
     !$acc& this_type%plant_n_to_cwdn(:),&
@@ -739,161 +849,6 @@ contains
     !$acc& this_type%decomp_npools_transport_tendency(:,:,:),&
     !$acc& this_type%decomp_npools_sourcesink(:,:,:),&
     !$acc& this_type%externaln_to_decomp_npools(:,:,:),&
-    !$acc& this_type%pmnf_decomp_cascade(:,:,:),&
-    !$acc& this_type%manure_tan_appl(:),&
-    !$acc& this_type%manure_n_appl(:),&
-    !$acc& this_type%manure_n_grz(:),&
-    !$acc& this_type%manure_n_mix(:),&
-    !$acc& this_type%manure_n_barns(:),&
-    !$acc& this_type%fert_n_appl(:),&
-    !$acc& this_type%otherfert_n_appl(:),&
-    !$acc& this_type%manure_n_transf(:),&
-    !$acc& this_type%nh3_barns(:),&
-    !$acc& this_type%nh3_stores(:),&
-    !$acc& this_type%nh3_grz(:),&
-    !$acc& this_type%nh3_manure_app(:),&
-    !$acc& this_type%nh3_fert(:),&
-    !$acc& this_type%nh3_otherfert(:),&
-    !$acc& this_type%nh3_total(:),&
-    !$acc& this_type%manure_no3_to_soil(:),&
-    !$acc& this_type%fert_no3_to_soil(:),&
-    !$acc& this_type%manure_nh4_to_soil(:),&
-    !$acc& this_type%fert_nh4_to_soil(:),&
-    !$acc& this_type%manure_nh4_runoff(:),&
-    !$acc& this_type%fert_nh4_runoff(:),&
-    !$acc& this_type%manure_n_to_sminn(:),&
-    !$acc& this_type%synthfert_n_to_sminn(:),&
-    !$acc& this_type%manure_n_total(:),&
-    !$acc& this_type%fan_totnin(:),&
-    !$acc& this_type%fan_totnout(:))
+    !$acc& this_type%pmnf_decomp_cascade(:,:,:))
   end subroutine deepcopy_column_nitrogen_flux
-  subroutine deepcopy_column_phosphorus_flux(this_type)
-    type(column_phosphorus_flux), intent(inout) :: this_type
-    !$acc enter data copyin(this_type)
-    !$acc enter data copyin(&
-    !$acc& this_type%pdep_to_sminp(:),&
-    !$acc& this_type%fert_p_to_sminp(:),&
-    !$acc& this_type%hrv_deadstemp_to_prod10p(:),&
-    !$acc& this_type%hrv_deadstemp_to_prod100p(:),&
-    !$acc& this_type%hrv_cropp_to_prod1p(:),&
-    !$acc& this_type%sminp_to_plant(:),&
-    !$acc& this_type%potential_immob_p(:),&
-    !$acc& this_type%actual_immob_p(:),&
-    !$acc& this_type%gross_pmin(:),&
-    !$acc& this_type%net_pmin(:),&
-    !$acc& this_type%supplement_to_sminp(:),&
-    !$acc& this_type%prod1p_loss(:),&
-    !$acc& this_type%prod10p_loss(:),&
-    !$acc& this_type%prod100p_loss(:),&
-    !$acc& this_type%product_ploss(:),&
-    !$acc& this_type%pinputs(:),&
-    !$acc& this_type%poutputs(:),&
-    !$acc& this_type%fire_ploss(:),&
-    !$acc& this_type%fire_decomp_ploss(:),&
-    !$acc& this_type%fire_ploss_p2c(:),&
-    !$acc& this_type%som_p_leached(:),&
-    !$acc& this_type%somp_erode(:),&
-    !$acc& this_type%somp_deposit(:),&
-    !$acc& this_type%somp_yield(:),&
-    !$acc& this_type%labilep_erode(:),&
-    !$acc& this_type%labilep_deposit(:),&
-    !$acc& this_type%labilep_yield(:),&
-    !$acc& this_type%secondp_erode(:),&
-    !$acc& this_type%secondp_deposit(:),&
-    !$acc& this_type%secondp_yield(:),&
-    !$acc& this_type%occlp_erode(:),&
-    !$acc& this_type%occlp_deposit(:),&
-    !$acc& this_type%occlp_yield(:),&
-    !$acc& this_type%primp_erode(:),&
-    !$acc& this_type%primp_deposit(:),&
-    !$acc& this_type%primp_yield(:),&
-    !$acc& this_type%m_p_to_litr_met_fire(:,:),&
-    !$acc& this_type%m_p_to_litr_cel_fire(:,:),&
-    !$acc& this_type%m_p_to_litr_lig_fire(:,:),&
-    !$acc& this_type%potential_immob_p_vr(:,:),&
-    !$acc& this_type%actual_immob_p_vr(:,:),&
-    !$acc& this_type%sminp_to_plant_vr(:,:),&
-    !$acc& this_type%net_mineralization_p_vr(:,:),&
-    !$acc& this_type%supplement_to_sminp_vr(:,:),&
-    !$acc& this_type%gross_pmin_vr(:,:),&
-    !$acc& this_type%net_pmin_vr(:,:),&
-    !$acc& this_type%biochem_pmin_to_ecosysp_vr(:,:),&
-    !$acc& this_type%biochem_pmin_ppools_vr(:,:,:),&
-    !$acc& this_type%biochem_pmin_vr(:,:),&
-    !$acc& this_type%biochem_pmin(:),&
-    !$acc& this_type%biochem_pmin_to_plant(:),&
-    !$acc& this_type%dwt_slash_pflux(:),&
-    !$acc& this_type%dwt_conv_pflux(:),&
-    !$acc& this_type%dwt_prod10p_gain(:),&
-    !$acc& this_type%dwt_prod100p_gain(:),&
-    !$acc& this_type%dwt_crop_productp_gain(:),&
-    !$acc& this_type%dwt_ploss(:),&
-    !$acc& this_type%wood_harvestp(:),&
-    !$acc& this_type%dwt_frootp_to_litr_met_p(:,:),&
-    !$acc& this_type%dwt_frootp_to_litr_cel_p(:,:),&
-    !$acc& this_type%dwt_frootp_to_litr_lig_p(:,:),&
-    !$acc& this_type%dwt_livecrootp_to_cwdp(:,:),&
-    !$acc& this_type%dwt_deadcrootp_to_cwdp(:,:),&
-    !$acc& this_type%decomp_cascade_ptransfer_vr(:,:,:),&
-    !$acc& this_type%decomp_cascade_sminp_flux_vr(:,:,:),&
-    !$acc& this_type%m_decomp_ppools_to_fire_vr(:,:,:),&
-    !$acc& this_type%decomp_cascade_ptransfer(:,:),&
-    !$acc& this_type%decomp_cascade_sminp_flux(:,:),&
-    !$acc& this_type%m_decomp_ppools_to_fire(:,:),&
-    !$acc& this_type%phenology_p_to_litr_met_p(:,:),&
-    !$acc& this_type%phenology_p_to_litr_cel_p(:,:),&
-    !$acc& this_type%phenology_p_to_litr_lig_p(:,:),&
-    !$acc& this_type%gap_mortality_p_to_litr_met_p(:,:),&
-    !$acc& this_type%gap_mortality_p_to_litr_cel_p(:,:),&
-    !$acc& this_type%gap_mortality_p_to_litr_lig_p(:,:),&
-    !$acc& this_type%gap_mortality_p_to_cwdp(:,:),&
-    !$acc& this_type%fire_mortality_p_to_cwdp(:,:),&
-    !$acc& this_type%harvest_p_to_litr_met_p(:,:),&
-    !$acc& this_type%harvest_p_to_litr_cel_p(:,:),&
-    !$acc& this_type%harvest_p_to_litr_lig_p(:,:),&
-    !$acc& this_type%harvest_p_to_cwdp(:,:),&
-    !$acc& this_type%primp_to_labilep_vr(:,:),&
-    !$acc& this_type%primp_to_labilep(:),&
-    !$acc& this_type%labilep_to_secondp_vr(:,:),&
-    !$acc& this_type%labilep_to_secondp(:),&
-    !$acc& this_type%secondp_to_labilep_vr(:,:),&
-    !$acc& this_type%secondp_to_labilep(:),&
-    !$acc& this_type%secondp_to_occlp_vr(:,:),&
-    !$acc& this_type%secondp_to_occlp(:),&
-    !$acc& this_type%sminp_leached_vr(:,:),&
-    !$acc& this_type%sminp_leached(:),&
-    !$acc& this_type%sminp_runoff(:),&
-    !$acc& this_type%som_p_runoff(:),&
-    !$acc& this_type%decomp_ppools_leached(:,:),&
-    !$acc& this_type%decomp_ppools_transport_tendency(:,:,:),&
-    !$acc& this_type%decomp_ppools_sourcesink(:,:,:),&
-    !$acc& this_type%labilep_yield_vr(:,:),&
-    !$acc& this_type%secondp_yield_vr(:,:),&
-    !$acc& this_type%occlp_yield_vr(:,:),&
-    !$acc& this_type%primp_yield_vr(:,:),&
-    !$acc& this_type%decomp_ppools_erode(:,:),&
-    !$acc& this_type%decomp_ppools_deposit(:,:),&
-    !$acc& this_type%decomp_ppools_yield(:,:),&
-    !$acc& this_type%decomp_ppools_yield_vr(:,:,:),&
-    !$acc& this_type%adsorb_to_labilep_vr(:,:),&
-    !$acc& this_type%desorb_to_solutionp_vr(:,:),&
-    !$acc& this_type%adsorb_to_labilep(:),&
-    !$acc& this_type%desorb_to_solutionp(:),&
-    !$acc& this_type%pmpf_decomp_cascade(:,:,:),&
-    !$acc& this_type%plant_p_uptake_flux(:),&
-    !$acc& this_type%soil_p_immob_flux(:),&
-    !$acc& this_type%soil_p_immob_flux_vr(:,:),&
-    !$acc& this_type%soil_p_grossmin_flux(:),&
-    !$acc& this_type%smin_p_to_plant(:),&
-    !$acc& this_type%plant_to_litter_pflux(:),&
-    !$acc& this_type%plant_to_cwd_pflux(:),&
-    !$acc& this_type%plant_pdemand(:),&
-    !$acc& this_type%plant_pdemand_vr(:,:),&
-    !$acc& this_type%col_plant_pdemand_vr(:,:),&
-    !$acc& this_type%externalp_to_decomp_ppools(:,:,:),&
-    !$acc& this_type%externalp_to_decomp_delta(:),&
-    !$acc& this_type%sminp_net_transport_vr(:,:),&
-    !$acc& this_type%sminp_net_transport_delta(:))
-  end subroutine deepcopy_column_phosphorus_flux
-
-end module DeepCopyColumnsMod
+end module DeepCopyColumnMod

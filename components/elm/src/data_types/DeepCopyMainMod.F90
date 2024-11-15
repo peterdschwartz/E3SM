@@ -1,25 +1,47 @@
 module DeepCopyMainMod
-
+  use elm_varctl, only: create_glacier_mec_landunit
   use domainmod,only: domain_params_type
   use atm2lndtype,only: atm2lnd_type
   use lnd2atmtype,only: lnd2atm_type
   use lnd2glcmod,only: lnd2glc_type
+  use soilordercontype,only: soilordercon_type
   implicit none
   public :: deepcopy_domain_params_type
   public :: deepcopy_atm2lnd_type
   public :: deepcopy_lnd2atm_type
+  public :: deepcopy_lnd2glc_type
+  public :: deepcopy_soilordercon_type
+
+  public ::  deepcopy_main_types
 contains
+
+  subroutine deepcopy_main_types(domain_params, atm2lnd_inst, lnd2atm_vars,&
+                                  lnd2glc_inst, soilorder_inst)
+    type(domain_params_type), intent(inout) :: domain_params
+    type(atm2lnd_type), intent(inout) :: atm2lnd_inst
+    type(lnd2atm_type), intent(inout) :: lnd2atm_vars
+    type(lnd2glc_type), intent(inout) :: lnd2glc_inst
+    type(soilordercon_type), intent(inout) :: soilorder_inst
+
+    call deepcopy_atm2lnd_type(atm2lnd_inst)
+    call deepcopy_lnd2atm_type(lnd2atm_vars)
+    call deepcopy_domain_params_type(domain_params)
+    if (create_glacier_mec_landunit) then 
+      call deepcopy_lnd2glc_type(lnd2glc_inst)
+    end if 
+    call deepcopy_soilordercon_type(soilorder_inst)
+  end subroutine deepcopy_main_types
 
   subroutine deepcopy_domain_params_type(this_type)
     type(domain_params_type), intent(inout) :: this_type
     !$acc enter data copyin(this_type)
     !$acc enter data copyin(&
-    !$acc& this_type%firrig(:),&
-    !$acc& this_type%f_surf(:),&
-    !$acc& this_type%glcmask(:),&
     !$acc& this_type%f_grd(:),&
     !$acc& this_type%lonc(:),&
-    !$acc& this_type%latc(:))
+    !$acc& this_type%f_surf(:),&
+    !$acc& this_type%latc(:),&
+    !$acc& this_type%firrig(:),&
+    !$acc& this_type%glcmask(:))
   end subroutine deepcopy_domain_params_type
   subroutine deepcopy_atm2lnd_type(this_type)
     type(atm2lnd_type), intent(inout) :: this_type
@@ -67,8 +89,6 @@ contains
     !$acc& this_type%volrmch_grc(:),&
     !$acc& this_type%supply_grc(:),&
     !$acc& this_type%deficit_grc(:),&
-    !$acc& this_type%h2orof_grc(:),&
-    !$acc& this_type%frac_h2orof_grc(:),&
     !$acc& this_type%bc_precip_grc(:),&
     !$acc& this_type%af_precip_grc(:),&
     !$acc& this_type%af_uwind_grc(:),&
@@ -87,14 +107,7 @@ contains
     !$acc& this_type%prec365_patch(:),&
     !$acc& this_type%prec24_patch(:),&
     !$acc& this_type%rh24_patch(:),&
-    !$acc& this_type%wind24_patch(:),&
-    !$acc& this_type%t_mo_patch(:),&
-    !$acc& this_type%t_mo_min_patch(:),&
-    !$acc& this_type%forc_ndep_mgrz_grc(:),&
-    !$acc& this_type%forc_ndep_past_grc(:),&
-    !$acc& this_type%forc_ndep_urea_grc(:),&
-    !$acc& this_type%forc_ndep_nitr_grc(:),&
-    !$acc& this_type%forc_soilph_grc(:) )
+    !$acc& this_type%wind24_patch(:))
   end subroutine deepcopy_atm2lnd_type
   subroutine deepcopy_lnd2atm_type(this_type)
     type(lnd2atm_type), intent(inout) :: this_type
@@ -104,7 +117,6 @@ contains
     !$acc& this_type%t_ref2m_grc(:),&
     !$acc& this_type%q_ref2m_grc(:),&
     !$acc& this_type%u_ref10m_grc(:),&
-    !$acc& this_type%u_ref10m_with_gusts_grc(:),&
     !$acc& this_type%h2osno_grc(:),&
     !$acc& this_type%h2osoi_vol_grc(:,:),&
     !$acc& this_type%albd_grc(:,:),&
@@ -141,8 +153,31 @@ contains
     !$acc& this_type%tqsur_grc(:),&
     !$acc& this_type%tqsub_grc(:),&
     !$acc& this_type%wslake_grc(:),&
-    !$acc& this_type%qflx_rofmud_grc(:),&
-    !$acc& this_type%qflx_h2orof_drain_grc(:))
+    !$acc& this_type%flxvoc_grc(:,:),&
+    !$acc& this_type%ddvel_grc(:,:))
   end subroutine deepcopy_lnd2atm_type
+  subroutine deepcopy_lnd2glc_type(this_type)
+    type(lnd2glc_type), intent(inout) :: this_type
+    !$acc enter data copyin(this_type)
+    !$acc enter data copyin(&
+    !$acc& this_type%tsrf_grc(:,:),&
+    !$acc& this_type%topo_grc(:,:),&
+    !$acc& this_type%qice_grc(:,:))
+  end subroutine deepcopy_lnd2glc_type
 
+  subroutine deepcopy_soilordercon_type(this_type)
+    type(soilordercon_type), intent(inout) :: this_type
+    !$acc enter data copyin(this_type)
+    !$acc enter data copyin(&
+    !$acc& this_type%smax(:),&
+    !$acc& this_type%ks_sorption(:),&
+    !$acc& this_type%r_weather(:),&
+    !$acc& this_type%r_adsorp(:),&
+    !$acc& this_type%r_desorp(:),&
+    !$acc& this_type%r_occlude(:),&
+    !$acc& this_type%k_s1_biochem(:),&
+    !$acc& this_type%k_s2_biochem(:),&
+    !$acc& this_type%k_s3_biochem(:),&
+    !$acc& this_type%k_s4_biochem(:))
+  end subroutine deepcopy_soilordercon_type
 end module DeepCopyMainMod

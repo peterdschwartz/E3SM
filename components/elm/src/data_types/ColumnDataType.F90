@@ -987,8 +987,9 @@ module ColumnDataType
   type(column_carbon_flux)           , public, target :: c14_col_cf ! column carbon flux
   type(column_nitrogen_flux)         , public, target :: col_nf     ! column nitrogen flux
   type(column_phosphorus_flux)       , public, target :: col_pf     ! column phosphorus flux
-
   !------------------------------------------------------------------------
+  !$acc declare create(col_ws,col_cf)
+  !$acc declare create(col_ef,col_es,col_cs)
 
 contains
 

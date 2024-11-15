@@ -1,4 +1,5 @@
 module DeepCopyChemMod
+  use elm_varctl, only : use_century_decomp, use_lch4, use_crop
 
   use allocationmod,only: allocparamstype
   use ch4mod,only: ch4paramstype
@@ -15,8 +16,9 @@ module DeepCopyChemMod
   use plantmickineticsmod,only: plantmickinetics_type
   use sharedparamsmod,only: paramssharetype
   use soillittdecompmod,only: cndecompparamstype
-  use soilordercontype,only: soilordercon_type
   implicit none
+  public :: deepcopy_bgc_types
+
   public :: deepcopy_allocparamstype
   public :: deepcopy_ch4paramstype
   public :: deepcopy_ch4_type
@@ -29,12 +31,54 @@ module DeepCopyChemMod
   public :: deepcopy_cngapmortparamstype
   public :: deepcopy_nitrifdenitrifparamstype
   public :: deepcopy_cnndynamicsparamstype
-  public :: deepcopy_plantmickinetics_type
   public :: deepcopy_paramssharetype
   public :: deepcopy_cndecompparamstype
-  public :: deepcopy_soilordercon_type
+contains
 
-contains 
+  subroutine deepcopy_bgc_types(alloc_inst,ch4_params,ch4_vars,decomp_cascade_inst,&
+                                crop_vars, dust_vars, decompbgcparams, &
+                                decompcnparams, drydep_vars, CNGapMortParamsInst, &
+                                NitrifDenitrifParamsInst, NitrogenParamsInst, &
+                                SharedParams, DecompParams)
+    implicit none
+    type(allocparamstype), intent(inout) :: alloc_inst
+    type(CH4ParamsType), intent(inout) :: ch4_params
+    type(ch4_type), intent(inout) :: ch4_vars
+    type(decomp_cascade_type), intent(inout) :: decomp_cascade_inst
+    type(crop_type), intent(inout) :: crop_vars
+    type(dust_type), intent(inout) :: dust_vars
+    type(DecompBGCParamsType), intent(inout) :: decompbgcparams
+    type(DecompCNParamsType), intent(inout) :: decompcnparams
+    type(drydepvel_type), intent(inout) :: drydep_vars
+    type(CNGapMortParamsType), intent(inout) :: CNGapMortParamsInst
+    type(NitrifDenitrifParamsType), intent(inout) :: NitrifDenitrifParamsInst
+    type(CNNDynamicsParamsType), intent(inout) :: NitrogenParamsInst
+    type(ParamsShareType), intent(inout) :: SharedParams
+    type(CNDecompParamsType), intent(inout) :: DecompParams
+
+    call deepcopy_allocparamstype(alloc_inst)
+    if(use_lch4) then
+      call deepcopy_ch4paramstype(ch4_params)
+      call deepcopy_ch4_type(ch4_vars)
+    end if 
+    call deepcopy_decomp_cascade_type(decomp_cascade_inst)
+    if(use_crop) then
+      call deepcopy_crop_type(crop_vars)
+    end if
+    call deepcopy_dust_type(dust_vars)
+    if(use_century_decomp) then
+      call deepcopy_decompbgcparamstype(decompbgcparams)
+    else
+      call deepcopy_decompcnparamstype(decompcnparams)
+    end if
+    call deepcopy_drydepvel_type(drydep_vars)
+    call deepcopy_cngapmortparamstype(CNGapMortParamsInst)
+    call deepcopy_nitrifdenitrifparamstype(NitrifDenitrifParamsInst)
+    call deepcopy_cnndynamicsparamstype(NitrogenParamsInst)
+    call deepcopy_paramssharetype(SharedParams)
+    call deepcopy_cndecompparamstype(DecompParams)
+
+  end subroutine deepcopy_bgc_types
 
   subroutine deepcopy_allocparamstype(this_type)
     type(allocparamstype), intent(inout) :: this_type
@@ -110,6 +154,8 @@ contains
     !$acc& this_type%ch4_aere_depth_unsat_col(:,:),&
     !$acc& this_type%ch4_tran_depth_sat_col(:,:),&
     !$acc& this_type%ch4_tran_depth_unsat_col(:,:),&
+    !$acc& this_type%co2_aere_depth_sat_col(:,:),&
+    !$acc& this_type%co2_aere_depth_unsat_col(:,:),&
     !$acc& this_type%ch4_surf_aere_sat_col(:),&
     !$acc& this_type%ch4_surf_aere_unsat_col(:),&
     !$acc& this_type%ch4_ebul_depth_sat_col(:,:),&
@@ -194,7 +240,6 @@ contains
     !$acc& this_type%cropplant_patch(:),&
     !$acc& this_type%harvdate_patch(:),&
     !$acc& this_type%fertnitro_patch(:),&
-    !$acc& this_type%fertphosp_patch(:),&
     !$acc& this_type%gddplant_patch(:),&
     !$acc& this_type%gddtsoi_patch(:),&
     !$acc& this_type%crpyld_patch(:),&
@@ -339,36 +384,6 @@ contains
     !$acc& this_type%sf,&
     !$acc& this_type%sf_no3)
   end subroutine deepcopy_cnndynamicsparamstype
-  subroutine deepcopy_plantmickinetics_type(this_type)
-    type(plantmickinetics_type), intent(inout) :: this_type
-    !$acc enter data copyin(this_type)
-    !$acc enter data copyin(&
-    !$acc& this_type%plant_nh4_vmax_vr_patch(:,:),&
-    !$acc& this_type%plant_no3_vmax_vr_patch(:,:),&
-    !$acc& this_type%plant_p_vmax_vr_patch(:,:),&
-    !$acc& this_type%plant_eff_frootc_vr_patch(:,:),&
-    !$acc& this_type%plant_no3_km_vr_patch(:,:),&
-    !$acc& this_type%plant_nh4_km_vr_patch(:,:),&
-    !$acc& this_type%plant_p_km_vr_patch(:,:),&
-    !$acc& this_type%dsolutionp_dt_vr_col(:,:),&
-    !$acc& this_type%plant_eff_ncompet_b_vr_patch(:,:),&
-    !$acc& this_type%plant_eff_pcompet_b_vr_patch(:,:),&
-    !$acc& this_type%decomp_eff_ncompet_b_vr_col(:,:),&
-    !$acc& this_type%decomp_eff_pcompet_b_vr_col(:,:),&
-    !$acc& this_type%minsurf_p_compet_vr_col(:,:),&
-    !$acc& this_type%den_eff_ncompet_b_vr_col(:,:),&
-    !$acc& this_type%nit_eff_ncompet_b_vr_col(:,:),&
-    !$acc& this_type%minsurf_nh4_compet_vr_col(:,:),&
-    !$acc& this_type%vmax_minsurf_p_vr_col(:,:),&
-    !$acc& this_type%km_minsurf_p_vr_col(:,:),&
-    !$acc& this_type%km_decomp_nh4_vr_col(:,:),&
-    !$acc& this_type%km_decomp_no3_vr_col(:,:),&
-    !$acc& this_type%km_decomp_p_vr_col(:,:),&
-    !$acc& this_type%km_nit_nh4_vr_col(:,:),&
-    !$acc& this_type%km_den_no3_vr_col(:,:),&
-    !$acc& this_type%dlabp_dt_vr_col(:,:),&
-    !$acc& this_type%km_minsurf_nh4_vr_col(:,:))
-  end subroutine deepcopy_plantmickinetics_type
   subroutine deepcopy_paramssharetype(this_type)
     type(paramssharetype), intent(inout) :: this_type
     !$acc enter data copyin(this_type)
@@ -389,20 +404,4 @@ contains
     !$acc enter data copyin(&
     !$acc& this_type%dnp)
   end subroutine deepcopy_cndecompparamstype
-  subroutine deepcopy_soilordercon_type(this_type)
-    type(soilordercon_type), intent(inout) :: this_type
-    !$acc enter data copyin(this_type)
-    !$acc enter data copyin(&
-    !$acc& this_type%smax(:),&
-    !$acc& this_type%ks_sorption(:),&
-    !$acc& this_type%r_weather(:),&
-    !$acc& this_type%r_adsorp(:),&
-    !$acc& this_type%r_desorp(:),&
-    !$acc& this_type%r_occlude(:),&
-    !$acc& this_type%k_s1_biochem(:),&
-    !$acc& this_type%k_s2_biochem(:),&
-    !$acc& this_type%k_s3_biochem(:),&
-    !$acc& this_type%k_s4_biochem(:))
-  end subroutine deepcopy_soilordercon_type
-
 end module DeepCopyChemMod

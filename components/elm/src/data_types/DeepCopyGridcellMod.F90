@@ -1,5 +1,4 @@
 module DeepCopyGridcellMod
-
   use gridcelltype,only: gridcell_physical_properties_type
   use gridcelldatatype,only: gridcell_energy_state
   use gridcelldatatype,only: gridcell_energy_flux
@@ -23,8 +22,36 @@ module DeepCopyGridcellMod
   public :: deepcopy_gridcell_nitrogen_flux
   public :: deepcopy_gridcell_phosphorus_state
   public :: deepcopy_gridcell_phosphorus_flux
-
 contains
+  
+  subroutine deepcopy_gridcell_types(grc_pp, grc_es, grc_ef, grc_ws, grc_wf, &
+    grc_cs, grc_cf, grc_ns, grc_nf, grc_ps, grc_pf)
+
+    type(gridcell_physical_properties_type), intent(inout) :: grc_pp
+    type(gridcell_energy_state), intent(inout) :: grc_es
+    type(gridcell_energy_flux), intent(inout) :: grc_ef
+    type(gridcell_water_state), intent(inout) :: grc_ws
+    type(gridcell_water_flux), intent(inout) :: grc_wf
+    type(gridcell_carbon_state), intent(inout) :: grc_cs
+    type(gridcell_carbon_flux), intent(inout) :: grc_cf
+    type(gridcell_nitrogen_state), intent(inout) :: grc_ns
+    type(gridcell_nitrogen_flux), intent(inout) :: grc_nf
+    type(gridcell_phosphorus_state), intent(inout) :: grc_ps
+    type(gridcell_phosphorus_flux), intent(inout) :: grc_pf
+
+    call deepcopy_gridcell_physical_properties_type(grc_pp)
+    call deepcopy_gridcell_energy_state(grc_es)
+    call deepcopy_gridcell_energy_flux(grc_ef)
+    call deepcopy_gridcell_water_state(grc_ws)
+    call deepcopy_gridcell_water_flux(grc_wf)
+    call deepcopy_gridcell_carbon_state(grc_cs)
+    call deepcopy_gridcell_carbon_flux(grc_cf)
+    call deepcopy_gridcell_nitrogen_state(grc_ns)
+    call deepcopy_gridcell_nitrogen_flux(grc_nf)
+    call deepcopy_gridcell_phosphorus_state(grc_ps)
+    call deepcopy_gridcell_phosphorus_flux(grc_pf)
+
+  end subroutine deepcopy_gridcell_types
 
   subroutine deepcopy_gridcell_physical_properties_type(this_type)
     type(gridcell_physical_properties_type), intent(inout) :: this_type
@@ -48,11 +75,6 @@ contains
     !$acc& this_type%pfti(:),&
     !$acc& this_type%pftf(:),&
     !$acc& this_type%npfts(:),&
-    !$acc& this_type%stdev_elev(:),&
-    !$acc& this_type%sky_view(:),&
-    !$acc& this_type%terrain_config(:),&
-    !$acc& this_type%sinsl_cosas(:),&
-    !$acc& this_type%sinsl_sinas(:),&
     !$acc& this_type%max_dayl(:),&
     !$acc& this_type%dayl(:),&
     !$acc& this_type%prev_dayl(:),&
@@ -203,5 +225,4 @@ contains
     !$acc& this_type%pinputs(:),&
     !$acc& this_type%poutputs(:))
   end subroutine deepcopy_gridcell_phosphorus_flux
-
 end module DeepCopyGridcellMod

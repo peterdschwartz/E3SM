@@ -58,22 +58,22 @@ module AllocationMod
   !-----------------------------------------------------------------------------------------------------
   public :: dynamic_plant_alloc        ! dynamic plant carbon allocation based on different nutrient stress
 
-  type :: AllocParamsType
+  type, public :: AllocParamsType
 
-     real(r8), pointer :: bdnr              => null() ! bulk denitrification rate (1/s)
-     real(r8), pointer :: dayscrecover      => null() ! number of days to recover negative cpool
-     real(r8), pointer :: compet_plant_no3  => null() ! (unitless) relative compettiveness of plants for NO3
-     real(r8), pointer :: compet_plant_nh4  => null() ! (unitless) relative compettiveness of plants for NH4
-     real(r8), pointer :: compet_decomp_no3 => null() ! (unitless) relative competitiveness of immobilizers for NO3
-     real(r8), pointer :: compet_decomp_nh4 => null() ! (unitless) relative competitiveness of immobilizers for NH4
-     real(r8), pointer :: compet_denit      => null() ! (unitless) relative competitiveness of denitrifiers for NO3
-     real(r8), pointer :: compet_nit        => null() ! (unitless) relative competitiveness of nitrifiers for NH4
+     real(r8) :: bdnr               ! bulk denitrification rate (1/s)
+     real(r8) :: dayscrecover       ! number of days to recover negative cpool
+     real(r8) :: compet_plant_no3   ! (unitless) relative compettiveness of plants for NO3
+     real(r8) :: compet_plant_nh4   ! (unitless) relative compettiveness of plants for NH4
+     real(r8) :: compet_decomp_no3  ! (unitless) relative competitiveness of immobilizers for NO3
+     real(r8) :: compet_decomp_nh4  ! (unitless) relative competitiveness of immobilizers for NH4
+     real(r8) :: compet_denit       ! (unitless) relative competitiveness of denitrifiers for NO3
+     real(r8) :: compet_nit         ! (unitless) relative competitiveness of nitrifiers for NH4
 
   end type AllocParamsType
   !
   ! AllocParamsInst is populated in readCNAllocParams which is called in
   type(AllocParamsType)  ,  public ::  AllocParamsInst
-  !$acc declare create(AllocParamsInst)
+  !$acc declare copyin(AllocParamsInst)
 
   !
   ! !PUBLIC DATA MEMBERS:
@@ -141,14 +141,6 @@ contains
     real(r8)           :: tempr ! temporary to read in parameter
     character(len=100) :: tString ! temp. var for reading
     !-----------------------------------------------------------------------
-    allocate(AllocParamsInst%bdnr              )
-    allocate(AllocParamsInst%dayscrecover      )
-    allocate(AllocParamsInst%compet_plant_no3  )
-    allocate(AllocParamsInst%compet_plant_nh4  )
-    allocate(AllocParamsInst%compet_decomp_no3 )
-    allocate(AllocParamsInst%compet_decomp_nh4 )
-    allocate(AllocParamsInst%compet_denit      )
-    allocate(AllocParamsInst%compet_nit        )
     ! read in parameters
     tString='bdnr'
     call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)

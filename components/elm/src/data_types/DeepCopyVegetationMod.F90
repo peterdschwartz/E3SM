@@ -1,32 +1,64 @@
 module DeepCopyVegetationMod
-
+  use elm_varctl, only : use_cn
   use vegetationtype,only: vegetation_physical_properties
   use vegetationpropertiestype,only: vegetation_properties_type
   use vegetationdatatype,only: vegetation_energy_state
   use vegetationdatatype,only: vegetation_water_state
   use vegetationdatatype,only: vegetation_carbon_state
+  use vegetationdatatype,only: vegetation_phosphorus_flux
   use vegetationdatatype,only: vegetation_nitrogen_state
   use vegetationdatatype,only: vegetation_phosphorus_state
   use vegetationdatatype,only: vegetation_energy_flux
   use vegetationdatatype,only: vegetation_water_flux
   use vegetationdatatype,only: vegetation_carbon_flux
   use vegetationdatatype,only: vegetation_nitrogen_flux
-  use vegetationdatatype,only: vegetation_phosphorus_flux
   implicit none
   public :: deepcopy_vegetation_physical_properties
   public :: deepcopy_vegetation_properties_type
   public :: deepcopy_vegetation_energy_state
-  public :: deepcopy_vegetation_water_state
-  public :: deepcopy_vegetation_carbon_state
-  public :: deepcopy_vegetation_nitrogen_state
-  public :: deepcopy_vegetation_phosphorus_state
   public :: deepcopy_vegetation_energy_flux
+  public :: deepcopy_vegetation_water_state
   public :: deepcopy_vegetation_water_flux
+  public :: deepcopy_vegetation_carbon_state
   public :: deepcopy_vegetation_carbon_flux
-  public :: deepcopy_vegetation_nitrogen_flux
+  public :: deepcopy_vegetation_phosphorus_state
   public :: deepcopy_vegetation_phosphorus_flux
-
+  public :: deepcopy_vegetation_nitrogen_state
+  public :: deepcopy_vegetation_nitrogen_flux
 contains
+  subroutine deepcopy_vegetation_types(veg_pp, veg_vp,veg_es,veg_ef, &
+                                      veg_ws, veg_wf, veg_cs, veg_cf, &
+                                      veg_ps, veg_pf, veg_ns, veg_nf)
+    type(vegetation_physical_properties), intent(inout) :: veg_pp
+    type(vegetation_properties_type), intent(inout) :: veg_vp
+    type(vegetation_energy_state), intent(inout) :: veg_es
+    type(vegetation_energy_flux), intent(inout) :: veg_ef
+    type(vegetation_water_state), intent(inout) :: veg_ws
+    type(vegetation_water_flux), intent(inout) :: veg_wf
+    type(vegetation_carbon_state), intent(inout) :: veg_cs
+    type(vegetation_carbon_flux), intent(inout) :: veg_cf
+    type(vegetation_phosphorus_state), intent(inout) :: veg_ps
+    type(vegetation_phosphorus_flux), intent(inout) :: veg_pf
+    type(vegetation_nitrogen_state), intent(inout) :: veg_ns
+    type(vegetation_nitrogen_flux), intent(inout) :: veg_nf
+
+    call deepcopy_vegetation_physical_properties(veg_pp)
+    call deepcopy_vegetation_properties_type(veg_vp)
+
+    call deepcopy_vegetation_energy_state(veg_es)
+    call deepcopy_vegetation_energy_flux(veg_ef)
+    call deepcopy_vegetation_water_state(veg_ws)
+    call deepcopy_vegetation_water_flux(veg_wf)
+
+    if (use_cn) then 
+      call deepcopy_vegetation_carbon_state(veg_cs)
+      call deepcopy_vegetation_carbon_flux(veg_cf)
+      call deepcopy_vegetation_phosphorus_state(veg_ps)
+      call deepcopy_vegetation_phosphorus_flux(veg_pf)
+      call deepcopy_vegetation_nitrogen_state(veg_ns)
+      call deepcopy_vegetation_nitrogen_flux(veg_nf)
+    end if 
+  end subroutine deepcopy_vegetation_types
 
   subroutine deepcopy_vegetation_physical_properties(this_type)
     type(vegetation_physical_properties), intent(inout) :: this_type
@@ -100,7 +132,7 @@ contains
     !$acc& this_type%root_radius(:),&
     !$acc& this_type%root_density(:),&
     !$acc& this_type%rootprof_beta(:),&
-    !$acc& this_type%manunitro(:),&
+    !$acc& this_type%fertnitro(:),&
     !$acc& this_type%fleafcn(:),&
     !$acc& this_type%ffrootcn(:),&
     !$acc& this_type%fstemcn(:),&
@@ -256,6 +288,164 @@ contains
     !$acc& this_type%cropseedc_deficit(:),&
     !$acc& this_type%species)
   end subroutine deepcopy_vegetation_carbon_state
+  subroutine deepcopy_vegetation_phosphorus_flux(this_type)
+    type(vegetation_phosphorus_flux), intent(inout) :: this_type
+    !$acc enter data copyin(this_type)
+    !$acc enter data copyin(&
+    !$acc& this_type%m_leafp_to_litter(:),&
+    !$acc& this_type%m_frootp_to_litter(:),&
+    !$acc& this_type%m_leafp_storage_to_litter(:),&
+    !$acc& this_type%m_frootp_storage_to_litter(:),&
+    !$acc& this_type%m_livestemp_storage_to_litter(:),&
+    !$acc& this_type%m_deadstemp_storage_to_litter(:),&
+    !$acc& this_type%m_livecrootp_storage_to_litter(:),&
+    !$acc& this_type%m_deadcrootp_storage_to_litter(:),&
+    !$acc& this_type%m_leafp_xfer_to_litter(:),&
+    !$acc& this_type%m_frootp_xfer_to_litter(:),&
+    !$acc& this_type%m_livestemp_xfer_to_litter(:),&
+    !$acc& this_type%m_deadstemp_xfer_to_litter(:),&
+    !$acc& this_type%m_livecrootp_xfer_to_litter(:),&
+    !$acc& this_type%m_deadcrootp_xfer_to_litter(:),&
+    !$acc& this_type%m_livestemp_to_litter(:),&
+    !$acc& this_type%m_deadstemp_to_litter(:),&
+    !$acc& this_type%m_livecrootp_to_litter(:),&
+    !$acc& this_type%m_deadcrootp_to_litter(:),&
+    !$acc& this_type%m_retransp_to_litter(:),&
+    !$acc& this_type%m_ppool_to_litter(:),&
+    !$acc& this_type%hrv_leafp_to_litter(:),&
+    !$acc& this_type%hrv_frootp_to_litter(:),&
+    !$acc& this_type%hrv_leafp_storage_to_litter(:),&
+    !$acc& this_type%hrv_frootp_storage_to_litter(:),&
+    !$acc& this_type%hrv_livestemp_storage_to_litter(:),&
+    !$acc& this_type%hrv_deadstemp_storage_to_litter(:),&
+    !$acc& this_type%hrv_livecrootp_storage_to_litter(:),&
+    !$acc& this_type%hrv_deadcrootp_storage_to_litter(:),&
+    !$acc& this_type%hrv_leafp_xfer_to_litter(:),&
+    !$acc& this_type%hrv_frootp_xfer_to_litter(:),&
+    !$acc& this_type%hrv_livestemp_xfer_to_litter(:),&
+    !$acc& this_type%hrv_deadstemp_xfer_to_litter(:),&
+    !$acc& this_type%hrv_livecrootp_xfer_to_litter(:),&
+    !$acc& this_type%hrv_deadcrootp_xfer_to_litter(:),&
+    !$acc& this_type%hrv_livestemp_to_litter(:),&
+    !$acc& this_type%hrv_deadstemp_to_prod10p(:),&
+    !$acc& this_type%hrv_deadstemp_to_prod100p(:),&
+    !$acc& this_type%hrv_leafp_to_prod1p(:),&
+    !$acc& this_type%hrv_livestemp_to_prod1p(:),&
+    !$acc& this_type%hrv_grainp_to_prod1p(:),&
+    !$acc& this_type%hrv_cropp_to_prod1p(:),&
+    !$acc& this_type%hrv_livecrootp_to_litter(:),&
+    !$acc& this_type%hrv_deadcrootp_to_litter(:),&
+    !$acc& this_type%hrv_retransp_to_litter(:),&
+    !$acc& this_type%hrv_ppool_to_litter(:),&
+    !$acc& this_type%m_leafp_to_fire(:),&
+    !$acc& this_type%m_leafp_storage_to_fire(:),&
+    !$acc& this_type%m_leafp_xfer_to_fire(:),&
+    !$acc& this_type%m_livestemp_to_fire(:),&
+    !$acc& this_type%m_livestemp_storage_to_fire(:),&
+    !$acc& this_type%m_livestemp_xfer_to_fire(:),&
+    !$acc& this_type%m_deadstemp_to_fire(:),&
+    !$acc& this_type%m_deadstemp_storage_to_fire(:),&
+    !$acc& this_type%m_deadstemp_xfer_to_fire(:),&
+    !$acc& this_type%m_frootp_to_fire(:),&
+    !$acc& this_type%m_frootp_storage_to_fire(:),&
+    !$acc& this_type%m_frootp_xfer_to_fire(:),&
+    !$acc& this_type%m_livecrootp_to_fire(:),&
+    !$acc& this_type%m_livecrootp_storage_to_fire(:),&
+    !$acc& this_type%m_livecrootp_xfer_to_fire(:),&
+    !$acc& this_type%m_deadcrootp_to_fire(:),&
+    !$acc& this_type%m_deadcrootp_storage_to_fire(:),&
+    !$acc& this_type%m_deadcrootp_xfer_to_fire(:),&
+    !$acc& this_type%m_retransp_to_fire(:),&
+    !$acc& this_type%m_ppool_to_fire(:),&
+    !$acc& this_type%m_leafp_to_litter_fire(:),&
+    !$acc& this_type%m_leafp_storage_to_litter_fire(:),&
+    !$acc& this_type%m_leafp_xfer_to_litter_fire(:),&
+    !$acc& this_type%m_livestemp_to_litter_fire(:),&
+    !$acc& this_type%m_livestemp_storage_to_litter_fire(:),&
+    !$acc& this_type%m_livestemp_xfer_to_litter_fire(:),&
+    !$acc& this_type%m_livestemp_to_deadstemp_fire(:),&
+    !$acc& this_type%m_deadstemp_to_litter_fire(:),&
+    !$acc& this_type%m_deadstemp_storage_to_litter_fire(:),&
+    !$acc& this_type%m_deadstemp_xfer_to_litter_fire(:),&
+    !$acc& this_type%m_frootp_to_litter_fire(:),&
+    !$acc& this_type%m_frootp_storage_to_litter_fire(:),&
+    !$acc& this_type%m_frootp_xfer_to_litter_fire(:),&
+    !$acc& this_type%m_livecrootp_to_litter_fire(:),&
+    !$acc& this_type%m_livecrootp_storage_to_litter_fire(:),&
+    !$acc& this_type%m_livecrootp_xfer_to_litter_fire(:),&
+    !$acc& this_type%m_livecrootp_to_deadcrootp_fire(:),&
+    !$acc& this_type%m_deadcrootp_to_litter_fire(:),&
+    !$acc& this_type%m_deadcrootp_storage_to_litter_fire(:),&
+    !$acc& this_type%m_deadcrootp_xfer_to_litter_fire(:),&
+    !$acc& this_type%m_retransp_to_litter_fire(:),&
+    !$acc& this_type%m_ppool_to_litter_fire(:),&
+    !$acc& this_type%leafp_xfer_to_leafp(:),&
+    !$acc& this_type%frootp_xfer_to_frootp(:),&
+    !$acc& this_type%livestemp_xfer_to_livestemp(:),&
+    !$acc& this_type%deadstemp_xfer_to_deadstemp(:),&
+    !$acc& this_type%livecrootp_xfer_to_livecrootp(:),&
+    !$acc& this_type%deadcrootp_xfer_to_deadcrootp(:),&
+    !$acc& this_type%leafp_to_litter(:),&
+    !$acc& this_type%leafp_to_retransp(:),&
+    !$acc& this_type%frootp_to_retransp(:),&
+    !$acc& this_type%frootp_to_litter(:),&
+    !$acc& this_type%retransp_to_ppool(:),&
+    !$acc& this_type%sminp_to_ppool(:),&
+    !$acc& this_type%biochem_pmin_to_plant(:),&
+    !$acc& this_type%ppool_to_leafp(:),&
+    !$acc& this_type%ppool_to_leafp_storage(:),&
+    !$acc& this_type%ppool_to_frootp(:),&
+    !$acc& this_type%ppool_to_frootp_storage(:),&
+    !$acc& this_type%ppool_to_livestemp(:),&
+    !$acc& this_type%ppool_to_livestemp_storage(:),&
+    !$acc& this_type%ppool_to_deadstemp(:),&
+    !$acc& this_type%ppool_to_deadstemp_storage(:),&
+    !$acc& this_type%ppool_to_livecrootp(:),&
+    !$acc& this_type%ppool_to_livecrootp_storage(:),&
+    !$acc& this_type%ppool_to_deadcrootp(:),&
+    !$acc& this_type%ppool_to_deadcrootp_storage(:),&
+    !$acc& this_type%leafp_storage_to_xfer(:),&
+    !$acc& this_type%frootp_storage_to_xfer(:),&
+    !$acc& this_type%livestemp_storage_to_xfer(:),&
+    !$acc& this_type%deadstemp_storage_to_xfer(:),&
+    !$acc& this_type%livecrootp_storage_to_xfer(:),&
+    !$acc& this_type%deadcrootp_storage_to_xfer(:),&
+    !$acc& this_type%livestemp_to_deadstemp(:),&
+    !$acc& this_type%livestemp_to_retransp(:),&
+    !$acc& this_type%livecrootp_to_deadcrootp(:),&
+    !$acc& this_type%livecrootp_to_retransp(:),&
+    !$acc& this_type%pdeploy(:),&
+    !$acc& this_type%wood_harvestp(:),&
+    !$acc& this_type%fire_ploss(:),&
+    !$acc& this_type%ppool_to_grainp(:),&
+    !$acc& this_type%ppool_to_grainp_storage(:),&
+    !$acc& this_type%livestemp_to_litter(:),&
+    !$acc& this_type%grainp_to_food(:),&
+    !$acc& this_type%grainp_xfer_to_grainp(:),&
+    !$acc& this_type%grainp_storage_to_xfer(:),&
+    !$acc& this_type%fert_p(:),&
+    !$acc& this_type%fert_p_counter(:),&
+    !$acc& this_type%crop_seedp_to_leaf(:),&
+    !$acc& this_type%dwt_seedp_to_leaf(:),&
+    !$acc& this_type%dwt_seedp_to_deadstem(:),&
+    !$acc& this_type%dwt_conv_pflux(:),&
+    !$acc& this_type%dwt_prod10p_gain(:),&
+    !$acc& this_type%dwt_prod100p_gain(:),&
+    !$acc& this_type%dwt_crop_productp_gain(:),&
+    !$acc& this_type%dwt_seedp_to_ppool(:),&
+    !$acc& this_type%plant_pdemand(:),&
+    !$acc& this_type%avail_retransp(:),&
+    !$acc& this_type%plant_palloc(:),&
+    !$acc& this_type%sminp_to_plant(:),&
+    !$acc& this_type%plant_pdemand_vr(:,:),&
+    !$acc& this_type%prev_leafp_to_litter(:),&
+    !$acc& this_type%prev_frootp_to_litter(:),&
+    !$acc& this_type%supplement_to_plantp(:),&
+    !$acc& this_type%gap_ploss_litter(:),&
+    !$acc& this_type%fire_ploss_litter(:),&
+    !$acc& this_type%hrv_ploss_litter(:),&
+    !$acc& this_type%sen_ploss_litter(:))
+  end subroutine deepcopy_vegetation_phosphorus_flux
   subroutine deepcopy_vegetation_nitrogen_state(this_type)
     type(vegetation_nitrogen_state), intent(inout) :: this_type
     !$acc enter data copyin(this_type)
@@ -806,9 +996,7 @@ contains
     !$acc& this_type%grainn_to_food(:),&
     !$acc& this_type%grainn_xfer_to_grainn(:),&
     !$acc& this_type%grainn_storage_to_xfer(:),&
-    !$acc& this_type%synthfert(:),&
-    !$acc& this_type%manure(:),&
-    !$acc& this_type%nfertilization(:),&
+    !$acc& this_type%fert(:),&
     !$acc& this_type%fert_counter(:),&
     !$acc& this_type%soyfixn(:),&
     !$acc& this_type%nfix_to_plantn(:),&
@@ -821,8 +1009,6 @@ contains
     !$acc& this_type%dwt_crop_productn_gain(:),&
     !$acc& this_type%dwt_seedn_to_npool(:),&
     !$acc& this_type%plant_ndemand(:),&
-    !$acc& this_type%smin_no3_to_plant_vr(:,:),&
-    !$acc& this_type%smin_nh4_to_plant_vr(:,:),&
     !$acc& this_type%avail_retransn(:),&
     !$acc& this_type%plant_nalloc(:),&
     !$acc& this_type%smin_no3_to_plant(:),&
@@ -839,164 +1025,4 @@ contains
     !$acc& this_type%hrv_nloss_litter(:),&
     !$acc& this_type%sen_nloss_litter(:))
   end subroutine deepcopy_vegetation_nitrogen_flux
-  subroutine deepcopy_vegetation_phosphorus_flux(this_type)
-    type(vegetation_phosphorus_flux), intent(inout) :: this_type
-    !$acc enter data copyin(this_type)
-    !$acc enter data copyin(&
-    !$acc& this_type%m_leafp_to_litter(:),&
-    !$acc& this_type%m_frootp_to_litter(:),&
-    !$acc& this_type%m_leafp_storage_to_litter(:),&
-    !$acc& this_type%m_frootp_storage_to_litter(:),&
-    !$acc& this_type%m_livestemp_storage_to_litter(:),&
-    !$acc& this_type%m_deadstemp_storage_to_litter(:),&
-    !$acc& this_type%m_livecrootp_storage_to_litter(:),&
-    !$acc& this_type%m_deadcrootp_storage_to_litter(:),&
-    !$acc& this_type%m_leafp_xfer_to_litter(:),&
-    !$acc& this_type%m_frootp_xfer_to_litter(:),&
-    !$acc& this_type%m_livestemp_xfer_to_litter(:),&
-    !$acc& this_type%m_deadstemp_xfer_to_litter(:),&
-    !$acc& this_type%m_livecrootp_xfer_to_litter(:),&
-    !$acc& this_type%m_deadcrootp_xfer_to_litter(:),&
-    !$acc& this_type%m_livestemp_to_litter(:),&
-    !$acc& this_type%m_deadstemp_to_litter(:),&
-    !$acc& this_type%m_livecrootp_to_litter(:),&
-    !$acc& this_type%m_deadcrootp_to_litter(:),&
-    !$acc& this_type%m_retransp_to_litter(:),&
-    !$acc& this_type%m_ppool_to_litter(:),&
-    !$acc& this_type%hrv_leafp_to_litter(:),&
-    !$acc& this_type%hrv_frootp_to_litter(:),&
-    !$acc& this_type%hrv_leafp_storage_to_litter(:),&
-    !$acc& this_type%hrv_frootp_storage_to_litter(:),&
-    !$acc& this_type%hrv_livestemp_storage_to_litter(:),&
-    !$acc& this_type%hrv_deadstemp_storage_to_litter(:),&
-    !$acc& this_type%hrv_livecrootp_storage_to_litter(:),&
-    !$acc& this_type%hrv_deadcrootp_storage_to_litter(:),&
-    !$acc& this_type%hrv_leafp_xfer_to_litter(:),&
-    !$acc& this_type%hrv_frootp_xfer_to_litter(:),&
-    !$acc& this_type%hrv_livestemp_xfer_to_litter(:),&
-    !$acc& this_type%hrv_deadstemp_xfer_to_litter(:),&
-    !$acc& this_type%hrv_livecrootp_xfer_to_litter(:),&
-    !$acc& this_type%hrv_deadcrootp_xfer_to_litter(:),&
-    !$acc& this_type%hrv_livestemp_to_litter(:),&
-    !$acc& this_type%hrv_deadstemp_to_prod10p(:),&
-    !$acc& this_type%hrv_deadstemp_to_prod100p(:),&
-    !$acc& this_type%hrv_leafp_to_prod1p(:),&
-    !$acc& this_type%hrv_livestemp_to_prod1p(:),&
-    !$acc& this_type%hrv_grainp_to_prod1p(:),&
-    !$acc& this_type%hrv_cropp_to_prod1p(:),&
-    !$acc& this_type%hrv_livecrootp_to_litter(:),&
-    !$acc& this_type%hrv_deadcrootp_to_litter(:),&
-    !$acc& this_type%hrv_retransp_to_litter(:),&
-    !$acc& this_type%hrv_ppool_to_litter(:),&
-    !$acc& this_type%m_leafp_to_fire(:),&
-    !$acc& this_type%m_leafp_storage_to_fire(:),&
-    !$acc& this_type%m_leafp_xfer_to_fire(:),&
-    !$acc& this_type%m_livestemp_to_fire(:),&
-    !$acc& this_type%m_livestemp_storage_to_fire(:),&
-    !$acc& this_type%m_livestemp_xfer_to_fire(:),&
-    !$acc& this_type%m_deadstemp_to_fire(:),&
-    !$acc& this_type%m_deadstemp_storage_to_fire(:),&
-    !$acc& this_type%m_deadstemp_xfer_to_fire(:),&
-    !$acc& this_type%m_frootp_to_fire(:),&
-    !$acc& this_type%m_frootp_storage_to_fire(:),&
-    !$acc& this_type%m_frootp_xfer_to_fire(:),&
-    !$acc& this_type%m_livecrootp_to_fire(:),&
-    !$acc& this_type%m_livecrootp_storage_to_fire(:),&
-    !$acc& this_type%m_livecrootp_xfer_to_fire(:),&
-    !$acc& this_type%m_deadcrootp_to_fire(:),&
-    !$acc& this_type%m_deadcrootp_storage_to_fire(:),&
-    !$acc& this_type%m_deadcrootp_xfer_to_fire(:),&
-    !$acc& this_type%m_retransp_to_fire(:),&
-    !$acc& this_type%m_ppool_to_fire(:),&
-    !$acc& this_type%m_leafp_to_litter_fire(:),&
-    !$acc& this_type%m_leafp_storage_to_litter_fire(:),&
-    !$acc& this_type%m_leafp_xfer_to_litter_fire(:),&
-    !$acc& this_type%m_livestemp_to_litter_fire(:),&
-    !$acc& this_type%m_livestemp_storage_to_litter_fire(:),&
-    !$acc& this_type%m_livestemp_xfer_to_litter_fire(:),&
-    !$acc& this_type%m_livestemp_to_deadstemp_fire(:),&
-    !$acc& this_type%m_deadstemp_to_litter_fire(:),&
-    !$acc& this_type%m_deadstemp_storage_to_litter_fire(:),&
-    !$acc& this_type%m_deadstemp_xfer_to_litter_fire(:),&
-    !$acc& this_type%m_frootp_to_litter_fire(:),&
-    !$acc& this_type%m_frootp_storage_to_litter_fire(:),&
-    !$acc& this_type%m_frootp_xfer_to_litter_fire(:),&
-    !$acc& this_type%m_livecrootp_to_litter_fire(:),&
-    !$acc& this_type%m_livecrootp_storage_to_litter_fire(:),&
-    !$acc& this_type%m_livecrootp_xfer_to_litter_fire(:),&
-    !$acc& this_type%m_livecrootp_to_deadcrootp_fire(:),&
-    !$acc& this_type%m_deadcrootp_to_litter_fire(:),&
-    !$acc& this_type%m_deadcrootp_storage_to_litter_fire(:),&
-    !$acc& this_type%m_deadcrootp_xfer_to_litter_fire(:),&
-    !$acc& this_type%m_retransp_to_litter_fire(:),&
-    !$acc& this_type%m_ppool_to_litter_fire(:),&
-    !$acc& this_type%leafp_xfer_to_leafp(:),&
-    !$acc& this_type%frootp_xfer_to_frootp(:),&
-    !$acc& this_type%livestemp_xfer_to_livestemp(:),&
-    !$acc& this_type%deadstemp_xfer_to_deadstemp(:),&
-    !$acc& this_type%livecrootp_xfer_to_livecrootp(:),&
-    !$acc& this_type%deadcrootp_xfer_to_deadcrootp(:),&
-    !$acc& this_type%leafp_to_litter(:),&
-    !$acc& this_type%leafp_to_retransp(:),&
-    !$acc& this_type%frootp_to_retransp(:),&
-    !$acc& this_type%frootp_to_litter(:),&
-    !$acc& this_type%retransp_to_ppool(:),&
-    !$acc& this_type%sminp_to_ppool(:),&
-    !$acc& this_type%biochem_pmin_to_plant(:),&
-    !$acc& this_type%ppool_to_leafp(:),&
-    !$acc& this_type%ppool_to_leafp_storage(:),&
-    !$acc& this_type%ppool_to_frootp(:),&
-    !$acc& this_type%ppool_to_frootp_storage(:),&
-    !$acc& this_type%ppool_to_livestemp(:),&
-    !$acc& this_type%ppool_to_livestemp_storage(:),&
-    !$acc& this_type%ppool_to_deadstemp(:),&
-    !$acc& this_type%ppool_to_deadstemp_storage(:),&
-    !$acc& this_type%ppool_to_livecrootp(:),&
-    !$acc& this_type%ppool_to_livecrootp_storage(:),&
-    !$acc& this_type%ppool_to_deadcrootp(:),&
-    !$acc& this_type%ppool_to_deadcrootp_storage(:),&
-    !$acc& this_type%leafp_storage_to_xfer(:),&
-    !$acc& this_type%frootp_storage_to_xfer(:),&
-    !$acc& this_type%livestemp_storage_to_xfer(:),&
-    !$acc& this_type%deadstemp_storage_to_xfer(:),&
-    !$acc& this_type%livecrootp_storage_to_xfer(:),&
-    !$acc& this_type%deadcrootp_storage_to_xfer(:),&
-    !$acc& this_type%livestemp_to_deadstemp(:),&
-    !$acc& this_type%livestemp_to_retransp(:),&
-    !$acc& this_type%livecrootp_to_deadcrootp(:),&
-    !$acc& this_type%livecrootp_to_retransp(:),&
-    !$acc& this_type%pdeploy(:),&
-    !$acc& this_type%wood_harvestp(:),&
-    !$acc& this_type%fire_ploss(:),&
-    !$acc& this_type%ppool_to_grainp(:),&
-    !$acc& this_type%ppool_to_grainp_storage(:),&
-    !$acc& this_type%livestemp_to_litter(:),&
-    !$acc& this_type%grainp_to_food(:),&
-    !$acc& this_type%grainp_xfer_to_grainp(:),&
-    !$acc& this_type%grainp_storage_to_xfer(:),&
-    !$acc& this_type%fert_p(:),&
-    !$acc& this_type%fert_p_counter(:),&
-    !$acc& this_type%crop_seedp_to_leaf(:),&
-    !$acc& this_type%dwt_seedp_to_leaf(:),&
-    !$acc& this_type%dwt_seedp_to_deadstem(:),&
-    !$acc& this_type%dwt_conv_pflux(:),&
-    !$acc& this_type%dwt_prod10p_gain(:),&
-    !$acc& this_type%dwt_prod100p_gain(:),&
-    !$acc& this_type%dwt_crop_productp_gain(:),&
-    !$acc& this_type%dwt_seedp_to_ppool(:),&
-    !$acc& this_type%plant_pdemand(:),&
-    !$acc& this_type%avail_retransp(:),&
-    !$acc& this_type%plant_palloc(:),&
-    !$acc& this_type%sminp_to_plant(:),&
-    !$acc& this_type%sminp_to_plant_trans(:),&
-    !$acc& this_type%plant_pdemand_vr(:,:),&
-    !$acc& this_type%prev_leafp_to_litter(:),&
-    !$acc& this_type%prev_frootp_to_litter(:),&
-    !$acc& this_type%supplement_to_plantp(:),&
-    !$acc& this_type%gap_ploss_litter(:),&
-    !$acc& this_type%fire_ploss_litter(:),&
-    !$acc& this_type%hrv_ploss_litter(:),&
-    !$acc& this_type%sen_ploss_litter(:))
-  end subroutine deepcopy_vegetation_phosphorus_flux
-
 end module DeepCopyVegetationMod

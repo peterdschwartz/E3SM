@@ -1036,8 +1036,9 @@ module VegetationDataType
   type(vegetation_carbon_flux)           , public, target :: c14_veg_cf ! vegetation carbon flux (C14)
   type(vegetation_nitrogen_flux)         , public, target :: veg_nf     ! vegetation nitrogen flux
   type(vegetation_phosphorus_flux)       , public, target :: veg_pf     ! vegetation phosphorus flux
-
   !------------------------------------------------------------------------
+  !$acc declare create(veg_cs,veg_cf)
+
 
   contains
 

@@ -1,31 +1,62 @@
 module DeepCopyPhysMod
-
   use aerosoltype,only: aerosol_type
   use canopystatetype,only: canopystate_type
   use photosynthesistype,only: photosyns_type
   use solarabsorbedtype,only: solarabs_type
   use surfacealbedotype,only: surfalb_type
-  use urbanparamstype,only: urbinp_type
   use urbanparamstype,only: urbanparams_type
   use surfaceradiationmod,only: surfrad_type
   use energyfluxtype,only: energyflux_type
   use soilhydrologytype,only: soilhydrology_type
   use lakestatetype,only: lakestate_type
   use frictionvelocitytype,only: frictionvel_type
-  implicit none 
+  implicit none
   public :: deepcopy_aerosol_type
   public :: deepcopy_canopystate_type
   public :: deepcopy_photosyns_type
   public :: deepcopy_solarabs_type
   public :: deepcopy_surfalb_type
-  public :: deepcopy_urbinp_type
   public :: deepcopy_urbanparams_type
   public :: deepcopy_surfrad_type
   public :: deepcopy_energyflux_type
   public :: deepcopy_soilhydrology_type
   public :: deepcopy_lakestate_type
   public :: deepcopy_frictionvel_type
-  contains
+
+  public :: deepcopy_biogeophys_types
+contains
+
+  subroutine deepcopy_biogeophys_types(aerosol_vars, canopystate_vars, &
+                                        photosyns_vars, solarabs_vars,surfalb_vars,&
+                                        urbanparams_vars, surfrad_vars, energyflux_vars, &
+                                        soilhydrology_vars, lakestate_vars, frictionvel_vars)
+
+    type(aerosol_type)     , intent(inout) :: aerosol_vars
+    type(canopystate_type) , intent(inout) :: canopystate_vars
+    type(photosyns_type),intent(inout) :: photosyns_vars
+    type(solarabs_type),intent(inout) :: solarabs_vars
+    type(surfalb_type),intent(inout) :: surfalb_vars
+    type(urbanparams_type),intent(inout) :: urbanparams_vars
+    type(surfrad_type),intent(inout) :: surfrad_vars
+    type(energyflux_type),intent(inout) :: energyflux_vars
+    type(soilhydrology_type),intent(inout) :: soilhydrology_vars
+    type(lakestate_type),intent(inout) :: lakestate_vars
+    type(frictionvel_type),intent(inout) :: frictionvel_vars
+
+    call deepcopy_aerosol_type(aerosol_vars)
+    call deepcopy_canopystate_type(canopystate_vars)
+    call deepcopy_photosyns_type(photosyns_vars)
+    call deepcopy_solarabs_type(solarabs_vars)
+    call deepcopy_surfalb_type(surfalb_vars)
+    call deepcopy_urbanparams_type(urbanparams_vars)
+    call deepcopy_surfrad_type(surfrad_vars)
+    call deepcopy_energyflux_type(energyflux_vars)
+    call deepcopy_soilhydrology_type(soilhydrology_vars)
+    call deepcopy_lakestate_type(lakestate_vars)
+    call deepcopy_frictionvel_type(frictionvel_vars)
+
+  end subroutine deepcopy_biogeophys_types
+
   subroutine deepcopy_aerosol_type(this_type)
     type(aerosol_type), intent(inout) :: this_type
     !$acc enter data copyin(this_type)
@@ -238,12 +269,6 @@ module DeepCopyPhysMod
     !$acc& this_type%albgri_dst_col(:,:),&
     !$acc& this_type%albd_patch(:,:),&
     !$acc& this_type%albi_patch(:,:),&
-    !$acc& this_type%fd_top_adjust(:,:),&
-    !$acc& this_type%fi_top_adjust(:,:),&
-    !$acc& this_type%f_dir(:,:),&
-    !$acc& this_type%f_rdir(:,:),&
-    !$acc& this_type%f_dif(:,:),&
-    !$acc& this_type%f_rdif(:,:),&
     !$acc& this_type%ftdd_patch(:,:),&
     !$acc& this_type%ftid_patch(:,:),&
     !$acc& this_type%ftii_patch(:,:),&
@@ -269,39 +294,6 @@ module DeepCopyPhysMod
     !$acc& this_type%vcmaxcintsun_patch(:),&
     !$acc& this_type%vcmaxcintsha_patch(:))
   end subroutine deepcopy_surfalb_type
-  subroutine deepcopy_urbinp_type(this_type)
-    type(urbinp_type), intent(inout) :: this_type
-    !$acc enter data copyin(this_type)
-    !$acc enter data copyin(&
-    !$acc& this_type%tk_wall(:,:,:,:),&
-    !$acc& this_type%tk_roof(:,:,:,:),&
-    !$acc& this_type%cv_wall(:,:,:,:),&
-    !$acc& this_type%cv_roof(:,:,:,:),&
-    !$acc& this_type%t_building_max(:,:,:),&
-    !$acc& this_type%t_building_min(:,:,:),&
-    !$acc& this_type%tk_improad(:,:,:,:),&
-    !$acc& this_type%cv_improad(:,:,:,:),&
-    !$acc& this_type%thick_wall(:,:,:),&
-    !$acc& this_type%thick_roof(:,:,:),&
-    !$acc& this_type%nlev_improad(:,:,:),&
-    !$acc& this_type%wind_hgt_canyon(:,:,:),&
-    !$acc& this_type%em_roof(:,:,:),&
-    !$acc& this_type%em_improad(:,:,:),&
-    !$acc& this_type%em_perroad(:,:,:),&
-    !$acc& this_type%em_wall(:,:,:),&
-    !$acc& this_type%alb_roof_dir(:,:,:,:),&
-    !$acc& this_type%alb_roof_dif(:,:,:,:),&
-    !$acc& this_type%alb_improad_dir(:,:,:,:),&
-    !$acc& this_type%alb_perroad_dir(:,:,:,:),&
-    !$acc& this_type%alb_improad_dif(:,:,:,:),&
-    !$acc& this_type%alb_perroad_dif(:,:,:,:),&
-    !$acc& this_type%alb_wall_dir(:,:,:,:),&
-    !$acc& this_type%alb_wall_dif(:,:,:,:),&
-    !$acc& this_type%wtroad_perv(:,:,:),&
-    !$acc& this_type%canyon_hwr(:,:,:),&
-    !$acc& this_type%ht_roof(:,:,:),&
-    !$acc& this_type%wtlunit_roof(:,:,:))
-  end subroutine deepcopy_urbinp_type
   subroutine deepcopy_urbanparams_type(this_type)
     type(urbanparams_type), intent(inout) :: this_type
     !$acc enter data copyin(this_type)
@@ -484,8 +476,6 @@ module DeepCopyPhysMod
     !$acc& this_type%max_infil_col(:),&
     !$acc& this_type%i_0_col(:),&
     !$acc& this_type%ice_col(:,:),&
-    !$acc& this_type%fover(:),&
-    !$acc& this_type%pc(:),&
     !$acc& this_type%h2osfcflag,&
     !$acc& this_type%origflag)
   end subroutine deepcopy_soilhydrology_type
@@ -515,7 +505,6 @@ module DeepCopyPhysMod
     !$acc& this_type%forc_hgt_q_patch(:),&
     !$acc& this_type%u10_patch(:),&
     !$acc& this_type%u10_elm_patch(:),&
-    !$acc& this_type%u10_with_gusts_elm_patch(:),&
     !$acc& this_type%va_patch(:),&
     !$acc& this_type%vds_patch(:),&
     !$acc& this_type%fv_patch(:),&
@@ -525,10 +514,8 @@ module DeepCopyPhysMod
     !$acc& this_type%z0mv_patch(:),&
     !$acc& this_type%z0hv_patch(:),&
     !$acc& this_type%z0qv_patch(:),&
-    !$acc& this_type%num_iter_patch(:),&
     !$acc& this_type%z0mg_col(:),&
     !$acc& this_type%z0qg_col(:),&
     !$acc& this_type%z0hg_col(:))
   end subroutine deepcopy_frictionvel_type
-
 end module DeepCopyPhysMod

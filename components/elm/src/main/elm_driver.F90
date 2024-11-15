@@ -210,6 +210,14 @@ module elm_driver
    use ColumnWorkRoutinesMod 
    use CarbonStateUpdate3Mod 
    use ErosionMod, only : ErosionFluxes 
+
+   use DeepCopyChemMod, only : deepcopy_bgc_types
+   use DeepCopyMainMod, only : deepcopy_main_types
+   use DeepCopyPhysMod, only : deepcopy_biogeophys_types
+   use DeepCopyColumnMod, only : deepcopy_column_types
+   use DeepCopyVegetationMod, only : deepcopy_vegetation_types
+   use DeepCopyLandTopoMod, only : deepcopy_LandTopo_types
+   use DeepCopyGridcellMod, only : deepcopy_gridcell_types
    !
    ! !PUBLIC TYPES:
    implicit none
@@ -495,135 +503,39 @@ module elm_driver
          #endif
         call createProcessorFilter(nclumps, bounds_proc, proc_filter, glc2lnd_vars%icemask_grc)
         call createProcessorFilter(nclumps, bounds_proc, proc_filter_inactive_and_active, glc2lnd_vars%icemask_grc)
-        
-        !$acc enter data copyin(&
-      !$acc aerosol_vars     , &
-      !$acc AllocParamsInst  , &
-      !$acc atm2lnd_vars     , &
-      !$acc canopystate_vars, &
-      !$acc CH4ParamsInst     , &
-      !$acc ch4_vars          , &
-      !$acc CNDecompParamsInst     , &
-      !$acc CNGapMortParamsInst     , &
-      !$acc CNNDynamicsParamsInst     , &
-      !$acc cnstate_vars      )
-     
-      !$acc enter data copyin(&
-      !$acc photosyns_vars     , &
-      !$acc sedflux_vars     , &
-      !$acc soilhydrology_vars     , &
-      !$acc soilstate_vars     , &
-      !$acc solarabs_vars     , &
-      !$acc surfalb_vars     , &
-      !$acc surfrad_vars )   
-      
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after  moremore_vars:", free2/1.E9
-      #endif
+ 
+         call deepcopy_bgc_types(alloc_inst,ch4_params,ch4_vars,decomp_cascade_inst,&
+            crop_vars, dust_vars, decompbgcparams, &
+            decompcnparams, drydep_vars, CNGapMortParamsInst, &
+            NitrifDenitrifParamsInst, NitrogenParamsInst, &
+            SharedParams, DecompParams)
+         call deepcopy_main_types(domain_params, atm2lnd_inst, lnd2atm_vars,&
+            lnd2glc_inst, soilorder_inst)
+         call deepcopy_biogeophys_types(aerosol_vars, canopystate_vars, &
+            photosyns_vars, solarabs_vars,surfalb_vars,&
+            urbanparams_vars, surfrad_vars, energyflux_vars, &
+            soilhydrology_vars, lakestate_vars, frictionvel_vars)
+         call deepcopy_column_types(col_pp, col_es, col_ef,col_ws,&
+            col_wf, col_cs,col_cf,col_ps,&
+            col_pf,col_ns,col_nf)
+         call deepcopy_vegetation_types(veg_pp, veg_vp,veg_es,veg_ef, &
+            veg_ws, veg_wf, veg_cs, veg_cf, &
+            veg_ps, veg_pf, veg_ns, veg_nf)
+         call deepcopy_LandTopo_types(lun_pp, lun_es, lun_ef, lun_ws,&
+            top_pp, top_as, top_af, top_es)
+         call deepcopy_gridcell_types(grc_pp, grc_es, grc_ef, grc_ws, grc_wf, &
+            grc_cs, grc_cf, grc_ns, grc_nf, grc_ps, grc_pf)
+
       !$acc enter data copyin(&
       !$acc patch_state_updater     , &
       !$acc column_state_updater , &
       !$acc prior_weights ) 
-            
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free 1st:", free2/1.E9
-      #endif
-      !$acc enter data copyin(&
-      !$acc col_cf     , &
-      !$acc col_cs     , &
-      !$acc col_ef     , &
-      !$acc col_es     , &
-      !$acc col_nf     , &
-      !$acc col_ns     , &
-      !$acc col_pf     , &
-      !$acc col_pp     , &
-      !$acc col_ps     , &
-      !$acc col_wf     , &
-      !$acc col_ws     ) 
-      
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after Col:", free2/1.E9
-      #endif
-      !$acc enter data copyin( &
-      !$acc crop_vars  , &
-      !$acc DecompBGCParamsInst     , &
-      !$acc DecompCNParamsInst     , &
-      !$acc decomp_cascade_con     , &
-      !$acc drydepvel_vars     , &
-      !$acc dust_vars     , &
-      !$acc energyflux_vars     , &
-      !$acc frictionvel_vars     , &
-      !$acc glc2lnd_vars  ) 
-      
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after more vars:", free2/1.E9
-      #endif
-      !$acc enter data copyin(&
-      !$acc grc_cf     , &
-      !$acc grc_cs     , &
-      !$acc grc_ef     , &
-      !$acc grc_es     , &
-      !$acc grc_nf     , &
-      !$acc grc_ns     , &
-      !$acc grc_pf     , &
-      !$acc grc_pp     , &
-      !$acc grc_ps     , &
-      !$acc grc_wf     , &
-      !$acc grc_ws     ) 
-      
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after grc_vars:", free2/1.E9
-      #endif
-      !$acc enter data copyin(&
-      !$acc lakestate_vars , &
-      !$acc ldomain_gpu  ,&
-      !$acc lnd2glc_vars   , &
-      !$acc lnd2atm_vars   , &
-      !$acc lun_ef     , &
-      !$acc lun_es     , &
-      !$acc lun_pp     , &
-      !$acc lun_ws     , &
-      !$acc NitrifDenitrifParamsInst     , &
-      !$acc ParamsShareInst     , &
-      !$acc params_inst     ) 
-      
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after lun/lnd2atm/domain/params:", free2/1.E9
-      #endif
-      !$acc enter data copyin( subgrid_weights_diagnostics, &
-      !$acc top_af     , &
-      !$acc top_as     , &
-      !$acc top_pp     , &
-      !$acc urbanparams_vars , &
-      !$acc veg_cf     , &
-      !$acc veg_cs     , &
-      !$acc veg_ef     , &
-      !$acc veg_es     , &
-      !$acc veg_nf     , &
-      !$acc veg_ns     , &
-      !$acc veg_pf     , &
-      !$acc veg_pp     , &
-      !$acc veg_ps     , &
-      !$acc veg_vp     , &
-      !$acc veg_wf     , &
-      !$acc veg_ws      &
-      !$acc   )
-      #if _CUDA 
-      istat = cudaMemGetInfo(free2, total)
-      write(iulog,*) iam,"Free after top/veg vars:", free2/1.E9
-      #endif
-      call htape_gpu_init() 
-      !$acc enter data copyin(tape_gpu(:),elmptr_ra(:),elmptr_rs(:))
-      !$acc enter data copyin( doalb, declinp1, declin )
-      !$acc enter data copyin(filter(:), gpu_clumps(:), gpu_procinfo, proc_filter,proc_filter_inactive_and_active  )
-      !$acc enter data copyin(filter_inactive_and_active(:),bounds_proc )
-      !$acc enter data copyin(transport_ptr_list(:)) 
+      !! call htape_gpu_init() 
+        !! !$acc enter data copyin(tape_gpu(:),elmptr_ra(:),elmptr_rs(:))
+        !! !$acc enter data copyin( doalb, declinp1, declin )
+        !! !$acc enter data copyin(filter(:), gpu_clumps(:), gpu_procinfo, proc_filter,proc_filter_inactive_and_active  )
+        !! !$acc enter data copyin(filter_inactive_and_active(:),bounds_proc )
+        !! !$acc enter data copyin(transport_ptr_list(:)) 
       #if _CUDA 
       istat = cudaMemGetInfo(free2, total)
       write(iulog,*) iam,"Free after final copyin:", free2/1.E9

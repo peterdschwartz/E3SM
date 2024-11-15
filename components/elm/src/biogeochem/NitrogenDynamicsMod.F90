@@ -43,12 +43,12 @@ module NitrogenDynamicsMod
   !
   ! !PRIVATE DATA:
   type, public :: CNNDynamicsParamsType
-     real(r8), pointer :: sf     => null()    ! soluble fraction of mineral N (unitless)
-     real(r8), pointer :: sf_no3 => null()    ! soluble fraction of NO3 (unitless)
+     real(r8) :: sf      ! soluble fraction of mineral N (unitless)
+     real(r8) :: sf_no3  ! soluble fraction of NO3 (unitless)
   end type CNNDynamicsParamsType
 
   type(CNNDynamicsParamsType), public ::  CNNDynamicsParamsInst
-  !$acc declare create(CNNDynamicsParamsInst)
+  !$acc declare copyin(CNNDynamicsParamsInst)
 
   !-----------------------------------------------------------------------
 
@@ -95,8 +95,6 @@ contains
 
     call NitrogenDynamicsInit()
 
-    allocate(CNNDynamicsParamsInst%sf)
-    allocate(CNNDynamicsParamsInst%sf_no3)
     tString='sf_minn'
     call ncd_io(varname=trim(tString),data=tempr, flag='read', ncid=ncid, readvar=readv)
     if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))

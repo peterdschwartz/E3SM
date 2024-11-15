@@ -1,4 +1,4 @@
-module DeepCopyLandTopounitMod
+module DeepCopyLandTopoMod
   use landunittype,only: landunit_physical_properties
   use landunitdatatype,only: landunit_energy_state
   use landunitdatatype,only: landunit_energy_flux
@@ -7,7 +7,9 @@ module DeepCopyLandTopounitMod
   use topounitdatatype,only: topounit_atmospheric_state
   use topounitdatatype,only: topounit_atmospheric_flux
   use topounitdatatype,only: topounit_energy_state
+
   implicit none
+
   public :: deepcopy_landunit_physical_properties
   public :: deepcopy_landunit_energy_state
   public :: deepcopy_landunit_energy_flux
@@ -16,8 +18,30 @@ module DeepCopyLandTopounitMod
   public :: deepcopy_topounit_atmospheric_state
   public :: deepcopy_topounit_atmospheric_flux
   public :: deepcopy_topounit_energy_state
-
 contains
+
+  subroutine deepcopy_LandTopo_types(lun_pp, lun_es, lun_ef, lun_ws,&
+    top_pp, top_as, top_af, top_es)
+
+    type(landunit_physical_properties), intent(inout) :: lun_pp
+    type(landunit_energy_state), intent(inout) :: lun_es
+    type(landunit_energy_flux), intent(inout) :: lun_ef
+    type(landunit_water_state), intent(inout) :: lun_ws
+    type(topounit_physical_properties), intent(inout) :: top_pp
+    type(topounit_atmospheric_state), intent(inout) :: top_as
+    type(topounit_atmospheric_flux), intent(inout) :: top_af
+    type(topounit_energy_state), intent(inout) :: top_es
+
+    call deepcopy_landunit_physical_properties(lun_pp)
+    call deepcopy_landunit_energy_state(lun_es)
+    call deepcopy_landunit_energy_flux(lun_ef)
+    call deepcopy_landunit_water_state(lun_ws)
+    call deepcopy_topounit_physical_properties(top_pp)
+    call deepcopy_topounit_atmospheric_state(top_as)
+    call deepcopy_topounit_atmospheric_flux(top_af)
+    call deepcopy_topounit_energy_state(top_es)
+
+  end subroutine deepcopy_LandTopo_types
 
   subroutine deepcopy_landunit_physical_properties(this_type)
     type(landunit_physical_properties), intent(inout) :: this_type
@@ -145,5 +169,4 @@ contains
     !$acc& this_type%eflx_lwrad_out_topo(:),&
     !$acc& this_type%t_grnd(:))
   end subroutine deepcopy_topounit_energy_state
-
-end module DeepCopyLandTopounitMod
+end module DeepCopyLandTopoMod
