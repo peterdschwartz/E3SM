@@ -127,12 +127,12 @@ contains
       !$acc rootfr_tot, sum_rootfr) 
       if (use_vertsoilc) then
 
-         ! define a single shallow surface profile for surface additions (leaves, stems, and N deposition)
-        !$ acc parallel loop independent default(present) vector        
+        ! define a single shallow surface profile for surface additions (leaves, stems, and N deposition)
+        !$acc parallel loop independent default(present) vector
          do j = 1, nlevdecomp
             surface_prof(j) = exp(-surfprof_exp * zsoi(j)) / dzsoi_decomp(j)
          end do
-         
+
          ! initialize profiles to zero
          !$acc parallel loop independent gang vector collapse(2) default(present) 
          do j = 1,nlevdecomp_full
@@ -350,103 +350,84 @@ contains
 
       ! check to make sure integral of all profiles = 1.
       erridx = 0 
-     !! !$acc parallel loop independent gang worker default(present) private(ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum)&
-     !! !$acc       copy(erridx) 
-     !! do fc = 1,num_soilc
-     !!    c = filter_soilc(fc)
-     !!    ndep_prof_sum = 0._r8
-     !!    nfixation_prof_sum = 0._r8
-     !!    pdep_prof_sum = 0._r8
-     !!   !$acc loop vector reduction(+:ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum)  
-     !!    do j = 1, nlevdecomp
-     !!       ndep_prof_sum = ndep_prof_sum + ndep_prof(c,j) *  dzsoi_decomp(j)
-     !!       nfixation_prof_sum = nfixation_prof_sum + nfixation_prof(c,j) *  dzsoi_decomp(j)
-     !!       pdep_prof_sum = pdep_prof_sum + pdep_prof(c,j) *  dzsoi_decomp(j)
-     !!    end do
-     !!    if ( ( abs(ndep_prof_sum - 1._r8) > delta ) .or.  ( abs(nfixation_prof_sum - 1._r8) > delta ) .or. &
-     !!         ( abs(pdep_prof_sum - 1._r8) > delta )  ) then
-     !!         erridx = c
-     !!     end if 
-     !! end do
-     !! if(erridx .ne. 0 ) then 
-     !!       !NOTE: Have to incorporate proper copyout data directives here 
-     !!       write(iulog, *) 'profile sums: ', ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum
-     !!       write(iulog, *) 'c: ', erridx
-     !!       !write(iulog, *) 'altmax_lastyear_indx: ', altmax_lastyear_indx(c)
-     !!       !write(iulog, *) 'nfixation_prof: ', nfixation_prof(c,:)
-     !!       !write(iulog, *) 'ndep_prof: ', ndep_prof(c,:)
-     !!       !write(iulog, *) 'pdep_prof: ', pdep_prof(c,:)
-     !!       !write(iulog, *) 'cinput_rootfr: ', col_cinput_rootfr(fc,:)
-     !!       !write(iulog, *) 'dzsoi_decomp: ', dzsoi_decomp(:)
-     !!       !write(iulog, *) 'surface_prof: ', surface_prof(:)
-     !!       !write(iulog, *) 'npfts(c): ', col_pp%npfts(c)
-     !!       !do p = col_pp%pfti(c), col_pp%pftf(c)
-     !!       !   write(iulog, *) 'p, itype(p), wtcol(p): ', p, veg_pp%itype(p), veg_pp%wtcol(p)
-     !!       !   write(iulog, *) 'cinput_rootfr(p,:): ', cinput_rootfr(p,:)
-     !!       !end do
-     !!       call endrun(msg=" ERROR: _prof_sum-1>delta"//errMsg(__FILE__, __LINE__))
-     !!endif
-   
-     !!erridx = 0 
-     !! !$acc parallel loop independent gang worker default(present) &
-     !! !$acc  private(froot_prof_sum,croot_prof_sum,leaf_prof_sum,stem_prof_sum) copy(erridx)  
-     !! do fp = 1,num_soilp
-     !!    p = filter_soilp(fp)
-     !!    froot_prof_sum = 0._r8
-     !!    croot_prof_sum = 0._r8 
-     !!    leaf_prof_sum = 0._r8 
-     !!    stem_prof_sum = 0._r8
-     !!    !$acc loop vector reduction(+:froot_prof_sum,croot_prof_sum,leaf_prof_sum,stem_prof_sum)
-     !!    do j = 1, nlevdecomp
-     !!       froot_prof_sum = froot_prof_sum + froot_prof(p,j) *  dzsoi_decomp(j)
-     !!       croot_prof_sum = croot_prof_sum + croot_prof(p,j) *  dzsoi_decomp(j)
-     !!       leaf_prof_sum = leaf_prof_sum + leaf_prof(p,j) *  dzsoi_decomp(j)
-     !!       stem_prof_sum = stem_prof_sum + stem_prof(p,j) *  dzsoi_decomp(j)
-     !!    end do
-     !!    if ( ( abs(froot_prof_sum - 1._r8) > delta ) .or.  ( abs(croot_prof_sum - 1._r8) > delta ) .or. &
-     !!         ( abs(stem_prof_sum - 1._r8) > delta ) .or.  ( abs(leaf_prof_sum - 1._r8) > delta ) ) then
-     !!         print *, "froot_prof_sum:",froot_prof_sum
-     !!         erridx = p 
-     !!    endif
-     !! end do
-     !! if(erridx .ne. 0) then 
-     !!       write(iulog, *) 'p: ', p
-     !!       call endrun(msg=' ERROR: sum-1 > delta'//errMsg(__FILE__, __LINE__))
-     !!  end if
-
-
-      do fp = 1,num_soilp
-         p = filter_soilp(fp)
-         froot_prof_sum = 0._r8
-         croot_prof_sum = 0._r8
-         leaf_prof_sum = 0._r8
-         stem_prof_sum = 0._r8
+      !$acc parallel loop independent gang worker default(present) private(ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum)&
+      !$acc       copy(erridx) 
+      do fc = 1,num_soilc
+         c = filter_soilc(fc)
+         ndep_prof_sum = 0._r8
+         nfixation_prof_sum = 0._r8
+         pdep_prof_sum = 0._r8
+        !$acc loop vector reduction(+:ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum)  
          do j = 1, nlevdecomp
-            froot_prof_sum = froot_prof_sum + froot_prof(p,j) *  dzsoi_decomp(j)
-            croot_prof_sum = croot_prof_sum + croot_prof(p,j) *  dzsoi_decomp(j)
-            leaf_prof_sum  = leaf_prof_sum + leaf_prof(p,j) *  dzsoi_decomp(j)
-            stem_prof_sum  = stem_prof_sum + stem_prof(p,j) *  dzsoi_decomp(j)
+            ndep_prof_sum = ndep_prof_sum + ndep_prof(c,j) *  dzsoi_decomp(j)
+            nfixation_prof_sum = nfixation_prof_sum + nfixation_prof(c,j) *  dzsoi_decomp(j)
+            pdep_prof_sum = pdep_prof_sum + pdep_prof(c,j) *  dzsoi_decomp(j)
          end do
-         if ( ( abs(froot_prof_sum - 1._r8) > delta ) .or.  ( abs(croot_prof_sum - 1._r8) > delta ) .or. &
-              ( abs(stem_prof_sum - 1._r8) > delta ) .or.  ( abs(leaf_prof_sum - 1._r8) > delta ) ) then
-            c = veg_pp%column(p)
-            write(iulog, *) 'profile sums: ', froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum
-            write(iulog, *) 'c: ',c
+         if ( ( abs(ndep_prof_sum - 1._r8) > delta ) .or.  ( abs(nfixation_prof_sum - 1._r8) > delta ) .or. &
+              ( abs(pdep_prof_sum - 1._r8) > delta )  ) then
+              erridx = c
+          end if 
+      end do
+      if(erridx .ne. 0 ) then 
+            c = erridx
+            !$acc update self(ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum, altmax_lastyear_indx(:), &
+            !$&acc  nfixation_prof(c,:), ndep_prof(c,:), pdep_prof(c,:), dzsoi_decomp(:), surface_prof(:), &
+            !$&acc  veg_pp%wtcol(:), cinput_rootfr(:,:))
+            !NOTE: Have to incorporate proper copyout data directives here 
+            write(iulog, *) 'profile sums: ', ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum
+            write(iulog, *) 'c: ', erridx
             write(iulog, *) 'altmax_lastyear_indx: ', altmax_lastyear_indx(c)
-            write(iulog, *) 'cinput_rootfr: ', col_cinput_rootfr(c,:)
+            write(iulog, *) 'nfixation_prof: ', nfixation_prof(c,:)
+            write(iulog, *) 'ndep_prof: ', ndep_prof(c,:)
+            write(iulog, *) 'pdep_prof: ', pdep_prof(c,:)
             write(iulog, *) 'dzsoi_decomp: ', dzsoi_decomp(:)
             write(iulog, *) 'surface_prof: ', surface_prof(:)
-            write(iulog, *) 'p, itype(p), wtcol(p): ', p, veg_pp%itype(p), veg_pp%wtcol(p)
+            write(iulog, *) 'npfts(c): ', col_pp%npfts(c)
+            do p = col_pp%pfti(c), col_pp%pftf(c)
+               write(iulog, *) 'p, itype(p), wtcol(p): ', p, veg_pp%itype(p), veg_pp%wtcol(p)
+               write(iulog, *) 'cinput_rootfr(p,:): ', cinput_rootfr(p,:)
+            end do
+            call endrun(msg=" ERROR: column_prof_sum-1>delta"//errMsg(__FILE__, __LINE__))
+     endif
+   
+     erridx = 0 
+     !$acc parallel loop independent gang worker default(present) &
+     !$acc  private(froot_prof_sum,croot_prof_sum,leaf_prof_sum,stem_prof_sum) copy(erridx)  
+     do fp = 1,num_soilp
+        p = filter_soilp(fp)
+        froot_prof_sum = 0._r8
+        croot_prof_sum = 0._r8 
+        leaf_prof_sum = 0._r8 
+        stem_prof_sum = 0._r8
+        !$acc loop vector reduction(+:froot_prof_sum,croot_prof_sum,leaf_prof_sum,stem_prof_sum)
+        do j = 1, nlevdecomp
+           froot_prof_sum = froot_prof_sum + froot_prof(p,j) *  dzsoi_decomp(j)
+           croot_prof_sum = croot_prof_sum + croot_prof(p,j) *  dzsoi_decomp(j)
+           leaf_prof_sum = leaf_prof_sum + leaf_prof(p,j) *  dzsoi_decomp(j)
+           stem_prof_sum = stem_prof_sum + stem_prof(p,j) *  dzsoi_decomp(j)
+        end do
+        if ( ( abs(froot_prof_sum - 1._r8) > delta ) .or.  ( abs(croot_prof_sum - 1._r8) > delta ) .or. &
+             ( abs(stem_prof_sum - 1._r8) > delta ) .or.  ( abs(leaf_prof_sum - 1._r8) > delta ) ) then
+             erridx = p
+        endif
+     end do
+
+     if(erridx .ne. 0) then 
+            !$acc update self(ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum, stem_prof(p,:) &
+            !$&acc dzsoi_decomp(:), surface_prof(:), croot_prof(p,:), froot_prof(p,:), leaf_prof(p,:) )
+           p = erridx
+           write(iulog, *) 'p: ', p
+            write(iulog, *) 'profile sums: ', froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum
+            write(iulog, *) 'dzsoi_decomp: ', dzsoi_decomp(:)
+            write(iulog, *) 'surface_prof: ', surface_prof(:)
             write(iulog, *) 'cinput_rootfr(p,:): ', cinput_rootfr(p,:)
             write(iulog,*)  'croot_prof(p,:): ',croot_prof(p,:)
             write(iulog,*)  'froot_prof(p,:): ',froot_prof(p,:)
             write(iulog,*)  'leaf_prof(p,:): ',leaf_prof(p,:)
             write(iulog,*)  'stem_prof(p,:): ',stem_prof(p,:)
-            call endrun(msg=' ERROR: sum-1 > delta'//errMsg(__FILE__, __LINE__))
-         endif
-      end do
+           call endrun(msg=' ERROR: soil pft sum-1 > delta'//errMsg(__FILE__, __LINE__))
+     end if
 
-      end if
       !$acc exit data delete(&
       !$acc surface_prof(:), &
       !$acc cinput_rootfr(:,:) , &
