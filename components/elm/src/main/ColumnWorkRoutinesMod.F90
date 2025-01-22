@@ -689,7 +689,6 @@ contains
       this%cwdc(c)    = sum3
    end do
 
-   ! ! total soil organic matter carbon (TOTSOMC)
    ! truncation carbon
    !$acc parallel loop independent gang worker default(present) private(sum1)
    do fc = 1,num_soilc
@@ -863,7 +862,6 @@ contains
       this%cwdn(c)    = sum3 
    end do
 
-   ! ! total soil organic matter nitrogen (TOTSOMN)
    !$acc parallel loop independent gang worker default(present) private(sum1,sum2)
    do fc = 1,num_soilc
       c = filter_soilc(fc)
@@ -1396,6 +1394,7 @@ contains
 
       if (.not.(use_pflotran .and. pf_cmode)) then
          ! (LITTERC_LOSS) - litter C loss
+
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%litterc_loss(c) = this%lithr(c)
@@ -1559,11 +1558,6 @@ contains
       end do
    end do
 
-   ! total column-level fire N losses
-   do fc = 1,num_soilc
-      c = filter_soilc(fc)
-      this%fire_nloss(c) = this%fire_nloss_p2c(c)
-   end do
    !$acc parallel loop gang worker default(present) private(c,sum1)
    do fc = 1,num_soilc
       c = filter_soilc(fc)
@@ -1723,60 +1717,27 @@ contains
    end if !if (.not.(use_pflotran .and. pf_cmode))
 
    ! vertically integrate inorganic P flux
-   !$acc parallel loop independent gang worker default(present) private(c,sum1)
+   !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2,sum3,sum4,sum5)
    do fc = 1,num_soilc
       c = filter_soilc(fc)
       sum1 = 0._r8
-      !$acc loop vector reduction(+:sum1)
+      sum2 = 0._r8
+      sum3 = 0._r8
+      sum4 = 0._r8
+      sum5 = 0._r8
+      !$acc loop vector reduction(+:sum1,sum2,sum3,sum4,sum5)
       do j = 1, nlevdecomp
-          sum1 = sum1 + this%primp_to_labilep_vr(c,j) * dzsoi_decomp(j)
+         sum1 = sum1 + this%primp_to_labilep_vr(c,j) * dzsoi_decomp(j)
+         sum2 = sum2 + this%labilep_to_secondp_vr(c,j) * dzsoi_decomp(j)
+         sum3 = sum3 + this%secondp_to_labilep_vr(c,j) * dzsoi_decomp(j)
+         sum4 = sum4 + this%secondp_to_occlp_vr(c,j) * dzsoi_decomp(j)
+         sum5 = sum5 + this%sminp_leached_vr(c,j) * dzsoi_decomp(j)
       end do
       this%primp_to_labilep(c) = this%primp_to_labilep(c) + sum1 
-   end do
-
-   !$acc parallel loop independent gang worker default(present) private(c,sum2)
-   do fc = 1,num_soilc
-      c = filter_soilc(fc)
-      sum2 = 0._r8
-      !$acc loop vector reduction(+:sum2)
-      do j = 1, nlevdecomp
-         sum2 = sum2 + this%labilep_to_secondp_vr(c,j) * dzsoi_decomp(j)
-      end do
       this%labilep_to_secondp(c) = this%labilep_to_secondp(c) + sum2 
-   end do
-
-   !$acc parallel loop independent gang worker default(present) private(c,sum3)
-   do fc = 1,num_soilc
-      c = filter_soilc(fc)
-      sum3 = 0._r8
-      !$acc loop vector reduction(+:sum3)
-      do j = 1, nlevdecomp
-          sum3 = sum3 + this%secondp_to_labilep_vr(c,j) * dzsoi_decomp(j)
-      end do
       this%secondp_to_labilep(c) = this%secondp_to_labilep(c) + sum3 
-   end do
-
-   !$acc parallel loop independent gang worker default(present) private(c,sum4)
-   do fc = 1,num_soilc
-      c = filter_soilc(fc)
-      sum4 = 0._r8
-      !$acc loop vector reduction(+:sum4)
-      do j = 1, nlevdecomp
-          sum4 = sum4 + this%secondp_to_occlp_vr(c,j) * dzsoi_decomp(j)
-      end do
       this%secondp_to_occlp(c) = this%secondp_to_occlp(c) + sum4 
-   end do
-
-   ! vertically integrate leaching flux
-   !$acc parallel loop independent gang worker default(present) private(c,sum5)
-   do fc = 1,num_soilc
-     c = filter_soilc(fc)
-     sum5 = 0._r8
-     !$acc loop vector reduction(+:sum5)
-     do j = 1, nlevdecomp
-        sum5 = sum5 + this%sminp_leached_vr(c,j) * dzsoi_decomp(j)
-     end do
-     this%sminp_leached(c) = this%sminp_leached(c) + sum5 
+      this%sminp_leached(c) = this%sminp_leached(c) + sum5 
    end do
 
    ! vertically integrate column-level fire P losses
@@ -1849,7 +1810,6 @@ contains
       end do
    end do
 
-      !zero'd out 
    !$acc parallel loop independent gang worker default(present) private(c,sum2)
    do fc = 1,num_soilc
       c = filter_soilc(fc)

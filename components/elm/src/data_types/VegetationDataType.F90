@@ -164,7 +164,6 @@ module VegetationDataType
   contains
     procedure, public :: Init     => veg_cs_init
     procedure, public :: Restart  => veg_cs_restart
-    procedure, public :: Summary  => veg_cs_summary
     procedure, public :: ZeroDwt  => veg_cs_zerodwt
     procedure, public :: Clean    => veg_cs_clean
   end type vegetation_carbon_state
@@ -249,7 +248,6 @@ module VegetationDataType
   contains
     procedure, public :: Init      => veg_ns_init
     procedure, public :: Restart   => veg_ns_restart
-    procedure, public :: Summary   => veg_ns_summary
     procedure, public :: SetValues => veg_ns_setvalues
     procedure, public :: ZeroDwt   => veg_ns_zerodwt
     procedure, public :: Clean     => veg_ns_clean
@@ -297,7 +295,6 @@ module VegetationDataType
     procedure, public :: Restart   => veg_ps_restart
     procedure, public :: SetValues => veg_ps_setvalues
     procedure, public :: ZeroDWT   => veg_ps_zerodwt
-    procedure, public :: Summary   => veg_ps_summary
     procedure, public :: Clean     => veg_ps_clean
   end type vegetation_phosphorus_state
 
@@ -3522,9 +3519,8 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Vegetation-level carbon state summary calculations
-    !$acc routine seq 
     ! !ARGUMENTS:
-    class(vegetation_carbon_state)                :: this
+    type(vegetation_carbon_state)             :: this
     type(bounds_type)         , intent(in)    :: bounds
     integer                   , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                   , intent(in)    :: filter_soilc(:) ! filter for soil columns
@@ -3551,6 +3547,7 @@ module VegetationDataType
 
     if (use_fates) return
 
+    !$acc parallel loop independent gang vector independent default(present)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
        ! displayed vegetation carbon, excluding storage and cpool (DISPVEGC)
@@ -3622,19 +3619,19 @@ module VegetationDataType
     end do ! filtered veg list
 
     ! a few vegetation-to-column summaries
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
          totpftc_patch(bounds%begp:bounds%endp) , &
          totpftc_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
          totvegc_patch(bounds%begp:bounds%endp) , &
          totvegc_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
          totvegc_abg_patch(bounds%begp:bounds%endp), &
          totvegc_abg_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
          cropseedc_deficit_patch(bounds%begp:bounds%endp), &
          cropseedc_deficit_col(bounds%begc:bounds%endc))
     end associate
@@ -4203,9 +4200,8 @@ module VegetationDataType
     ! !DESCRIPTION:
     ! Vegetation-level nitrogen state summary calculations
     !
-    !$acc routine seq 
     ! !ARGUMENTS:
-    class(vegetation_nitrogen_state)            :: this
+    type(vegetation_nitrogen_state)            :: this
     type(bounds_type)           , intent(in)    :: bounds
     integer                     , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                     , intent(in)    :: filter_soilc(:) ! filter for soil columns
@@ -4229,6 +4225,7 @@ module VegetationDataType
      cropseedn_deficit_col    => col_ns%cropseedn_deficit &
       )
 
+   !$acc parallel loop independent gang vector default(present) 
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -4280,19 +4277,19 @@ module VegetationDataType
            this%ntrunc(p)
    end do ! filtered veg loop
 
-   call p2c(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
         plant_n_buffer_patch(bounds%begp:bounds%endp)  , &
         plant_n_buffer_col(bounds%begc:bounds%endc))
 
-   call p2c(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
         totvegn_patch(bounds%begp:bounds%endp) , &
         totvegn_col(bounds%begc:bounds%endc))
 
-   call p2c(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
         totpftn_patch(bounds%begp:bounds%endp) , &
         totpftn_col(bounds%begc:bounds%endc))
 
-   call p2c(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
         cropseedn_deficit_patch(bounds%begp:bounds%endp) , &
         cropseedn_deficit_col(bounds%begc:bounds%endc))
 
@@ -4956,9 +4953,8 @@ module VegetationDataType
   !-----------------------------------------------------------------------
   subroutine veg_ps_summary (this, bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, col_ps)
     !
-    !$acc routine seq 
     ! !ARGUMENTS:
-    class (vegetation_phosphorus_state) :: this
+    type (vegetation_phosphorus_state) :: this
     type(bounds_type) , intent(in)      :: bounds
     integer           , intent(in)      :: num_soilc       ! number of soil columns in filter
     integer           , intent(in)      :: filter_soilc(:) ! filter for soil columns
@@ -4978,6 +4974,7 @@ module VegetationDataType
      cropseedp_deficit_patch  => this%cropseedp_deficit , &
      cropseedp_deficit_col    => col_ps%cropseedp_deficit &
       )
+   !$acc parallel loop independent gang vector default(present) 
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -5030,15 +5027,15 @@ module VegetationDataType
 
    end do
 
-   call p2c(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
         totvegp_patch(bounds%begp:bounds%endp)  , &
         totvegp_col(bounds%begc:bounds%endc) )
 
-   call p2c(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
         totpftp_patch(bounds%begp:bounds%endp) , &
         totpftp_col(bounds%begc:bounds%endc) )
 
-   call p2c(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
         cropseedp_deficit_patch(bounds%begp:bounds%endp) , &
         cropseedp_deficit_col(bounds%begc:bounds%endc) )
    end associate
@@ -8113,9 +8110,8 @@ module VegetationDataType
     !
     ! !USES:
     !
-    !$acc routine seq 
     ! !ARGUMENTS:
-    class(vegetation_carbon_flux)                 :: this
+    type(vegetation_carbon_flux)                 :: this
     type(bounds_type)      , intent(in)    :: bounds
     integer                , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                , intent(in)    :: filter_soilp(:) ! filter for soil patches
@@ -8149,7 +8145,9 @@ module VegetationDataType
 
     if (use_fates) return
 
+    !$acc data copyin(isotope)
     ! patch loop
+   !$acc parallel loop independent gang vector default(present) 
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -8305,7 +8303,7 @@ module VegetationDataType
             this%m_deadcrootc_xfer_to_litter_fire(p)    + &
             this%m_gresp_storage_to_litter_fire(p)      + &
             this%m_gresp_xfer_to_litter_fire(p)        
-            
+
             this%litfall(p) = this%litfall(p) + &
               this%hrv_leafc_to_litter(p)                 + &
               this%hrv_leafc_storage_to_litter(p)         + &
@@ -8457,35 +8455,35 @@ module VegetationDataType
     end do  ! end of patches loop
 
     ! use p2c routine to get selected column-average patch-level fluxes and states
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
             gpp_patch(bounds%begp:bounds%endp), &
             gpp_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
             ar_patch(bounds%begp:bounds%endp), &
             ar_col  (bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
             npp_patch(bounds%begp:bounds%endp), &
             npp_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
             vegfire_patch(bounds%begp:bounds%endp), &
             vegfire_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
          wood_harvestc_patch(bounds%begp:bounds%endp), &
          wood_harvestc_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
          fire_closs_patch(bounds%begp:bounds%endp), &
          fire_closs_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
          litfall_patch(bounds%begp:bounds%endp), &
          litfall_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
          hrv_xsmrpool_to_atm_patch(bounds%begp:bounds%endp), &
          hrv_xsmrpool_to_atm_col(bounds%begc:bounds%endc))
 
@@ -8513,8 +8511,8 @@ module VegetationDataType
     !
     ! !LOCAL VARIABLES
     integer :: fp, p
-    integer :: begc,endc,begp,endp
     !------------------------------------------------------------
+    !$acc parallel loop independent gang vector default(present)
     do fp = 1,num_soilp
       p = filter_soilp(fp)
       ! root respiration (RR)
@@ -8531,27 +8529,22 @@ module VegetationDataType
       this%cpool_deadcroot_storage_gr(p)
     enddo
 
-    begc = bounds%begc 
-    endc = bounds%endc
-    begp = bounds%begp
-    endp = bounds%endp 
-    call p2c_1d_filter_parallel(begc,begp,num_soilc, filter_soilc, &
-      this%rr(begp:endp), &
-      col_cf_input%rr(begc:endc))
+    call p2c_1d_filter_parallel(bounds,num_soilc, filter_soilc, &
+      this%rr(bounds%begp:bounds%endp), &
+      col_cf_input%rr(bounds%begc:bounds%endc))
 
   end subroutine veg_cf_summary_rr
 
   !------------------------------------------------------------
   subroutine veg_cf_summary_for_ch4( this, bounds, num_soilp, filter_soilp)
     !
-    !$acc routine seq 
     ! !DESCRIPTION:
     ! summarize vegetation-level fluxes for methane calculation
     !
     ! !USES:
     !
     ! !ARGUMENTS:
-    class(vegetation_carbon_flux) :: this
+    type(vegetation_carbon_flux) :: this
     type(bounds_type), intent(in) :: bounds
     integer, intent(in) :: num_soilp
     integer, intent(in) :: filter_soilp(:)
@@ -8560,6 +8553,7 @@ module VegetationDataType
     integer :: fp, p
     !------------------------------------------------------------
 
+    !$acc parallel loop independent gang vector default(present)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -8611,7 +8605,7 @@ module VegetationDataType
     ! !DESCRIPTION:
     ! Set vegetation-level carbon fluxes
     ! !ARGUMENTS:
-    class (vegetation_carbon_flux) :: this
+    type(vegetation_carbon_flux) :: this
     integer , intent(in) :: num_patch
     integer , intent(in) :: filter_patch(:)
     real(r8), intent(in) :: value_patch
@@ -8621,6 +8615,7 @@ module VegetationDataType
     !------------------------------------------------------------------------
 
     if(.not.use_fates) then
+    !$acc parallel loop independent gang vector default(present)
        do fi = 1,num_patch
           i = filter_patch(fi)
 
@@ -8717,6 +8712,7 @@ module VegetationDataType
     end if !(.not.use_fates)
 
     if ( crop_prog )then
+      !$acc parallel loop independent gang vector default(present)
        do fi = 1,num_patch
           i = filter_patch(fi)
           this%xsmrpool_to_atm(i)         = value_patch
@@ -8733,6 +8729,7 @@ module VegetationDataType
        end do
     end if
 
+    !$acc parallel loop independent gang vector default(present)
     do fi = 1,num_patch
        i = filter_patch(fi)
        this%hrv_leafc_to_litter(i)                 = value_patch

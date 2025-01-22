@@ -15,6 +15,7 @@ module GridcellType
   use landunit_varcon, only : max_lunit
   use elm_varcon     , only : ispval, spval
   use topounit_varcon, only : max_topounits
+  use decompMod, only : bounds_type
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -75,6 +76,7 @@ module GridcellType
 
      procedure, public :: Init => grc_pp_init
      procedure, public :: Clean => grc_pp_clean
+     procedure, public :: SetSubgrid => grc_pp_set_subgrid
 
   end type gridcell_physical_properties_type
   type(gridcell_physical_properties_type), public, target :: grc_pp    !gridcell data structure
@@ -172,5 +174,61 @@ contains
     deallocate(this%sinsl_sinas      )
     
   end subroutine grc_pp_clean
+
+  subroutine grc_pp_set_subgrid(bounds)
+    !! Description:
+    !! Assign meaningful values for pft and col fields after surface data has been read.
+    !! 
+    type(bounds_type) , intent(in) :: bounds
+    !! Locals
+    integer :: ncols(bounds%begg:bounds%endg), npfts(bounds%begg:bounds%endg)
+    integer :: begg, begc, begp
+    integer :: endg, endc, endp
+
+    begg = bounds_proc%begg; endg = bounds_proc%endg 
+    begc = bounds_proc%begc; endc = bounds_proc%endc 
+    begp = bounds_proc%begp; endp = bounds_proc%endp 
+
+      ncols(:) = 0 
+      do c = bounds_proc%begc, bounds_proc%endc
+         g = col_pp%gridcell(c) 
+         ncols(g) = ncols(g) + 1
+      end do 
+      maxcols = maxval(ncols)
+      ncols(:) = 1 
+
+      allocate(grc_pp%cols(begg:endg,maxcols))  
+      do c = begc, endc 
+          g = col_pp%gridcell(c) 
+          i = ncols(g) 
+          grc_pp%cols(g,i) = c 
+          grc_pp%ncolumns(g) = i 
+          ncols(g) = ncols(g) + 1
+      end do 
+
+      npfts(:) = 0
+      allocate(grc_pp%npfts(begg:endg)) 
+
+      do p = begp, endp
+          c = veg_pp%column(p) 
+          g = col_pp%gridcell(c) 
+          npfts(g) = npfts(g) + 1 
+          grc_pp%npfts(g) = npfts(g)  
+      end do 
+
+      maxpfts = maxval(npfts)
+      npfts(:) = 1 
+      allocate(grc_pp%pfts(maxpfts,begg:endg)) 
+
+      do p = begp, endp
+          c = veg_pp%column(p)  
+          g = col_pp%gridcell(c) 
+          i = npfts(g) 
+          grc_pp%pfts(i,g) = p
+          npfts(g) = npfts(g) + 1
+      end do
+
+
+  end subroutine grc_pp_set_subgrid
 
 end module GridcellType
