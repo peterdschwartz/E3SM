@@ -396,7 +396,7 @@ contains
 
 
   !-----------------------------------------------------------------------
-  subroutine p2c_1d_filter_parallel(begc,begp,numfc, filterc, pftarr, colarr)
+  subroutine p2c_1d_filter_parallel(bounds,numfc, filterc, pftarr, colarr)
     !
     ! !DESCRIPTION:
     ! perform pft to column averaging for single level pft arrays
@@ -404,11 +404,11 @@ contains
     !      not divisble by clumps
     !
     ! !ARGUMENTS:
-    integer , intent(in)  :: begc, begp
+    type(bounds_type) , intent(in)  :: bounds
     integer , intent(in)  :: numfc
     integer , intent(in)  :: filterc(numfc)
-    real(r8), intent(in)  :: pftarr(begp:)
-    real(r8), intent(out) :: colarr(begc:)
+    real(r8), intent(in)  :: pftarr(bounds%begp:)
+    real(r8), intent(out) :: colarr(bounds%begc:)
     !
     ! !LOCAL VARIABLES:
     integer :: fc,c,p  ! indices
@@ -424,7 +424,7 @@ contains
        sum_patch = 0._r8
        !$acc loop vector reduction(+:sum_patch)
        do p = col_pp%pfti(c), col_pp%pftf(c)
-          if (veg_pp%active(p)) sum_patch = sum_patch + pftarr(p) * veg_pp%wtcol(p)
+          sum_patch = sum_patch + pftarr(p) * veg_pp%wtcol(p)
        end do
        colarr(c) = sum_patch
     end do
@@ -517,8 +517,8 @@ end subroutine p2c_1d_filter_parallel
           scale_p2c(p) = 1.0_r8
        end do
     else
-       !#py write(iulog,*)'p2l_1d error: scale type ',p2c_scale_type,' not supported'
-       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2l_1d error: scale type ',p2c_scale_type,' not supported'
+       call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     larr(bounds%begl : bounds%endl) = spval
@@ -544,8 +544,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*)'p2l_1d error: sumwt is greater than 1.0 at l= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2l_1d error: sumwt is greater than 1.0 at l= ',index
+       call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine p2l_1d
@@ -583,8 +583,8 @@ end subroutine p2c_1d_filter_parallel
           scale_p2c(p) = 1.0_r8
        end do
     else
-       !#py write(iulog,*)'p2l_2d error: scale type ',p2c_scale_type,' not supported'
-       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2l_2d error: scale type ',p2c_scale_type,' not supported'
+       call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     larr(bounds%begl : bounds%endl, :) = spval
@@ -611,8 +611,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-          !#py write(iulog,*)'p2l_2d error: sumwt is greater than 1.0 at l= ',index,' j= ',j
-          !#py !#py call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+          write(iulog,*)'p2l_2d error: sumwt is greater than 1.0 at l= ',index,' j= ',j
+          call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -653,8 +653,8 @@ end subroutine p2c_1d_filter_parallel
           scale_p2c(p) = 1.0_r8
        end do
     else
-       !#py write(iulog,*)'p2g_1d error: scale type ',c2l_scale_type,' not supported'
-       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2g_1d error: scale type ',c2l_scale_type,' not supported'
+       call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     garr(bounds%begg : bounds%endg) = spval
@@ -681,8 +681,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*)'p2g_1d error: sumwt is greater than 1.0 at g= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2g_1d error: sumwt is greater than 1.0 at g= ',index
+       call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine p2g_1d
@@ -778,8 +778,8 @@ end subroutine p2c_1d_filter_parallel
           scale_p2c(p) = 1.0_r8
        end do
     else
-       !#py write(iulog,*)'p2g_2d error: scale type ',c2l_scale_type,' not supported'
-       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2g_2d error: scale type ',c2l_scale_type,' not supported'
+       call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     garr(bounds%begg : bounds%endg, :) = spval
@@ -807,8 +807,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-          !#py write(iulog,*)'p2g_2d error: sumwt gt 1.0 at g/sumwt = ',index,sumwt(index)
-          !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+          write(iulog,*)'p2g_2d error: sumwt gt 1.0 at g/sumwt = ',index,sumwt(index)
+          call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -976,8 +976,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*)'c2l_1d error: sumwt is greater than 1.0 at l= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'c2l_1d error: sumwt is greater than 1.0 at l= ',index
+       call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine c2l_1d
@@ -1031,8 +1031,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-        !#py write(iulog,*)'c2l_2d error: sumwt is greater than 1.0 at l= ',index,' lev= ',j
-        !#py !#py call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
+        write(iulog,*)'c2l_2d error: sumwt is greater than 1.0 at l= ',index,' lev= ',j
+        call endrun(decomp_index=index, elmlevel=namel, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -1088,8 +1088,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*)'c2g_1d error: sumwt is greater than 1.0 at g= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'c2g_1d error: sumwt is greater than 1.0 at g= ',index
+       call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine c2g_1d
@@ -1257,8 +1257,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-          !#py write(iulog,*)'c2g_2d error: sumwt is greater than 1.0 at g= ',index
-          !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+          write(iulog,*)'c2g_2d error: sumwt is greater than 1.0 at g= ',index
+          call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -1366,8 +1366,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*) 'l2g_1d error: sumwt is greater than 1.0 at g= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*) 'l2g_1d error: sumwt is greater than 1.0 at g= ',index
+       call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine l2g_1d
@@ -1420,8 +1420,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-          !#py write(iulog,*) 'l2g_2d error: sumwt is greater than 1.0 at g= ',index,' lev= ',j
-          !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+          write(iulog,*) 'l2g_2d error: sumwt is greater than 1.0 at g= ',index,' lev= ',j
+          call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -1716,8 +1716,8 @@ end subroutine p2c_1d_filter_parallel
      else if (l2t_scale_type == 'lake') then
         scale_lookup(istdlak) = 1.0_r8
      else
-        !#py write(iulog,*)'scale_l2g_lookup_array error: scale type ',l2t_scale_type,' not supported'
-        !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
+        write(iulog,*)'scale_l2g_lookup_array error: scale type ',l2t_scale_type,' not supported'
+        call endrun(msg=errMsg(__FILE__, __LINE__))
      end if
 
   end subroutine create_scale_l2t_lookup
@@ -1760,8 +1760,8 @@ end subroutine p2c_1d_filter_parallel
           scale_p2c(p) = 1.0_r8
        end do
     else
-       !#py write(iulog,*)'p2t_1d error: scale type ',p2c_scale_type,' not supported'
-       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2t_1d error: scale type ',p2c_scale_type,' not supported'
+       call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     tarr(bounds%begt : bounds%endt) = spval
@@ -1788,8 +1788,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*)'p2t_1d error: sumwt is greater than 1.0 at t= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2t_1d error: sumwt is greater than 1.0 at t= ',index
+       call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine p2t_1d
@@ -1835,8 +1835,8 @@ end subroutine p2c_1d_filter_parallel
           scale_p2c(p) = 1.0_r8
        end do
     else
-       !#py write(iulog,*)'p2t_2d error: scale type ',p2c_scale_type,' not supported'
-       !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'p2t_2d error: scale type ',p2c_scale_type,' not supported'
+       call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
 
     tarr(bounds%begt : bounds%endt, :) = spval
@@ -1864,8 +1864,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-          !#py write(iulog,*)'p2t_2d error: sumwt gt 1.0 at t/sumwt = ',index,sumwt(index)
-          !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+          write(iulog,*)'p2t_2d error: sumwt gt 1.0 at t/sumwt = ',index,sumwt(index)
+          call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -1925,8 +1925,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*)'c2t_1d error: sumwt is greater than 1.0 at t= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'c2t_1d error: sumwt is greater than 1.0 at t= ',index
+       call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine c2t_1d
@@ -1987,8 +1987,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-          !#py write(iulog,*)'c2t_2d error: sumwt is greater than 1.0 at t= ',index
-          !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+          write(iulog,*)'c2t_2d error: sumwt is greater than 1.0 at t= ',index
+          call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -2041,8 +2041,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*)'l2t_1d error: sumwt is greater than 1.0 at t= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'l2t_1d error: sumwt is greater than 1.0 at t= ',index
+       call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine l2t_1d
@@ -2097,8 +2097,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-          !#py write(iulog,*)'l2t_2d error: sumwt is greater than 1.0 at t= ',index,' lev= ',j
-          !#py !#py call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
+          write(iulog,*)'l2t_2d error: sumwt is greater than 1.0 at t= ',index,' lev= ',j
+          call endrun(decomp_index=index, elmlevel=namet, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -2214,8 +2214,8 @@ end subroutine p2c_1d_filter_parallel
        end if
     end do
     if (found) then
-       !#py write(iulog,*)'t2g_1d error: sumwt is greater than 1.0 at g= ',index
-       !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+       write(iulog,*)'t2g_1d error: sumwt is greater than 1.0 at g= ',index
+       call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
     end if
 
   end subroutine t2g_1d
@@ -2268,8 +2268,8 @@ end subroutine p2c_1d_filter_parallel
           end if
        end do
        if (found) then
-          !#py write(iulog,*)'t2g_2d error: sumwt is greater than 1.0 at g= ',index,' lev= ',j
-          !#py !#py call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
+          write(iulog,*)'t2g_2d error: sumwt is greater than 1.0 at g= ',index,' lev= ',j
+          call endrun(decomp_index=index, elmlevel=nameg, msg=errMsg(__FILE__, __LINE__))
        end if
     end do
 
@@ -2428,8 +2428,8 @@ end subroutine p2c_1d_filter_parallel
           end if
         end do
       else
-        !#py write(iulog,*) 'error: scale type ',c2l_scale_type,' not supported'
-        !#py !#py call endrun(msg=errMsg(__FILE__, __LINE__))
+        write(iulog,*) 'error: scale type ',c2l_scale_type,' not supported'
+        call endrun(msg=errMsg(__FILE__, __LINE__))
       end if
 
     end subroutine create_scale_c2l

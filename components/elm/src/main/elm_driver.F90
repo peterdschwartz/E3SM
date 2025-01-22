@@ -202,13 +202,23 @@ module elm_driver
   use NitrogenStateUpdate1Mod   , only : NitrogenStateUpdateDynPatch
   use PhosphorusStateUpdate1Mod     , only : PhosphorusStateUpdateDynPatch
 
-  use dynSubgridDriverMod    , only : dynSubgrid_driver,dynSubgrid_wrapup_weight_changes
-  use dynSubgridDriverMod    , only : prior_weights, column_state_updater, patch_state_updater
+  use dynSubgridDriverMod, only : dynSubgrid_driver, dynSubgrid_wrapup_weight_changes
+  use dynSubgridDriverMod, only : prior_weights, column_state_updater, patch_state_updater
   use domainMod , only : ldomain
   use histGPUMod , only : tape_gpu
   use histFileMod , only : elmptr_ra, elmptr_rs
   use update_accMod
   use timeinfoMod
+
+  use filterMod, only : createProcessorFilter
+
+  use DeepCopyChemMod, only : deepcopy_bgc_types
+  use DeepCopyMainMod, only : deepcopy_main_types
+  use DeepCopyPhysMod, only : deepcopy_biogeophys_types
+  use DeepCopyColumnMod, only : deepcopy_column_types
+  use DeepCopyVegetationMod, only : deepcopy_vegetation_types
+  use DeepCopyLandTopoMod, only : deepcopy_LandTopo_types
+  use DeepCopyGridcellMod, only : deepcopy_gridcell_types
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -316,147 +326,50 @@ contains
     call get_proc_bounds(bounds_proc)
     nclumps = get_proc_clumps()
 
-#if _CUDA
-    istat = cudaDeviceGetLimit(heapsize, cudaLimitMallocHeapSize)
-    print *, "SETTING Heap Limit from", heapsize
-    heapsize = 189_8*1024_8*1024_8
-    print *, "TO:",heapsize
-    istat = cudaDeviceSetLimit(cudaLimitMallocHeapSize,heapsize)
-    istat = cudaMemGetInfo(free1, total)
-    print *, "Free1:",free1
-if(nstep_mod == 0 ) then
-  print *, "transferring data to GPU"
-   !$acc update device( &
-   !$acc        spinup_state            &
-   !$acc       , nyears_ad_carbon_only   &
-   !$acc       , spinup_mortality_factor &
-   !$acc       , carbon_only &
-   !$acc       , carbonphosphorus_only &
-   !$acc       , carbonnitrogen_only &
-   !$acc       ,use_crop            &
-   !$acc       ,use_snicar_frc      &
-   !$acc       ,use_snicar_ad       &
-   !$acc       ,use_vancouver       &
-   !$acc       ,use_mexicocity      &
-   !$acc       ,use_noio            &
-   !$acc       ,use_var_soil_thick  &
-   !$acc       ,NFIX_PTASE_plant &
-   !$acc       ,tw_irr &
-   !$acc       ,use_erosion &
-   !$acc       ,ero_ccycle  &
-   !$acc       ,anoxia &
-   !$acc       , glc_do_dynglacier &
-   !$acc       , all_active &
-   !$acc       , co2_ppmv &
-   !$acc       , const_climate_hist &
-   !$acc     )
-   !$acc update device(first_step, nlevgrnd) ! TODO!!!!!!, eccen, obliqr, lambm0, mvelpp )
-   call update_acc_variables()
-   !
-  !! !$acc enter data copyin(filter(:), &
-  !! !$acc filter_inactive_and_active(:) )
-   !
-    !$acc enter data copyin(&
-    !$acc aerosol_vars     , &
-    !$acc AllocParamsInst  , &
-    !$acc atm2lnd_vars     , &
-    !$acc c13_col_cf     , &
-    !$acc c13_col_cs     , &
-    !$acc c13_grc_cf     , &
-    !$acc c13_veg_cf     , &
-    !$acc c13_veg_cs     , &
-    !$acc c14_col_cf     , &
-    !$acc c14_col_cs     , &
-    !$acc c14_grc_cf     , &
-    !$acc c14_veg_cf     , &
-    !$acc c14_veg_cs     , &
-    !$acc canopystate_vars, &
-    !$acc CH4ParamsInst     , &
-    !$acc ch4_vars          , &
-    !$acc CNDecompParamsInst     , &
-    !$acc CNGapMortParamsInst     , &
-    !$acc CNNDynamicsParamsInst     , &
-    !$acc cnstate_vars     , &
-    !$acc column_state_updater     , &
-    !$acc col_cf     , &
-    !$acc col_cs     , &
-    !$acc col_ef     , &
-    !$acc col_es     , &
-    !$acc col_nf     , &
-    !$acc col_ns     , &
-    !$acc col_pf     , &
-    !$acc col_pp     , &
-    !$acc col_ps     , &
-    !$acc col_wf     , &
-    !$acc col_ws     , &
-    !$acc crop_vars     , &
-   ! !$acc dyn_subgrid_control_inst , &
-   ! !$acc subgrid_weights_diagnostics, &
-    !$acc DecompBGCParamsInst     , &
-    !$acc DecompCNParamsInst     , &
-    !$acc decomp_cascade_con     , &
-    !$acc drydepvel_vars     , &
-    !$acc dust_vars     , &
-   ! !$acc energyflux_vars     , &
-    !$acc frictionvel_vars     , &
-   ! !$acc glc2lnd_vars     , &
-   ! !$acc grc_cf     , &
-   ! !$acc grc_cs     , &
-   ! !$acc grc_ef     , &
-   ! !$acc grc_es     , &
-   ! !$acc grc_nf     , &
-   ! !$acc grc_ns     , &
-   ! !$acc grc_pf     , &
-   ! !$acc grc_pp     , &
-   ! !$acc grc_ps     , &
-   ! !$acc grc_wf     , &
-   ! !$acc grc_ws     , &
-   ! !$acc lakestate_vars , &
-   !! !$acc ldomain  ,&
-   ! !$acc lnd2glc_vars   , &
-   ! !$acc lnd2atm_vars   , &
-   ! !$acc lun_ef     , &
-   ! !$acc lun_es     , &
-   ! !$acc lun_pp     , &
-   ! !$acc lun_ws     , &
-   !! !$acc NitrifDenitrifParamsInst     , &
-   !! !$acc ParamsShareInst     , &
-   !! !$acc params_inst     , &
-   !! !$acc patch_state_updater     , &
-   !! !$acc photosyns_vars     , &
-   !! !$acc prior_weights     , &
-   !! !$acc sedflux_vars     , &
-   !! !$acc soilhydrology_vars     , &
-   !! !$acc soilstate_vars     , &
-   !! !$acc solarabs_vars     , &
-   !! !$acc surfalb_vars     , &
-   !! !$acc surfrad_vars     , &
-   !! !$acc top_af     , &
-   !! !$acc top_as     , &
-   !! !$acc top_pp     , &
-   !! !$acc urbanparams_vars     , &
-   !! !$acc veg_cf     , &
-   !! !$acc veg_cs     , &
-   !! !$acc veg_ef     , &
-   !! !$acc veg_es     , &
-   !! !$acc veg_nf     , &
-   !! !$acc veg_ns     , &
-   !! !$acc veg_pf     , &
-   !! !$acc veg_pp     , &
-   !! !$acc veg_ps     , &
-   !! !$acc veg_vp     , &
-   !! !$acc veg_wf     , &
-    !$acc veg_ws      &
-    !$acc   )
-    !! !$acc enter data copyin(tape_gpu(:),elmptr_ra,elmptr_rs)
-    !$acc enter data copyin( doalb, declinp1, declin )
+   if(nstep_mod == 0) then 
+      call init_proc_clump_info()
+      call createLitterTransportList()
+      call grc_pp%SetSubgrid(bounds_proc)
+      call createProcessorFilter(nclumps, bounds_proc, proc_filter, glc2lnd_vars%icemask_grc)
+      call createProcessorFilter(nclumps, bounds_proc, proc_filter_inactive_and_active, glc2lnd_vars%icemask_grc)
 
-          istat = cudaMemGetInfo(free2, total)
-          print *, "Transferred:", free1-free2
-          print *, "Total:",total
-          print *, "Free:", free2
-  end if
+#ifdef _OPENACC
+      call deepcopy_bgc_types(alloc_inst,ch4_params,ch4_vars,decomp_cascade_inst,&
+      crop_vars, dust_vars, decompbgcparams, &
+      decompcnparams, drydep_vars, CNGapMortParamsInst, &
+      NitrifDenitrifParamsInst, NitrogenParamsInst, &
+      SharedParams, DecompParams)
 
+      call deepcopy_main_types(domain_params, atm2lnd_inst, lnd2atm_vars,&
+      lnd2glc_inst, soilorder_inst)
+
+      call deepcopy_biogeophys_types(aerosol_vars, canopystate_vars, &
+      photosyns_vars, solarabs_vars,surfalb_vars,&
+      urbanparams_vars, surfrad_vars, energyflux_vars, &
+      soilhydrology_vars, lakestate_vars, frictionvel_vars)
+
+      call deepcopy_column_types(col_pp, col_es, col_ef,col_ws,&
+      col_wf, col_cs,col_cf,col_ps,&
+      col_pf,col_ns,col_nf)
+
+      call deepcopy_vegetation_types(veg_pp, veg_vp,veg_es,veg_ef, &
+      veg_ws, veg_wf, veg_cs, veg_cf, &
+      veg_ps, veg_pf, veg_ns, veg_nf)
+
+      call deepcopy_LandTopo_types(lun_pp, lun_es, lun_ef, lun_ws,&
+      top_pp, top_as, top_af, top_es)
+
+      call deepcopy_gridcell_types(grc_pp, grc_es, grc_ef, grc_ws, grc_wf, &
+      grc_cs, grc_cf, grc_ns, grc_nf, grc_ps, grc_pf)
+#endif
+
+   end if 
+
+
+#ifdef CPL_BYPASS 
+      !$acc enter data copyin(cpl_bypass_input%atm_input(:,:,:,1:5))
+     call update_forcings_cplbypass(bounds_proc, atm2lnd_vars, cpl_bypass_input, &
+            dtime_mod, thiscalday_mod,secs_curr, year_curr, mon_curr, nstep_mod) 
 #endif
 
     if (do_budgets) call WaterBudget_Reset()
@@ -475,7 +388,7 @@ if(nstep_mod == 0 ) then
 
     elseif(use_fates) then
        if(use_fates_sp) then
-       
+
           ! For FATES satellite phenology mode interpolate the weights for
           ! time-interpolation of monthly vegetation data (as in SP mode below)
           ! Also for FATES with dry-deposition as above need to call CLMSP so that mlaidiff is obtained
@@ -508,13 +421,12 @@ if(nstep_mod == 0 ) then
     ! the associated filter updates, too (otherwise we get a carbon balance error)
     ! ==================================================================================
 
+     call t_startf("decomp_vert")
     !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
     do nc = 1,nclumps
        call get_clump_bounds(nc, bounds_clump)
 
-       call t_startf("decomp_vert")
-       call alt_calc(filter(nc)%num_soilc, filter(nc)%soilc, &
-            temperature_vars, canopystate_vars)
+       call alt_calc(filter(nc)%num_soilc, filter(nc)%soilc, canopystate_vars)
 
        !  Note (WJS, 6-12-13): Because of this routine's placement in the driver sequence
        !  (it is called very early in each timestep, before weights are adjusted and
@@ -524,115 +436,87 @@ if(nstep_mod == 0 ) then
        !  because the variables computed here seem to only depend on quantities that are
        !  valid over inactive as well as active points.
 
-       if(use_fates .or. use_cn) then
-
-          call decomp_vertprofiles(bounds_clump, &
-               filter_inactive_and_active(nc)%num_soilc, &
-               filter_inactive_and_active(nc)%soilc, &
-               filter_inactive_and_active(nc)%num_soilp, &
-               filter_inactive_and_active(nc)%soilp, &
-               soilstate_vars, canopystate_vars, cnstate_vars)
-       end if
-       call t_stopf("decomp_vert")
     end do
     !$OMP END PARALLEL DO
+    if(use_fates .or. use_cn) then
+
+       call decomp_vertprofiles(bounds_proc, &
+            proc_filter_inactive_and_active%num_soilc, &
+            proc_filter_inactive_and_active%soilc, &
+            proc_filter_inactive_and_active%num_soilp, &
+            proc_filter_inactive_and_active%soilp, &
+            soilstate_vars, canopystate_vars, cnstate_vars)
+    end if
+    call t_stopf("decomp_vert")
 
     ! ============================================================================
     ! Zero fluxes for transient land cover
     ! ============================================================================
+    call t_startf('beggridwbal')
+      call BeginGridWaterBalance(bounds_proc,               &
+      proc_filter%num_nolakec, proc_filter%nolakec,       &
+      proc_filter%num_lakec, proc_filter%lakec,           &
+      proc_filter%num_hydrologyc, proc_filter%hydrologyc, &
+      soilhydrology_vars )
+    call t_stopf('beggridwbal')
 
-    !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
-    do nc = 1,nclumps
-       call get_clump_bounds(nc, bounds_clump)
-
-       call t_startf('beggridwbal')
-       call BeginGridWaterBalance(bounds_clump,               &
-            filter(nc)%num_nolakec, filter(nc)%nolakec,       &
-            filter(nc)%num_lakec, filter(nc)%lakec,           &
-            filter(nc)%num_hydrologyc, filter(nc)%hydrologyc, &
-            soilhydrology_vars )
-       call t_stopf('beggridwbal')
-
-       if (use_betr) then
+    if (use_betr) then
+       !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
+       do nc = 1,nclumps
+         call get_clump_bounds(nc, bounds_clump)
          dtime=get_step_size(); nstep=get_nstep()
          call ep_betr%SetClock(dtime= dtime, nelapstep=nstep)
          call ep_betr%BeginMassBalanceCheck(bounds_clump)
-       endif
+       end do 
+   endif
 
-       call t_startf('cnpinit')
+   call t_startf('cnpinit')
+   if(use_cn .or. use_fates) then
+      call t_startf('cnpvegzero')
+      call zero_elm_weights(bounds_proc)
+      call t_stopf('cnpvegzero')
+   end if
 
-       if (use_cn) then
-          call t_startf('cnpvegzero')
+    call t_startf('cnpvegsumm')
+    if(use_cn) then
+       call veg_cs_Summary(veg_cs,bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc, &
+            proc_filter%num_soilp, proc_filter%soilp, col_cs)
+       call veg_ns%Summary(bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc, &
+            proc_filter%num_soilp, proc_filter%soilp, col_ns)
+       call veg_ps%Summary(bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc, &
+            proc_filter%num_soilp, proc_filter%soilp, col_ps)
 
-          call veg_cs%ZeroDwt(bounds_clump)
-          if (use_c13) then
-             call c13_grc_cf%ZeroDWT(bounds_clump)
-             call c13_col_cf%ZeroDWT(bounds_clump)
-          end if
-          if (use_c14) then
-             call c14_grc_cf%ZeroDWT(bounds_clump)
-             call c14_col_cf%ZeroDWT(bounds_clump)
-          end if
-          call veg_ns%ZeroDWT(bounds_clump)
-          call veg_ps%ZeroDWT(bounds_clump)
-          call t_stopf('cnpvegzero')
-       end if
+    elseif(use_fates)then
+       ! In this scenario, we simply zero all of the
+       ! column level variables that would had been upscaled
+       ! in the veg summary with p2c
+       call col_cs%ZeroForFates(bounds_proc,proc_filter%num_soilc, proc_filter%soilc)
+       call col_ns%ZeroForFates(bounds_proc,proc_filter%num_soilc, proc_filter%soilc)
+       call col_ps%ZeroForFates(bounds_proc,proc_filter%num_soilc, proc_filter%soilc)
+    end if
+    call t_stopf('cnpvegsumm')
 
-       if (use_cn .or. use_fates) then
-          call t_startf('cnpzero')
-          call grc_cf%ZeroDWT(bounds_clump)
-          call col_cf%ZeroDWT(bounds_clump)
-          call grc_nf%ZeroDWT(bounds_clump)
-          call col_nf%ZeroDWT(bounds_clump)
-          call grc_pf%ZeroDWT(bounds_clump)
-          call col_pf%ZeroDWT(bounds_clump)
-          call t_stopf('cnpzero')
-       end if
+    if(use_cn .or. use_fates)then
 
-       call t_startf('cnpvegsumm')
-       if(use_cn) then
-          call veg_cs%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               filter(nc)%num_soilp, filter(nc)%soilp, col_cs)
-          call veg_ns%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               filter(nc)%num_soilp, filter(nc)%soilp, col_ns)
-          call veg_ps%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               filter(nc)%num_soilp, filter(nc)%soilp, col_ps)
+       call col_cs%Summary(bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc)
 
-       elseif(use_fates)then
-          ! In this scenario, we simply zero all of the
-          ! column level variables that would had been upscaled
-          ! in the veg summary with p2c
-          call col_cs%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-          call col_ns%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-          call col_ps%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-       end if
-       call t_stopf('cnpvegsumm')
+       call col_ns%Summary(bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc)
 
-       if(use_cn .or. use_fates)then
+       call col_ps%Summary(bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc)
 
-          call col_cs%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc)
+       call BeginGridCBalance(bounds_proc, col_cs, grc_cs)
+       call BeginGridNBalance(bounds_proc, col_ns, grc_ns)
+       call BeginGridPBalance(bounds_proc, col_ps, grc_ps)
 
-          call col_ns%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc)
+    end if
 
-          call col_ps%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc)
-
-          call BeginGridCBalance(bounds_clump, col_cs, grc_cs)
-          call BeginGridNBalance(bounds_clump, col_ns, grc_ns)
-          call BeginGridPBalance(bounds_clump, col_ps, grc_ps)
-
-       end if
-
-       call t_stopf('cnpinit')
-
-
-    end do
-    !$OMP END PARALLEL DO
+    call t_stopf('cnpinit')
 
     ! ============================================================================
     ! Update subgrid weights with dynamic landcover (prescribed transient patches,
@@ -659,41 +543,41 @@ if(nstep_mod == 0 ) then
        else
           call t_startf('cnbalchk_at_grid')
 
-          !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
-          do nc = 1,nclumps
-             call get_clump_bounds(nc, bounds_clump)
 
              if(use_cn) then
-                call veg_cs%Summary(bounds_clump, &
-                     filter(nc)%num_soilc, filter(nc)%soilc, &
-                     filter(nc)%num_soilp, filter(nc)%soilp, col_cs)
+                call veg_cs_summary(veg_cs, bounds_proc, &
+                     proc_filter%num_soilc, proc_filter%soilc, &
+                     proc_filter%num_soilp, proc_filter%soilp, col_cs)
 
-                call veg_ns%Summary(bounds_clump, &
-                     filter(nc)%num_soilc, filter(nc)%soilc, &
-                     filter(nc)%num_soilp, filter(nc)%soilp, col_ns)
+                call veg_ns_summary(veg_ns, bounds_proc, &
+                     proc_filter%num_soilc, proc_filter%soilc, &
+                     proc_filter%num_soilp, proc_filter%soilp, col_ns)
 
-                call veg_ps%Summary(bounds_clump, &
-                     filter(nc)%num_soilc, filter(nc)%soilc, &
-                     filter(nc)%num_soilp, filter(nc)%soilp, col_ps)
+                call veg_ps_summary(veg_ps,bounds_proc, &
+                     proc_filter%num_soilc, proc_filter%soilc, &
+                     proc_filter%num_soilp, proc_filter%soilp, col_ps)
 
              elseif(use_fates)then
                 ! In this scenario, we simply zero all of the
                 ! column level variables that would had been upscaled
                 ! in the veg summary with p2c
-                call col_cs%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-                call col_ns%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-                call col_ps%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
+                call col_cs%ZeroForFates(bounds_proc,proc_filter%num_soilc, proc_filter%soilc)
+                call col_ns%ZeroForFates(bounds_proc,proc_filter%num_soilc, proc_filter%soilc)
+                call col_ps%ZeroForFates(bounds_proc,proc_filter%num_soilc, proc_filter%soilc)
              end if
 
-             call col_cs%Summary(bounds_clump, &
-                  filter(nc)%num_soilc, filter(nc)%soilc)
+             call col_cs_Summary(col_cs, bounds_proc, &
+                  proc_filter%num_soilc, proc_filter%soilc)
 
-             call col_ns%Summary(bounds_clump, &
-                  filter(nc)%num_soilc, filter(nc)%soilc)
+             call col_ns_Summary(col_ns, bounds_proc, &
+                  proc_filter%num_soilc, proc_filter%soilc)
 
-             call col_ps%Summary(bounds_clump, &
-                  filter(nc)%num_soilc, filter(nc)%soilc)
+             call col_ps_Summary(col_ps, bounds_proc, &
+                  proc_filter%num_soilc, proc_filter%soilc)
 
+          !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
+          do nc = 1,nclumps
+             call get_clump_bounds(nc, bounds_clump)
              call EndGridCBalanceAfterDynSubgridDriver(bounds_clump, &
                   filter(nc)%num_soilc, filter(nc)%soilc, &
                   col_cs, grc_cs, grc_cf)
@@ -2126,5 +2010,114 @@ if(nstep_mod == 0 ) then
 1000 format (1x,'nstep = ',i10,'   TS = ',f21.15)
 
   end subroutine write_diagnostic
+
+   subroutine zero_elm_weights(bounds)
+      ! Zeroes the weights of variables 
+      ! at start of elm timestep 
+      implicit none 
+      type(bounds_type), intent(in) :: bounds 
+      integer :: p, g ,c, j
+
+      ! Vegetation
+      !$acc parallel loop independent gang vector default(present) 
+      do p = bounds%begp,bounds%endp
+         !C
+         veg_cs%dispvegc(p) = 0._r8
+         veg_cs%storvegc(p) = 0._r8
+         veg_cs%totpftc(p)  = 0._r8
+         !N
+         veg_ns%dispvegn(p) = 0._r8
+         veg_ns%storvegn(p) = 0._r8
+         veg_ns%totvegn(p)  = 0._r8
+         veg_ns%totpftn(p)  = 0._r8
+         !P
+         veg_ps%dispvegp(p) = 0._r8
+         veg_ps%storvegp(p) = 0._r8
+         veg_ps%totvegp(p)  = 0._r8
+         veg_ps%totpftp(p)  = 0._r8
+      end do
+
+
+      !$acc parallel loop independent gang vector default(present)
+      do g = bounds%begg, bounds%endg
+         grc_cf%dwt_seedc_to_leaf(g)         = 0._r8
+         grc_cf%dwt_seedc_to_deadstem(g)     = 0._r8
+         grc_cf%dwt_conv_cflux(g)            = 0._r8
+         grc_cf%dwt_prod10c_gain(g)          = 0._r8
+         grc_cf%dwt_prod100c_gain(g)         = 0._r8
+         grc_cf%hrv_deadstemc_to_prod10c(g)  = 0._r8
+         grc_cf%hrv_deadstemc_to_prod100c(g) = 0._r8
+         !
+         grc_nf%dwt_seedn_to_leaf(g)     = 0._r8
+         grc_nf%dwt_seedn_to_deadstem(g) = 0._r8
+         grc_nf%dwt_conv_nflux(g)        = 0._r8
+         grc_nf%dwt_seedn_to_npool(g)    = 0._r8
+         grc_nf%dwt_prod10n_gain(g)      = 0._r8
+         grc_nf%dwt_prod100n_gain(g)     = 0._r8
+         !
+         grc_pf%dwt_seedp_to_leaf(g)     = 0._r8
+         grc_pf%dwt_seedp_to_deadstem(g) = 0._r8
+         grc_pf%dwt_conv_pflux(g)        = 0._r8
+         grc_pf%dwt_seedp_to_ppool(g)    = 0._r8
+         grc_pf%dwt_prod10p_gain(g)      = 0._r8
+         grc_pf%dwt_prod100p_gain(g)     = 0._r8
+         !
+      end do
+
+      !COLUMN VARIABLES
+      !$acc parallel loop independent gang vector default(present) 
+      do c = bounds%begc,bounds%endc
+         col_cf%dwt_conv_cflux(c)           = 0._r8
+         col_cf%dwt_prod10c_gain(c)         = 0._r8
+         col_cf%dwt_prod100c_gain(c)        = 0._r8
+         col_cf%dwt_crop_productc_gain(c)   = 0._r8
+         col_cf%dwt_slash_cflux(c)          = 0._r8
+
+         col_nf%dwt_conv_nflux(c)        = 0._r8
+         col_nf%dwt_prod10n_gain(c)      = 0._r8
+         col_nf%dwt_prod100n_gain(c)     = 0._r8
+         col_nf%dwt_crop_productn_gain(c)= 0._r8
+         col_nf%dwt_slash_nflux(c)       = 0._r8
+         !
+         col_pf%dwt_conv_pflux(c)        = 0._r8
+         col_pf%dwt_prod10p_gain(c)      = 0._r8
+         col_pf%dwt_prod100p_gain(c)     = 0._r8
+         col_pf%dwt_crop_productp_gain(c) = 0._r8
+         col_pf%dwt_slash_pflux(c)       = 0._r8
+      end do
+
+      if (use_c13) then
+           call c13_grc_cf%ZeroDWT(bounds)
+           call c13_col_cf%ZeroDWT(bounds)
+      end if
+      if (use_c14) then
+           call c14_grc_cf%ZeroDWT(bounds)
+           call c14_col_cf%ZeroDWT(bounds)
+      end if
+
+      !$acc parallel loop independent gang vector collapse(2) default(present)
+      do j = 1, nlevdecomp_full
+         do c = bounds%begc,bounds%endc
+            col_cf%dwt_frootc_to_litr_met_c(c,j)    = 0._r8
+            col_cf%dwt_frootc_to_litr_cel_c(c,j)    = 0._r8
+            col_cf%dwt_frootc_to_litr_lig_c(c,j)    = 0._r8
+            col_cf%dwt_livecrootc_to_cwdc(c,j)      = 0._r8
+            col_cf%dwt_deadcrootc_to_cwdc(c,j)      = 0._r8
+            !
+            col_nf%dwt_frootn_to_litr_met_n(c,j) = 0._r8
+            col_nf%dwt_frootn_to_litr_cel_n(c,j) = 0._r8
+            col_nf%dwt_frootn_to_litr_lig_n(c,j) = 0._r8
+            col_nf%dwt_livecrootn_to_cwdn(c,j)   = 0._r8
+            col_nf%dwt_deadcrootn_to_cwdn(c,j)   = 0._r8
+            !
+            col_pf%dwt_frootp_to_litr_met_p(c,j) = 0._r8
+            col_pf%dwt_frootp_to_litr_cel_p(c,j) = 0._r8
+            col_pf%dwt_frootp_to_litr_lig_p(c,j) = 0._r8
+            col_pf%dwt_livecrootp_to_cwdp(c,j)   = 0._r8
+            col_pf%dwt_deadcrootp_to_cwdp(c,j)   = 0._r8
+         end do
+      end do
+
+   end subroutine zero_elm_weights
 
 end module elm_driver

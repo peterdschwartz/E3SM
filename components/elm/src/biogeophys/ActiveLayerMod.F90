@@ -42,7 +42,7 @@ contains
     !  initialized to valid values, so I think this is okay.
     !
     ! !USES:
-    !$acc routine seq 
+    !$acc routine seq
     use shr_const_mod    , only : SHR_CONST_TKFRZ
     use elm_varpar       , only : nlevgrnd
     use elm_time_manager , only : get_curr_date, get_step_size

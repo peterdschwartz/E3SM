@@ -123,21 +123,21 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine template_col_from_natveg_array(bounds, cactive, c_templates)
-    !
-    ! !DESCRIPTION:
-    ! For each column, finds a column to serve as a template for the state variables on
-    ! the target column.
-    !
-    ! For each column: Looks for the first active column on the natural veg landunit in
-    ! the same grid cell as the target column. If there are no active columns in the
-    ! natural veg landunit in this grid cell, assigns TEMPLATE_NONE_FOUND.
-    !
-    ! Note: If there are multiple columns on the natural veg. landunit, then a given
-    ! natural veg column may have a template col that differs from itself! The caller is
-    ! responsible for determining when this template column should be used and when it
-    ! should not be used.
-    !
-    ! See also the notes about cactive under 'template_col_from_landunit'.
+    !!
+    !! !DESCRIPTION:
+    !! For each column, finds a column to serve as a template for the state variables on
+    !! the target column.
+    !!
+    !! For each column: Looks for the first active column on the natural veg landunit in
+    !! the same grid cell as the target column. If there are no active columns in the
+    !! natural veg landunit in this grid cell, assigns TEMPLATE_NONE_FOUND.
+    !!
+    !! Note: If there are multiple columns on the natural veg. landunit, then a given
+    !! natural veg column may have a template col that differs from itself! The caller is
+    !! responsible for determining when this template column should be used and when it
+    !! should not be used.
+    !!
+    !! See also the notes about cactive under 'template_col_from_landunit'.
     !$acc routine seq
     ! !USES:
     use landunit_varcon, only : istsoil
