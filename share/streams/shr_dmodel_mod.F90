@@ -1174,6 +1174,7 @@ CONTAINS
 
           if (my_task == master_task) then
              write(logunit,F02) 'file ' // trim(bstr) //': ',trim(filename),1,nz
+             write(logunit, *) 'nx,ny,nz:',nx,ny,nz
              call shr_sys_flush(logunit)
           endif
 
@@ -1195,11 +1196,14 @@ CONTAINS
           frame = 1
           do k = 1, mct_aVect_nRAttr(avFile)
              if (my_task == master_task) then
+                write(logunit,*) "sfldName:",sfldName
                 call shr_stream_getFileFieldName(stream,k,sfldName)
              endif
              call shr_mpi_bcast(sfldName,mpicom,'sfldName')
              rcode = pio_inq_varid(pioid,trim(sfldName),varid)
              rcode = pio_inq_vartype(pioid, varid, vtype)
+             write(logunit,*) "varid, vtype:",varid, vtype, PIO_DOUBLE
+
              call pio_setframe(pioid,varid,frame)
              if(vtype == PIO_DOUBLE) then
                 call pio_read_darray(pioid, varid, pio_iodesc_r8_local, avFile%rattr(k,:), rcode)
