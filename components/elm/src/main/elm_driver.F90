@@ -566,13 +566,13 @@ contains
                 call col_ps%ZeroForFates(bounds_proc,proc_filter%num_soilc, proc_filter%soilc)
              end if
 
-             call col_cs_Summary(col_cs, bounds_proc, &
+             call col_cs_summary(col_cs, bounds_proc, &
                   proc_filter%num_soilc, proc_filter%soilc)
 
-             call col_ns_Summary(col_ns, bounds_proc, &
+             call col_ns_summary(col_ns, bounds_proc, &
                   proc_filter%num_soilc, proc_filter%soilc)
 
-             call col_ps_Summary(col_ps, bounds_proc, &
+             call col_ps_summary(col_ps, bounds_proc, &
                   proc_filter%num_soilc, proc_filter%soilc)
 
           !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
@@ -613,73 +613,83 @@ contains
     ! changes due to dynamic area adjustments can break column-level conservation
     ! ============================================================================
 
-    !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
+    call t_startf('begwbal')
+    !! !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
+    !$acc parallel loop independent gang vector default(present)
     do nc = 1,nclumps
-       call get_clump_bounds(nc, bounds_clump)
-
-       call t_startf('begwbal')
+       call get_clump_bounds_gpu(nc, bounds_clump)
        call BeginColWaterBalance(bounds_clump,                &
             filter(nc)%num_nolakec, filter(nc)%nolakec,       &
             filter(nc)%num_lakec, filter(nc)%lakec,           &
             filter(nc)%num_hydrologyc, filter(nc)%hydrologyc, &
             soilhydrology_vars )
-       call t_stopf('begwbal')
+    end do 
+    call t_stopf('begwbal')
 
 
-       call t_startf('begcnpbal')
-       ! call veg summary before col summary, for p2c
-       if (use_cn) then
-          call veg_cs%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               filter(nc)%num_soilp, filter(nc)%soilp, col_cs)
-          call veg_ns%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               filter(nc)%num_soilp, filter(nc)%soilp, col_ns)
-          call veg_ps%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               filter(nc)%num_soilp, filter(nc)%soilp, col_ps)
-       elseif(use_fates)then
-          ! In this scenario, we simply zero all of the
-          ! column level variables that would had been upscaled
-          ! in the veg summary with p2c
+    call t_startf('begcnpbal')
+    ! call veg summary before col summary, for p2c
+    if (use_cn) then
+       call veg_cs_summary(veg_cs, bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc, &
+            proc_filter%num_soilp, proc_filter%soilp, col_cs)
+       call veg_ns_summary(veg_ns, bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc, &
+            proc_filter%num_soilp, proc_filter%soilp, col_ns)
+       call veg_ps_summary(veg_ps, bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc, &
+            proc_filter%num_soilp, proc_filter%soilp, col_ps)
+    elseif(use_fates)then
+       ! In this scenario, we simply zero all of the
+       ! column level variables that would had been upscaled
+       ! in the veg summary with p2c
+       !! !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
+       !$acc parallel loop independent gang vector default(present)
+       do nc = 1,nclumps
+          call get_clump_bounds_gpu(nc, bounds_clump)
           call col_cs%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
           call col_ns%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
           call col_ps%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-       end if
-       call t_stopf('begcnpbal')
+      end do 
+
+    end if
+    call t_stopf('begcnpbal')
 
 
-       if (use_cn  .or. use_fates) then
-          call t_startf('begcnpbalwf')
-          call col_cs%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc)
-          call col_ns%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc)
-          call col_ps%Summary(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc)
-          call BeginColCBalance(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               col_cs)
-          call BeginColNBalance(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               col_ns)
-          call BeginColPBalance(bounds_clump, &
-               filter(nc)%num_soilc, filter(nc)%soilc, &
-               col_ps)
+    if (use_cn  .or. use_fates) then
+       call t_startf('begcnpbalwf')
+       call col_cs%Summary(bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc)
+       call col_ns%Summary(bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc)
+       call col_ps%Summary(bounds_proc, &
+            proc_filter%num_soilc, proc_filter%soilc)
 
-          call t_stopf('begcnpbalwf')
-       end if
+       num_soilc = proc_filter%num_soilc
+      !$acc parallel loop independent gang vector default(present) 
+      do fc = 1, num_soilc 
+         c = proc_filter%soilc(fc) 
+         col_cs%begcb(c) = col_cs%totcolc(c) 
+         col_ns%begnb(c) = col_ns%totcoln(c) 
+         col_ps%begpb(c) = col_ps%totcolp(c) 
+      end do 
+
+      call t_stopf('begcnpbalwf')
+    end if
 
 
-       if (do_budgets) then
+    if (do_budgets) then
+       !! !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
+       !$acc parallel loop independent gang vector default(present)
+       do nc = 1,nclumps
+          call get_clump_bounds_gpu(nc, bounds_clump)
           call WaterBudget_SetBeginningMonthlyStates(bounds_clump )
           if (use_cn) then
              call CNPBudget_SetBeginningMonthlyStates(bounds_clump, col_cs, grc_cs)
           endif
-       endif
-
-    end do
-    !$OMP END PARALLEL DO
+      end do
+     !$OMP END PARALLEL DO
+    endif
 
 
 
