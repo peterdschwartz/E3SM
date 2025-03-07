@@ -45,13 +45,11 @@ contains
     !
     ! Downscaling is done over columns defined by filter_do_smb_c. But we also do direct copies
     ! of gridcell-level forcings into column-level forcings over all other active columns.
-    !$ac routine seq 
     ! !USES:
     use elm_varcon      , only : rair, cpair, grav, lapse_glcmec
     use elm_varcon      , only : glcmec_rain_snow_threshold
     use landunit_varcon , only : istice_mec 
     use elm_varctl      , only : glcmec_downscale_rain_snow_convert
-    !use domainMod       , only : ldomain
     use QsatMod         , only : Qsat
     !
     ! !ARGUMENTS:
