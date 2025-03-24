@@ -175,22 +175,25 @@ contains
     
   end subroutine grc_pp_clean
 
-  subroutine grc_pp_set_subgrid(bounds)
+  subroutine grc_pp_set_subgrid(this,bounds, col_to_gdc, veg_to_col)
     !! Description:
     !! Assign meaningful values for pft and col fields after surface data has been read.
     !! 
+    class(gridcell_physical_properties_type) :: this
     type(bounds_type) , intent(in) :: bounds
+    integer, intent(in) :: col_to_gdc(bounds%begc:)
+    integer, intent(in) :: veg_to_col(bounds%begp:)
     !! Locals
     integer :: ncols(bounds%begg:bounds%endg), npfts(bounds%begg:bounds%endg)
     integer :: begg, begc, begp
     integer :: endg, endc, endp
 
-    begg = bounds_proc%begg; endg = bounds_proc%endg 
-    begc = bounds_proc%begc; endc = bounds_proc%endc 
-    begp = bounds_proc%begp; endp = bounds_proc%endp 
+    begg = bounds%begg; endg = bounds%endg 
+    begc = bounds%begc; endc = bounds%endc 
+    begp = bounds%begp; endp = bounds%endp 
 
       ncols(:) = 0 
-      do c = bounds_proc%begc, bounds_proc%endc
+      do c = bounds%begc, bounds%endc
          g = col_pp%gridcell(c) 
          ncols(g) = ncols(g) + 1
       end do 
@@ -199,7 +202,7 @@ contains
 
       allocate(grc_pp%cols(begg:endg,maxcols))  
       do c = begc, endc 
-          g = col_pp%gridcell(c) 
+          g = col_to_gdc(c) 
           i = ncols(g) 
           grc_pp%cols(g,i) = c 
           grc_pp%ncolumns(g) = i 
@@ -210,8 +213,8 @@ contains
       allocate(grc_pp%npfts(begg:endg)) 
 
       do p = begp, endp
-          c = veg_pp%column(p) 
-          g = col_pp%gridcell(c) 
+          c = veg_to_col(p)
+          g = col_to_gdc(c)
           npfts(g) = npfts(g) + 1 
           grc_pp%npfts(g) = npfts(g)  
       end do 
@@ -221,8 +224,8 @@ contains
       allocate(grc_pp%pfts(maxpfts,begg:endg)) 
 
       do p = begp, endp
-          c = veg_pp%column(p)  
-          g = col_pp%gridcell(c) 
+          c = veg_to_col(p)
+          g = col_to_gdc(c)
           i = npfts(g) 
           grc_pp%pfts(i,g) = p
           npfts(g) = npfts(g) + 1
