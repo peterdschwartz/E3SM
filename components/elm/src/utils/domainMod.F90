@@ -65,17 +65,9 @@ module domainMod
   real(r8), allocatable, public :: lon1d(:), lat1d(:) ! 1d lat/lons for 2d grids
 
   type, public :: domain_params_type
-     !! This is a type that holds only physically relevant fields of ldomain
-     !! Needed to workaround gpu compiler issues.  Alternative may be to pass ldomain
-     !! as arguments instead of by USE.
-     real(r8), pointer :: f_grd(:) 
-     real(r8), pointer :: f_surf(:)
-     real(r8), pointer :: firrig(:)
      real(r8), pointer :: latc(:)    ! latitude of grid cell (deg)
      real(r8), pointer :: lonc(:)    ! longitude of grid cell (deg)
 
-     !real(r8), pointer :: area(:)  !Only in CNPBudgetMod?
-     !real(r8), pointer :: frac(:)
      integer, pointer :: glcmask(:)
 
   end type domain_params_type
@@ -339,17 +331,9 @@ subroutine domain_transfer()
    implicit none
    integer :: nbeg,nend
 
-   nend = ubound(ldomain%f_grd,1)
-   nbeg = lbound(ldomain%f_grd,1) 
-   allocate(ldomain_gpu%f_grd  (nbeg:nend) )
-   allocate(ldomain_gpu%f_surf (nbeg:nend) )
-   allocate(ldomain_gpu%firrig (nbeg:nend) )
    allocate(ldomain_gpu%glcmask(nbeg:nend) )
    allocate(ldomain_gpu%latc(nbeg:nend))
    allocate(ldomain_gpu%lonc(nbeg:nend))
-   ldomain_gpu%f_grd(nbeg:nend)  = ldomain%f_grd(nbeg:nend)
-   ldomain_gpu%f_surf(nbeg:nend)  = ldomain%f_surf(nbeg:nend)
-   ldomain_gpu%firrig(nbeg:nend)  = ldomain%firrig(nbeg:nend)
    ldomain_gpu%glcmask(nbeg:nend) = ldomain%glcmask(nbeg:nend)
    ldomain_gpu%latc(nbeg:nend) = ldomain%latc(nbeg:nend)
    ldomain_gpu%lonc(nbeg:nend) = ldomain%lonc(nbeg:nend)
