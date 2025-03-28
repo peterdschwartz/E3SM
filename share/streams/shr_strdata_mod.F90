@@ -1745,6 +1745,7 @@ contains
     ! document datatype settings
     !----------------------------------------------------------------------------
     write(logunit,F90)
+    write(logunit, F00) " asd;flkjas;dlkfja;sldkfj"
     write(logunit,F00) "name        = ",trim(lname)
     write(logunit,F00) "dataMode    = ",trim(SDAT%dataMode)
     write(logunit,F00) "domainFile  = ",trim(SDAT%domainFile)
@@ -1762,13 +1763,13 @@ contains
 
     do n=1, SDAT%nstreams
        write(logunit,F04) "  streams (",n,") = ",trim(SDAT%streams(n))
-       if (trim(SDAT%readmode(n)) == "full_file")then
-         do fn=1,SDAT%streams(n)%nfiles
-           write(logunit,F04) "  file: (",fn,") = ",trim(SDAT%streams(n)%file(fn))
-           write(logunit,F04) "  time slices: (",fn,") = ",SDAT%streams(n)%file(fn)%nt
-           write(logunit,F04) " readin time slices: (",fn,") = ",SDAT%streams(n)%file(fn)%haveData
-         end do
-       end if
+       write(logunit,*) "  num files for stream (",n,") = ",SDAT%stream(n)%nfiles
+
+       do fn=1,SDAT%stream(n)%nfiles
+         write(logunit,*) "  file: (",fn,") = ",trim(SDAT%stream(n)%file(fn)%name)
+         write(logunit,*) "  time slices: (",fn,") = ",SDAT%stream(n)%file(fn)%nt
+         write(logunit,*) " readin time slices: (",fn,") = ",SDAT%stream(n)%file(fn)%haveData
+       end do
        write(logunit,F04) "  taxMode (",n,") = ",trim(SDAT%taxMode(n))
        write(logunit,F07) "  dtlimit (",n,") = ",SDAT%dtlimit(n)
        write(logunit,F05) "  strnxg  (",n,") = ",SDAT%strnxg(n)
