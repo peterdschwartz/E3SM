@@ -662,10 +662,6 @@ module VegetationDataType
   contains
     procedure, public :: Init       => veg_cf_init
     procedure, public :: Restart    => veg_cf_restart
-    procedure, public :: Summary    => veg_cf_summary
-    procedure, public :: SummaryRR  => veg_cf_summary_rr      ! Root respiration summary
-    procedure, public :: SummaryCH4 => veg_cf_summary_for_ch4 ! Summary for CH4 model
-    procedure, public :: SetValues  => veg_cf_setvalues
     procedure, public :: Clean      => veg_cf_clean
   end type vegetation_carbon_flux
 
@@ -7959,7 +7955,7 @@ module VegetationDataType
        end if
     end do
 
-    call this%SetValues (num_patch=num_special_patch, filter_patch=special_patch, value_patch=0._r8)
+    call veg_cf_setvalues(this, num_patch=num_special_patch, filter_patch=special_patch, value_patch=0._r8)
 
   end subroutine veg_cf_init
 

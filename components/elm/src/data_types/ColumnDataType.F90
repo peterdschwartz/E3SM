@@ -47,14 +47,15 @@ module ColumnDataType
   use CNDecompCascadeConType , only : decomp_cascade_con
   use ColumnType      , only : col_pp
   use LandunitType    , only : lun_pp
-  use timeInfoMod , only : nstep_mod 
+  use timeInfoMod , only : nstep_mod, dtime_mod
   !
   ! !PUBLIC TYPES:
   implicit none
   save
   public
 
-  procedure :: col_cs_summary, col_ns_summary, col_ps_summary
+  public :: col_cs_summary, col_ns_summary, col_ps_summary
+  public :: col_cf_summary, col_nf_summary, col_pf_summary
   !
   ! NOTE(bandre, 2013-10) according to Charlie Koven, nfix_timeconst
   ! is currently used as a flag and rate constant. Rate constant: time
@@ -324,7 +325,6 @@ module ColumnDataType
     procedure, public :: Init       => col_ns_init
     procedure, public :: Restart    => col_ns_restart
     procedure, public :: SetValues  => col_ns_setvalues
-    procedure, public :: Summary    => col_ns_summary
     procedure, public :: Clean      => col_ns_clean
     procedure, public :: ZeroForFates => col_ns_zero_forfates_veg
   end type column_nitrogen_state
@@ -671,7 +671,6 @@ module ColumnDataType
   contains
     procedure, public :: Init       => col_cf_init
     procedure, public :: Restart    => col_cf_restart
-    procedure, public :: Summary    => col_cf_summary
     procedure, public :: SummaryCH4 => col_cf_summary_for_ch4
     procedure, public :: SetValues  => col_cf_setvalues
     procedure, public :: ZeroDWT    => col_cf_zerodwt
@@ -903,7 +902,6 @@ module ColumnDataType
     procedure, public :: SetValues  => col_nf_setvalues
     procedure, public :: ZeroForFates => col_nf_zero_forfates_veg
     procedure, public :: ZeroDWT    => col_nf_zerodwt
-    procedure, public :: Summary    => col_nf_summary
     procedure, public :: SummaryInt => col_nf_summaryint
     procedure, public :: Clean      => col_nf_clean
   end type column_nitrogen_flux
@@ -1041,7 +1039,6 @@ module ColumnDataType
     procedure, public :: SetValues  => col_pf_setvalues
     procedure, public :: ZeroForFates => col_pf_zero_forfates_veg
     procedure, public :: ZeroDWT    => col_pf_zerodwt
-    procedure, public :: Summary    => col_pf_summary
     procedure, public :: SummaryInt => col_pf_summaryint
     procedure, public :: Clean      => col_pf_clean
   end type column_phosphorus_flux
