@@ -187,14 +187,16 @@ contains
     integer :: ncols(bounds%begg:bounds%endg), npfts(bounds%begg:bounds%endg)
     integer :: begg, begc, begp
     integer :: endg, endc, endp
+    integer :: g,c,p,i
+    integer ::maxcols, maxpfts
 
     begg = bounds%begg; endg = bounds%endg 
     begc = bounds%begc; endc = bounds%endc 
     begp = bounds%begp; endp = bounds%endp 
 
-      ncols(:) = 0 
+      ncols(:) = 0
       do c = bounds%begc, bounds%endc
-         g = col_pp%gridcell(c) 
+         g = col_to_gdc(c) 
          ncols(g) = ncols(g) + 1
       end do 
       maxcols = maxval(ncols)

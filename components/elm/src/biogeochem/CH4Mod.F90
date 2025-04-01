@@ -1410,7 +1410,6 @@ contains
       dtime_ch4 = dtime
       redoxlags = redoxlag*secspday ! days --> s
       redoxlags_vertical = redoxlag_vertical*secspday ! days --> s
-      rgasm = rgas / 1000._r8
 
       jwt(begc:endc)            = huge(1)
       totcolch4_bef(begc:endc)  = spval
@@ -1559,11 +1558,9 @@ contains
             end if
          end do
 
-         
-         call p2c (bounds, nlevgrnd, &
+         call p2c_2d_parallel(bounds, nlevgrnd, &
               rootfraction(bounds%begp:bounds%endp, :), &
-              rootfr_col(bounds%begc:bounds%endc, :), &
-              0)
+              rootfr_col(bounds%begc:bounds%endc, :))
 
          do j=1, nlevsoi
             do fc = 1, num_soilc

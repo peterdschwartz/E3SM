@@ -143,7 +143,6 @@ module VegetationPropertiesType
      real(r8), pointer :: mbbopt(:)        => null()   !Ball-Berry stomatal conductance slope
      real(r8), pointer :: nstor(:)         => null()   !Nitrogen storage pool timescale
      real(r8), pointer :: br_xr(:)         => null()   !Base rate for excess respiration
-     real(r8), pointer :: tc_stress        => null()   !Critial temperature for moisture stress
      ! new properties for flexible PFT
      real(r8), pointer :: climatezone(:)   => null()   !climate zone adapted
      real(r8), pointer :: nonvascular(:)   => null()   !nonvascular type or vascular

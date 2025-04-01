@@ -371,11 +371,11 @@ contains
       sumwt(c) = sum1 
     end do
 
-    ! carr(bounds%begc : bounds%endc, :) = spval
     !$acc parallel loop independent gang worker default(present) private(sum1)
     do j = 1,num2d
       do c = bounds%begc,bounds%endc
-            sum1 = 0._r8 
+         sum1 = 0._r8 
+         !$acc loop vector reduction(+:sum1)
          do p = col_pp%pfti(c), col_pp%pftf(c) 
             if (veg_pp%active(p) .and. veg_pp%wtcol(p) /= 0._r8 .and. parr(p,j) /= spval) then
                 sum1 = sum1 + parr(p,j) * veg_pp%wtcol(p)
