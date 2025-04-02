@@ -778,6 +778,11 @@ contains
        call SatellitePhenologyInit(bounds_proc)
     end if
 
+    if (use_cn) then 
+       ! Create pointers to decomp pools for SoilLittVertTransp
+       call CreateLitterTransportList()
+    end if 
+
 
     ! ------------------------------------------------------------------------
     ! On restart only - process the history namelist.
