@@ -23,6 +23,7 @@ module elm_initializeMod
   use ELMFatesInterfaceMod  , only : ELMFatesGlobals1,ELMFatesGlobals2
   use ELMFatesParamInterfaceMod, only: FatesReadPFTs
   use BeTRSimulationELM, only : create_betr_simulation_elm
+  use SoilLittVertTranspMod, only : CreateLitterTransportList
   !
   !-----------------------------------------
   ! Definition of component types

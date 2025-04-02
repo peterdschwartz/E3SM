@@ -732,8 +732,7 @@ contains
 
    event = 'SoilLittVertTransp'
    call t_start_lnd(event)
-   call SoilLittVertTransp(bounds, &
-            num_soilc, filter_soilc, &
+   call SoilLittVertTransp( num_soilc, filter_soilc, &
             canopystate_vars, cnstate_vars )
        call t_stop_lnd(event)
    if(.not.use_fates)then
