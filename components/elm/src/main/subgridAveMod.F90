@@ -389,7 +389,7 @@ contains
        colarr(c) = sum_patch
     end do
 
-  end subroutine p2c_1d_filter_parallel
+  end subroutine p2c_1d_filter
 
   !-----------------------------------------------------------------------
   subroutine p2c_2d_filter (lev, numfc, filterc, pftarr, colarr)
