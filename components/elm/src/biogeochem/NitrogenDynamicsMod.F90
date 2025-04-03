@@ -394,7 +394,7 @@ contains
  end subroutine NitrogenLeaching
 
   !-----------------------------------------------------------------------
-  subroutine NitrogenFert(bounds, num_soilc, filter_soilc )
+  subroutine NitrogenFert(bounds, num_soilc, filter_soilc, num_pcropp, filter_pcropp)
     !
     ! !DESCRIPTION:
     ! On the radiation time step, update the nitrogen fertilizer for crops
@@ -412,10 +412,8 @@ contains
     integer , intent(in) :: filter_pcropp(:) ! filter for prognostic crop patches
     !
     ! !LOCAL VARIABLES:
-    integer :: c,fc,p, fp                 ! indices
+    integer :: c,fc,p,fp                 ! indices
     real(r8) :: manure_col(bounds%begc:bounds%endc)
-    integer :: begp, begc
-    integer :: endp,endc
     !-----------------------------------------------------------------------
 
     associate(&
@@ -427,16 +425,12 @@ contains
       if (.not. fan_to_bgc_crop) then
          ! => Crop columns/patches are not handled by FAN. Use synthfert directly and add
          ! the default CLM manure. No N input to non-crop columns in this case.
+         ! NOTE: manure_col being allocated over begc:endc is wasteful
 
-        begc = bounds%begc 
-        endc = bounds%endc
-        begp = bounds%begp
-        endp = bounds%endp 
-
-        call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+        call p2c_1d_filter( bounds,num_soilc,filter_soilc, &
            synthfert(begp:endp),  fert_to_sminn(begc:endc) )
 
-        call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+        call p2c_1d_filter( bounds,num_soilc,filter_soilc, &
            manure(begp:endp),  manure_col(begc:endc) )
 
          ! Add the manure N processed above:
@@ -510,10 +504,10 @@ contains
          soyfixn_to_sminn =>  col_nf%soyfixn_to_sminn   & ! Output: [real(r8) (:) ]
          )
 
-     begc = bounds%begc 
+     begc = bounds%begc
      endc = bounds%endc
      begp = bounds%begp
-     endp = bounds%endp 
+     endp = bounds%endp
       !$acc parallel loop independent gang vector default(present) private(p,c)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
@@ -587,7 +581,7 @@ contains
          end if
       end do
 
-      call p2c_1d_filter_parallel(begc,begp,num_soilc,filter_soilc, &
+      call p2c_1d_filter(bounds,num_soilc,filter_soilc, &
         soyfixn(begp:endp), soyfixn_to_sminn(begc:endc))
 
     end associate
@@ -620,11 +614,11 @@ contains
     real(r8) :: f_nodule                   ! empirical, fraction of root that is nodulated
     real(r8) :: N2_aq                      ! aqueous N2 bulk concentration gN/m3 soil
     real(r8) :: nfix_tmp
-    real(r8) :: sminn_sum, ecosysn_sum 
+    real(r8) :: sminn_sum, ecosysn_sum
     !-----------------------------------------------------------------------
 
     associate(&
-         ivt                   => veg_pp%itype                            , & ! input:  [integer  (:) ]  pft vegetation type
+         ivt                   => veg_pp%itype                         , & ! input:  [integer  (:) ]  pft vegetation type
          cn_scalar             => cnstate_vars%cn_scalar               , &
          cp_scalar             => cnstate_vars%cp_scalar               , &
          vmax_nfix             => veg_vp%vmax_nfix                 , &

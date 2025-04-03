@@ -202,7 +202,7 @@ contains
     !-----------------------------------------------------------------------
     ! pflotran: when both 'pf-bgc' and 'pf-h' on, no need to call CLM-CN's N leaching module
     if (.not. (pf_cmode .and. pf_hmode)) then
-     call NitrogenLeaching(bounds, num_soilc, filter_soilc, dt)
+     call NitrogenLeaching(num_soilc, filter_soilc, dt)
 
      call PhosphorusLeaching(bounds, num_soilc, filter_soilc, dt)
     end if !(.not. (pf_cmode .and. pf_hmode))
@@ -375,9 +375,7 @@ contains
 
     event = 'CNDeposition'
     call t_start_lnd(event)
-    call NitrogenDeposition(bounds, &
-         atm2lnd_vars, frictionvel_vars,  &
-         soilstate_vars, filter_soilc, num_soilc, dt )
+    call NitrogenDeposition(bounds, atm2lnd_vars)
     call t_stop_lnd(event)
 
     event = 'CNFixation'
