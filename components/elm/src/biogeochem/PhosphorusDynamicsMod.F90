@@ -43,7 +43,6 @@ module PhosphorusDynamicsMod
   public :: PhosphorusLeaching
   public :: PhosphorusBiochemMin_balance
   public :: PhosphorusFert
-  public :: PhosphorusMinFluxes
 
   !-----------------------------------------------------------------------
 
@@ -72,8 +71,8 @@ contains
          pdep_to_sminp =>  col_pf%pdep_to_sminp   & ! Output: [real(r8) (:)]
          )
 
-      begc = bounds%begc 
-      endc = bounds%endc 
+      begc = bounds%begc
+      endc = bounds%endc
       ! Loop through columns
       !$acc parallel loop independent gang vector private(c,g) default(present)
       do c = begc, endc
@@ -84,21 +83,6 @@ contains
     end associate
 
   end subroutine PhosphorusDeposition
-
-  subroutine PhosphorusMinFluxes(num_soilc, filter_soilc,cnstate_vars,dt)
-   implicit none 
-   
-   integer                  , intent(in)    :: num_soilc         ! number of soil columns in filter
-   integer                  , intent(in)    :: filter_soilc(:)   ! filter for soil columns
-   type(cnstate_type)       , intent(in)    :: cnstate_vars
-   real(r8)                 , intent(in)    :: dt 
-   
-   call PhosphorusWeathering(num_soilc, filter_soilc,cnstate_vars, dt)
-   call PhosphorusAdsportion(num_soilc, filter_soilc,cnstate_vars, dt)
-   call PhosphorusDesoprtion(num_soilc, filter_soilc,cnstate_vars, dt)
-   call PhosphorusOcclusion (num_soilc, filter_soilc,cnstate_vars, dt)
-
-  end subroutine PhosphorusMinFluxes
 
   !-----------------------------------------------------------------------
   subroutine PhosphorusWeathering(num_soilc, filter_soilc, cnstate_vars, dt)
@@ -131,7 +115,7 @@ contains
          )
 
       ! set time steps
-      !$acc parallel loop independent gang vector default(present) collapse(2) 
+      !$acc parallel loop independent gang vector default(present) collapse(2)
       do j = 1,nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -446,9 +430,8 @@ contains
 
       !$acc enter data create(sum) 
       ! set initial values for potential C and N fluxes
-      ! biochem_pmin_ppools_vr_col(bounds%begc : bounds%endc, :, :) = 0._r8
 
-      !$acc parallel loop independent gang vector collapse(2) default(present)
+      !$acc parallel loop independent gang vector collapse(3) default(present)
       do l = 1, ndecomp_pools
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
@@ -456,19 +439,8 @@ contains
 
                dtd = dt/(30._r8*secspday)
                k_s1_biochem_c = k_s1_biochem( isoilorder(c) )
-               ! k_s2_biochem_c = k_s2_biochem( isoilorder(c) )
-               ! k_s3_biochem_c = k_s3_biochem( isoilorder(c) )
-               ! k_s4_biochem_c = k_s4_biochem( isoilorder(c) )
-
                rr=-log(1._r8-k_s1_biochem_c)
                k_s1_biochem_c = 1-exp(-rr*dtd)
-
-               ! rr=-log(1-k_s2_biochem_c)
-               ! k_s2_biochem_c = 1-exp(-rr*dtd)
-               ! rr=-log(1-k_s3_biochem_c)
-               ! k_s3_biochem_c = 1-exp(-rr*dtd)
-               ! rr=-log(1-k_s4_biochem_c)
-               ! k_s4_biochem_c = 1-exp(-rr*dtd)
 
                if ( decomp_ppools_vr_col(c,j,l) > 0._r8 ) then
 
@@ -514,7 +486,6 @@ contains
     ! update the phosphatase activity induced P release based on Wang 2007
     !
     ! !USES:
-      !$acc routine seq
     use pftvarcon              , only : noveg
     use elm_varpar             , only : ndecomp_pools
     use CNDecompCascadeConType , only : decomp_cascade_con
@@ -565,10 +536,8 @@ contains
 
     if(use_fates) then
         ci = bounds%clump_index
-#ifndef _OPENACC
          max_comps = size(alm_fates%fates(ci)%bc_out(1)%cp_scalar,dim=1)
         allocate(biochem_pmin_to_plant_vr_patch(max_comps,nlevdecomp))
-#endif
     else
       !!TODO:  Try to get rid of the allocate statement
        allocate(biochem_pmin_to_plant_vr_patch(bounds%begp:bounds%endp,1:nlevdecomp))
