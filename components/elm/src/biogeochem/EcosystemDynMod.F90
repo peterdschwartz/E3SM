@@ -43,6 +43,7 @@ module EcosystemDynMod
   use PhenologyFLuxLimitMod , only : phenology_flux_limiter, InitPhenoFluxLimiter
   ! for FAN
   use SolarAbsorbedType    , only : solarabs_type
+  use FanUpdateMod,  only: fan_eval
 
 
   use timeinfoMod
@@ -188,7 +189,7 @@ contains
     if (.not. nu_com_phosphatase) then
       event = 'PhosphorusBiochemMin'
        call t_start_lnd(event)
-       call PhosphorusBiochemMin(bounds,num_soilc, filter_soilc, &
+       call PhosphorusBiochemMin(num_soilc, filter_soilc, &
             cnstate_vars, dt)
        call t_stop_lnd(event)
     else
@@ -204,7 +205,7 @@ contains
     if (.not. (pf_cmode .and. pf_hmode)) then
      call NitrogenLeaching(num_soilc, filter_soilc, dt)
 
-     call PhosphorusLeaching(bounds, num_soilc, filter_soilc, dt)
+     call PhosphorusLeaching(num_soilc, filter_soilc, dt)
     end if !(.not. (pf_cmode .and. pf_hmode))
        !-----------------------------------------------------------------------
 
@@ -376,6 +377,10 @@ contains
     event = 'CNDeposition'
     call t_start_lnd(event)
     call NitrogenDeposition(bounds, atm2lnd_vars)
+    if (use_fan) then
+      call fan_eval(bounds, num_soilc, filter_soilc, &
+           atm2lnd_vars, soilstate_vars, frictionvel_vars)
+    end if
     call t_stop_lnd(event)
 
     event = 'CNFixation'
@@ -420,7 +425,7 @@ contains
        event = 'PhosphorusBiochemMin'
        if (.not. nu_com_phosphatase) then
            call t_start_lnd(event)
-           call PhosphorusBiochemMin(bounds,num_soilc, filter_soilc, &
+           call PhosphorusBiochemMin(num_soilc, filter_soilc, &
                 cnstate_vars, dt)
            call t_stop_lnd(event)
        else
