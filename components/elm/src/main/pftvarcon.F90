@@ -400,7 +400,7 @@ module pftvarcon
   real(r8), allocatable :: nfixer(:)           ! nitrogen fixer flag  (0 = inable, 1 = able to nitrogen fixation from atm. N2)
 
 
-  !$acc declare create(rsub_top_globalmax, gcpsi, pftcc)
+  !$acc declare create(rsub_top_globalmax)
 
   !$acc declare create(mergetoelmpft         (:))
   !$acc declare create(is_pft_known_to_model (:))
