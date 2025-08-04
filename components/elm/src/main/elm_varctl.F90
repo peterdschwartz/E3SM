@@ -408,6 +408,7 @@ module elm_varctl
   ! NGEE Arctic parameterizations
   !----------------------------------------------------------
   logical, public :: use_polygonal_tundra = .false.
+  !$acc declare copyin(use_polygonal_tundra)
   logical, public :: use_arctic_init     = .false.
 
   !----------------------------------------------------------

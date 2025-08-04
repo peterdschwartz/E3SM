@@ -2,7 +2,7 @@ module histGPUMod
 
   use shr_kind_mod  , only : r8 => shr_kind_r8
   use decompMod     , only : bounds_type
-  use histFileMod   , only : elmptr_rs, elmptr_ra, elmpoint_rs
+  use histFileMod   , only : elmptr_rs, elmptr_ra
   use elm_varcon    , only : spval, ispval, dzsoi_decomp
   use elm_varcon    , only : grlnd, nameg, namet, namel, namec, namep
   use GridcellType  , only : grc_pp

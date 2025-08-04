@@ -11,7 +11,7 @@ module ColumnDataType
   use shr_const_mod   , only : SHR_CONST_PDB
   use abortutils      , only : endrun
   use shr_log_mod     , only : errMsg => shr_log_errMsg 
-  !use MathfuncMod     , only : dot_sum
+  use MathfuncMod     , only : dot_sum
   use elm_varpar      , only : nlevsoi, nlevsno, nlevgrnd, nlevlak, nlevurb
   use elm_varpar      , only : ndecomp_cascade_transitions, ndecomp_pools, nlevcan
   use elm_varpar      , only : nlevdecomp_full, crop_prog, nlevdecomp
@@ -1072,7 +1072,7 @@ module ColumnDataType
   type(column_phosphorus_flux)       , public, target :: col_pf     ! column phosphorus flux
   !------------------------------------------------------------------------
   !$acc declare create(col_ws,col_cf)
-  !$acc declare create(col_ef,col_es,col_cs)
+  !$acc declare create(col_ef,col_es,col_cs, col_ns,col_nf,col_ps,col_pf)
 
 contains
 

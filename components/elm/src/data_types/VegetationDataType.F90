@@ -848,7 +848,7 @@ module VegetationDataType
     procedure, public :: Init      => veg_nf_init
     procedure, public :: Restart   => veg_nf_restart
     procedure, public :: SetValues => veg_nf_setvalues
-    procedure, public :: Summary   => veg_nf_summary
+    !procedure, public :: Summary   => veg_nf_summary
     procedure, public :: Clean     => veg_nf_clean
   end type vegetation_nitrogen_flux
 
@@ -3615,19 +3615,19 @@ module VegetationDataType
     end do ! filtered veg list
 
     ! a few vegetation-to-column summaries
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          totpftc_patch(bounds%begp:bounds%endp) , &
          totpftc_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          totvegc_patch(bounds%begp:bounds%endp) , &
          totvegc_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          totvegc_abg_patch(bounds%begp:bounds%endp), &
          totvegc_abg_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          cropseedc_deficit_patch(bounds%begp:bounds%endp), &
          cropseedc_deficit_col(bounds%begc:bounds%endc))
     end associate
@@ -4273,19 +4273,19 @@ module VegetationDataType
            this%ntrunc(p)
    end do ! filtered veg loop
 
-   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
         plant_n_buffer_patch(bounds%begp:bounds%endp)  , &
         plant_n_buffer_col(bounds%begc:bounds%endc))
 
-   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
         totvegn_patch(bounds%begp:bounds%endp) , &
         totvegn_col(bounds%begc:bounds%endc))
 
-   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
         totpftn_patch(bounds%begp:bounds%endp) , &
         totpftn_col(bounds%begc:bounds%endc))
 
-   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
         cropseedn_deficit_patch(bounds%begp:bounds%endp) , &
         cropseedn_deficit_col(bounds%begc:bounds%endc))
 
@@ -4870,7 +4870,6 @@ module VegetationDataType
     !
     ! !DESCRIPTION:
     ! Set phosphorus state variables, column-level
-    !$acc routine seq 
     ! !ARGUMENTS:
     class (vegetation_phosphorus_state) :: this
     integer , intent(in)                :: num_patch
@@ -5023,15 +5022,15 @@ module VegetationDataType
 
    end do
 
-   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
         totvegp_patch(bounds%begp:bounds%endp)  , &
         totvegp_col(bounds%begc:bounds%endc) )
 
-   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
         totpftp_patch(bounds%begp:bounds%endp) , &
         totpftp_col(bounds%begc:bounds%endc) )
 
-   call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+   call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
         cropseedp_deficit_patch(bounds%begp:bounds%endp) , &
         cropseedp_deficit_col(bounds%begc:bounds%endc) )
    end associate
@@ -8113,7 +8112,7 @@ module VegetationDataType
     integer                , intent(in)    :: filter_soilp(:) ! filter for soil patches
     integer                , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                , intent(in)    :: filter_soilc(:) ! filter for soil columns
-    character(len=*)       , intent(in)    :: isotope
+    character(len=3)       , intent(in)    :: isotope
     type(column_carbon_flux), intent(inout):: col_cf_input    ! receives p2c output
     !
     ! !LOCAL VARIABLES:
@@ -8141,7 +8140,7 @@ module VegetationDataType
 
     if (use_fates) return
 
-    !$acc data copyin(isotope)
+    !$acc enter data copyin(isotope)
     ! patch loop
    !$acc parallel loop independent gang vector default(present) 
     do fp = 1,num_soilp
@@ -8248,7 +8247,7 @@ module VegetationDataType
             this%ar(p)
 
        ! update the annual NPP accumulator, for use in allocation code
-       if (isotope == 'bulk') then
+       if (isotope == 'c12') then
           this%tempsum_npp(p) = &
                this%tempsum_npp(p) + &
                this%npp(p)
@@ -8451,35 +8450,35 @@ module VegetationDataType
     end do  ! end of patches loop
 
     ! use p2c routine to get selected column-average patch-level fluxes and states
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
             gpp_patch(bounds%begp:bounds%endp), &
             gpp_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
             ar_patch(bounds%begp:bounds%endp), &
             ar_col  (bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
             npp_patch(bounds%begp:bounds%endp), &
             npp_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
             vegfire_patch(bounds%begp:bounds%endp), &
             vegfire_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          wood_harvestc_patch(bounds%begp:bounds%endp), &
          wood_harvestc_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          fire_closs_patch(bounds%begp:bounds%endp), &
          fire_closs_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          litfall_patch(bounds%begp:bounds%endp), &
          litfall_col(bounds%begc:bounds%endc))
 
-    call p2c_1d_filter_parallel(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          hrv_xsmrpool_to_atm_patch(bounds%begp:bounds%endp), &
          hrv_xsmrpool_to_atm_col(bounds%begc:bounds%endc))
 
@@ -8494,7 +8493,7 @@ module VegetationDataType
     ! summarize root respiration
     !
     ! !USES:
-    use subgridAveMod, only : p2c_1d_filter_parallel
+    use subgridAveMod, only : p2c_1d_filter
     !
     ! !ARGUMENTS:
     type(vegetation_carbon_flux) :: this
@@ -8525,7 +8524,7 @@ module VegetationDataType
       this%cpool_deadcroot_storage_gr(p)
     enddo
 
-    call p2c_1d_filter_parallel(bounds,num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds,num_soilc, filter_soilc, &
       this%rr(bounds%begp:bounds%endp), &
       col_cf_input%rr(bounds%begc:bounds%endc))
 
@@ -9691,9 +9690,8 @@ module VegetationDataType
     ! !DESCRIPTION:
     ! Vegetation-level nitrogen flux summary calculations
     !
-    !$acc routine seq 
     ! !ARGUMENTS:
-    class(vegetation_nitrogen_flux)             :: this
+    type(vegetation_nitrogen_flux)             :: this
     type(bounds_type)           , intent(in)    :: bounds
     integer                     , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                     , intent(in)    :: filter_soilc(:) ! filter for soil columns
@@ -9831,11 +9829,11 @@ module VegetationDataType
 
     end do
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          fire_nloss_patch(bounds%begp:bounds%endp)    , &
          fire_nloss_col(bounds%begc:bounds%endc))
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          wood_harvestn_patch(bounds%begp:bounds%endp) , &
          wood_harvestn_col(bounds%begc:bounds%endc))
 
@@ -10750,7 +10748,6 @@ module VegetationDataType
   !-----------------------------------------------------------------------
   subroutine veg_pf_summary(this, bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, col_pf)
     !
-    !$acc routine seq 
     ! !ARGUMENTS:
     class (vegetation_phosphorus_flux) :: this
     type(bounds_type) , intent(in)     :: bounds
@@ -10888,11 +10885,11 @@ module VegetationDataType
 
     end do
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          fire_ploss_patch(bounds%begp:bounds%endp)     , &
          fire_ploss_col(bounds%begc:bounds%endc) )
 
-    call p2c(bounds, num_soilc, filter_soilc, &
+    call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
          wood_harvestp_patch(bounds%begp:bounds%endp) , &
          wood_harvestp_col(bounds%begc:bounds%endc))
 

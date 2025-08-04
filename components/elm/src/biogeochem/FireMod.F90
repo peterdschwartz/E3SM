@@ -125,7 +125,7 @@ contains
     use dynSubgridControlMod , only: run_has_transient_landcover
     use pftvarcon            , only: noveg, woody, graminoid, iscft, crop
     use pftvarcon            , only: climatezone, needleleaf, evergreen
-    use subgridAveMod        , only: p2c_1d_filter_parallel
+    use subgridAveMod        , only: p2c_1d_filter
     use dynSubgridControlMod , only: dyn_subgrid_control_inst
     !
     ! !ARGUMENTS:
@@ -257,11 +257,11 @@ contains
       begc = bounds%begc; endc = bounds%endc 
       
       !pft to column average
-      call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+      call p2c_1d_filter( bounds,num_soilc,filter_soilc, &
            totvegc(begp:endp), totvegc_col(begc:endc))
-      call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+      call p2c_1d_filter( bounds,num_soilc,filter_soilc, &
            leafc(begp:endp), leafc_col(begc:endc))
-      call p2c_1d_filter_parallel(begc,begp,num_soilc,filter_soilc, &
+      call p2c_1d_filter(bounds, num_soilc,filter_soilc, &
            deadstemc(begp:endp), deadstemc_col(begc:endc))
 
      ! On first time-step, just set area burned to zero and exit

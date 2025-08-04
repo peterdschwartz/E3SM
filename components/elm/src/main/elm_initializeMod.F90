@@ -90,7 +90,7 @@ contains
     use reweightMod               , only: reweight_wrapup
     use topounit_varcon           , only: max_topounits, has_topounit, topounit_varcon_init
     use elm_varctl                , only: use_top_solar_rad, use_polygonal_tundra
-    use domainMod                 , only : domain_transfer 
+    !use domainMod                 , only : domain_transfer 
     !
     ! !LOCAL VARIABLES:
     integer           :: ier                     ! error status
@@ -540,7 +540,7 @@ contains
     use UrbanParamsType       , only : urban_hac, urban_hac_off, urban_hac_on, urban_wasteheat_on
     use elm_instMod           , only : patch_state_updater, column_state_updater
     use subgridAveMod, only :  initialize_scale_l2g_lookup, initialize_scale_c2l
-    use domainMod, only : domain_transfer
+    !use domainMod, only : domain_transfer
     !
     ! !ARGUMENTS
     implicit none
@@ -722,7 +722,7 @@ contains
 
     ! FATES is instantiated in the following call.  The global is in clm_inst
     call elm_inst_biogeochem(bounds_proc)
-    call domain_transfer()
+    !call domain_transfer()
     ! ------------------------------------------------------------------------
     ! Initialize accumulated fields
     ! ------------------------------------------------------------------------

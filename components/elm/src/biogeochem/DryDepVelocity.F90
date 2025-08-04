@@ -365,7 +365,9 @@ CONTAINS
             endif
 
             if (index_season<0) then
+#ifndef _OPENACC
                call endrun('ERROR: not able to determine season'//errmsg(__FILE__, __LINE__))
+#endif
             endif
 
             ! saturation specific humidity

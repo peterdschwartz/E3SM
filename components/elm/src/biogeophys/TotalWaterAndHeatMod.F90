@@ -11,7 +11,7 @@ module TotalWaterAndHeatMod
   use decompMod          , only : bounds_type
   use elm_varcon         , only : cpice, cpliq, denh2o, tfrz, hfus, aquifer_water_baseline
   use elm_varpar         , only : nlevgrnd, nlevsoi, nlevurb, nlevlak
-  use subgridAveMod      , only : p2c_1d_parallel, unity
+  use subgridAveMod      , only : p2c_1d, unity
   use SoilHydrologyType  , only : soilhydrology_type
   use UrbanParamsType    , only : urbanparams_type
   use SoilStateType      , only : soilstate_type
@@ -478,10 +478,10 @@ contains
     !$acc sum_hice, &
     !$acc sum_dry)
 
-    call p2c_1d_parallel(bounds, &
+    call p2c_1d(bounds, &
          parr = h2ocan_patch(bounds%begp:bounds%endp), &
          carr = h2ocan_col(bounds%begc:bounds%endc), &
-         p2c_scale_type = unity, para=.true.)
+         p2c_scale_type = unity)
 
     !$acc parallel loop independent gang vector default(present) 
     do fc = 1, num_nolakec

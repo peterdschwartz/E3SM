@@ -244,7 +244,7 @@ contains
          l=col_pp%landunit(c)
 
          if (do_capsnow(c) .and. .not. use_firn_percolation_and_compaction) then
-            wgdif = h2osoi_ice(c,snl(c)+1) - frac_sno_eff(c)*qflx_sub_snow(c)*dtime
+            wgdif = h2osoi_ice(c,snl(c)+1) - frac_sno_eff(c)*qflx_sub_snow(c)*dtime_mod
             h2osoi_ice(c,snl(c)+1) = wgdif
             if (wgdif < 0._r8) then
                h2osoi_ice(c,snl(c)+1) = 0._r8
@@ -678,15 +678,12 @@ contains
      !$acc burden_noextra)
 
        ! Begin calculation - note that the following column loops are only invoked if snl(c) < 0
-       if (use_firn_percolation_and_compaction) then
+       if( use_firn_percolation_and_compaction) then 
           do fc = 1, num_snowc
              burden(fc) = 0._r8
              zpseudo(fc) = 0._r8
              mobile(fc) = .true.
           end do
-       end if
-
-       if( use_firn_percolation_and_compaction) then 
          do j = -nlevsno+1, 0
             do fc = 1, num_snowc
                c = filter_snowc(fc)
@@ -708,10 +705,6 @@ contains
                      dexpf = exp(-c4*td)
 
                    ! Settling as a result of destructive metamorphism
-                   if (.not. use_firn_percolation_and_compaction) then
-                      ddz1 = -c3*dexpf 
-                      if (bi > dm) ddz1 = ddz1*exp(-46.0e-3_r8*(bi-dm))
-                   else
                       ddz1_fresh = (-grav * (burden(c) + wx/2._r8)) / &
                                    (0.007_r8 * min(max(bi,dm),denice)**(4.75_r8 + min(td,0._r8)/40._r8))
                       snw_ssa = 3.e6_r8 / (denice * snw_rds(c,j))

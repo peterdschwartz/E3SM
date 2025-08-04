@@ -1931,38 +1931,6 @@ contains
 
     ! use p2c routine to get selected column-average patch-level fluxes and states
 
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%gpp_patch(bounds%begp:bounds%endp), &
-         this%gpp_col(bounds%begc:bounds%endc))
-
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%ar_patch(bounds%begp:bounds%endp), &
-         this%ar_col(bounds%begc:bounds%endc))
-
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%npp_patch(bounds%begp:bounds%endp), &
-         this%npp_col(bounds%begc:bounds%endc))
-
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%vegfire_patch(bounds%begp:bounds%endp), &
-         this%vegfire_col(bounds%begc:bounds%endc))
-
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%wood_harvestc_patch(bounds%begp:bounds%endp), &
-         this%wood_harvestc_col(bounds%begc:bounds%endc))
-
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%fire_closs_patch(bounds%begp:bounds%endp), &
-         this%fire_closs_p2c_col(bounds%begc:bounds%endc))
-
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%litfall_patch(bounds%begp:bounds%endp), &
-         this%litfall_col(bounds%begc:bounds%endc))
-
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%hrv_xsmrpool_to_atm_patch(bounds%begp:bounds%endp), &
-         this%hrv_xsmrpool_to_atm_col(bounds%begc:bounds%endc))
-
     if ( trim(isotope) == 'bulk') then
        if (nfix_timeconst > 0._r8 .and. nfix_timeconst < 500._r8 ) then
 
@@ -2544,9 +2512,6 @@ end subroutine CSummary_interface
     this%cpool_livecroot_storage_gr_patch(p) + &
     this%cpool_deadcroot_storage_gr_patch(p)
   enddo  
-    call p2c(bounds, num_soilc, filter_soilc, &
-         this%rr_patch(bounds%begp:bounds%endp), &
-         this%rr_col(bounds%begc:bounds%endc))
          
   end subroutine summary_rr
 

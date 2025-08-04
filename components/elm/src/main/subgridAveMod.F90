@@ -43,12 +43,10 @@ module subgridAveMod
   !! may consolidate once ELM port is finished
   interface p2c
      module procedure p2c_1d
-     module procedure p2c_1d_gpu
      module procedure p2c_2d
    !   module procedure p2c_2d_gpu
      module procedure p2c_1d_filter
      module procedure p2c_2d_filter
-     module procedure :: p2c_1d_filter_parallel
   end interface
   interface p2l
      module procedure p2l_1d
@@ -103,8 +101,6 @@ module subgridAveMod
     module procedure create_scale_c2l_gpu
   end interface
 
-  public :: p2c_1d_filter_parallel
-  public :: p2c_1d_parallel 
   public :: p2c_2d_parallel
   public :: c2g_1d_parallel
   !

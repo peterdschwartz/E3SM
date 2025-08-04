@@ -783,7 +783,7 @@ contains
     ! Initialize column-level water balance at beginning of time step
     !
     ! !USES:
-    use subgridAveMod , only : p2c_1d_filter_parallel,c2g_1d_parallel, urbanf, unity
+    use subgridAveMod , only : p2c_1d_filter, c2g_1d_parallel, urbanf, unity
     use elm_varpar    , only : nlevgrnd, nlevsoi, nlevurb
     use column_varcon , only : icol_roof, icol_sunwall, icol_shadewall
     use column_varcon , only : icol_road_perv, icol_road_imperv
@@ -852,7 +852,7 @@ contains
 
       ! Determine beginning water balance for time step
       ! pft-level canopy water averaged to column
-      call p2c_1d_filter_parallel(begc,begp,num_nolakec,filter_nolakec, &
+      call p2c_1d_filter(bounds,num_nolakec,filter_nolakec, &
             h2ocan_patch(begp:endp), &
             h2ocan_col(begc:endc))
 

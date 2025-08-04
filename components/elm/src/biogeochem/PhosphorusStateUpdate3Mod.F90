@@ -169,7 +169,7 @@ contains
                             col_pf%sminp_to_plant_vr(c,j)*dt - col_pf%labilep_to_secondp_vr(c,j)*dt - &
                             col_pf%sminp_leached_vr(c,j)*dt ))
 
-                 if (temp_solutionp(c,j) < 0.0_r8) then
+                 if (temp_solutionp < 0.0_r8) then
 
                     if( abs(col_pf%labilep_to_secondp_vr(c,j)+col_pf%sminp_leached_vr(c,j)) >1.e-20_r8 )then
                        
@@ -185,15 +185,15 @@ contains
                     else
                        ! If there is nothing there to drive proportions, just split it
                        col_pf%labilep_to_secondp_vr(c,j) = 0.5_r8 * &
-                            (temp_solutionp(c,j) + col_pf%labilep_to_secondp_vr(c,j)*dt + &
+                            (temp_solutionp + col_pf%labilep_to_secondp_vr(c,j)*dt + &
                             col_pf%sminp_leached_vr(c,j)*dt) /dt
                        
                        col_pf%sminp_leached_vr(c,j) = 0.5_r8 * &
-                            (temp_solutionp(c,j) + col_pf%labilep_to_secondp_vr(c,j)*dt + &
+                            (temp_solutionp + col_pf%labilep_to_secondp_vr(c,j)*dt + &
                             col_pf%sminp_leached_vr(c,j)*dt) /dt
 
                     end if
-                    temp_solutionp(c,j) = 0.0_r8
+                    temp_solutionp = 0.0_r8
                     col_ps%solutionp_vr(c,j) = 0.0_r8
                     col_ps%labilep_vr(c,j) = 0.0_r8
                  else
@@ -239,7 +239,7 @@ contains
 
                col_ps%secondp_vr(c,j) = col_ps%secondp_vr(c,j) + ( col_pf%labilep_to_secondp_vr(c,j) &
                     - col_pf%secondp_to_labilep_vr(c,j) - col_pf%secondp_to_occlp_vr(c,j) )*dt
-               
+
                col_ps%occlp_vr(c,j)   = col_ps%occlp_vr(c,j) + ( col_pf%secondp_to_occlp_vr(c,j) ) * dt
                col_ps%primp_vr(c,j)   = col_ps%primp_vr(c,j) - ( col_pf%primp_to_labilep_vr(c,j) )*dt + col_pf%pdep_to_sminp(c)*dt &
                     * pdep_prof(c,j)
@@ -266,7 +266,7 @@ contains
                end do
             end do
          end if
-      
+
       !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
       do j = 1, nlevdecomp
          do fc = 1,num_soilc

@@ -36,16 +36,18 @@ module LakeFluxesMod
 contains
 
   !-----------------------------------------------------------------------
-  subroutine LakeFluxes(num_lakep, filter_lakep, &
-       solarabs_vars, frictionvel_vars, &
+  subroutine LakeFluxes(bounds, num_lakec, filter_lakec, num_lakep, filter_lakep, &
+       atm2lnd_vars, solarabs_vars, frictionvel_vars, &
        energyflux_vars, lakestate_vars)
     !
     ! !DESCRIPTION:
     ! Calculates lake temperatures and surface fluxes.
     ! Lakes have variable depth, possible snow layers above, freezing & thawing of lake water,
     ! and soil layers with active temperature and gas diffusion below.
+    ! WARNING: This subroutine assumes lake columns have one and only one pft.
     !
     ! !USES:
+      !$acc routine seq
     use shr_flux_mod        , only : shr_flux_update_stress
     use elm_varpar          , only : nlevlak
     use elm_varcon          , only : hvap, hsub, hfus, cpair, cpliq, tkwat, tkice, tkair
@@ -60,37 +62,48 @@ contains
     use elm_time_manager    , only : get_nstep
     !
     ! !ARGUMENTS:
+    type(bounds_type)      , intent(in)    :: bounds
+    integer                , intent(in)    :: num_lakec         ! number of column non-lake points in column filter
+    integer                , intent(in)    :: filter_lakec(:)   ! column filter for non-lake points
     integer                , intent(in)    :: num_lakep         ! number of column non-lake points in pft filter
     integer                , intent(in)    :: filter_lakep(:)   ! patch filter for non-lake points
+    type(atm2lnd_type)     , intent(in)    :: atm2lnd_vars
     type(solarabs_type)    , intent(inout) :: solarabs_vars
     type(frictionvel_type) , intent(inout) :: frictionvel_vars
     type(energyflux_type)  , intent(inout) :: energyflux_vars
     type(lakestate_type)   , intent(inout) :: lakestate_vars
     !
     ! !LOCAL VARIABLES:
+    real(r8), pointer :: z0mg_col(:)               ! roughness length over ground, momentum [m]
+    real(r8), pointer :: z0hg_col(:)               ! roughness length over ground, sensible heat [m]
+    real(r8), pointer :: z0qg_col(:)               ! roughness length over ground, latent heat [m]
     real(r8), parameter :: dtaumin = 0.01_r8       ! max limit for stress convergence [Pa]
     integer, parameter  :: itmax_expl = 4          ! maximum number of iterations with no tau update
     integer, parameter  :: itmax_impl = 30         ! maximum number of iterations with tau update
-    integer , parameter :: niters = 4      ! maximum number of iterations for surface temperature
-    real(r8), parameter :: beta1 = 1._r8   ! coefficient of convective velocity (in computing W_*) [-]
-    real(r8), parameter :: zii = 1000._r8  ! convective boundary height [m]
-    integer  :: i,fc,fp,g,t,c,p            ! do loop or array index
-    integer  :: iter                       ! iteration index
-    integer  :: nmozsgn    ! number of times moz changes sign
-    integer  :: jtop       ! top level for each column (no longer all 1)
-    real(r8) :: ax         ! used in iteration loop for calculating t_grnd (numerator of NR solution)
-    real(r8) :: bx         ! used in iteration loop for calculating t_grnd (denomin. of NR solution)
-    real(r8) :: degdT      ! d(eg)/dT
-    real(r8) :: dqh        ! diff of humidity between ref. height and surface
-    real(r8) :: dth        ! diff of virtual temp. between ref. height and surface
-    real(r8) :: dthv       ! diff of vir. poten. temp. between ref. height and surface
-    real(r8) :: dzsur      ! 1/2 the top layer thickness (m)
-    real(r8) :: eg         ! water vapor pressure at temperature T [pa]
-    real(r8) :: htvp      ! latent heat of vapor of water (or sublimation) [j/kg]
-    real(r8) :: obu       ! monin-obukhov length (m)
-    real(r8) :: obuold    ! monin-obukhov length of previous iteration
-    real(r8) :: qsatg     ! saturated humidity [kg/kg]
-    real(r8) :: qsatgdT   ! d(qsatg)/dT
+    real(r8), parameter :: beta1 = 1._r8           ! coefficient of convective velocity (in computing W_*) [-]
+    real(r8), parameter :: zii = 1000._r8          ! convective boundary height [m]
+    integer  :: i,fc,fp,g,t,c,p                    ! do loop or array index
+    integer  :: fncopy                             ! number of values in pft filter copy
+    integer  :: fnold                              ! previous number of pft filter values
+    integer  :: fpcopy(num_lakep)                  ! patch filter copy for iteration loop
+    integer  :: iter                               ! iteration index
+    integer  :: iter_final                         ! number of iterations used
+    integer  :: itmax                              ! maximum number of iterations
+    integer  :: nmozsgn(bounds%begp:bounds%endp)   ! number of times moz changes sign
+    integer  :: jtop(bounds%begc:bounds%endc)      ! top level for each column (no longer all 1)
+    real(r8) :: ax                                 ! used in iteration loop for calculating t_grnd (numerator of NR solution)
+    real(r8) :: bx                                 ! used in iteration loop for calculating t_grnd (denomin. of NR solution)
+    real(r8) :: degdT                              ! d(eg)/dT
+    real(r8) :: dqh(bounds%begp:bounds%endp)       ! diff of humidity between ref. height and surface
+    real(r8) :: dth(bounds%begp:bounds%endp)       ! diff of virtual temp. between ref. height and surface
+    real(r8) :: dthv                               ! diff of vir. poten. temp. between ref. height and surface
+    real(r8) :: dzsur(bounds%begc:bounds%endc)     ! 1/2 the top layer thickness (m)
+    real(r8) :: eg                                 ! water vapor pressure at temperature T [pa]
+    real(r8) :: htvp(bounds%begc:bounds%endc)      ! latent heat of vapor of water (or sublimation) [j/kg]
+    real(r8) :: obu(bounds%begp:bounds%endp)       ! monin-obukhov length (m)
+    real(r8) :: obuold(bounds%begp:bounds%endp)    ! monin-obukhov length of previous iteration
+    real(r8) :: qsatg(bounds%begc:bounds%endc)     ! saturated humidity [kg/kg]
+    real(r8) :: qsatgdT(bounds%begc:bounds%endc)   ! d(qsatg)/dT
     real(r8) :: qstar                              ! moisture scaling parameter
     real(r8) :: ram(bounds%begp:bounds%endp)       ! aerodynamical resistance [s/m]
     real(r8) :: rah(bounds%begp:bounds%endp)       ! thermal resistance [s/m]
@@ -134,7 +147,7 @@ contains
     real(r8) :: fetch(bounds%begc:bounds%endc)     ! Fetch (m)
     real(r8) :: sqre0                              ! root of roughness Reynolds number
     real(r8), parameter :: kva0 = 1.51e-5_r8       ! kinematic viscosity of air (m^2/s) at 20C and 1.013e5 Pa
-    real(r8), parameter :: kva0temp = 20._r8 + tfrz! (K) temperature for kva0; will be set below
+    real(r8) :: kva0temp                           ! (K) temperature for kva0; will be set below
     real(r8), parameter :: kva0pres = 1.013e5_r8   ! (Pa) pressure for kva0
     real(r8) :: kva                                ! kinematic viscosity of air at ground temperature and forcing pressure
     real(r8), parameter :: prn = 0.713             ! Prandtl # for air at neutral stability
@@ -187,11 +200,6 @@ contains
          forc_hgt_u_patch =>    frictionvel_vars%forc_hgt_u_patch      , & ! Input:  [real(r8) (:)   ]  observational height of wind at pft level [m]
          forc_hgt_t_patch =>    frictionvel_vars%forc_hgt_t_patch      , & ! Input:  [real(r8) (:)   ]  observational height of temperature at pft level [m]
          forc_hgt_q_patch =>    frictionvel_vars%forc_hgt_q_patch      , & ! Input:  [real(r8) (:)   ]  observational height of specific humidity at pft level [m]
-         vds              => frictionvel_vars%vds_patch        , & ! Output: [real(r8) (:) ] dry deposition velocity term (m/s) (for SO4 NH4NO3)
-         u10              => frictionvel_vars%u10_patch        , & ! Output: [real(r8) (:) ] 10-m wind (m/s) (for dust model)
-         u10_elm          => frictionvel_vars%u10_elm_patch    , & ! Output: [real(r8) (:) ] 10-m wind (m/s)
-         va               => frictionvel_vars%va_patch         , & ! Output: [real(r8) (:) ] atmospheric wind speed plus convective velocity (m/s)
-         fv               => frictionvel_vars%fv_patch         ,  & ! Output: [real(r8) (:) ] friction velocity (m/s) (for dust model)
 
          q_ref2m          =>    veg_ws%q_ref2m          , & ! Output: [real(r8) (:)   ]  2 m height surface specific humidity (kg/kg)
          rh_ref2m         =>    veg_ws%rh_ref2m         , & ! Output: [real(r8) (:)   ]  2 m height surface relative humidity (%)
@@ -221,26 +229,24 @@ contains
          taux             =>    veg_ef%taux             , & ! Output: [real(r8) (:)   ]  wind (shear) stress: e-w (kg/m/s**2)
          tauy             =>    veg_ef%tauy             , & ! Output: [real(r8) (:)   ]  wind (shear) stress: n-s (kg/m/s**2)
 
-         ks               =>    lakestate_vars%ks_col            , & ! Output: [real(r8) (:)   ]  coefficient passed to LakeTemperature
-         ws               =>    lakestate_vars%ws_col            , & ! Output: [real(r8) (:)   ]  surface friction velocity (m/s)
-         betaprime        =>    lakestate_vars%betaprime_col     , & ! Output: [real(r8) (:)   ]  fraction of solar rad absorbed at surface: equal to NIR fraction
-         ram1_lake        =>    lakestate_vars%ram1_lake_patch   , & ! Output: [real(r8) (:)   ]  aerodynamical resistance (s/m)
-         ust_lake         =>    lakestate_vars%ust_lake_col      , & ! Output: [real(r8) (:)   ]  friction velocity (m/s)
-         lake_raw         =>    lakestate_vars%lake_raw_col      , & ! Output: [real(r8) (:)   ]  aerodynamic resistance for moisture (s/m)
-         ! the following cause a crash if they are set as associated
-         z0mg_col         =>    frictionvel_vars%z0mg_col        , &
-         z0hg_col         =>    frictionvel_vars%z0hg_col        , &
-         z0qg_col         =>    frictionvel_vars%z0qg_col        , &
+         ks               =>    lakestate_vars%ks_col                  , & ! Output: [real(r8) (:)   ]  coefficient passed to LakeTemperature
+         ws               =>    lakestate_vars%ws_col                  , & ! Output: [real(r8) (:)   ]  surface friction velocity (m/s)
+         betaprime        =>    lakestate_vars%betaprime_col           , & ! Output: [real(r8) (:)   ]  fraction of solar rad absorbed at surface: equal to NIR fraction
+         ram1_lake        =>    lakestate_vars%ram1_lake_patch         , & ! Output: [real(r8) (:)   ]  aerodynamical resistance (s/m)
+         ust_lake         =>    lakestate_vars%ust_lake_col            , & ! Output: [real(r8) (:)   ]  friction velocity (m/s)
+         lake_raw         =>    lakestate_vars%lake_raw_col            , & ! Output: [real(r8) (:)   ]  aerodynamic resistance for moisture (s/m)
+
          begp             =>    bounds%begp                            , &
          endp             =>    bounds%endp                              &
          )
 
+      ! the following cause a crash if they are set as associated
+      z0mg_col => frictionvel_vars%z0mg_col
+      z0hg_col => frictionvel_vars%z0hg_col
+      z0qg_col => frictionvel_vars%z0qg_col
 
-      !$acc parallel loop independent gang vector default(present) &
-      !$acc  private(p,c,t,g,eg, degdT, qsatg, qsatgdT, thv, dthv, zldis, &
-      !$acc  displa, z0mg, z0hg, z0qg, obu, iter, ur, um, ustar, &
-      !$acc  temp1, temp2, temp12m, temp22m,fm,e_ref2m, de2mdT, qsat_ref2m, dqsat2mdT) &
-      !$acc present(rh_ref2m(:)) 
+      kva0temp = 20._r8 + tfrz
+
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -385,12 +391,12 @@ contains
          ! Determine friction velocity, and potential temperature and humidity
          ! profiles of the surface boundary layer
 
-         call FrictionVelocity_noloop( &
-              displa, z0mg, z0hg, z0qg, &
-              obu, iter, ur, um, ustar, &
-              temp1, temp2, temp12m, temp22m, &
-              fm, forc_hgt_u_patch(p), forc_hgt_t_patch(p), forc_hgt_q_patch(p), &
-              vds(p), u10(p), u10_elm(p), va(p), fv(p))
+         call FrictionVelocity(begp, endp, fncopy, fpcopy, &
+              displa(begp:endp), z0mg(begp:endp), z0hg(begp:endp), z0qg(begp:endp), &
+              obu(begp:endp), iter, ur(begp:endp), um(begp:endp), ugust_total(begp:endp), &
+              ustar(begp:endp), &
+              temp1(begp:endp), temp2(begp:endp), temp12m(begp:endp), temp22m(begp:endp), &
+              fm(begp:endp), frictionvel_vars)
 
          do fp = 1, fncopy
             p = fpcopy(fp)
@@ -676,8 +682,9 @@ contains
 
       end do
 
-       !$acc parallel loop independent gang vector default(present) private(p,t)
-       do fp = 1, num_lakep
+      ! The following are needed for global average on history tape.
+
+      do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
          t = veg_pp%topounit(p)

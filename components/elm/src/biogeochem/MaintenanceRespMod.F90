@@ -143,19 +143,6 @@ contains
       ! to improve seasonal cycle of atmospheric CO2 concentration in global
       ! simulatoins
 
-      ! column loop to calculate temperature factors in each soil layer
-      !$acc parallel loop independent gang vector default(present) present(tcsoi(:,:),t_soisno(:,:))
-      do j=1,nlevgrnd
-         do fc = 1, num_soilc
-            c = filter_soilc(fc)
-
-            ! calculate temperature corrections for each soil layer, for use in
-            ! estimating fine root maintenance respiration with depth
-            tcsoi(c,j) = Q10**((t_soisno(c,j)-SHR_CONST_TKFRZ - 20.0_r8)/10.0_r8)
-
-         end do
-      end do
-
       ! patch loop for leaves and live wood
       !$acc enter data create(sum1)
 

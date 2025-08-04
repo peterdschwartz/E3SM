@@ -367,7 +367,7 @@ contains
        ! PET: 4/25/2018: By keeping the glcmask reference at the gridcell level, this forces
        ! is_active_l = .true. for istice_mec landunits on all topounits for the gridcell.
        !if (lun_pp%itype(l) == istice_mec .and. ldomain%glcmask(g) == 1) is_active_l = .true. ! make sure no active l for inactive topounit TKT
-       if (top_pp%active(t) .and. lun_pp%itype(l) == istice_mec .and. ldomain_gpu%glcmask(g) == 1) is_active_l = .true.
+       if (top_pp%active(t) .and. lun_pp%itype(l) == istice_mec .and. ldomain%glcmask(g) == 1) is_active_l = .true.
 
        ! In general, include a virtual natural vegetation landunit. This aids
        ! initialization of a new landunit; and for runs that are coupled to CISM, this
@@ -477,7 +477,7 @@ contains
        !
        ! Note that we use glcmask rather than icemask here; see comment in is_active_l
        ! for the rationale.
-       if (top_pp%active(t) .and. lun_pp%itype(l) == istice_mec .and. ldomain_gpu%glcmask(g) == 1) is_active_c = .true.
+       if (top_pp%active(t) .and. lun_pp%itype(l) == istice_mec .and. ldomain%glcmask(g) == 1) is_active_c = .true.
 
        ! We don't really need to run over 0-weight urban columns. But because of some
        ! messiness in the urban code (many loops are over the landunit filter, then drill

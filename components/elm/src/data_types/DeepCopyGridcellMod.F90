@@ -100,35 +100,35 @@ contains
   end subroutine deepcopy_gridcell_energy_flux
   subroutine deepcopy_gridcell_water_state(this_type)
     type(gridcell_water_state), intent(inout) :: this_type
-    !$acc enter data copyin(this_type)
-    !$acc enter data copyin(&
-    !$acc& this_type%liq1(:),&
-    !$acc& this_type%liq2(:),&
-    !$acc& this_type%ice1(:),&
-    !$acc& this_type%ice2(:),&
-    !$acc& this_type%tws(:),&
-    !$acc& this_type%tws_month_beg(:),&
-    !$acc& this_type%tws_month_end(:),&
-    !$acc& this_type%begwb(:),&
-    !$acc& this_type%endwb(:),&
-    !$acc& this_type%errh2o(:),&
-    !$acc& this_type%beg_h2ocan(:),&
-    !$acc& this_type%beg_h2osno(:),&
-    !$acc& this_type%beg_h2osfc(:),&
-    !$acc& this_type%beg_h2osoi_liq(:),&
-    !$acc& this_type%beg_h2osoi_ice(:),&
-    !$acc& this_type%end_h2ocan(:),&
-    !$acc& this_type%end_h2osno(:),&
-    !$acc& this_type%end_h2osfc(:),&
-    !$acc& this_type%end_h2osoi_liq(:),&
-    !$acc& this_type%end_h2osoi_ice(:))
+    !!!$acc enter data copyin(this_type)
+    !!!$acc enter data copyin(&
+    !!!$acc& this_type%liq1(:),&
+    !!!$acc& this_type%liq2(:),&
+    !!!$acc& this_type%ice1(:),&
+    !!!$acc& this_type%ice2(:),&
+    !!!$acc& this_type%tws(:),&
+    !!!$acc& this_type%tws_month_beg(:),&
+    !!!$acc& this_type%tws_month_end(:),&
+    !!!$acc& this_type%begwb(:),&
+    !!!$acc& this_type%endwb(:),&
+    !!!$acc& this_type%errh2o(:),&
+    !!!$acc& this_type%beg_h2ocan(:),&
+    !!!$acc& this_type%beg_h2osno(:),&
+    !!!$acc& this_type%beg_h2osfc(:),&
+    !!!$acc& this_type%beg_h2osoi_liq(:),&
+    !!!$acc& this_type%beg_h2osoi_ice(:),&
+    !!!$acc& this_type%end_h2ocan(:),&
+    !!!$acc& this_type%end_h2osno(:),&
+    !!!$acc& this_type%end_h2osfc(:),&
+    !!!$acc& this_type%end_h2osoi_liq(:),&
+    !!!$acc& this_type%end_h2osoi_ice(:))
   end subroutine deepcopy_gridcell_water_state
   subroutine deepcopy_gridcell_water_flux(this_type)
     type(gridcell_water_flux), intent(inout) :: this_type
-    !$acc enter data copyin(this_type)
-    !$acc enter data copyin(&
-    !$acc& this_type%qflx_liq_dynbal(:),&
-    !$acc& this_type%qflx_ice_dynbal(:))
+    !!!$acc enter data copyin(this_type)
+    !!!$acc enter data copyin(&
+    !!!$acc& this_type%qflx_liq_dynbal(:),&
+    !!!$acc& this_type%qflx_ice_dynbal(:))
   end subroutine deepcopy_gridcell_water_flux
   subroutine deepcopy_gridcell_carbon_state(this_type)
     type(gridcell_carbon_state), intent(inout) :: this_type

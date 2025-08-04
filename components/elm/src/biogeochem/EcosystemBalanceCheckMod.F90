@@ -43,15 +43,13 @@ module EcosystemBalanceCheckMod
   use VegetationDataType  , only : veg_cf, veg_nf, veg_pf
    
   use timeinfoMod
-  use subgridAveMod , only : unity
   !
-  #define is_active_betr_bgc .false.  
   implicit none
   save
   private
 
   ! This corersponds to namelist variable bgc_balance_check_tolerance
-  real(r8), public  :: balance_check_tolerance = 1e-7_r8
+  real(r8), public, parameter  :: balance_check_tolerance = 1e-7_r8
 
   !
   ! !PUBLIC MEMBER FUNCTIONS:
@@ -810,31 +808,31 @@ contains
          )
 
       call c2g(bounds, totcolc(bounds%begc:bounds%endc), begcb_grc(bounds%begg:bounds%endg), &
-           c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+           c2l_scale_type = unity, l2g_scale_type = unity)
 
       call c2g(bounds, totcolc(bounds%begc:bounds%endc), beg_totc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
       call c2g(bounds, totpftc(bounds%begc:bounds%endc), beg_totpftc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
       call c2g(bounds, cwdc(bounds%begc:bounds%endc), beg_cwdc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
       call c2g(bounds, totlitc(bounds%begc:bounds%endc), beg_totlitc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
       call c2g(bounds, totsomc(bounds%begc:bounds%endc), beg_totsomc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
       call c2g(bounds, totprodc(bounds%begc:bounds%endc), beg_totprodc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
       call c2g(bounds, ctrunc(bounds%begc:bounds%endc), beg_ctrunc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
       call c2g(bounds, cropseedc_deficit(bounds%begc:bounds%endc), beg_cropseedc_deficit(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
     end associate
 
@@ -917,47 +915,47 @@ contains
 
       ! c2g states
       call c2g(bounds, col_totc(bounds%begc:bounds%endc), end_totc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_totpftc(bounds%begc:bounds%endc), end_totpftc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_cwdc(bounds%begc:bounds%endc), end_cwdc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_totlitc(bounds%begc:bounds%endc), end_totlitc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_totsomc(bounds%begc:bounds%endc), end_totsomc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_totprodc(bounds%begc:bounds%endc), end_totprodc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_ctrunc(bounds%begc:bounds%endc), end_ctrunc(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_cropseedc_deficit(bounds%begc:bounds%endc), end_cropseedc_deficit(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
 
       ! c2g fluxes
       call c2g(bounds, col_gpp(bounds%begc:bounds%endc), grc_gpp(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_er(bounds%begc:bounds%endc), grc_er(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_fire_closs(bounds%begc:bounds%endc), grc_fire_closs(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_prod1c_loss(bounds%begc:bounds%endc), grc_prod1c_loss(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_prod10c_loss(bounds%begc:bounds%endc), grc_prod10c_loss(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_prod100c_loss(bounds%begc:bounds%endc), grc_prod100c_loss(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_hrv_xsmrpool_to_atm(bounds%begc:bounds%endc), grc_hrv_xsmrpool_to_atm(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_som_c_leached(bounds%begc:bounds%endc), grc_som_c_leached(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       call c2g(bounds, col_som_c_yield(bounds%begc:bounds%endc), grc_som_c_yield(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')  
+               c2l_scale_type = unity, l2g_scale_type = unity)  
 
       if (use_fates) then 
         call c2g(bounds, col_cf%litfall(bounds%begc:bounds%endc), grc_cinputs(bounds%begg:bounds%endg), &
-               c2l_scale_type = 'unity', l2g_scale_type = 'unity')
+               c2l_scale_type = unity, l2g_scale_type = unity)
       end if 
-         
+
       dt = real( get_step_size(), r8 )
       nstep = get_nstep()
 

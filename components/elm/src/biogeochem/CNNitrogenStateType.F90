@@ -1030,21 +1030,6 @@ contains
 
    end do
 
-   call p2c(bounds, num_soilc, filter_soilc, &
-        this%plant_n_buffer_patch(bounds%begp:bounds%endp), &
-        this%plant_n_buffer_col(bounds%begc:bounds%endc))
-
-   call p2c(bounds, num_soilc, filter_soilc, &
-        this%totvegn_patch(bounds%begp:bounds%endp), &
-        this%totvegn_col(bounds%begc:bounds%endc))
-
-   call p2c(bounds, num_soilc, filter_soilc, &
-        this%totpftn_patch(bounds%begp:bounds%endp), &
-        this%totpftn_col(bounds%begc:bounds%endc))
-
-   call p2c(bounds, num_soilc, filter_soilc, &
-        this%cropseedn_deficit_patch(bounds%begp:bounds%endp), &
-        cropseedn_deficit_col(bounds%begc:bounds%endc))
 
    ! vertically integrate NO3 NH4 N2O pools
    nlev = nlevdecomp

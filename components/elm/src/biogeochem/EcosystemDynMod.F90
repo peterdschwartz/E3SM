@@ -228,7 +228,7 @@ contains
     ! Only update the veg_ data structures if we are using cn
     if(.not.use_fates) then
        call veg_cf_summary_for_ch4(veg_cf,bounds, num_soilp, filter_soilp)
-       call veg_cf_Summary(veg_cf,bounds, num_soilp, filter_soilp, num_soilc, filter_soilc, 'bulk', col_cf)
+       call veg_cf_Summary(veg_cf,bounds, num_soilp, filter_soilp, num_soilc, filter_soilc, 'c12', col_cf)
        if ( use_c13 ) then
           call veg_cf_Summary(veg_cf,bounds, num_soilp, filter_soilp, num_soilc, filter_soilc, 'c13', c13_col_cf)
           call col_cf_Summary(col_cf,bounds, num_soilc, filter_soilc, 'c13')

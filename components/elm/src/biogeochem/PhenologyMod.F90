@@ -33,7 +33,6 @@ module PhenologyMod
   use VegetationDataType  , only : veg_es, veg_ef, veg_cs, veg_cf, veg_ns, veg_nf
   use VegetationDataType  , only : veg_ps, veg_pf
   use SolarAbsorbedType   , only : solarabs_type
-  !!!Added for gpu timing info
   use timeinfoMod
 
   !
@@ -49,20 +48,20 @@ module PhenologyMod
   !
   ! !PRIVATE DATA MEMBERS:
   type, private :: PnenolParamsType
-     real(r8), pointer :: crit_dayl        => null() ! critical day length for senescence
-                                                     ! from Biome-BGC, v4.1.2
-     real(r8), pointer :: crit_dayl_stress => null() ! critical day length for senescence (stress)
-     real(r8), pointer :: cumprec_onset    => null() ! 10-day cumulative precipitation threshold for onset
-     real(r8), pointer :: ndays_on         => null() ! number of days to complete leaf onset
-     real(r8), pointer :: ndays_off        => null() ! number of days to complete leaf offset
-     real(r8), pointer :: fstor2tran       => null() ! fraction of storage to move to transfer for each onset
-     real(r8), pointer :: crit_onset_fdd   => null() ! critical number of freezing days to set gdd counter
-     real(r8), pointer :: crit_onset_swi   => null() ! critical number of days > soilpsi_on for onset
-     real(r8), pointer :: soilpsi_on       => null() ! critical soil water potential for leaf onset
-     real(r8), pointer :: crit_offset_fdd  => null() ! critical number of freezing days to initiate offset
-     real(r8), pointer :: crit_offset_swi  => null() ! critical number of water stress days to initiate offset
-     real(r8), pointer :: soilpsi_off      => null() ! critical soil water potential for leaf offset
-     real(r8), pointer :: lwtop            => null() ! live wood turnover proportion (annual fraction)
+     real(r8) :: crit_dayl         ! critical day length for senescence
+                                   !    from Biome-BGC, v4.1.2
+     real(r8) :: crit_dayl_stress  ! critical day length for senescence (stress)
+     real(r8) :: cumprec_onset     ! 10-day cumulative precipitation threshold for onset
+     real(r8) :: ndays_on          ! number of days to complete leaf onset
+     real(r8) :: ndays_off         ! number of days to complete leaf offset
+     real(r8) :: fstor2tran        ! fraction of storage to move to transfer for each onset
+     real(r8) :: crit_onset_fdd    ! critical number of freezing days to set gdd counter
+     real(r8) :: crit_onset_swi    ! critical number of days > soilpsi_on for onset
+     real(r8) :: soilpsi_on        ! critical soil water potential for leaf onset
+     real(r8) :: crit_offset_fdd   ! critical number of freezing days to initiate offset
+     real(r8) :: crit_offset_swi   ! critical number of water stress days to initiate offset
+     real(r8) :: soilpsi_off       ! critical soil water potential for leaf offset
+     real(r8) :: lwtop             ! live wood turnover proportion (annual fraction)
   end type PnenolParamsType
 
   ! PhenolParamsInst is populated in readPhenolParams
@@ -79,12 +78,6 @@ module PhenologyMod
   real(r8) :: soilpsi_off                   ! water potential for offset trigger (MPa)
   real(r8) :: lwtop                         ! live wood turnover proportion (annual fraction)
   !$acc declare create(fracday         )
-  !$acc declare create(crit_dayl       )
-  !$acc declare create(crit_dayl_stress)
-  !$acc declare create(cumprec_onset   )
-  !$acc declare create(ndays_on        )
-  !$acc declare create(ndays_off       )
-  !$acc declare create(fstor2tran      )
   !$acc declare create(crit_onset_fdd  )
   !$acc declare create(crit_onset_swi  )
   !$acc declare create(soilpsi_on      )
@@ -138,20 +131,6 @@ contains
     character(len=100) :: tString ! temp. var for reading
     !-----------------------------------------------------------------------
 
-     allocate(PhenolParamsInst%crit_dayl       )
-     allocate(PhenolParamsInst%crit_dayl_stress)
-     allocate(PhenolParamsInst%cumprec_onset   )
-     allocate(PhenolParamsInst%ndays_on        )
-     allocate(PhenolParamsInst%ndays_off       )
-     allocate(PhenolParamsInst%fstor2tran      )
-     allocate(PhenolParamsInst%crit_onset_fdd  )
-     allocate(PhenolParamsInst%crit_onset_swi  )
-     allocate(PhenolParamsInst%soilpsi_on      )
-     allocate(PhenolParamsInst%crit_offset_fdd )
-     allocate(PhenolParamsInst%crit_offset_swi )
-     allocate(PhenolParamsInst%soilpsi_off     )
-     allocate(PhenolParamsInst%lwtop           )
-    !
     ! read in parameters
     !
     tString='crit_dayl'
@@ -230,7 +209,6 @@ contains
     if ( .not. readv ) call endrun( msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
     PhenolParamsInst%lwtop=tempr
 
-     !!!!========== Update to device ========= !!!
      !$acc enter data copyin(PhenolParamsInst%crit_dayl, &
      !$acc PhenolParamsInst%crit_dayl_stress, &
      !$acc PhenolParamsInst%cumprec_onset   , &

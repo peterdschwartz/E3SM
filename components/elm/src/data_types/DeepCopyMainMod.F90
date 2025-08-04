@@ -6,7 +6,7 @@ module DeepCopyMainMod
   use lnd2glcmod,only: lnd2glc_type
   use soilordercontype,only: soilordercon_type
   implicit none
-  public :: deepcopy_domain_params_type
+  !public :: deepcopy_domain_params_type
   public :: deepcopy_atm2lnd_type
   public :: deepcopy_lnd2atm_type
   public :: deepcopy_lnd2glc_type
@@ -36,12 +36,8 @@ contains
     type(domain_params_type), intent(inout) :: this_type
     !$acc enter data copyin(this_type)
     !$acc enter data copyin(&
-    !$acc& this_type%f_grd(:),&
     !$acc& this_type%lonc(:),&
-    !$acc& this_type%f_surf(:),&
-    !$acc& this_type%latc(:),&
-    !$acc& this_type%firrig(:),&
-    !$acc& this_type%glcmask(:))
+    !$acc& this_type%latc(:))
   end subroutine deepcopy_domain_params_type
   subroutine deepcopy_atm2lnd_type(this_type)
     type(atm2lnd_type), intent(inout) :: this_type

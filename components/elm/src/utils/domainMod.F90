@@ -10,9 +10,9 @@ module domainMod
 ! !USES:
   use shr_kind_mod, only : r8 => shr_kind_r8
   use elm_varctl  , only : iulog
+  use elm_varcon, only: spval
   use spmdMod  , only : masterproc
   use shr_sys_mod, only : shr_sys_abort 
-  #define nan 1e36
 
 !
 ! !PUBLIC TYPES:
@@ -65,15 +65,12 @@ module domainMod
   real(r8), allocatable, public :: lon1d(:), lat1d(:) ! 1d lat/lons for 2d grids
 
   type, public :: domain_params_type
-     real(r8), pointer :: latc(:)    ! latitude of grid cell (deg)
-     real(r8), pointer :: lonc(:)    ! longitude of grid cell (deg)
-
-     integer, pointer :: glcmask(:)
+     real(r8), allocatable :: latc(:)    ! latitude of grid cell (deg)
+     real(r8), allocatable :: lonc(:)    ! longitude of grid cell (deg)
 
   end type domain_params_type
 
   type(domain_params_type), public :: ldomain_gpu
-  !$acc declare create(ldomain_gpu)
 
 ! !PUBLIC MEMBER FUNCTIONS:
   public domain_init          ! allocates/nans domain types
@@ -154,11 +151,11 @@ subroutine domain_init(domain,isgrid2d,ni,nj,nbeg,nend,elmlevel)
     if (domain%nv > 0 .and. domain%nv /= huge(1)) then
        if(.not.associated(domain%lonv)) then
            allocate(domain%lonv(nb:ne, 1:domain%nv), stat=ier)
-           domain%lonv     = nan
+           domain%lonv     = spval
        endif
        if(.not.associated(domain%latv)) then
            allocate(domain%latv(nb:ne, 1:domain%nv))
-           domain%latv     = nan
+           domain%latv     = spval
        endif
     end if
     ! pflotran:end-----------------------------------------------------
@@ -179,11 +176,11 @@ subroutine domain_init(domain,isgrid2d,ni,nj,nbeg,nend,elmlevel)
     domain%frac     = -1.0e36
     domain%topo     = 0._r8
     domain%num_tunits_per_grd = -9999
-    domain%latc     = nan
-    domain%lonc     = nan
-    domain%xCell    = nan
-    domain%yCell    = nan
-    domain%area     = nan
+    domain%latc     = spval
+    domain%lonc     = spval
+    domain%xCell    = spval
+    domain%yCell    = spval
+    domain%area     = spval
     
     domain%stdev_elev        = 0.0_r8
     domain%sky_view          = 1.0_r8
@@ -326,18 +323,17 @@ subroutine domain_check(domain)
 end subroutine domain_check
 
 
-subroutine domain_transfer()
+subroutine domain_transfer(nbeg, nend)
 
-   implicit none
-   integer :: nbeg,nend
+   integer, intent(in) :: nbeg,nend
 
-   allocate(ldomain_gpu%glcmask(nbeg:nend) )
+   !allocate(ldomain_gpu%glcmask(nbeg:nend) )
    allocate(ldomain_gpu%latc(nbeg:nend))
    allocate(ldomain_gpu%lonc(nbeg:nend))
-   ldomain_gpu%glcmask(nbeg:nend) = ldomain%glcmask(nbeg:nend)
+   !ldomain_gpu%glcmask(nbeg:nend) = ldomain%glcmask(nbeg:nend)
    ldomain_gpu%latc(nbeg:nend) = ldomain%latc(nbeg:nend)
    ldomain_gpu%lonc(nbeg:nend) = ldomain%lonc(nbeg:nend)
-
+   !
 end subroutine domain_transfer
 
 !------------------------------------------------------------------------------

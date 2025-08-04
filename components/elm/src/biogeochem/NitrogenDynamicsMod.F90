@@ -12,7 +12,7 @@ module NitrogenDynamicsMod
   use decompMod           , only : bounds_type
   use elm_varcon          , only : dzsoi_decomp, zisoi
   use elm_varctl          , only : use_vertsoilc, use_fan
-  use subgridAveMod       , only : p2c, p2c_1d_filter_parallel
+  use subgridAveMod       , only : p2c, p2c_1d_filter
   use atm2lndType         , only : atm2lnd_type
   use CNStateType         , only : cnstate_type
   use CropType            , only : crop_type
@@ -129,15 +129,14 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: g,c,fc                  ! indices
-    integer :: begc, endc 
+    integer :: begc, endc
     !-----------------------------------------------------------------------
 
     associate(&
          forc_ndep     =>  atm2lnd_vars%forc_ndep_grc           , & ! Input:  [real(r8) (:)]  nitrogen deposition rate (gN/m2/s)
          ndep_to_sminn =>  col_nf%ndep_to_sminn   & ! Output: [real(r8) (:)]
          )
-      
-      begc = bounds%begc 
+      begc = bounds%begc
       endc = bounds%endc
 
       ! Loop through columns
@@ -150,11 +149,6 @@ contains
       end do
 
     end associate
-
-    if (use_fan) then
-      call fan_eval(bounds, num_soilc, filter_soilc, &
-           atm2lnd_vars, soilstate_vars, frictionvel_vars)
-    end if
 
   end subroutine NitrogenDeposition
 
@@ -175,7 +169,6 @@ contains
     integer                 , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                 , intent(in)    :: filter_soilc(:) ! filter for soil columns
     real(r8), intent(in) :: dayspyr               ! days per year
-    !type(hlm_fates_interface_type), intent(in) :: elm_fates
     
     !
     ! !LOCAL VARIABLES:
@@ -277,7 +270,7 @@ contains
     real(r8) :: surface_water(num_soilc) ! liquid water to shallow surface depth (kg water/m2)
     real(r8), parameter :: depth_runoff_Nloss = 0.05   ! (m) depth over which runoff mixes with soil water for N loss to runoff
     real(r8) :: sum_var
-    real(r8) :: tot_water(num_soilc)  
+    real(r8) :: tot_water(num_soilc)
     !-----------------------------------------------------------------------
 
     associate(&
@@ -394,7 +387,7 @@ contains
  end subroutine NitrogenLeaching
 
   !-----------------------------------------------------------------------
-  subroutine NitrogenFert(bounds, num_soilc, filter_soilc )
+  subroutine NitrogenFert(bounds, num_soilc, filter_soilc, num_pcropp, filter_pcropp)
     !
     ! !DESCRIPTION:
     ! On the radiation time step, update the nitrogen fertilizer for crops
@@ -412,31 +405,29 @@ contains
     integer , intent(in) :: filter_pcropp(:) ! filter for prognostic crop patches
     !
     ! !LOCAL VARIABLES:
-    integer :: c,fc,p, fp                 ! indices
+    integer :: c,fc,p,fp                 ! indices
     real(r8) :: manure_col(bounds%begc:bounds%endc)
-    integer :: begp, begc
-    integer :: endp,endc
     !-----------------------------------------------------------------------
 
     associate(&
          synthfert     =>    veg_nf%synthfert,      & ! Input:  [real(r8) (:)] nitrogen fertilizer rate (gN/m2/s)
          manure        =>    veg_nf%manure,         & ! Input:  [real(r8) (:)] manure nitrogen rate (gN/m2/s)
          totalfert     =>    veg_nf%nfertilization, & ! Input:  [real(r8) (:)] manure nitrogen rate (gN/m2/s) 
-         fert_to_sminn =>    col_nf%fert_to_sminn   & ! Output: [real(r8) (:)]
+         fert_to_sminn =>    col_nf%fert_to_sminn,  & ! Output: [real(r8) (:)]
+         begc          =>    bounds%begc,&
+         endc          =>    bounds%endc,&
+         begp          =>    bounds%begp,&
+         endp          =>    bounds%endp &
          )
       if (.not. fan_to_bgc_crop) then
          ! => Crop columns/patches are not handled by FAN. Use synthfert directly and add
          ! the default CLM manure. No N input to non-crop columns in this case.
+         ! NOTE: manure_col being allocated over begc:endc is wasteful
 
-        begc = bounds%begc 
-        endc = bounds%endc
-        begp = bounds%begp
-        endp = bounds%endp 
-
-        call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+        call p2c_1d_filter( bounds,num_soilc,filter_soilc, &
            synthfert(begp:endp),  fert_to_sminn(begc:endc) )
 
-        call p2c_1d_filter_parallel( begc,begp,num_soilc,filter_soilc, &
+        call p2c_1d_filter( bounds,num_soilc,filter_soilc, &
            manure(begp:endp),  manure_col(begc:endc) )
 
          ! Add the manure N processed above:
@@ -454,7 +445,7 @@ contains
             totalfert(p) = synthfert(p) + manure(p)
          end do
       end if
- 
+
       ! if fan_to_bgc_crop == .true., FAN fills in the fert_to_sminn and totalfert for
       ! crops. It might also fill in the non-crop columns if enabled.
       call fan_to_sminn(bounds, filter_soilc, num_soilc, totalfert)
@@ -510,10 +501,10 @@ contains
          soyfixn_to_sminn =>  col_nf%soyfixn_to_sminn   & ! Output: [real(r8) (:) ]
          )
 
-     begc = bounds%begc 
+     begc = bounds%begc
      endc = bounds%endc
      begp = bounds%begp
-     endp = bounds%endp 
+     endp = bounds%endp
       !$acc parallel loop independent gang vector default(present) private(p,c)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
@@ -587,7 +578,7 @@ contains
          end if
       end do
 
-      call p2c_1d_filter_parallel(begc,begp,num_soilc,filter_soilc, &
+      call p2c_1d_filter(bounds,num_soilc,filter_soilc, &
         soyfixn(begp:endp), soyfixn_to_sminn(begc:endc))
 
     end associate
@@ -620,11 +611,11 @@ contains
     real(r8) :: f_nodule                   ! empirical, fraction of root that is nodulated
     real(r8) :: N2_aq                      ! aqueous N2 bulk concentration gN/m3 soil
     real(r8) :: nfix_tmp
-    real(r8) :: sminn_sum, ecosysn_sum 
+    real(r8) :: sminn_sum, ecosysn_sum
     !-----------------------------------------------------------------------
 
     associate(&
-         ivt                   => veg_pp%itype                            , & ! input:  [integer  (:) ]  pft vegetation type
+         ivt                   => veg_pp%itype                         , & ! input:  [integer  (:) ]  pft vegetation type
          cn_scalar             => cnstate_vars%cn_scalar               , &
          cp_scalar             => cnstate_vars%cp_scalar               , &
          vmax_nfix             => veg_vp%vmax_nfix                 , &

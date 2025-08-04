@@ -191,9 +191,9 @@ module elm_varcon
   real(r8), parameter :: natomw = 14.007_r8     ! molar mass of N atoms (g/mol)
   
   ! Schmidt # calculation constants (spp, #)
-  real(r8),parameter :: s_con(ngases,4) = reshape([1898_r8, -110.1_r8, 2.834_r8, -0.02791_r8, & ! CH4
-                                       1801_r8, -120.1_r8, 3.7818_r8, -0.047608_r8, & ! O2
-                                       1911_r8, -113.7_r8, 2.967_r8, -0.02943_r8], &  ! CO2
+  real(r8),parameter :: s_con(ngases,4) = reshape([1898.0_r8, -110.1_r8, 2.834_r8, -0.02791_r8, & ! CH4
+                                       1801.0_r8, -120.1_r8, 3.7818_r8, -0.047608_r8, & ! O2
+                                       1911.0_r8, -113.7_r8, 2.967_r8, -0.02943_r8], &  ! CO2
                                        shape=[ngases, 4])
 
   ! real(r8) :: s_con(ngases,4)    ! Schmidt # calculation constants (spp, #)

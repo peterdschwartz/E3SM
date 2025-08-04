@@ -371,9 +371,8 @@ contains
       if(erridx .ne. 0 ) then 
             c = erridx
             !$acc update self(ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum, altmax_lastyear_indx(:), &
-            !$&acc  nfixation_prof(c,:), ndep_prof(c,:), pdep_prof(c,:), dzsoi_decomp(:), surface_prof(:), &
-            !$&acc  veg_pp%wtcol(:), cinput_rootfr(:,:))
-            !NOTE: Have to incorporate proper copyout data directives here 
+            !$acc  nfixation_prof(c,:), ndep_prof(c,:), pdep_prof(c,:), dzsoi_decomp(:), surface_prof(:), &
+            !$acc  veg_pp%wtcol(:), cinput_rootfr(:,:))
             write(iulog, *) 'profile sums: ', ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum
             write(iulog, *) 'c: ', erridx
             write(iulog, *) 'altmax_lastyear_indx: ', altmax_lastyear_indx(c)
@@ -413,8 +412,8 @@ contains
      end do
 
      if(erridx .ne. 0) then 
-            !$acc update self(ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum, stem_prof(p,:) &
-            !$&acc dzsoi_decomp(:), surface_prof(:), croot_prof(p,:), froot_prof(p,:), leaf_prof(p,:) )
+            !$acc update self(ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum, stem_prof(p,:), &
+            !$acc dzsoi_decomp(:), surface_prof(:), croot_prof(p,:), froot_prof(p,:), leaf_prof(p,:) )
            p = erridx
            write(iulog, *) 'p: ', p
             write(iulog, *) 'profile sums: ', froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum

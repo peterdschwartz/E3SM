@@ -24,22 +24,23 @@ module SoilLittVertTranspMod
   public :: SoilLittVertTransp
   public :: createLitterTransportList
   public :: readSoilLittVertTranspParams
+  private :: calc_diffus_advflux
 
   type, public :: SoilLittVertTranspParamsType
-     real(r8),pointer  :: som_diffus                => null() ! Soil organic matter diffusion
-     real(r8),pointer  :: cryoturb_diffusion_k      => null() ! The cryoturbation diffusive constant cryoturbation to the active layer thickness
-     real(r8),pointer  :: max_altdepth_cryoturbation => null() ! (m) maximum active layer thickness for cryoturbation to occur
+     real(r8)  :: som_diffus                  ! Soil organic matter diffusion
+     real(r8)  :: cryoturb_diffusion_k        ! The cryoturbation diffusive constant cryoturbation to the active layer thickness
+     real(r8)  :: max_altdepth_cryoturbation  ! (m) maximum active layer thickness for cryoturbation to occur
   end type SoilLittVertTranspParamsType
 
   type(SoilLittVertTranspParamsType), public ::  SoilLittVertTranspParamsInst
   !$acc declare create(SoilLittVertTranspParamsInst)
 
   type, public :: ConcTransportType
+     !! Type that points to decomposition pools for vertical transport calculations
 
      real(r8), pointer :: conc_ptr(:,:,:) => null()
      real(r8), pointer :: src_ptr(:,:,:)  => null()
      real(r8), pointer :: trcr_tend_ptr(:,:,:) => null()
-
   end type ConcTransportType
   type(ConcTransportType), public, allocatable :: transport_ptr_list(:)
   !$acc declare create(transport_ptr_list(:))
@@ -108,6 +109,31 @@ contains
 
    end subroutine createLitterTransportList
 
+   subroutine cleanupLitterTransportList()
+      !! Nullifies pointers and frees allocated memory
+      integer :: i
+
+      if (allocated(transport_ptr_list)) then
+         ! Loop through each element and nullify pointers
+         do i = 1, size(transport_ptr_list)
+            if (associated(transport_ptr_list(i)%conc_ptr)) then
+               nullify(transport_ptr_list(i)%conc_ptr)
+            endif
+            if (associated(transport_ptr_list(i)%src_ptr)) then
+               nullify(transport_ptr_list(i)%src_ptr)
+            endif
+            if (associated(transport_ptr_list(i)%trcr_tend_ptr)) then
+               nullify(transport_ptr_list(i)%trcr_tend_ptr)
+            endif
+         end do
+
+         ! Deallocate the transport_ptr_list array itself
+         deallocate(transport_ptr_list)
+      endif
+
+   end subroutine cleanupLitterTransportList
+
+
   !-----------------------------------------------------------------------
   subroutine readSoilLittVertTranspParams ( ncid )
     !
@@ -124,9 +150,7 @@ contains
     !
     ! read in parameters
     !
-    allocate(SoilLittVertTranspParamsInst%som_diffus                )
-    allocate(SoilLittVertTranspParamsInst%cryoturb_diffusion_k      )
-    allocate(SoilLittVertTranspParamsInst%max_altdepth_cryoturbation)
+    ! REMOVE THESE?
     tString='som_diffus'
     call ncd_io(trim(tString),tempr, 'read', ncid, readvar=readv)
     if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
@@ -175,7 +199,6 @@ contains
     use elm_varcon       , only : zsoi, dzsoi_decomp, zisoi
     !
     ! !ARGUMENTS:
-    type(bounds_type)        , intent(in)    :: bounds
     integer                  , intent(in)    :: num_soilc        ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:)  ! filter for soil columns
     type(canopystate_type)   , intent(in)    :: canopystate_vars
@@ -355,17 +378,22 @@ contains
                           call calc_diffus_advflux(spinup_term,year_curr, som_diffus_coef(c,j+1), som_adv_coef(c,j+1), &
                                                    cnstate_vars%scalaravg_col(c,j+1),adv_flux_jp1, diffus_jp1)
                            ! Use distance from j-1 node to interface with j divided by distance between nodes
-                           w_m1 = (zisoi(j-1) - zsoi(j-1)) / dz_node(j)
-                           if ( diffus(c,j-1) > 0._r8 .and. diffus(c,j) > 0._r8) then
-                              d_m1 = 1._r8 / ((1._r8 - w_m1) / diffus(c,j) + w_m1 / diffus(c,j-1)) ! Harmonic mean of diffus
+                           dz_node = zsoi(j) - zsoi(j-1)
+                           w_m1 = (zisoi(j-1) - zsoi(j-1)) / dz_node
+
+                           if ( diffus_jm1 > 0._r8 .and. diffus_j > 0._r8) then
+                              d_m1 = 1._r8 / ((1._r8 - w_m1) / diffus_j + w_m1 / diffus_jm1) ! Harmonic mean of diffus
                            else
                               d_m1 = 0._r8
                            endif
-                           w_p1 = (zsoi(j+1) - zisoi(j)) / dz_node(j+1)
-                           if ( diffus(c,j+1) > 0._r8 .and. diffus(c,j) > 0._r8) then
-                              d_p1 = 1._r8 / ((1._r8 - w_p1) / diffus(c,j) + w_p1 / diffus(c,j+1)) ! Harmonic mean of diffus
+
+                           dz_nodep1 = zsoi(j+1) - zsoi(j)
+                           w_p1 = (zsoi(j+1) - zisoi(j)) / dz_nodep1
+
+                           if ( diffus_jp1 > 0._r8 .and. diffus_j > 0._r8) then
+                              d_p1 = 1._r8 / ((1._r8 - w_p1) / diffus_j + w_p1 / diffus_jp1) ! Harmonic mean of diffus
                            else
-                              d_p1 = (1._r8 - w_m1) * diffus(c,j) + w_p1 * diffus(c,j+1) ! Arithmetic mean of diffus
+                              d_p1 = (1._r8 - w_m1) * diffus_j + w_p1 * diffus_jp1  ! Arithmetic mean of diffus
                            endif
                            d_m1_zm1 = d_m1 / dz_node
                            d_p1_zp1 = d_p1 / dz_nodep1
@@ -406,22 +434,18 @@ contains
 
                      !$acc loop seq
                      do j = 0, nlevdecomp+1
-                        if (j >= 0) then !!!should be able to remove this?
-                           if (j == 0) then
-                              conc_trcr(fc,j,s) = r_tri(fc,j,s) / bet
-                           else
-                              gam(j) = c_tri(fc,j-1,s) / bet
-                              bet = b_tri(fc,j,s) - a_tri(fc,j,s) * gam(j)
-                              conc_trcr(fc,j,s) = (r_tri(fc,j,s) - a_tri(fc,j,s)*conc_trcr(fc,j-1,s)) / bet
-                           end if
+                        if (j == 0) then
+                           conc_trcr(fc,j,s) = r_tri(fc,j,s) / bet
+                        else
+                           gam(j) = c_tri(fc,j-1,s) / bet
+                           bet = b_tri(fc,j,s) - a_tri(fc,j,s) * gam(j)
+                           conc_trcr(fc,j,s) = (r_tri(fc,j,s) - a_tri(fc,j,s)*conc_trcr(fc,j-1,s)) / bet
                         end if
                      end do
 
                      !$acc loop seq
-                     do j = nlevdecomp,0,-1
-                       if (j >= 0) then
-                          conc_trcr(fc,j,s) = conc_trcr(fc,j,s) - gam(j+1) * conc_trcr(fc,j+1,s)
-                       end if
+                     do j = nlevdecomp,1,-1
+                       conc_trcr(fc,j,s) = conc_trcr(fc,j,s) - gam(j+1) * conc_trcr(fc,j+1,s)
                      end do
                   end if
                end do
@@ -478,7 +502,8 @@ contains
                   !$acc loop vector independent private(c)
                   do fc = 1, num_soilc
                      c = filter_soilc (fc)
-                     transport_ptr_list(i_type)%conc_ptr(c,j,l) = transport_ptr_list(i_type)%conc_ptr(c,j,l) + transport_ptr_list(i_type)%src_ptr(c,j,l)
+                     transport_ptr_list(i_type)%conc_ptr(c,j,l) = transport_ptr_list(i_type)%conc_ptr(c,j,l) &
+                                                                  +transport_ptr_list(i_type)%src_ptr(c,j,l)
                      transport_ptr_list(i_type)%trcr_tend_ptr(c,j,l) = 0._r8
                   end do
                end do
@@ -494,5 +519,38 @@ contains
     end associate
 
   end subroutine SoilLittVertTransp
+
+  subroutine calc_diffus_advflux(spinup_term, year, som_diffus_coef, som_adv_coef,&
+                                   cnscalaravg_col, adv_fluxj, diffusj)
+    !$acc routine seq
+    real(r8), intent(in)  ::  spinup_term
+    integer ,  intent(in) :: year
+    real(r8), intent(in)  ::  som_diffus_coef, som_adv_coef, cnscalaravg_col
+    real(r8), intent(out) ::  adv_fluxj, diffusj
+
+    real(r8), parameter :: eps = 1d-30
+    logical :: use_scaling
+
+    ! Determine if we should scale by cnscalaravg_col
+    use_scaling = (spinup_term > 1 .and. year >= 40 .and. spinup_state .eq. 1)
+
+    ! Compute adv_fluxj
+    if (abs(som_adv_coef) * spinup_term < eps) then
+        adv_fluxj = eps
+    else
+        adv_fluxj = som_adv_coef * spinup_term
+        if (use_scaling) adv_fluxj = adv_fluxj / cnscalaravg_col
+    endif
+
+    ! Compute diffusj
+    if (abs(som_diffus_coef) * spinup_term < eps) then
+        diffusj = eps
+    else
+        diffusj = som_diffus_coef * spinup_term
+        if (use_scaling) diffusj = diffusj / cnscalaravg_col
+    endif
+
+ end subroutine calc_diffus_advflux
+
 
 end module SoilLittVertTranspMod

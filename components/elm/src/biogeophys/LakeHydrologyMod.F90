@@ -430,7 +430,7 @@ contains
 
             h2osno_temp = h2osno(c)
             if (do_capsnow(c) .and. .not. use_firn_percolation_and_compaction) then
-               h2osno(c) = h2osno(c) - qflx_sub_snow(p)*dtime
+               h2osno(c) = h2osno(c) - qflx_sub_snow(p)*dtime_mod
                qflx_snwcp_ice(p) = qflx_snwcp_ice(p) + qflx_dew_snow(p)
                qflx_snwcp_liq(p) = qflx_snwcp_liq(p) + qflx_dew_grnd(p)
             end if

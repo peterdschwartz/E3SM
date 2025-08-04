@@ -32,9 +32,8 @@ contains
     ! On the radiation time step, update annual summation variables
     !
     ! !USES:
-      !$acc routine seq
     use elm_varcon      , only: secspday
-    use SubgridAveMod   , only: p2c
+    use SubgridAveMod   , only: p2c_1d_filter
     !
     ! !ARGUMENTS:
     type(bounds_type)     , intent(in)    :: bounds
@@ -101,11 +100,11 @@ contains
           end do
           ! use p2c routine to get selected column-average pft-level fluxes and states
 
-          call p2c(bounds, num_soilc, filter_soilc, &
+          call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
                annsum_npp(bounds%begp:bounds%endp), &
                annsum_npp_col(bounds%begc:bounds%endc))
 
-          call p2c(bounds, num_soilc, filter_soilc, &
+          call p2c_1d_filter(bounds, num_soilc, filter_soilc, &
                annavg_t2m_patch(bounds%begp:bounds%endp), &
                annavg_t2m_col(bounds%begc:bounds%endc))
        end if
