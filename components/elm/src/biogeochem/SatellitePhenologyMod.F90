@@ -625,8 +625,8 @@ contains
     call ncd_pio_openfile (ncid, trim(locfn), 0)
 
     if (single_column) then
-       call shr_scam_getCloseLatLon (ncid, scmlat, scmlon, closelat, closelon,&
-            closelatidx, closelonidx)
+       ! call shr_scam_getCloseLatLon (ncid, scmlat, scmlon, closelat, closelon,&
+       !      closelatidx, closelonidx)
     endif
 
     do k=1,2   !loop over months and read vegetated data

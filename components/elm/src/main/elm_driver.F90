@@ -1027,7 +1027,6 @@ contains
 
        ! FIX(SPM,032414)  push these checks into the routines below and/or make this consistent.
 
-       if( .not. is_active_betr_bgc) then
 
           if (use_cn .or. use_fates) then
 
@@ -1150,7 +1149,6 @@ contains
                      waterstate_vars, canopystate_vars)
              end if
           end if  ! end of if-use_cn   or if-use_fates
-       end if ! end of is_active_betr_bgc
 
        call t_stopf('ecosysdyn')
 
@@ -1408,13 +1406,13 @@ contains
       call ep_betr%DiagnoseLnd2atm(bounds_proc, col_pp, lnd2atm_vars)
     endif
 
-    call t_startf('lnd2atm')
-    call lnd2atm(bounds_proc,                                   &
-         atm2lnd_vars, surfalb_vars, frictionvel_vars,          &
-         energyflux_vars, solarabs_vars, drydepvel_vars,        &
-         vocemis_vars, dust_vars, ch4_vars, soilhydrology_vars, &
-         sedflux_vars, lnd2atm_vars)
-    call t_stopf('lnd2atm')
+    ! call t_startf('lnd2atm')
+    ! call lnd2atm(bounds_proc,                                   &
+    !      atm2lnd_vars, surfalb_vars, frictionvel_vars,          &
+    !      energyflux_vars, solarabs_vars, drydepvel_vars,        &
+    !      vocemis_vars, dust_vars, ch4_vars, soilhydrology_vars, &
+    !      sedflux_vars, lnd2atm_vars)
+    ! call t_stopf('lnd2atm')
 
     ! ============================================================================
     ! Determine gridcell averaged properties to send to glc
