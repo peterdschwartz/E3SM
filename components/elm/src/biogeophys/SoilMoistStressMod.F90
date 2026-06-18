@@ -17,7 +17,7 @@ module SoilMoistStressMod
   !
   implicit none
   save
-  private
+  public
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: calc_root_moist_stress
@@ -28,10 +28,10 @@ module SoilMoistStressMod
   public :: init_root_moist_stress
   !
   ! !PRIVATE DATA MEMBERS:
-  integer ::   root_moist_stress_method
+  integer, public ::   root_moist_stress_method
   integer, parameter :: moist_stress_clm_default  = 0  !default method for calculating root moisture stress
-  logical,  private :: perchroot     = .false.  ! true => btran is based only on unfrozen soil levels
-  logical,  private :: perchroot_alt = .false.  ! true => btran is based on active layer (defined over two years);
+  logical, public  :: perchroot     = .false.  ! true => btran is based only on unfrozen soil levels
+  logical, public :: perchroot_alt = .false.  ! true => btran is based on active layer (defined over two years);
   !$acc declare create(root_moist_stress_method)
   !$acc declare copyin(moist_stress_clm_default)
   !$acc declare create(perchroot)
