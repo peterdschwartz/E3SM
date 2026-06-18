@@ -105,7 +105,7 @@ module  PhotosynthesisMod
      procedure, public :: readParams
   end type photo_params_type
   !
-  type(photo_params_type), public, protected :: params_inst  ! params_inst is populated in readParamsMod
+  type(photo_params_type), public :: params_inst  ! params_inst is populated in readParamsMod
   !$acc declare create(params_inst)
 
 contains

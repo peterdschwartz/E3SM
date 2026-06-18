@@ -8,6 +8,9 @@ module elm_driver
   ! parallelized by looping over clumps on each process using shared memory OpenMP.
   !
   ! !USES:
+  use ReadWriteMod, only : write_elmtypes
+  use FUTConstantsMod, only : write_constants
+  use nc_io, only : io_inputs, io_outputs, io_constants
   use shr_kind_mod           , only : r8 => shr_kind_r8
   use shr_sys_mod            , only : shr_sys_flush
   use shr_log_mod            , only : errMsg => shr_log_errMsg
@@ -794,6 +797,14 @@ contains
        ! Calculate canopy temperature, latent and sensible fluxes from the canopy,
        ! and leaf water change by evapotranspiration
 
+       if (.not. io_constants%created) then 
+          call io_constants%init(base_fn="spel-constants",max_tpf=720,read_io=.false.)
+          call io_inputs%init(base_fn="spel-inputs",max_tpf=720,read_io=.false.)
+          call io_outputs%init(base_fn="spel-outputs",max_tpf=720,read_io=.false.)
+          call write_constants(io_constants)
+       end if 
+       if(mod(nstep_mod, 9)==0) call write_elmtypes(io_inputs, bounds_clump, atm2lnd_vars, canopystate_vars, cnstate_vars, energyflux_vars, frictionvel_vars, soilstate_vars, solarabs_vars, surfalb_vars, ch4_vars, photosyns_vars)
+
        call t_startf('canflux')
        call CanopyFluxes(bounds_clump,                                                   &
             filter(nc)%num_nolakeurbanp, filter(nc)%nolakeurbanp,                        &
@@ -801,6 +812,8 @@ contains
             frictionvel_vars, soilstate_vars, solarabs_vars, surfalb_vars,               &
             ch4_vars, photosyns_vars )
        call t_stopf('canflux')
+
+       if(mod(nstep_mod, 9)==0) call write_elmtypes(io_outputs, bounds_clump, atm2lnd_vars, canopystate_vars, cnstate_vars, energyflux_vars, frictionvel_vars, soilstate_vars, solarabs_vars, surfalb_vars, ch4_vars, photosyns_vars)
 
        ! Fluxes for all urban landunits
 
