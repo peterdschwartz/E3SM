@@ -1,5 +1,4 @@
 add_subdirectory(base)
-add_subdirectory(betr)
 add_subdirectory(fates)
 add_subdirectory(stub)
 

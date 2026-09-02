@@ -3,8 +3,8 @@ module LSparseMatMod
 
   ! !USES:
   ! sparse matrix capability
-  use bshr_kind_mod , only : r8 => shr_kind_r8
-  use bshr_log_mod  , only : errMsg => shr_log_errMsg
+  use shr_kind_mod , only : r8 => shr_kind_r8
+  use shr_log_mod  , only : errMsg => shr_log_errMsg
   use elm_varctl    , only : iulog
 implicit none
   private
