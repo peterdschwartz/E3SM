@@ -40,7 +40,6 @@ contains
     use elm_varctl , only : iulog, use_c13, use_c14, use_fates
     use elm_varpar , only : nlevdecomp_full, crop_prog
     use pftvarcon  , only : iscft
-    use tracer_varcon          , only : is_active_betr_bgc
     use CNDecompCascadeConType , only : decomp_cascade_con
     !
     ! !ARGUMENTS:
@@ -559,196 +558,191 @@ contains
          end do ! end of pft loop
       end if ! end of if(.not.use_fates)
 
-      if (.not. is_active_betr_bgc) then
+      ! column loop
+      do fc = 1,num_soilc
+         c = filter_soilc(fc)
 
-         ! column loop
+         do j = 1,nlevdecomp_full
+            ! initialize the column-level C and N truncation terms
+            cc = 0._r8
+            if ( use_c13 ) cc13 = 0._r8
+            if ( use_c14 ) cc14 = 0._r8
+            cn = 0._r8
+
+            ! do tests on state variables for precision control
+            ! for linked C-N state variables, perform precision test on
+            ! the C component, but truncate both C and N components
+
+
+            ! all decomposing pools C and N
+            do k = 1, ndecomp_pools
+
+               if (abs(col_cs%decomp_cpools_vr(c,j,k)) < ccrit) then
+                  cc = cc + col_cs%decomp_cpools_vr(c,j,k)
+                  col_cs%decomp_cpools_vr(c,j,k) = 0._r8
+                  cn = cn + col_ns%decomp_npools_vr(c,j,k)
+                  col_ns%decomp_npools_vr(c,j,k) = 0._r8
+                  if ( use_c13 ) then
+                     cc13 = cc13 + c13_col_cs%decomp_cpools_vr(c,j,k)
+                     c13_col_cs%decomp_cpools_vr(c,j,k) = 0._r8
+                  endif
+                  if ( use_c14 ) then
+                     cc14 = cc14 + c14_col_cs%decomp_cpools_vr(c,j,k)
+                     c14_col_cs%decomp_cpools_vr(c,j,k) = 0._r8
+                  endif
+               end if
+
+            end do
+
+            ! not doing precision control on soil mineral N, since it will
+            ! be getting the N truncation flux anyway.
+
+            col_cs%ctrunc_vr(c,j) = col_cs%ctrunc_vr(c,j) + cc
+            col_ns%ntrunc_vr(c,j) = col_ns%ntrunc_vr(c,j) + cn
+            if ( use_c13 ) then
+               c13_col_cs%ctrunc_vr(c,j) = c13_col_cs%ctrunc_vr(c,j) + cc13
+            endif
+            if ( use_c14 ) then
+               c14_col_cs%ctrunc_vr(c,j) = c14_col_cs%ctrunc_vr(c,j) + cc14
+            endif
+         end do
+
+      end do   ! end of column loop
+
+      ! remove small negative perturbations for stability purposes, if any should arise.
+      
+      do fc = 1,num_soilc
+         c = filter_soilc(fc)
+         do j = 1,nlevdecomp_full
+            if (abs(col_ns%smin_no3_vr(c,j)) < ncrit/1e4_r8) then
+               if ( col_ns%smin_no3_vr(c,j)  < 0._r8 ) then
+#ifndef _OPENACC
+                  write(iulog, *) '-10^-12 < smin_no3 < 0. resetting to zero.'
+                  write(iulog, *) 'smin_no3_vr_col(c,j), c, j: ', col_ns%smin_no3_vr(c,j), c, j
+                  col_ns%smin_no3_vr(c,j) = 0._r8
+#endif
+               endif
+            end if
+            if (abs(col_ns%smin_nh4_vr(c,j)) < ncrit/1e4_r8) then
+               if ( col_ns%smin_nh4_vr(c,j)  < 0._r8 ) then
+#ifndef _OPENACC
+                  write(iulog, *) '-10^-12 < smin_nh4 < 0. resetting to zero.'
+                  write(iulog, *) 'smin_nh4_vr_col(c,j), c, j: ', col_ns%smin_nh4_vr(c,j), c, j
+                  col_ns%smin_nh4_vr(c,j) = 0._r8
+#endif
+               endif
+            end if
+         end do
+      end do
+
+
+     if (nu_com .eq. 'ECA') then
+         ! decompose P pool adjust according to C pool
+         !do fc = 1,num_soilc
+         !   c = filter_soilc(fc)
+         !   do j = 1,nlevdecomp_full
+         !      cp_eca = 0.0_r8
+         !      do l = 1,ndecomp_pools
+         !         if (abs(col_cs%decomp_cpools_vr(c,j,k)) < ccrit) then
+         !            if (.not.use_fates) then
+         !               cp_eca = cp_eca + col_ps%decomp_ppools_vr(c,j,k)
+         !               col_ps%decomp_ppools_vr(c,j,k) = 0._r8
+         !            endif
+         !         endif
+         !      end do
+         !      col_ps%ptrunc_vr(c,j) = col_ps%ptrunc_vr(c,j) + cp_eca
+         !   end do
+         !end do
+
+         ! fix soil CN ratio drift (normally < 0.01% drift)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
-
             do j = 1,nlevdecomp_full
-               ! initialize the column-level C and N truncation terms
-               cc = 0._r8
-               if ( use_c13 ) cc13 = 0._r8
-               if ( use_c14 ) cc14 = 0._r8
-               cn = 0._r8
+               cn_eca = 0.0_r8
+               do l = 1,ndecomp_pools
+                  if ( col_cs%decomp_cpools_vr(c,j,l) > 0.0_r8 ) then
+                       if(abs(col_cs%decomp_cpools_vr(c,j,l) / col_ns%decomp_npools_vr(c,j,l) - initial_cn_ratio(l) ) > 1.0e-3_r8 &
+                       .and. (.not. floating_cn_ratio_decomp_pools(l)) ) then
+                     cn_eca = cn_eca - ( col_cs%decomp_cpools_vr(c,j,l) / initial_cn_ratio(l) - col_ns%decomp_npools_vr(c,j,l) )
 
-               ! do tests on state variables for precision control
-               ! for linked C-N state variables, perform precision test on
-               ! the C component, but truncate both C and N components
+                       col_ns%decomp_npools_vr(c,j,l) = col_cs%decomp_cpools_vr(c,j,l) / initial_cn_ratio(l)
+                  end if
+                end if
+               end do
+               col_ns%ntrunc_vr(c,j) = col_ns%ntrunc_vr(c,j) + cn_eca
+            end do
+          end do
 
+         ! remove small negative perturbations for stability purposes, if any should arise in N,P pools
+         ! for floating CN, CP ratio pools
+         do fc = 1,num_soilc
+            c = filter_soilc(fc)
+            do j = 1,nlevdecomp_full
 
-               ! all decomposing pools C and N
-               do k = 1, ndecomp_pools
-
-                  if (abs(col_cs%decomp_cpools_vr(c,j,k)) < ccrit) then
-                     cc = cc + col_cs%decomp_cpools_vr(c,j,k)
-                     col_cs%decomp_cpools_vr(c,j,k) = 0._r8
-                     cn = cn + col_ns%decomp_npools_vr(c,j,k)
-                     col_ns%decomp_npools_vr(c,j,k) = 0._r8
-                     if ( use_c13 ) then
-                        cc13 = cc13 + c13_col_cs%decomp_cpools_vr(c,j,k)
-                        c13_col_cs%decomp_cpools_vr(c,j,k) = 0._r8
-                     endif
-                     if ( use_c14 ) then
-                        cc14 = cc14 + c14_col_cs%decomp_cpools_vr(c,j,k)
-                        c14_col_cs%decomp_cpools_vr(c,j,k) = 0._r8
-                     endif
+               cn_eca = 0.0_r8
+               cp_eca = 0.0_r8
+               do l = 1,ndecomp_pools
+                  if ( col_ns%decomp_npools_vr(c,j,l) < 0.0_r8 .and. floating_cn_ratio_decomp_pools(l) ) then
+                     if ( abs(col_ns%decomp_npools_vr(c,j,l))  < ncrit ) then
+                        cn_eca = cn_eca - ncrit + col_ns%decomp_npools_vr(c,j,l)
+                        col_ns%decomp_npools_vr(c,j,l) = ncrit
+                     else
+#ifndef _OPENACC                                
+                        write(iulog, "(A,2I8,E8.1)") 'error decomp_npools is negative: ',j,l,col_ns%decomp_npools_vr(c,j,l)
+                        call endrun(msg=errMsg(__FILE__, __LINE__))
+#endif
+                     end if
+                  end if
+                  if ( col_ps%decomp_ppools_vr(c,j,l)  < 0.0_r8 .and. floating_cp_ratio_decomp_pools(l) ) then
+                     if ( abs(col_ps%decomp_ppools_vr(c,j,l))  < ncrit/1e4_r8 ) then
+                        cp_eca = cp_eca - ncrit/1e4_r8 + col_ps%decomp_ppools_vr(c,j,l)
+                        col_ps%decomp_ppools_vr(c,j,l) = ncrit/1e4_r8
+                      else
+#ifndef _OPENACC
+                        write(iulog, "(A,2I8,E8.1)") 'error decomp_ppools is negative: ',j,l,col_ps%decomp_ppools_vr(c,j,l)
+                        call endrun(msg=errMsg(__FILE__, __LINE__))
+#endif
+                      end if
                   end if
 
                end do
 
-               ! not doing precision control on soil mineral N, since it will
-               ! be getting the N truncation flux anyway.
+               col_ns%ntrunc_vr(c,j) = col_ns%ntrunc_vr(c,j) + cn_eca
+               col_ps%ptrunc_vr(c,j) = col_ps%ptrunc_vr(c,j) + cp_eca
 
-               col_cs%ctrunc_vr(c,j) = col_cs%ctrunc_vr(c,j) + cc
-               col_ns%ntrunc_vr(c,j) = col_ns%ntrunc_vr(c,j) + cn
-               if ( use_c13 ) then
-                  c13_col_cs%ctrunc_vr(c,j) = c13_col_cs%ctrunc_vr(c,j) + cc13
-               endif
-               if ( use_c14 ) then
-                  c14_col_cs%ctrunc_vr(c,j) = c14_col_cs%ctrunc_vr(c,j) + cc14
-               endif
-            end do
-
-         end do   ! end of column loop
-
-         ! remove small negative perturbations for stability purposes, if any should arise.
-         
-         do fc = 1,num_soilc
-            c = filter_soilc(fc)
-            do j = 1,nlevdecomp_full
-               if (abs(col_ns%smin_no3_vr(c,j)) < ncrit/1e4_r8) then
-                  if ( col_ns%smin_no3_vr(c,j)  < 0._r8 ) then
-#ifndef _OPENACC
-                     write(iulog, *) '-10^-12 < smin_no3 < 0. resetting to zero.'
-                     write(iulog, *) 'smin_no3_vr_col(c,j), c, j: ', col_ns%smin_no3_vr(c,j), c, j
-                     col_ns%smin_no3_vr(c,j) = 0._r8
-#endif
-                  endif
-               end if
-               if (abs(col_ns%smin_nh4_vr(c,j)) < ncrit/1e4_r8) then
-                  if ( col_ns%smin_nh4_vr(c,j)  < 0._r8 ) then
-#ifndef _OPENACC
-                     write(iulog, *) '-10^-12 < smin_nh4 < 0. resetting to zero.'
-                     write(iulog, *) 'smin_nh4_vr_col(c,j), c, j: ', col_ns%smin_nh4_vr(c,j), c, j
-                     col_ns%smin_nh4_vr(c,j) = 0._r8
-#endif
-                  endif
-               end if
             end do
          end do
 
-
-        if (nu_com .eq. 'ECA') then
-            ! decompose P pool adjust according to C pool
-            !do fc = 1,num_soilc
-            !   c = filter_soilc(fc)
-            !   do j = 1,nlevdecomp_full
-            !      cp_eca = 0.0_r8
-            !      do l = 1,ndecomp_pools
-            !         if (abs(col_cs%decomp_cpools_vr(c,j,k)) < ccrit) then
-            !            if (.not.use_fates) then
-            !               cp_eca = cp_eca + col_ps%decomp_ppools_vr(c,j,k)
-            !               col_ps%decomp_ppools_vr(c,j,k) = 0._r8
-            !            endif
-            !         endif
-            !      end do
-            !      col_ps%ptrunc_vr(c,j) = col_ps%ptrunc_vr(c,j) + cp_eca
-            !   end do
-            !end do
-
-            ! fix soil CN ratio drift (normally < 0.01% drift)
-            do fc = 1,num_soilc
-               c = filter_soilc(fc)
-               do j = 1,nlevdecomp_full
-                  cn_eca = 0.0_r8
-                  do l = 1,ndecomp_pools
-                     if ( col_cs%decomp_cpools_vr(c,j,l) > 0.0_r8 ) then
-                          if(abs(col_cs%decomp_cpools_vr(c,j,l) / col_ns%decomp_npools_vr(c,j,l) - initial_cn_ratio(l) ) > 1.0e-3_r8 &
-                          .and. (.not. floating_cn_ratio_decomp_pools(l)) ) then
-                        cn_eca = cn_eca - ( col_cs%decomp_cpools_vr(c,j,l) / initial_cn_ratio(l) - col_ns%decomp_npools_vr(c,j,l) )
-
-                          col_ns%decomp_npools_vr(c,j,l) = col_cs%decomp_cpools_vr(c,j,l) / initial_cn_ratio(l)
-                     end if
-                   end if
-                  end do
-                  col_ns%ntrunc_vr(c,j) = col_ns%ntrunc_vr(c,j) + cn_eca
-               end do
-             end do
-
-            ! remove small negative perturbations for stability purposes, if any should arise in N,P pools
-            ! for floating CN, CP ratio pools
-            do fc = 1,num_soilc
-               c = filter_soilc(fc)
-               do j = 1,nlevdecomp_full
-
-                  cn_eca = 0.0_r8
-                  cp_eca = 0.0_r8
-                  do l = 1,ndecomp_pools
-                     if ( col_ns%decomp_npools_vr(c,j,l) < 0.0_r8 .and. floating_cn_ratio_decomp_pools(l) ) then
-                        if ( abs(col_ns%decomp_npools_vr(c,j,l))  < ncrit ) then
-                           cn_eca = cn_eca - ncrit + col_ns%decomp_npools_vr(c,j,l)
-                           col_ns%decomp_npools_vr(c,j,l) = ncrit
-                        else
-#ifndef _OPENACC                                
-                           write(iulog, "(A,2I8,E8.1)") 'error decomp_npools is negative: ',j,l,col_ns%decomp_npools_vr(c,j,l)
-                           call endrun(msg=errMsg(__FILE__, __LINE__))
-#endif
-                        end if
-                     end if
-                     if ( col_ps%decomp_ppools_vr(c,j,l)  < 0.0_r8 .and. floating_cp_ratio_decomp_pools(l) ) then
-                        if ( abs(col_ps%decomp_ppools_vr(c,j,l))  < ncrit/1e4_r8 ) then
-                           cp_eca = cp_eca - ncrit/1e4_r8 + col_ps%decomp_ppools_vr(c,j,l)
-                           col_ps%decomp_ppools_vr(c,j,l) = ncrit/1e4_r8
-                         else
+       if(.not.use_fates) then
+         do fp = 1,num_soilp
+            p = filter_soilp(fp)
 #ifndef _OPENACC
-                           write(iulog, "(A,2I8,E8.1)") 'error decomp_ppools is negative: ',j,l,col_ps%decomp_ppools_vr(c,j,l)
-                           call endrun(msg=errMsg(__FILE__, __LINE__))
+            if (veg_ns%retransn(p) < 0._r8) then
+
+               write(iulog, *) 'error retransn_patch is negative: ',p
+               write(iulog, *) 'retransn_patch: ', veg_ns%retransn(p)
+               call endrun(msg=errMsg(__FILE__, __LINE__))
+            end if
+            if (veg_ns%npool(p) < 0._r8) then
+               write(iulog, *) 'error npool_patch is negative: ',p
+               write(iulog, *) 'npool_patch: ', veg_ns%npool(p)
+               call endrun(msg=errMsg(__FILE__, __LINE__))
+            end if
+            if (veg_ps%retransp(p) < 0._r8) then
+               write(iulog, *) 'error retransp_patch is negative: ',p
+               write(iulog, *) 'retransp_patch: ', veg_ps%retransp(p)
+               call endrun(msg=errMsg(__FILE__, __LINE__))
+            end if
+            if (veg_ps%ppool(p) < 0._r8) then
+               write(iulog, *) 'error ppool_patch is negative: ',p
+               write(iulog, *) 'ppool_patch: ', veg_ps%ppool(p)
+               call endrun(msg=errMsg(__FILE__, __LINE__))
+            end if
 #endif
-                         end if
-                     end if
+         end do
+      endif
 
-                  end do
-
-                  col_ns%ntrunc_vr(c,j) = col_ns%ntrunc_vr(c,j) + cn_eca
-                  col_ps%ptrunc_vr(c,j) = col_ps%ptrunc_vr(c,j) + cp_eca
-
-               end do
-            end do
-
-          if(.not.use_fates) then
-            do fp = 1,num_soilp
-               p = filter_soilp(fp)
-#ifndef _OPENACC
-               if (veg_ns%retransn(p) < 0._r8) then
-
-                  write(iulog, *) 'error retransn_patch is negative: ',p
-                  write(iulog, *) 'retransn_patch: ', veg_ns%retransn(p)
-                  call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if
-               if (veg_ns%npool(p) < 0._r8) then
-                  write(iulog, *) 'error npool_patch is negative: ',p
-                  write(iulog, *) 'npool_patch: ', veg_ns%npool(p)
-                  call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if
-               if (veg_ps%retransp(p) < 0._r8) then
-                  write(iulog, *) 'error retransp_patch is negative: ',p
-                  write(iulog, *) 'retransp_patch: ', veg_ps%retransp(p)
-                  call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if
-               if (veg_ps%ppool(p) < 0._r8) then
-                  write(iulog, *) 'error ppool_patch is negative: ',p
-                  write(iulog, *) 'ppool_patch: ', veg_ps%ppool(p)
-                  call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if
-#endif
-            end do
-         endif
-
-       endif  !if ECA
-
-      endif ! if (.not. is_active_betr_bgc)
-
+    endif  !if ECA
 
     end associate
 

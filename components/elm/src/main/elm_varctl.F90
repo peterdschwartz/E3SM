@@ -273,12 +273,6 @@ module elm_varctl
 
   integer, dimension(2), public   :: fates_history_dimlevel = (/2,2/)
 
-  
-  !----------------------------------------------------------
-  !  BeTR switches
-  !----------------------------------------------------------
-  logical, public :: use_betr = .false.          ! true=> use BeTR
-  !$acc declare create(use_betr)
 
   !----------------------------------------------------------
   ! lai streams switch for Sat. Phenology
