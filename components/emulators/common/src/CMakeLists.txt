@@ -4,7 +4,8 @@ add_subdirectory(coupler_api)
 
 set(EMULATOR_COMMON_CXX_SOURCES
   emulator.cpp
-  emulator_c_api.cpp
+  emulator_config.cpp
+  # emulator_c_api.cpp
   inference/stub_inference_backend.cpp
   inference/create_inference_backend.cpp
 )
@@ -20,6 +21,7 @@ add_library(emulator_common
 )
 
 target_link_libraries(emulator_common PUBLIC MOAB)
+target_link_libraries(emulator_common PRIVATE ekat::YamlParser)
 target_compile_features(emulator_common PUBLIC cxx_std_20)
 
 # Place generated Fortran .mod files in a predictable directory so that
@@ -38,7 +40,5 @@ target_include_directories(emulator_common PUBLIC
   ${CMAKE_CURRENT_BINARY_DIR}/modules
 )
 
-target_link_libraries(emulator_common PUBLIC
-  E3SM::coupler_api
-)
+target_link_libraries(emulator_common PUBLIC E3SM::coupler_api)
 
