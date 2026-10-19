@@ -1631,6 +1631,55 @@ module VegetationDataType
   !------------------------------------------------------------------------
   ! Subroutines to initialize and clean vegetation carbon state data structure
   !------------------------------------------------------------------------
+  subroutine vegetation_nutrient_state_init(this, begp, endp)
+    !
+    ! !ARGUMENTS:
+    type(vegetation_nutrient_state), intent(inout) :: this
+    integer          , intent(in) :: begp,endp
+    !
+    ! !LOCAL VARIABLES:
+    integer           :: p,c,l,i,j,k
+    integer :: fp                       ! filter index
+    integer :: num_special_veg          ! number of good values in special_veg filter
+    integer :: special_veg(endp-begp+1) ! special landunit filter - veg
+    real(r8):: value_veg                ! used to reset state variables on special landunits
+    if (.not. (is_carbon(this%species) .and. use_fates)) then
+       allocate(this%leaf              (begp :endp))
+       allocate(this%leaf_storage      (begp :endp))
+       allocate(this%leaf_xfer         (begp :endp))
+       allocate(this%froot             (begp :endp))
+       allocate(this%froot_storage     (begp :endp))
+       allocate(this%froot_xfer        (begp :endp))
+       allocate(this%livestem          (begp :endp))
+       allocate(this%livestem_storage  (begp :endp))
+       allocate(this%livestem_xfer     (begp :endp))
+       allocate(this%deadstem          (begp :endp))
+       allocate(this%deadstem_storage  (begp :endp))
+       allocate(this%deadstem_xfer     (begp :endp))
+       allocate(this%livecroot         (begp :endp))
+       allocate(this%livecroot_storage (begp :endp))
+       allocate(this%livecroot_xfer    (begp :endp))
+       allocate(this%deadcroot         (begp :endp))
+       allocate(this%deadcroot_storage (begp :endp))
+       allocate(this%deadcroot_xfer    (begp :endp))
+       allocate(this%pool              (begp :endp))
+       allocate(this%trunc_sink             (begp :endp))
+       allocate(this%dispveg           (begp :endp))
+       allocate(this%storveg           (begp :endp))
+       allocate(this%totveg            (begp :endp))
+       allocate(this%totpft            (begp :endp))
+       allocate(this%grain             (begp :endp))   ;  this%grain             (:)   = spval
+       allocate(this%grain_storage     (begp :endp))   ;  this%grain_storage     (:)   = spval
+       allocate(this%grain_xfer        (begp :endp))   ;  this%grain_xfer        (:)   = spval
+    endif  !  not use_fates
+
+    allocate(this%balance_beg              (begp :endp))   ;  this%balance_beg              (:) = spval
+    allocate(this%balance_end              (begp :endp))   ;  this%balance_end              (:) = spval
+    allocate(this%balance_err              (begp :endp))   ;  this%balance_err              (:) = spval
+    allocate(this%cropseed_deficit  (begp :endp))   ;  this%cropseed_deficit  (:) = spval
+
+    end subroutine vegetation_nutrient_state_init
+
   subroutine veg_cs_init(this, begp, endp, carbon_type, ratio)
     !
     ! !ARGUMENTS:
@@ -1651,46 +1700,39 @@ module VegetationDataType
     ! allocate for each member of veg_cs
     !-----------------------------------------------------------------------
     this%core%species = species_from_string(carbon_type)
+    call vegetation_nutrient_state_init(this%core, begp, endp)
     if ( .not. use_fates ) then
-       allocate(this%core%leaf              (begp :endp))   ;  this%core%leaf              (:)   = spval
-       allocate(this%core%leaf_storage      (begp :endp))   ;  this%core%leaf_storage      (:)   = spval
-       allocate(this%core%leaf_xfer         (begp :endp))   ;  this%core%leaf_xfer         (:)   = spval
-       allocate(this%core%froot             (begp :endp))   ;  this%core%froot             (:)   = spval
-       allocate(this%core%froot_storage     (begp :endp))   ;  this%core%froot_storage     (:)   = spval
-       allocate(this%core%froot_xfer        (begp :endp))   ;  this%core%froot_xfer        (:)   = spval
-       allocate(this%core%livestem          (begp :endp))   ;  this%core%livestem          (:)   = spval
-       allocate(this%core%livestem_storage  (begp :endp))   ;  this%core%livestem_storage  (:)   = spval
-       allocate(this%core%livestem_xfer     (begp :endp))   ;  this%core%livestem_xfer     (:)   = spval
-       allocate(this%core%deadstem          (begp :endp))   ;  this%core%deadstem          (:)   = spval
-       allocate(this%core%deadstem_storage  (begp :endp))   ;  this%core%deadstem_storage  (:)   = spval
-       allocate(this%core%deadstem_xfer     (begp :endp))   ;  this%core%deadstem_xfer     (:)   = spval
-       allocate(this%core%livecroot         (begp :endp))   ;  this%core%livecroot         (:)   = spval
-       allocate(this%core%livecroot_storage (begp :endp))   ;  this%core%livecroot_storage (:)   = spval
-       allocate(this%core%livecroot_xfer    (begp :endp))   ;  this%core%livecroot_xfer    (:)   = spval
-       allocate(this%core%deadcroot         (begp :endp))   ;  this%core%deadcroot         (:)   = spval
-       allocate(this%core%deadcroot_storage (begp :endp))   ;  this%core%deadcroot_storage (:)   = spval
-       allocate(this%core%deadcroot_xfer    (begp :endp))   ;  this%core%deadcroot_xfer    (:)   = spval
+       this%core%leaf              (:)   = spval
+       this%core%leaf_storage      (:)   = spval
+       this%core%leaf_xfer         (:)   = spval
+       this%core%froot             (:)   = spval
+       this%core%froot_storage     (:)   = spval
+       this%core%froot_xfer        (:)   = spval
+       this%core%livestem          (:)   = spval
+       this%core%livestem_storage  (:)   = spval
+       this%core%livestem_xfer     (:)   = spval
+       this%core%deadstem          (:)   = spval
+       this%core%deadstem_storage  (:)   = spval
+       this%core%deadstem_xfer     (:)   = spval
+       this%core%livecroot         (:)   = spval
+       this%core%livecroot_storage (:)   = spval
+       this%core%livecroot_xfer    (:)   = spval
+       this%core%deadcroot         (:)   = spval
+       this%core%deadcroot_storage (:)   = spval
+       this%core%deadcroot_xfer    (:)   = spval
        allocate(this%gresp_storage      (begp :endp))   ;  this%gresp_storage      (:)   = spval
        allocate(this%gresp_xfer         (begp :endp))   ;  this%gresp_xfer         (:)   = spval
-       allocate(this%core%pool              (begp :endp))   ;  this%core%pool              (:)   = spval
+       this%core%pool              (:)   = spval
        allocate(this%xsmrpool           (begp :endp))   ;  this%xsmrpool           (:)   = spval
-       allocate(this%core%trunc_sink             (begp :endp))   ;  this%core%trunc_sink             (:)   = spval
-       allocate(this%core%dispveg           (begp :endp))   ;  this%core%dispveg           (:)   = spval
-       allocate(this%core%storveg           (begp :endp))   ;  this%core%storveg           (:)   = spval
-       allocate(this%core%totveg            (begp :endp))   ;  this%core%totveg            (:)   = spval
-       allocate(this%core%totpft            (begp :endp))   ;  this%core%totpft            (:)   = spval
+       this%core%trunc_sink             (:)   = spval
+       this%core%dispveg           (:)   = spval
+       this%core%storveg           (:)   = spval
+       this%core%totveg            (:)   = spval
+       this%core%totpft            (:)   = spval
        allocate(this%leafcmax           (begp :endp))   ;  this%leafcmax           (:)   = spval
-       allocate(this%core%grain             (begp :endp))   ;  this%core%grain             (:)   = spval
-       allocate(this%core%grain_storage     (begp :endp))   ;  this%core%grain_storage     (:)   = spval
-       allocate(this%core%grain_xfer        (begp :endp))   ;  this%core%grain_xfer        (:)   = spval
        allocate(this%woodc              (begp :endp))   ;  this%woodc              (:)   = spval
        allocate(this%totvegc_abg        (begp :endp))   ;  this%totvegc_abg        (:)   = spval
     endif  !  not use_fates
-
-    allocate(this%core%balance_beg              (begp :endp))   ;  this%core%balance_beg              (:) = spval
-    allocate(this%core%balance_end              (begp :endp))   ;  this%core%balance_end              (:) = spval
-    allocate(this%core%balance_err              (begp :endp))   ;  this%core%balance_err              (:) = spval
-    allocate(this%core%cropseed_deficit  (begp :endp))   ;  this%core%cropseed_deficit  (:) = spval
     !-----------------------------------------------------------------------
     ! initialize history fields for select members of veg_cs
     !-----------------------------------------------------------------------
@@ -3433,39 +3475,33 @@ module VegetationDataType
     ! allocate for each member of veg_ns
     !-----------------------------------------------------------------------
     this%core%species = CN_SPECIES_N
-    allocate(this%core%leaf                  (begp:endp))           ; this%core%leaf               (:)   = spval
-    allocate(this%core%leaf_storage          (begp:endp))           ; this%core%leaf_storage       (:)   = spval
-    allocate(this%core%leaf_xfer             (begp:endp))           ; this%core%leaf_xfer          (:)   = spval
-    allocate(this%core%froot                 (begp:endp))           ; this%core%froot              (:)   = spval
-    allocate(this%core%froot_storage         (begp:endp))           ; this%core%froot_storage      (:)   = spval
-    allocate(this%core%froot_xfer            (begp:endp))           ; this%core%froot_xfer         (:)   = spval
-    allocate(this%core%livestem              (begp:endp))           ; this%core%livestem           (:)   = spval
-    allocate(this%core%livestem_storage      (begp:endp))           ; this%core%livestem_storage   (:)   = spval
-    allocate(this%core%livestem_xfer         (begp:endp))           ; this%core%livestem_xfer      (:)   = spval
-    allocate(this%core%deadstem              (begp:endp))           ; this%core%deadstem           (:)   = spval
-    allocate(this%core%deadstem_storage      (begp:endp))           ; this%core%deadstem_storage   (:)   = spval
-    allocate(this%core%deadstem_xfer         (begp:endp))           ; this%core%deadstem_xfer      (:)   = spval
-    allocate(this%core%livecroot             (begp:endp))           ; this%core%livecroot          (:)   = spval
-    allocate(this%core%livecroot_storage     (begp:endp))           ; this%core%livecroot_storage  (:)   = spval
-    allocate(this%core%livecroot_xfer        (begp:endp))           ; this%core%livecroot_xfer     (:)   = spval
-    allocate(this%core%deadcroot             (begp:endp))           ; this%core%deadcroot          (:)   = spval
-    allocate(this%core%deadcroot_storage     (begp:endp))           ; this%core%deadcroot_storage  (:)   = spval
-    allocate(this%core%deadcroot_xfer        (begp:endp))           ; this%core%deadcroot_xfer     (:)   = spval
+    call vegetation_nutrient_state_init(this%core, begp, endp)
+    this%core%leaf               (:)   = spval
+    this%core%leaf_storage       (:)   = spval
+    this%core%leaf_xfer          (:)   = spval
+    this%core%froot              (:)   = spval
+    this%core%froot_storage      (:)   = spval
+    this%core%froot_xfer         (:)   = spval
+    this%core%livestem           (:)   = spval
+    this%core%livestem_storage   (:)   = spval
+    this%core%livestem_xfer      (:)   = spval
+    this%core%deadstem           (:)   = spval
+    this%core%deadstem_storage   (:)   = spval
+    this%core%deadstem_xfer      (:)   = spval
+    this%core%livecroot          (:)   = spval
+    this%core%livecroot_storage  (:)   = spval
+    this%core%livecroot_xfer     (:)   = spval
+    this%core%deadcroot          (:)   = spval
+    this%core%deadcroot_storage  (:)   = spval
+    this%core%deadcroot_xfer     (:)   = spval
     allocate(this%retrans%pool               (begp:endp))           ; this%retrans%pool            (:)   = spval
-    allocate(this%core%pool                  (begp:endp))           ; this%core%pool               (:)   = spval
-    allocate(this%core%trunc_sink                 (begp:endp))           ; this%core%trunc_sink              (:)   = spval
+    this%core%pool               (:)   = spval
+    this%core%trunc_sink              (:)   = spval
     allocate(this%plant_n_buffer         (begp:endp))           ; this%plant_n_buffer      (:)   = spval
-    allocate(this%core%grain                 (begp:endp))           ; this%core%grain              (:)   = spval
-    allocate(this%core%grain_storage         (begp:endp))           ; this%core%grain_storage      (:)   = spval
-    allocate(this%core%grain_xfer            (begp:endp))           ; this%core%grain_xfer         (:)   = spval
-    allocate(this%core%cropseed_deficit      (begp:endp))           ; this%core%cropseed_deficit   (:)   = spval
-    allocate(this%core%dispveg               (begp:endp))           ; this%core%dispveg            (:)   = spval
-    allocate(this%core%storveg               (begp:endp))           ; this%core%storveg            (:)   = spval
-    allocate(this%core%totveg                (begp:endp))           ; this%core%totveg             (:)   = spval
-    allocate(this%core%totpft                (begp:endp))           ; this%core%totpft             (:)   = spval
-    allocate(this%core%balance_beg                  (begp:endp))           ; this%core%balance_beg               (:)   = spval
-    allocate(this%core%balance_end                  (begp:endp))           ; this%core%balance_end               (:)   = spval
-    allocate(this%core%balance_err                  (begp:endp))           ; this%core%balance_err               (:)   = spval
+    this%core%dispveg            (:)   = spval
+    this%core%storveg            (:)   = spval
+    this%core%totveg             (:)   = spval
+    this%core%totpft             (:)   = spval
     allocate(this%npimbalance            (begp:endp))           ; this%npimbalance         (:)   = spval
     allocate(this%pnup_pfrootc           (begp:endp))           ; this%pnup_pfrootc        (:)   = spval
     allocate(this%ppup_pfrootc           (begp:endp))           ; this%ppup_pfrootc        (:)   = spval
@@ -4173,39 +4209,33 @@ module VegetationDataType
     ! allocate for each member of veg_ps
     !-----------------------------------------------------------------------
     this%core%species = CN_SPECIES_P
-    allocate(this%core%grain             (begp:endp)) ; this%core%grain             (:) = spval
-    allocate(this%core%grain_storage     (begp:endp)) ; this%core%grain_storage     (:) = spval
-    allocate(this%core%grain_xfer        (begp:endp)) ; this%core%grain_xfer        (:) = spval
-    allocate(this%core%leaf              (begp:endp)) ; this%core%leaf              (:) = spval
-    allocate(this%core%leaf_storage      (begp:endp)) ; this%core%leaf_storage      (:) = spval
-    allocate(this%core%leaf_xfer         (begp:endp)) ; this%core%leaf_xfer         (:) = spval
-    allocate(this%core%froot             (begp:endp)) ; this%core%froot             (:) = spval
-    allocate(this%core%froot_storage     (begp:endp)) ; this%core%froot_storage     (:) = spval
-    allocate(this%core%froot_xfer        (begp:endp)) ; this%core%froot_xfer        (:) = spval
-    allocate(this%core%livestem          (begp:endp)) ; this%core%livestem          (:) = spval
-    allocate(this%core%livestem_storage  (begp:endp)) ; this%core%livestem_storage  (:) = spval
-    allocate(this%core%livestem_xfer     (begp:endp)) ; this%core%livestem_xfer     (:) = spval
-    allocate(this%core%deadstem          (begp:endp)) ; this%core%deadstem          (:) = spval
-    allocate(this%core%deadstem_storage  (begp:endp)) ; this%core%deadstem_storage  (:) = spval
-    allocate(this%core%deadstem_xfer     (begp:endp)) ; this%core%deadstem_xfer     (:) = spval
-    allocate(this%core%livecroot         (begp:endp)) ; this%core%livecroot         (:) = spval
-    allocate(this%core%livecroot_storage (begp:endp)) ; this%core%livecroot_storage (:) = spval
-    allocate(this%core%livecroot_xfer    (begp:endp)) ; this%core%livecroot_xfer    (:) = spval
-    allocate(this%core%deadcroot         (begp:endp)) ; this%core%deadcroot         (:) = spval
-    allocate(this%core%deadcroot_storage (begp:endp)) ; this%core%deadcroot_storage (:) = spval
-    allocate(this%core%deadcroot_xfer    (begp:endp)) ; this%core%deadcroot_xfer    (:) = spval
+    call vegetation_nutrient_state_init(this%core, begp, endp)
+    this%core%leaf              (:) = spval
+    this%core%leaf_storage      (:) = spval
+    this%core%leaf_xfer         (:) = spval
+    this%core%froot             (:) = spval
+    this%core%froot_storage     (:) = spval
+    this%core%froot_xfer        (:) = spval
+    this%core%livestem          (:) = spval
+    this%core%livestem_storage  (:) = spval
+    this%core%livestem_xfer     (:) = spval
+    this%core%deadstem          (:) = spval
+    this%core%deadstem_storage  (:) = spval
+    this%core%deadstem_xfer     (:) = spval
+    this%core%livecroot         (:) = spval
+    this%core%livecroot_storage (:) = spval
+    this%core%livecroot_xfer    (:) = spval
+    this%core%deadcroot         (:) = spval
+    this%core%deadcroot_storage (:) = spval
+    this%core%deadcroot_xfer    (:) = spval
     allocate(this%retrans%pool           (begp:endp)) ; this%retrans%pool           (:) = spval
-    allocate(this%core%pool              (begp:endp)) ; this%core%pool              (:) = spval
-    allocate(this%core%trunc_sink             (begp:endp)) ; this%core%trunc_sink             (:) = spval
-    allocate(this%core%dispveg           (begp:endp)) ; this%core%dispveg           (:) = spval
-    allocate(this%core%storveg           (begp:endp)) ; this%core%storveg           (:) = spval
-    allocate(this%core%totveg            (begp:endp)) ; this%core%totveg            (:) = spval
-    allocate(this%core%totpft            (begp:endp)) ; this%core%totpft            (:) = spval
+    this%core%pool              (:) = spval
+    this%core%trunc_sink             (:) = spval
+    this%core%dispveg           (:) = spval
+    this%core%storveg           (:) = spval
+    this%core%totveg            (:) = spval
+    this%core%totpft            (:) = spval
     allocate(this%plant_p_buffer     (begp:endp)) ; this%plant_p_buffer     (:) = spval
-    allocate(this%core%cropseed_deficit  (begp:endp)) ; this%core%cropseed_deficit  (:) = spval
-    allocate(this%core%balance_beg              (begp:endp)) ; this%core%balance_beg              (:) = spval
-    allocate(this%core%balance_end              (begp:endp)) ; this%core%balance_end              (:) = spval
-    allocate(this%core%balance_err              (begp:endp)) ; this%core%balance_err              (:) = spval
 
     !-----------------------------------------------------------------------
     ! initialize history fields for select members of veg_ps
@@ -5388,6 +5418,154 @@ module VegetationDataType
   !------------------------------------------------------------------------
   ! Subroutines to initialize and clean vegetation carbon flux data structure
   !------------------------------------------------------------------------
+  subroutine vegetation_nutrient_flux_init(this, begp, endp)
+    !
+    ! !ARGUMENTS:
+    type(vegetation_nutrient_flux), intent(inout) :: this
+    integer, intent(in)           :: begp,endp
+    !
+    ! !LOCAL VARIABLES:
+    integer :: p,c,l,j                     ! indices
+    integer :: num_special_patch           ! number of good values in special_patch filter
+    integer :: special_patch(endp-begp+1)  ! special landunit filter - patches
+    if (.not. (is_carbon(this%species) .and. use_fates)) then
+       allocate(this%m_leaf_to_litter                   (begp:endp)) ;    this%m_leaf_to_litter                    (:) = spval
+       allocate(this%m_leaf_storage_to_litter           (begp:endp))
+       allocate(this%m_leaf_xfer_to_litter              (begp:endp))
+       allocate(this%m_froot_to_litter                  (begp:endp))
+       allocate(this%m_froot_storage_to_litter          (begp:endp))
+       allocate(this%m_froot_xfer_to_litter             (begp:endp))
+       allocate(this%m_livestem_to_litter               (begp:endp))
+       allocate(this%m_livestem_storage_to_litter       (begp:endp))
+       allocate(this%m_livestem_xfer_to_litter          (begp:endp))
+       allocate(this%m_deadstem_to_litter               (begp:endp))
+       allocate(this%m_deadstem_storage_to_litter       (begp:endp))
+       allocate(this%m_deadstem_xfer_to_litter          (begp:endp))
+       allocate(this%m_livecroot_to_litter              (begp:endp))
+       allocate(this%m_livecroot_storage_to_litter      (begp:endp))
+       allocate(this%m_livecroot_xfer_to_litter         (begp:endp))
+       allocate(this%m_deadcroot_to_litter              (begp:endp))
+       allocate(this%m_deadcroot_storage_to_litter      (begp:endp))
+       allocate(this%m_deadcroot_xfer_to_litter         (begp:endp))
+       allocate(this%m_pool_to_litter                   (begp:endp))
+       allocate(this%hrv_leaf_to_litter                 (begp:endp)) ;    this%hrv_leaf_to_litter                  (:) = spval
+       allocate(this%hrv_leaf_storage_to_litter         (begp:endp)) ;    this%hrv_leaf_storage_to_litter          (:) = spval
+       allocate(this%hrv_leaf_xfer_to_litter            (begp:endp)) ;    this%hrv_leaf_xfer_to_litter             (:) = spval
+       allocate(this%hrv_froot_to_litter                (begp:endp)) ;    this%hrv_froot_to_litter                 (:) = spval
+       allocate(this%hrv_froot_storage_to_litter        (begp:endp)) ;    this%hrv_froot_storage_to_litter         (:) = spval
+       allocate(this%hrv_froot_xfer_to_litter           (begp:endp)) ;    this%hrv_froot_xfer_to_litter            (:) = spval
+       allocate(this%hrv_livestem_to_litter             (begp:endp)) ;    this%hrv_livestem_to_litter              (:) = spval
+       allocate(this%hrv_livestem_storage_to_litter     (begp:endp)) ;    this%hrv_livestem_storage_to_litter      (:) = spval
+       allocate(this%hrv_livestem_xfer_to_litter        (begp:endp)) ;    this%hrv_livestem_xfer_to_litter         (:) = spval
+       allocate(this%hrv_deadstem_to_prod10            (begp:endp)) ;    this%hrv_deadstem_to_prod10             (:) = spval
+       allocate(this%hrv_deadstem_to_prod100           (begp:endp)) ;    this%hrv_deadstem_to_prod100            (:) = spval
+       allocate(this%hrv_deadstem_storage_to_litter     (begp:endp)) ;    this%hrv_deadstem_storage_to_litter      (:) = spval
+       allocate(this%hrv_deadstem_xfer_to_litter        (begp:endp)) ;    this%hrv_deadstem_xfer_to_litter         (:) = spval
+       allocate(this%hrv_livecroot_to_litter            (begp:endp)) ;    this%hrv_livecroot_to_litter             (:) = spval
+       allocate(this%hrv_livecroot_storage_to_litter    (begp:endp)) ;    this%hrv_livecroot_storage_to_litter     (:) = spval
+       allocate(this%hrv_livecroot_xfer_to_litter       (begp:endp)) ;    this%hrv_livecroot_xfer_to_litter        (:) = spval
+       allocate(this%hrv_deadcroot_to_litter            (begp:endp)) ;    this%hrv_deadcroot_to_litter             (:) = spval
+       allocate(this%hrv_deadcroot_storage_to_litter    (begp:endp)) ;    this%hrv_deadcroot_storage_to_litter     (:) = spval
+       allocate(this%hrv_deadcroot_xfer_to_litter       (begp:endp)) ;    this%hrv_deadcroot_xfer_to_litter        (:) = spval
+       allocate(this%hrv_pool_to_litter                 (begp:endp)) ;    this%hrv_pool_to_litter                  (:) = spval
+       allocate(this%hrv_leaf_to_prod1                 (begp:endp)) ;    this%hrv_leaf_to_prod1                  (:) = spval
+       allocate(this%hrv_livestem_to_prod1             (begp:endp)) ;    this%hrv_livestem_to_prod1              (:) = spval
+       allocate(this%hrv_grain_to_prod1                (begp:endp)) ;    this%hrv_grain_to_prod1                 (:) = spval
+       allocate(this%hrv_crop_to_prod1                 (begp:endp)) ;    this%hrv_crop_to_prod1                  (:) = spval
+       allocate(this%m_leaf_to_fire                     (begp:endp))
+       allocate(this%m_leaf_storage_to_fire             (begp:endp))
+       allocate(this%m_leaf_xfer_to_fire                (begp:endp))
+       allocate(this%m_livestem_to_fire                 (begp:endp))
+       allocate(this%m_livestem_storage_to_fire         (begp:endp))
+       allocate(this%m_livestem_xfer_to_fire            (begp:endp))
+       allocate(this%m_deadstem_to_fire                 (begp:endp))
+       allocate(this%m_deadstem_storage_to_fire         (begp:endp))
+       allocate(this%m_deadstem_xfer_to_fire            (begp:endp))
+       allocate(this%m_froot_to_fire                    (begp:endp))
+       allocate(this%m_froot_storage_to_fire            (begp:endp))
+       allocate(this%m_froot_xfer_to_fire               (begp:endp))
+       allocate(this%m_livecroot_to_fire                (begp:endp))
+       allocate(this%m_livecroot_storage_to_fire        (begp:endp))
+       allocate(this%m_livecroot_xfer_to_fire           (begp:endp))
+       allocate(this%m_deadcroot_to_fire                (begp:endp))
+       allocate(this%m_deadcroot_storage_to_fire        (begp:endp))
+       allocate(this%m_deadcroot_xfer_to_fire           (begp:endp))
+       allocate(this%m_pool_to_fire                     (begp:endp))
+       allocate(this%m_leaf_to_litter_fire              (begp:endp)) ;    this%m_leaf_to_litter_fire               (:) = spval
+       allocate(this%m_leaf_storage_to_litter_fire      (begp:endp)) ;    this%m_leaf_storage_to_litter_fire       (:) = spval
+       allocate(this%m_leaf_xfer_to_litter_fire         (begp:endp)) ;    this%m_leaf_xfer_to_litter_fire          (:) = spval
+       allocate(this%m_livestem_to_litter_fire          (begp:endp)) ;    this%m_livestem_to_litter_fire           (:) = spval
+       allocate(this%m_livestem_storage_to_litter_fire  (begp:endp)) ;    this%m_livestem_storage_to_litter_fire   (:) = spval
+       allocate(this%m_livestem_xfer_to_litter_fire     (begp:endp)) ;    this%m_livestem_xfer_to_litter_fire      (:) = spval
+       allocate(this%m_livestem_to_deadstem_fire       (begp:endp)) ;    this%m_livestem_to_deadstem_fire        (:) = spval
+       allocate(this%m_deadstem_to_litter_fire          (begp:endp))
+       allocate(this%m_deadstem_storage_to_litter_fire  (begp:endp)) ;    this%m_deadstem_storage_to_litter_fire   (:) = spval
+       allocate(this%m_deadstem_xfer_to_litter_fire     (begp:endp)) ;    this%m_deadstem_xfer_to_litter_fire      (:) = spval
+       allocate(this%m_froot_to_litter_fire             (begp:endp)) ;    this%m_froot_to_litter_fire              (:) = spval
+       allocate(this%m_froot_storage_to_litter_fire     (begp:endp)) ;    this%m_froot_storage_to_litter_fire      (:) = spval
+       allocate(this%m_froot_xfer_to_litter_fire        (begp:endp)) ;    this%m_froot_xfer_to_litter_fire         (:) = spval
+       allocate(this%m_livecroot_to_litter_fire         (begp:endp)) ;    this%m_livecroot_to_litter_fire          (:) = spval
+       allocate(this%m_livecroot_storage_to_litter_fire (begp:endp)) ;    this%m_livecroot_storage_to_litter_fire  (:) = spval
+       allocate(this%m_livecroot_xfer_to_litter_fire    (begp:endp)) ;    this%m_livecroot_xfer_to_litter_fire     (:) = spval
+       allocate(this%m_livecroot_to_deadcroot_fire     (begp:endp)) ;    this%m_livecroot_to_deadcroot_fire      (:) = spval
+       allocate(this%m_deadcroot_to_litter_fire         (begp:endp))
+       allocate(this%m_deadcroot_storage_to_litter_fire (begp:endp)) ;    this%m_deadcroot_storage_to_litter_fire  (:) = spval
+       allocate(this%m_deadcroot_xfer_to_litter_fire    (begp:endp)) ;    this%m_deadcroot_xfer_to_litter_fire     (:) = spval
+       allocate(this%m_pool_to_litter_fire              (begp:endp))
+       allocate(this%grain_xfer_to_grain               (begp:endp)) ;    this%grain_xfer_to_grain                (:) = spval
+       allocate(this%leaf_xfer_to_leaf                 (begp:endp))
+       allocate(this%froot_xfer_to_froot               (begp:endp))
+       allocate(this%livestem_xfer_to_livestem         (begp:endp))
+       allocate(this%deadstem_xfer_to_deadstem         (begp:endp))
+       allocate(this%livecroot_xfer_to_livecroot       (begp:endp))
+       allocate(this%deadcroot_xfer_to_deadcroot       (begp:endp))
+       allocate(this%leaf_to_litter                     (begp:endp))
+       allocate(this%froot_to_litter                    (begp:endp))
+       allocate(this%livestem_to_litter                 (begp:endp)) ;    this%livestem_to_litter                  (:) = spval
+       allocate(this%grain_to_food                      (begp:endp)) ;    this%grain_to_food                       (:) = spval
+       allocate(this%pool_to_grain                     (begp:endp)) ;    this%pool_to_grain                      (:) = spval
+       allocate(this%pool_to_grain_storage             (begp:endp)) ;    this%pool_to_grain_storage              (:) = spval
+       allocate(this%pool_to_leaf                      (begp:endp))
+       allocate(this%pool_to_leaf_storage              (begp:endp))
+       allocate(this%pool_to_froot                     (begp:endp))
+       allocate(this%pool_to_froot_storage             (begp:endp))
+       allocate(this%pool_to_livestem                  (begp:endp))
+       allocate(this%pool_to_livestem_storage          (begp:endp))
+       allocate(this%pool_to_deadstem                  (begp:endp))
+       allocate(this%pool_to_deadstem_storage          (begp:endp))
+       allocate(this%pool_to_livecroot                 (begp:endp))
+       allocate(this%pool_to_livecroot_storage         (begp:endp))
+       allocate(this%pool_to_deadcroot                 (begp:endp))
+       allocate(this%pool_to_deadcroot_storage         (begp:endp))
+       allocate(this%grain_storage_to_xfer              (begp:endp)) ;    this%grain_storage_to_xfer               (:) = spval
+       allocate(this%leaf_storage_to_xfer               (begp:endp))
+       allocate(this%froot_storage_to_xfer              (begp:endp))
+       allocate(this%livestem_storage_to_xfer           (begp:endp))
+       allocate(this%deadstem_storage_to_xfer           (begp:endp))
+       allocate(this%livecroot_storage_to_xfer          (begp:endp))
+       allocate(this%deadcroot_storage_to_xfer          (begp:endp))
+       allocate(this%livestem_to_deadstem              (begp:endp))
+       allocate(this%livecroot_to_deadcroot            (begp:endp))
+       allocate(this%wood_harvest                       (begp:endp))
+       allocate(this%plant_alloc                        (begp:endp))
+       allocate(this%prev_leaf_to_litter                (begp:endp)) ;    this%prev_leaf_to_litter                 (:) = spval
+       allocate(this%prev_froot_to_litter               (begp:endp)) ;    this%prev_froot_to_litter                (:) = spval
+       allocate(this%fire_loss                          (begp:endp))
+       allocate(this%crop_seed_to_leaf                  (begp:endp))
+    end if ! .not use fates
+
+    allocate(this%dwt_seed_to_leaf                   (begp:endp))
+    allocate(this%dwt_seed_to_deadstem               (begp:endp))
+    allocate(this%dwt_conv_flux                      (begp:endp))
+    allocate(this%dwt_prod10_gain                    (begp:endp))
+    allocate(this%dwt_prod100_gain                   (begp:endp))
+    allocate(this%dwt_crop_product_gain              (begp:endp)) ;    this%dwt_crop_product_gain               (:) = spval
+
+    ! Set special patch filters, call SetValue
+    num_special_patch = 0
+
+  end subroutine vegetation_nutrient_flux_init
+
   subroutine veg_cf_init(this, begp, endp, carbon_type)
     !
     ! !ARGUMENTS:
@@ -5405,110 +5583,65 @@ module VegetationDataType
     ! allocate for each member of veg_cf
     !-----------------------------------------------------------------------
     this%core%species = species_from_string(carbon_type)
+    call vegetation_nutrient_flux_init(this%core, begp, endp)
     if (.not. use_fates) then
-       allocate(this%core%m_leaf_to_litter                   (begp:endp)) ;    this%core%m_leaf_to_litter                    (:) = spval
-       allocate(this%core%m_leaf_storage_to_litter           (begp:endp)) ;    this%core%m_leaf_storage_to_litter            (:) = spval
-       allocate(this%core%m_leaf_xfer_to_litter              (begp:endp)) ;    this%core%m_leaf_xfer_to_litter               (:) = spval
-       allocate(this%core%m_froot_to_litter                  (begp:endp)) ;    this%core%m_froot_to_litter                   (:) = spval
-       allocate(this%core%m_froot_storage_to_litter          (begp:endp)) ;    this%core%m_froot_storage_to_litter           (:) = spval
-       allocate(this%core%m_froot_xfer_to_litter             (begp:endp)) ;    this%core%m_froot_xfer_to_litter              (:) = spval
-       allocate(this%core%m_livestem_to_litter               (begp:endp)) ;    this%core%m_livestem_to_litter                (:) = spval
-       allocate(this%core%m_livestem_storage_to_litter       (begp:endp)) ;    this%core%m_livestem_storage_to_litter        (:) = spval
-       allocate(this%core%m_livestem_xfer_to_litter          (begp:endp)) ;    this%core%m_livestem_xfer_to_litter           (:) = spval
-       allocate(this%core%m_deadstem_to_litter               (begp:endp)) ;    this%core%m_deadstem_to_litter                (:) = spval
-       allocate(this%core%m_deadstem_storage_to_litter       (begp:endp)) ;    this%core%m_deadstem_storage_to_litter        (:) = spval
-       allocate(this%core%m_deadstem_xfer_to_litter          (begp:endp)) ;    this%core%m_deadstem_xfer_to_litter           (:) = spval
-       allocate(this%core%m_livecroot_to_litter              (begp:endp)) ;    this%core%m_livecroot_to_litter               (:) = spval
-       allocate(this%core%m_livecroot_storage_to_litter      (begp:endp)) ;    this%core%m_livecroot_storage_to_litter       (:) = spval
-       allocate(this%core%m_livecroot_xfer_to_litter         (begp:endp)) ;    this%core%m_livecroot_xfer_to_litter          (:) = spval
-       allocate(this%core%m_deadcroot_to_litter              (begp:endp)) ;    this%core%m_deadcroot_to_litter               (:) = spval
-       allocate(this%core%m_deadcroot_storage_to_litter      (begp:endp)) ;    this%core%m_deadcroot_storage_to_litter       (:) = spval
-       allocate(this%core%m_deadcroot_xfer_to_litter         (begp:endp)) ;    this%core%m_deadcroot_xfer_to_litter          (:) = spval
+       this%core%m_leaf_storage_to_litter            (:) = spval
+       this%core%m_leaf_xfer_to_litter               (:) = spval
+       this%core%m_froot_to_litter                   (:) = spval
+       this%core%m_froot_storage_to_litter           (:) = spval
+       this%core%m_froot_xfer_to_litter              (:) = spval
+       this%core%m_livestem_to_litter                (:) = spval
+       this%core%m_livestem_storage_to_litter        (:) = spval
+       this%core%m_livestem_xfer_to_litter           (:) = spval
+       this%core%m_deadstem_to_litter                (:) = spval
+       this%core%m_deadstem_storage_to_litter        (:) = spval
+       this%core%m_deadstem_xfer_to_litter           (:) = spval
+       this%core%m_livecroot_to_litter               (:) = spval
+       this%core%m_livecroot_storage_to_litter       (:) = spval
+       this%core%m_livecroot_xfer_to_litter          (:) = spval
+       this%core%m_deadcroot_to_litter               (:) = spval
+       this%core%m_deadcroot_storage_to_litter       (:) = spval
+       this%core%m_deadcroot_xfer_to_litter          (:) = spval
        allocate(this%m_gresp_storage_to_litter           (begp:endp)) ;    this%m_gresp_storage_to_litter            (:) = spval
        allocate(this%m_gresp_xfer_to_litter              (begp:endp)) ;    this%m_gresp_xfer_to_litter               (:) = spval
-       allocate(this%core%m_pool_to_litter                   (begp:endp)) ;    this%core%m_pool_to_litter                    (:) = spval
-       allocate(this%core%hrv_leaf_to_litter                 (begp:endp)) ;    this%core%hrv_leaf_to_litter                  (:) = spval
-       allocate(this%core%hrv_leaf_storage_to_litter         (begp:endp)) ;    this%core%hrv_leaf_storage_to_litter          (:) = spval
-       allocate(this%core%hrv_leaf_xfer_to_litter            (begp:endp)) ;    this%core%hrv_leaf_xfer_to_litter             (:) = spval
-       allocate(this%core%hrv_froot_to_litter                (begp:endp)) ;    this%core%hrv_froot_to_litter                 (:) = spval
-       allocate(this%core%hrv_froot_storage_to_litter        (begp:endp)) ;    this%core%hrv_froot_storage_to_litter         (:) = spval
-       allocate(this%core%hrv_froot_xfer_to_litter           (begp:endp)) ;    this%core%hrv_froot_xfer_to_litter            (:) = spval
-       allocate(this%core%hrv_livestem_to_litter             (begp:endp)) ;    this%core%hrv_livestem_to_litter              (:) = spval
-       allocate(this%core%hrv_livestem_storage_to_litter     (begp:endp)) ;    this%core%hrv_livestem_storage_to_litter      (:) = spval
-       allocate(this%core%hrv_livestem_xfer_to_litter        (begp:endp)) ;    this%core%hrv_livestem_xfer_to_litter         (:) = spval
-       allocate(this%core%hrv_deadstem_to_prod10            (begp:endp)) ;    this%core%hrv_deadstem_to_prod10             (:) = spval
-       allocate(this%core%hrv_deadstem_to_prod100           (begp:endp)) ;    this%core%hrv_deadstem_to_prod100            (:) = spval
-       allocate(this%core%hrv_deadstem_storage_to_litter     (begp:endp)) ;    this%core%hrv_deadstem_storage_to_litter      (:) = spval
-       allocate(this%core%hrv_deadstem_xfer_to_litter        (begp:endp)) ;    this%core%hrv_deadstem_xfer_to_litter         (:) = spval
-       allocate(this%core%hrv_livecroot_to_litter            (begp:endp)) ;    this%core%hrv_livecroot_to_litter             (:) = spval
-       allocate(this%core%hrv_livecroot_storage_to_litter    (begp:endp)) ;    this%core%hrv_livecroot_storage_to_litter     (:) = spval
-       allocate(this%core%hrv_livecroot_xfer_to_litter       (begp:endp)) ;    this%core%hrv_livecroot_xfer_to_litter        (:) = spval
-       allocate(this%core%hrv_deadcroot_to_litter            (begp:endp)) ;    this%core%hrv_deadcroot_to_litter             (:) = spval
-       allocate(this%core%hrv_deadcroot_storage_to_litter    (begp:endp)) ;    this%core%hrv_deadcroot_storage_to_litter     (:) = spval
-       allocate(this%core%hrv_deadcroot_xfer_to_litter       (begp:endp)) ;    this%core%hrv_deadcroot_xfer_to_litter        (:) = spval
+       this%core%m_pool_to_litter                    (:) = spval
        allocate(this%hrv_gresp_storage_to_litter         (begp:endp)) ;    this%hrv_gresp_storage_to_litter          (:) = spval
        allocate(this%hrv_gresp_xfer_to_litter            (begp:endp)) ;    this%hrv_gresp_xfer_to_litter             (:) = spval
        allocate(this%hrv_xsmrpool_to_atm                 (begp:endp)) ;    this%hrv_xsmrpool_to_atm                  (:) = spval
-       allocate(this%core%hrv_pool_to_litter                 (begp:endp)) ;    this%core%hrv_pool_to_litter                  (:) = spval
-       allocate(this%core%hrv_leaf_to_prod1                 (begp:endp)) ;    this%core%hrv_leaf_to_prod1                  (:) = spval
-       allocate(this%core%hrv_livestem_to_prod1             (begp:endp)) ;    this%core%hrv_livestem_to_prod1              (:) = spval
-       allocate(this%core%hrv_grain_to_prod1                (begp:endp)) ;    this%core%hrv_grain_to_prod1                 (:) = spval
-       allocate(this%core%hrv_crop_to_prod1                 (begp:endp)) ;    this%core%hrv_crop_to_prod1                  (:) = spval
-       allocate(this%core%m_leaf_to_fire                     (begp:endp)) ;    this%core%m_leaf_to_fire                      (:) = spval
-       allocate(this%core%m_leaf_storage_to_fire             (begp:endp)) ;    this%core%m_leaf_storage_to_fire              (:) = spval
-       allocate(this%core%m_leaf_xfer_to_fire                (begp:endp)) ;    this%core%m_leaf_xfer_to_fire                 (:) = spval
-       allocate(this%core%m_livestem_to_fire                 (begp:endp)) ;    this%core%m_livestem_to_fire                  (:) = spval
-       allocate(this%core%m_livestem_storage_to_fire         (begp:endp)) ;    this%core%m_livestem_storage_to_fire          (:) = spval
-       allocate(this%core%m_livestem_xfer_to_fire            (begp:endp)) ;    this%core%m_livestem_xfer_to_fire             (:) = spval
-       allocate(this%core%m_deadstem_to_fire                 (begp:endp)) ;    this%core%m_deadstem_to_fire                  (:) = spval
-       allocate(this%core%m_deadstem_storage_to_fire         (begp:endp)) ;    this%core%m_deadstem_storage_to_fire          (:) = spval
-       allocate(this%core%m_deadstem_xfer_to_fire            (begp:endp)) ;    this%core%m_deadstem_xfer_to_fire             (:) = spval
-       allocate(this%core%m_froot_to_fire                    (begp:endp)) ;    this%core%m_froot_to_fire                     (:) = spval
-       allocate(this%core%m_froot_storage_to_fire            (begp:endp)) ;    this%core%m_froot_storage_to_fire             (:) = spval
-       allocate(this%core%m_froot_xfer_to_fire               (begp:endp)) ;    this%core%m_froot_xfer_to_fire                (:) = spval
-       allocate(this%core%m_livecroot_to_fire                (begp:endp)) ;    this%core%m_livecroot_to_fire                 (:) = spval
-       allocate(this%core%m_livecroot_storage_to_fire        (begp:endp)) ;    this%core%m_livecroot_storage_to_fire         (:) = spval
-       allocate(this%core%m_livecroot_xfer_to_fire           (begp:endp)) ;    this%core%m_livecroot_xfer_to_fire            (:) = spval
-       allocate(this%core%m_deadcroot_to_fire                (begp:endp)) ;    this%core%m_deadcroot_to_fire                 (:) = spval
-       allocate(this%core%m_deadcroot_storage_to_fire        (begp:endp)) ;    this%core%m_deadcroot_storage_to_fire         (:) = spval
-       allocate(this%core%m_deadcroot_xfer_to_fire           (begp:endp)) ;    this%core%m_deadcroot_xfer_to_fire            (:) = spval
+       this%core%m_leaf_to_fire                      (:) = spval
+       this%core%m_leaf_storage_to_fire              (:) = spval
+       this%core%m_leaf_xfer_to_fire                 (:) = spval
+       this%core%m_livestem_to_fire                  (:) = spval
+       this%core%m_livestem_storage_to_fire          (:) = spval
+       this%core%m_livestem_xfer_to_fire             (:) = spval
+       this%core%m_deadstem_to_fire                  (:) = spval
+       this%core%m_deadstem_storage_to_fire          (:) = spval
+       this%core%m_deadstem_xfer_to_fire             (:) = spval
+       this%core%m_froot_to_fire                     (:) = spval
+       this%core%m_froot_storage_to_fire             (:) = spval
+       this%core%m_froot_xfer_to_fire                (:) = spval
+       this%core%m_livecroot_to_fire                 (:) = spval
+       this%core%m_livecroot_storage_to_fire         (:) = spval
+       this%core%m_livecroot_xfer_to_fire            (:) = spval
+       this%core%m_deadcroot_to_fire                 (:) = spval
+       this%core%m_deadcroot_storage_to_fire         (:) = spval
+       this%core%m_deadcroot_xfer_to_fire            (:) = spval
        allocate(this%m_gresp_storage_to_fire             (begp:endp)) ;    this%m_gresp_storage_to_fire              (:) = spval
        allocate(this%m_gresp_xfer_to_fire                (begp:endp)) ;    this%m_gresp_xfer_to_fire                 (:) = spval
-       allocate(this%core%m_pool_to_fire                     (begp:endp)) ;    this%core%m_pool_to_fire                      (:) = spval
-       allocate(this%core%m_leaf_to_litter_fire              (begp:endp)) ;    this%core%m_leaf_to_litter_fire               (:) = spval
-       allocate(this%core%m_leaf_storage_to_litter_fire      (begp:endp)) ;    this%core%m_leaf_storage_to_litter_fire       (:) = spval
-       allocate(this%core%m_leaf_xfer_to_litter_fire         (begp:endp)) ;    this%core%m_leaf_xfer_to_litter_fire          (:) = spval
-       allocate(this%core%m_livestem_to_litter_fire          (begp:endp)) ;    this%core%m_livestem_to_litter_fire           (:) = spval
-       allocate(this%core%m_livestem_storage_to_litter_fire  (begp:endp)) ;    this%core%m_livestem_storage_to_litter_fire   (:) = spval
-       allocate(this%core%m_livestem_xfer_to_litter_fire     (begp:endp)) ;    this%core%m_livestem_xfer_to_litter_fire      (:) = spval
-       allocate(this%core%m_livestem_to_deadstem_fire       (begp:endp)) ;    this%core%m_livestem_to_deadstem_fire        (:) = spval
-       allocate(this%core%m_deadstem_to_litter_fire          (begp:endp)) ;    this%core%m_deadstem_to_litter_fire           (:) = spval
-       allocate(this%core%m_deadstem_storage_to_litter_fire  (begp:endp)) ;    this%core%m_deadstem_storage_to_litter_fire   (:) = spval
-       allocate(this%core%m_deadstem_xfer_to_litter_fire     (begp:endp)) ;    this%core%m_deadstem_xfer_to_litter_fire      (:) = spval
-       allocate(this%core%m_froot_to_litter_fire             (begp:endp)) ;    this%core%m_froot_to_litter_fire              (:) = spval
-       allocate(this%core%m_froot_storage_to_litter_fire     (begp:endp)) ;    this%core%m_froot_storage_to_litter_fire      (:) = spval
-       allocate(this%core%m_froot_xfer_to_litter_fire        (begp:endp)) ;    this%core%m_froot_xfer_to_litter_fire         (:) = spval
-       allocate(this%core%m_livecroot_to_litter_fire         (begp:endp)) ;    this%core%m_livecroot_to_litter_fire          (:) = spval
-       allocate(this%core%m_livecroot_storage_to_litter_fire (begp:endp)) ;    this%core%m_livecroot_storage_to_litter_fire  (:) = spval
-       allocate(this%core%m_livecroot_xfer_to_litter_fire    (begp:endp)) ;    this%core%m_livecroot_xfer_to_litter_fire     (:) = spval
-       allocate(this%core%m_livecroot_to_deadcroot_fire     (begp:endp)) ;    this%core%m_livecroot_to_deadcroot_fire      (:) = spval
-       allocate(this%core%m_deadcroot_to_litter_fire         (begp:endp)) ;    this%core%m_deadcroot_to_litter_fire          (:) = spval
-       allocate(this%core%m_deadcroot_storage_to_litter_fire (begp:endp)) ;    this%core%m_deadcroot_storage_to_litter_fire  (:) = spval
-       allocate(this%core%m_deadcroot_xfer_to_litter_fire    (begp:endp)) ;    this%core%m_deadcroot_xfer_to_litter_fire     (:) = spval
+       this%core%m_pool_to_fire                      (:) = spval
+       this%core%m_deadstem_to_litter_fire           (:) = spval
+       this%core%m_deadcroot_to_litter_fire          (:) = spval
        allocate(this%m_gresp_storage_to_litter_fire      (begp:endp)) ;    this%m_gresp_storage_to_litter_fire       (:) = spval
        allocate(this%m_gresp_xfer_to_litter_fire         (begp:endp)) ;    this%m_gresp_xfer_to_litter_fire          (:) = spval
-       allocate(this%core%m_pool_to_litter_fire              (begp:endp)) ;    this%core%m_pool_to_litter_fire               (:) = spval
-       allocate(this%core%grain_xfer_to_grain               (begp:endp)) ;    this%core%grain_xfer_to_grain                (:) = spval
-       allocate(this%core%leaf_xfer_to_leaf                 (begp:endp)) ;    this%core%leaf_xfer_to_leaf                  (:) = spval
-       allocate(this%core%froot_xfer_to_froot               (begp:endp)) ;    this%core%froot_xfer_to_froot                (:) = spval
-       allocate(this%core%livestem_xfer_to_livestem         (begp:endp)) ;    this%core%livestem_xfer_to_livestem          (:) = spval
-       allocate(this%core%deadstem_xfer_to_deadstem         (begp:endp)) ;    this%core%deadstem_xfer_to_deadstem          (:) = spval
-       allocate(this%core%livecroot_xfer_to_livecroot       (begp:endp)) ;    this%core%livecroot_xfer_to_livecroot        (:) = spval
-       allocate(this%core%deadcroot_xfer_to_deadcroot       (begp:endp)) ;    this%core%deadcroot_xfer_to_deadcroot        (:) = spval
-       allocate(this%core%leaf_to_litter                     (begp:endp)) ;    this%core%leaf_to_litter                      (:) = spval
-       allocate(this%core%froot_to_litter                    (begp:endp)) ;    this%core%froot_to_litter                     (:) = spval
-       allocate(this%core%livestem_to_litter                 (begp:endp)) ;    this%core%livestem_to_litter                  (:) = spval
-       allocate(this%core%grain_to_food                      (begp:endp)) ;    this%core%grain_to_food                       (:) = spval
+       this%core%m_pool_to_litter_fire               (:) = spval
+       this%core%leaf_xfer_to_leaf                  (:) = spval
+       this%core%froot_xfer_to_froot                (:) = spval
+       this%core%livestem_xfer_to_livestem          (:) = spval
+       this%core%deadstem_xfer_to_deadstem          (:) = spval
+       this%core%livecroot_xfer_to_livecroot        (:) = spval
+       this%core%deadcroot_xfer_to_deadcroot        (:) = spval
+       this%core%leaf_to_litter                      (:) = spval
+       this%core%froot_to_litter                     (:) = spval
        allocate(this%leaf_mr                             (begp:endp)) ;    this%leaf_mr                              (:) = spval
        allocate(this%froot_mr                            (begp:endp)) ;    this%froot_mr                             (:) = spval
        allocate(this%livestem_mr                         (begp:endp)) ;    this%livestem_mr                          (:) = spval
@@ -5528,20 +5661,18 @@ module VegetationDataType
        allocate(this%psnsun_to_cpool                     (begp:endp)) ;    this%psnsun_to_cpool                      (:) = spval
        allocate(this%psnshade_to_cpool                   (begp:endp)) ;    this%psnshade_to_cpool                    (:) = spval
        allocate(this%cpool_to_xsmrpool                   (begp:endp)) ;    this%cpool_to_xsmrpool                    (:) = spval
-       allocate(this%core%pool_to_grain                     (begp:endp)) ;    this%core%pool_to_grain                      (:) = spval
-       allocate(this%core%pool_to_grain_storage             (begp:endp)) ;    this%core%pool_to_grain_storage              (:) = spval
-       allocate(this%core%pool_to_leaf                      (begp:endp)) ;    this%core%pool_to_leaf                       (:) = spval
-       allocate(this%core%pool_to_leaf_storage              (begp:endp)) ;    this%core%pool_to_leaf_storage               (:) = spval
-       allocate(this%core%pool_to_froot                     (begp:endp)) ;    this%core%pool_to_froot                      (:) = spval
-       allocate(this%core%pool_to_froot_storage             (begp:endp)) ;    this%core%pool_to_froot_storage              (:) = spval
-       allocate(this%core%pool_to_livestem                  (begp:endp)) ;    this%core%pool_to_livestem                   (:) = spval
-       allocate(this%core%pool_to_livestem_storage          (begp:endp)) ;    this%core%pool_to_livestem_storage           (:) = spval
-       allocate(this%core%pool_to_deadstem                  (begp:endp)) ;    this%core%pool_to_deadstem                   (:) = spval
-       allocate(this%core%pool_to_deadstem_storage          (begp:endp)) ;    this%core%pool_to_deadstem_storage           (:) = spval
-       allocate(this%core%pool_to_livecroot                 (begp:endp)) ;    this%core%pool_to_livecroot                  (:) = spval
-       allocate(this%core%pool_to_livecroot_storage         (begp:endp)) ;    this%core%pool_to_livecroot_storage          (:) = spval
-       allocate(this%core%pool_to_deadcroot                 (begp:endp)) ;    this%core%pool_to_deadcroot                  (:) = spval
-       allocate(this%core%pool_to_deadcroot_storage         (begp:endp)) ;    this%core%pool_to_deadcroot_storage          (:) = spval
+       this%core%pool_to_leaf                       (:) = spval
+       this%core%pool_to_leaf_storage               (:) = spval
+       this%core%pool_to_froot                      (:) = spval
+       this%core%pool_to_froot_storage              (:) = spval
+       this%core%pool_to_livestem                   (:) = spval
+       this%core%pool_to_livestem_storage           (:) = spval
+       this%core%pool_to_deadstem                   (:) = spval
+       this%core%pool_to_deadstem_storage           (:) = spval
+       this%core%pool_to_livecroot                  (:) = spval
+       this%core%pool_to_livecroot_storage          (:) = spval
+       this%core%pool_to_deadcroot                  (:) = spval
+       this%core%pool_to_deadcroot_storage          (:) = spval
        allocate(this%cpool_to_gresp_storage              (begp:endp)) ;    this%cpool_to_gresp_storage               (:) = spval
        allocate(this%xsmrpool_to_atm                     (begp:endp)) ;    this%xsmrpool_to_atm                      (:) = spval
        allocate(this%cpool_leaf_gr                       (begp:endp)) ;    this%cpool_leaf_gr                        (:) = spval
@@ -5565,16 +5696,15 @@ module VegetationDataType
        allocate(this%cpool_grain_gr                      (begp:endp)) ;    this%cpool_grain_gr                       (:) = spval
        allocate(this%cpool_grain_storage_gr              (begp:endp)) ;    this%cpool_grain_storage_gr               (:) = spval
        allocate(this%transfer_grain_gr                   (begp:endp)) ;    this%transfer_grain_gr                    (:) = spval
-       allocate(this%core%grain_storage_to_xfer              (begp:endp)) ;    this%core%grain_storage_to_xfer               (:) = spval
-       allocate(this%core%leaf_storage_to_xfer               (begp:endp)) ;    this%core%leaf_storage_to_xfer                (:) = spval
-       allocate(this%core%froot_storage_to_xfer              (begp:endp)) ;    this%core%froot_storage_to_xfer               (:) = spval
-       allocate(this%core%livestem_storage_to_xfer           (begp:endp)) ;    this%core%livestem_storage_to_xfer            (:) = spval
-       allocate(this%core%deadstem_storage_to_xfer           (begp:endp)) ;    this%core%deadstem_storage_to_xfer            (:) = spval
-       allocate(this%core%livecroot_storage_to_xfer          (begp:endp)) ;    this%core%livecroot_storage_to_xfer           (:) = spval
-       allocate(this%core%deadcroot_storage_to_xfer          (begp:endp)) ;    this%core%deadcroot_storage_to_xfer           (:) = spval
+       this%core%leaf_storage_to_xfer                (:) = spval
+       this%core%froot_storage_to_xfer               (:) = spval
+       this%core%livestem_storage_to_xfer            (:) = spval
+       this%core%deadstem_storage_to_xfer            (:) = spval
+       this%core%livecroot_storage_to_xfer           (:) = spval
+       this%core%deadcroot_storage_to_xfer           (:) = spval
        allocate(this%gresp_storage_to_xfer               (begp:endp)) ;    this%gresp_storage_to_xfer                (:) = spval
-       allocate(this%core%livestem_to_deadstem              (begp:endp)) ;    this%core%livestem_to_deadstem               (:) = spval
-       allocate(this%core%livecroot_to_deadcroot            (begp:endp)) ;    this%core%livecroot_to_deadcroot             (:) = spval
+       this%core%livestem_to_deadstem               (:) = spval
+       this%core%livecroot_to_deadcroot             (:) = spval
        allocate(this%gpp                                 (begp:endp)) ;    this%gpp                                  (:) = spval
        allocate(this%gpp_before_downreg                  (begp:endp)) ;    this%gpp_before_downreg                   (:) = spval
        allocate(this%mr                                  (begp:endp)) ;    this%mr                                   (:) = spval
@@ -5589,13 +5719,11 @@ module VegetationDataType
        allocate(this%bgnpp                               (begp:endp)) ;    this%bgnpp                                (:) = spval
        allocate(this%litfall                             (begp:endp)) ;    this%litfall                              (:) = spval
        allocate(this%vegfire                             (begp:endp)) ;    this%vegfire                              (:) = spval
-       allocate(this%core%wood_harvest                       (begp:endp)) ;    this%core%wood_harvest                        (:) = spval
+       this%core%wood_harvest                        (:) = spval
        allocate(this%cinputs                             (begp:endp)) ;    this%cinputs                              (:) = spval
        allocate(this%coutputs                            (begp:endp)) ;    this%coutputs                             (:) = spval
-       allocate(this%core%plant_alloc                        (begp:endp)) ;    this%core%plant_alloc                         (:) = spval
+       this%core%plant_alloc                         (:) = spval
        allocate(this%excess_cflux                        (begp:endp)) ;    this%excess_cflux                         (:) = spval
-       allocate(this%core%prev_leaf_to_litter                (begp:endp)) ;    this%core%prev_leaf_to_litter                 (:) = spval
-       allocate(this%core%prev_froot_to_litter               (begp:endp)) ;    this%core%prev_froot_to_litter                (:) = spval
        allocate(this%availc                              (begp:endp)) ;    this%availc                               (:) = spval
        allocate(this%xsmrpool_recover                    (begp:endp)) ;    this%xsmrpool_recover                     (:) = spval
        allocate(this%xsmrpool_c13ratio                   (begp:endp)) ;    this%xsmrpool_c13ratio                    (:) = spval
@@ -5606,16 +5734,15 @@ module VegetationDataType
        allocate(this%leafc_loss                          (begp:endp)) ;    this%leafc_loss                           (:) = spval
        allocate(this%woodc_alloc                         (begp:endp)) ;    this%woodc_alloc                          (:) = spval
        allocate(this%woodc_loss                          (begp:endp)) ;    this%woodc_loss                           (:) = spval
-       allocate(this%core%fire_loss                          (begp:endp)) ;    this%core%fire_loss                           (:) = spval
-       allocate(this%core%crop_seed_to_leaf                  (begp:endp)) ;    this%core%crop_seed_to_leaf                   (:) = spval
+       this%core%fire_loss                           (:) = spval
+       this%core%crop_seed_to_leaf                   (:) = spval
     end if ! .not use fates
 
-    allocate(this%core%dwt_seed_to_leaf                   (begp:endp)) ;    this%core%dwt_seed_to_leaf                    (:) = spval
-    allocate(this%core%dwt_seed_to_deadstem               (begp:endp)) ;    this%core%dwt_seed_to_deadstem                (:) = spval
-    allocate(this%core%dwt_conv_flux                      (begp:endp)) ;    this%core%dwt_conv_flux                       (:) = spval
-    allocate(this%core%dwt_prod10_gain                    (begp:endp)) ;    this%core%dwt_prod10_gain                     (:) = spval
-    allocate(this%core%dwt_prod100_gain                   (begp:endp)) ;    this%core%dwt_prod100_gain                    (:) = spval
-    allocate(this%core%dwt_crop_product_gain              (begp:endp)) ;    this%core%dwt_crop_product_gain               (:) = spval
+    this%core%dwt_seed_to_leaf                    (:) = spval
+    this%core%dwt_seed_to_deadstem                (:) = spval
+    this%core%dwt_conv_flux                       (:) = spval
+    this%core%dwt_prod10_gain                     (:) = spval
+    this%core%dwt_prod100_gain                    (:) = spval
     allocate(this%tempsum_npp                         (begp:endp)) ;    this%tempsum_npp                          (:) = spval
     allocate(this%annsum_npp                          (begp:endp)) ;    this%annsum_npp                           (:) = spval
     allocate(this%annavg_agnpp                        (begp:endp)) ;    this%annavg_agnpp                         (:) = spval
@@ -8554,175 +8681,117 @@ module VegetationDataType
     ! allocate for each member of veg_nf
     !-----------------------------------------------------------------------
     this%core%species = CN_SPECIES_N
-    allocate(this%core%m_leaf_to_litter                   (begp:endp)) ; this%core%m_leaf_to_litter                   (:) = spval
-    allocate(this%core%m_froot_to_litter                  (begp:endp)) ; this%core%m_froot_to_litter                  (:) = spval
-    allocate(this%core%m_leaf_storage_to_litter           (begp:endp)) ; this%core%m_leaf_storage_to_litter           (:) = spval
-    allocate(this%core%m_froot_storage_to_litter          (begp:endp)) ; this%core%m_froot_storage_to_litter          (:) = spval
-    allocate(this%core%m_livestem_storage_to_litter       (begp:endp)) ; this%core%m_livestem_storage_to_litter       (:) = spval
-    allocate(this%core%m_deadstem_storage_to_litter       (begp:endp)) ; this%core%m_deadstem_storage_to_litter       (:) = spval
-    allocate(this%core%m_livecroot_storage_to_litter      (begp:endp)) ; this%core%m_livecroot_storage_to_litter      (:) = spval
-    allocate(this%core%m_deadcroot_storage_to_litter      (begp:endp)) ; this%core%m_deadcroot_storage_to_litter      (:) = spval
-    allocate(this%core%m_leaf_xfer_to_litter              (begp:endp)) ; this%core%m_leaf_xfer_to_litter              (:) = spval
-    allocate(this%core%m_froot_xfer_to_litter             (begp:endp)) ; this%core%m_froot_xfer_to_litter             (:) = spval
-    allocate(this%core%m_livestem_xfer_to_litter          (begp:endp)) ; this%core%m_livestem_xfer_to_litter          (:) = spval
-    allocate(this%core%m_deadstem_xfer_to_litter          (begp:endp)) ; this%core%m_deadstem_xfer_to_litter          (:) = spval
-    allocate(this%core%m_livecroot_xfer_to_litter         (begp:endp)) ; this%core%m_livecroot_xfer_to_litter         (:) = spval
-    allocate(this%core%m_deadcroot_xfer_to_litter         (begp:endp)) ; this%core%m_deadcroot_xfer_to_litter         (:) = spval
-    allocate(this%core%m_livestem_to_litter               (begp:endp)) ; this%core%m_livestem_to_litter               (:) = spval
-    allocate(this%core%m_deadstem_to_litter               (begp:endp)) ; this%core%m_deadstem_to_litter               (:) = spval
-    allocate(this%core%m_livecroot_to_litter              (begp:endp)) ; this%core%m_livecroot_to_litter              (:) = spval
-    allocate(this%core%m_deadcroot_to_litter              (begp:endp)) ; this%core%m_deadcroot_to_litter              (:) = spval
+    call vegetation_nutrient_flux_init(this%core, begp, endp)
+    this%core%m_froot_to_litter                  (:) = spval
+    this%core%m_leaf_storage_to_litter           (:) = spval
+    this%core%m_froot_storage_to_litter          (:) = spval
+    this%core%m_livestem_storage_to_litter       (:) = spval
+    this%core%m_deadstem_storage_to_litter       (:) = spval
+    this%core%m_livecroot_storage_to_litter      (:) = spval
+    this%core%m_deadcroot_storage_to_litter      (:) = spval
+    this%core%m_leaf_xfer_to_litter              (:) = spval
+    this%core%m_froot_xfer_to_litter             (:) = spval
+    this%core%m_livestem_xfer_to_litter          (:) = spval
+    this%core%m_deadstem_xfer_to_litter          (:) = spval
+    this%core%m_livecroot_xfer_to_litter         (:) = spval
+    this%core%m_deadcroot_xfer_to_litter         (:) = spval
+    this%core%m_livestem_to_litter               (:) = spval
+    this%core%m_deadstem_to_litter               (:) = spval
+    this%core%m_livecroot_to_litter              (:) = spval
+    this%core%m_deadcroot_to_litter              (:) = spval
     allocate(this%retrans%m_retrans_to_litter                (begp:endp)) ; this%retrans%m_retrans_to_litter                (:) = spval
-    allocate(this%core%m_pool_to_litter                   (begp:endp)) ; this%core%m_pool_to_litter                   (:) = spval
-    allocate(this%core%hrv_leaf_to_litter                 (begp:endp)) ; this%core%hrv_leaf_to_litter                 (:) = spval
-    allocate(this%core%hrv_froot_to_litter                (begp:endp)) ; this%core%hrv_froot_to_litter                (:) = spval
-    allocate(this%core%hrv_leaf_storage_to_litter         (begp:endp)) ; this%core%hrv_leaf_storage_to_litter         (:) = spval
-    allocate(this%core%hrv_froot_storage_to_litter        (begp:endp)) ; this%core%hrv_froot_storage_to_litter        (:) = spval
-    allocate(this%core%hrv_livestem_storage_to_litter     (begp:endp)) ; this%core%hrv_livestem_storage_to_litter     (:) = spval
-    allocate(this%core%hrv_deadstem_storage_to_litter     (begp:endp)) ; this%core%hrv_deadstem_storage_to_litter     (:) = spval
-    allocate(this%core%hrv_livecroot_storage_to_litter    (begp:endp)) ; this%core%hrv_livecroot_storage_to_litter    (:) = spval
-    allocate(this%core%hrv_deadcroot_storage_to_litter    (begp:endp)) ; this%core%hrv_deadcroot_storage_to_litter    (:) = spval
-    allocate(this%core%hrv_leaf_xfer_to_litter            (begp:endp)) ; this%core%hrv_leaf_xfer_to_litter            (:) = spval
-    allocate(this%core%hrv_froot_xfer_to_litter           (begp:endp)) ; this%core%hrv_froot_xfer_to_litter           (:) = spval
-    allocate(this%core%hrv_livestem_xfer_to_litter        (begp:endp)) ; this%core%hrv_livestem_xfer_to_litter        (:) = spval
-    allocate(this%core%hrv_deadstem_xfer_to_litter        (begp:endp)) ; this%core%hrv_deadstem_xfer_to_litter        (:) = spval
-    allocate(this%core%hrv_livecroot_xfer_to_litter       (begp:endp)) ; this%core%hrv_livecroot_xfer_to_litter       (:) = spval
-    allocate(this%core%hrv_deadcroot_xfer_to_litter       (begp:endp)) ; this%core%hrv_deadcroot_xfer_to_litter       (:) = spval
-    allocate(this%core%hrv_livestem_to_litter             (begp:endp)) ; this%core%hrv_livestem_to_litter             (:) = spval
-    allocate(this%core%hrv_deadstem_to_prod10            (begp:endp)) ; this%core%hrv_deadstem_to_prod10            (:) = spval
-    allocate(this%core%hrv_deadstem_to_prod100           (begp:endp)) ; this%core%hrv_deadstem_to_prod100           (:) = spval
-    allocate(this%core%hrv_leaf_to_prod1                 (begp:endp)) ; this%core%hrv_leaf_to_prod1                 (:) = spval
-    allocate(this%core%hrv_livestem_to_prod1             (begp:endp)) ; this%core%hrv_livestem_to_prod1             (:) = spval
-    allocate(this%core%hrv_grain_to_prod1                (begp:endp)) ; this%core%hrv_grain_to_prod1                (:) = spval
-    allocate(this%core%hrv_crop_to_prod1                 (begp:endp)) ; this%core%hrv_crop_to_prod1                 (:) = spval
-    allocate(this%core%hrv_livecroot_to_litter            (begp:endp)) ; this%core%hrv_livecroot_to_litter            (:) = spval
-    allocate(this%core%hrv_deadcroot_to_litter            (begp:endp)) ; this%core%hrv_deadcroot_to_litter            (:) = spval
+    this%core%m_pool_to_litter                   (:) = spval
     allocate(this%retrans%hrv_retrans_to_litter              (begp:endp)) ; this%retrans%hrv_retrans_to_litter              (:) = spval
-    allocate(this%core%hrv_pool_to_litter                 (begp:endp)) ; this%core%hrv_pool_to_litter                 (:) = spval
-    allocate(this%core%m_leaf_to_fire                     (begp:endp)) ; this%core%m_leaf_to_fire                     (:) = spval
-    allocate(this%core%m_leaf_storage_to_fire             (begp:endp)) ; this%core%m_leaf_storage_to_fire             (:) = spval
-    allocate(this%core%m_leaf_xfer_to_fire                (begp:endp)) ; this%core%m_leaf_xfer_to_fire                (:) = spval
-    allocate(this%core%m_livestem_to_fire                 (begp:endp)) ; this%core%m_livestem_to_fire                 (:) = spval
-    allocate(this%core%m_livestem_storage_to_fire         (begp:endp)) ; this%core%m_livestem_storage_to_fire         (:) = spval
-    allocate(this%core%m_livestem_xfer_to_fire            (begp:endp)) ; this%core%m_livestem_xfer_to_fire            (:) = spval
-    allocate(this%core%m_deadstem_to_fire                 (begp:endp)) ; this%core%m_deadstem_to_fire                 (:) = spval
-    allocate(this%core%m_deadstem_storage_to_fire         (begp:endp)) ; this%core%m_deadstem_storage_to_fire         (:) = spval
-    allocate(this%core%m_deadstem_xfer_to_fire            (begp:endp)) ; this%core%m_deadstem_xfer_to_fire            (:) = spval
-    allocate(this%core%m_froot_to_fire                    (begp:endp)) ; this%core%m_froot_to_fire                    (:) = spval
-    allocate(this%core%m_froot_storage_to_fire            (begp:endp)) ; this%core%m_froot_storage_to_fire            (:) = spval
-    allocate(this%core%m_froot_xfer_to_fire               (begp:endp)) ; this%core%m_froot_xfer_to_fire               (:) = spval
-    allocate(this%core%m_livecroot_to_fire                (begp:endp)) ; this%core%m_livecroot_to_fire                (:) = spval
-    allocate(this%core%m_livecroot_storage_to_fire        (begp:endp)) ; this%core%m_livecroot_storage_to_fire        (:) = spval
-    allocate(this%core%m_livecroot_xfer_to_fire           (begp:endp)) ; this%core%m_livecroot_xfer_to_fire           (:) = spval
-    allocate(this%core%m_deadcroot_to_fire                (begp:endp)) ; this%core%m_deadcroot_to_fire                (:) = spval
-    allocate(this%core%m_deadcroot_storage_to_fire        (begp:endp)) ; this%core%m_deadcroot_storage_to_fire        (:) = spval
-    allocate(this%core%m_deadcroot_xfer_to_fire           (begp:endp)) ; this%core%m_deadcroot_xfer_to_fire           (:) = spval
+    this%core%m_leaf_to_fire                     (:) = spval
+    this%core%m_leaf_storage_to_fire             (:) = spval
+    this%core%m_leaf_xfer_to_fire                (:) = spval
+    this%core%m_livestem_to_fire                 (:) = spval
+    this%core%m_livestem_storage_to_fire         (:) = spval
+    this%core%m_livestem_xfer_to_fire            (:) = spval
+    this%core%m_deadstem_to_fire                 (:) = spval
+    this%core%m_deadstem_storage_to_fire         (:) = spval
+    this%core%m_deadstem_xfer_to_fire            (:) = spval
+    this%core%m_froot_to_fire                    (:) = spval
+    this%core%m_froot_storage_to_fire            (:) = spval
+    this%core%m_froot_xfer_to_fire               (:) = spval
+    this%core%m_livecroot_to_fire                (:) = spval
+    this%core%m_livecroot_storage_to_fire        (:) = spval
+    this%core%m_livecroot_xfer_to_fire           (:) = spval
+    this%core%m_deadcroot_to_fire                (:) = spval
+    this%core%m_deadcroot_storage_to_fire        (:) = spval
+    this%core%m_deadcroot_xfer_to_fire           (:) = spval
     allocate(this%retrans%m_retrans_to_fire                  (begp:endp)) ; this%retrans%m_retrans_to_fire                  (:) = spval
-    allocate(this%core%m_pool_to_fire                     (begp:endp)) ; this%core%m_pool_to_fire                     (:) = spval
-    allocate(this%core%m_leaf_to_litter_fire              (begp:endp)) ; this%core%m_leaf_to_litter_fire              (:) = spval
-    allocate(this%core%m_leaf_storage_to_litter_fire      (begp:endp)) ; this%core%m_leaf_storage_to_litter_fire      (:) = spval
-    allocate(this%core%m_leaf_xfer_to_litter_fire         (begp:endp)) ; this%core%m_leaf_xfer_to_litter_fire         (:) = spval
-    allocate(this%core%m_livestem_to_litter_fire          (begp:endp)) ; this%core%m_livestem_to_litter_fire          (:) = spval
-    allocate(this%core%m_livestem_storage_to_litter_fire  (begp:endp)) ; this%core%m_livestem_storage_to_litter_fire  (:) = spval
-    allocate(this%core%m_livestem_xfer_to_litter_fire     (begp:endp)) ; this%core%m_livestem_xfer_to_litter_fire     (:) = spval
-    allocate(this%core%m_livestem_to_deadstem_fire       (begp:endp)) ; this%core%m_livestem_to_deadstem_fire       (:) = spval
-    allocate(this%core%m_deadstem_to_litter_fire          (begp:endp)) ; this%core%m_deadstem_to_litter_fire          (:) = spval
-    allocate(this%core%m_deadstem_storage_to_litter_fire  (begp:endp)) ; this%core%m_deadstem_storage_to_litter_fire  (:) = spval
-    allocate(this%core%m_deadstem_xfer_to_litter_fire     (begp:endp)) ; this%core%m_deadstem_xfer_to_litter_fire     (:) = spval
-    allocate(this%core%m_froot_to_litter_fire             (begp:endp)) ; this%core%m_froot_to_litter_fire             (:) = spval
-    allocate(this%core%m_froot_storage_to_litter_fire     (begp:endp)) ; this%core%m_froot_storage_to_litter_fire     (:) = spval
-    allocate(this%core%m_froot_xfer_to_litter_fire        (begp:endp)) ; this%core%m_froot_xfer_to_litter_fire        (:) = spval
-    allocate(this%core%m_livecroot_to_litter_fire         (begp:endp)) ; this%core%m_livecroot_to_litter_fire         (:) = spval
-    allocate(this%core%m_livecroot_storage_to_litter_fire (begp:endp)) ; this%core%m_livecroot_storage_to_litter_fire (:) = spval
-    allocate(this%core%m_livecroot_xfer_to_litter_fire    (begp:endp)) ; this%core%m_livecroot_xfer_to_litter_fire    (:) = spval
-    allocate(this%core%m_livecroot_to_deadcroot_fire     (begp:endp)) ; this%core%m_livecroot_to_deadcroot_fire     (:) = spval
-    allocate(this%core%m_deadcroot_to_litter_fire         (begp:endp)) ; this%core%m_deadcroot_to_litter_fire         (:) = spval
-    allocate(this%core%m_deadcroot_storage_to_litter_fire (begp:endp)) ; this%core%m_deadcroot_storage_to_litter_fire (:) = spval
-    allocate(this%core%m_deadcroot_xfer_to_litter_fire    (begp:endp)) ; this%core%m_deadcroot_xfer_to_litter_fire    (:) = spval
+    this%core%m_pool_to_fire                     (:) = spval
+    this%core%m_deadstem_to_litter_fire          (:) = spval
+    this%core%m_deadcroot_to_litter_fire         (:) = spval
     allocate(this%retrans%m_retrans_to_litter_fire           (begp:endp)) ; this%retrans%m_retrans_to_litter_fire           (:) = spval
-    allocate(this%core%m_pool_to_litter_fire              (begp:endp)) ; this%core%m_pool_to_litter_fire              (:) = spval
-    allocate(this%core%leaf_xfer_to_leaf                 (begp:endp)) ; this%core%leaf_xfer_to_leaf                 (:) = spval
-    allocate(this%core%froot_xfer_to_froot               (begp:endp)) ; this%core%froot_xfer_to_froot               (:) = spval
-    allocate(this%core%livestem_xfer_to_livestem         (begp:endp)) ; this%core%livestem_xfer_to_livestem         (:) = spval
-    allocate(this%core%deadstem_xfer_to_deadstem         (begp:endp)) ; this%core%deadstem_xfer_to_deadstem         (:) = spval
-    allocate(this%core%livecroot_xfer_to_livecroot       (begp:endp)) ; this%core%livecroot_xfer_to_livecroot       (:) = spval
-    allocate(this%core%deadcroot_xfer_to_deadcroot       (begp:endp)) ; this%core%deadcroot_xfer_to_deadcroot       (:) = spval
-    allocate(this%core%leaf_to_litter                     (begp:endp)) ; this%core%leaf_to_litter                     (:) = spval
+    this%core%m_pool_to_litter_fire              (:) = spval
+    this%core%leaf_xfer_to_leaf                 (:) = spval
+    this%core%froot_xfer_to_froot               (:) = spval
+    this%core%livestem_xfer_to_livestem         (:) = spval
+    this%core%deadstem_xfer_to_deadstem         (:) = spval
+    this%core%livecroot_xfer_to_livecroot       (:) = spval
+    this%core%deadcroot_xfer_to_deadcroot       (:) = spval
+    this%core%leaf_to_litter                     (:) = spval
     allocate(this%retrans%leaf_to_retrans                   (begp:endp)) ; this%retrans%leaf_to_retrans                   (:) = spval
     allocate(this%retrans%froot_to_retrans                  (begp:endp)) ; this%retrans%froot_to_retrans                  (:) = spval
-    allocate(this%core%froot_to_litter                    (begp:endp)) ; this%core%froot_to_litter                    (:) = spval
+    this%core%froot_to_litter                    (:) = spval
     allocate(this%retrans%retrans_to_pool                   (begp:endp)) ; this%retrans%retrans_to_pool                   (:) = spval
     allocate(this%uptake%smin_to_pool                      (begp:endp)) ; this%uptake%smin_to_pool                      (:) = spval
-    allocate(this%core%pool_to_leaf                      (begp:endp)) ; this%core%pool_to_leaf                      (:) = spval
-    allocate(this%core%pool_to_leaf_storage              (begp:endp)) ; this%core%pool_to_leaf_storage              (:) = spval
-    allocate(this%core%pool_to_froot                     (begp:endp)) ; this%core%pool_to_froot                     (:) = spval
-    allocate(this%core%pool_to_froot_storage             (begp:endp)) ; this%core%pool_to_froot_storage             (:) = spval
-    allocate(this%core%pool_to_livestem                  (begp:endp)) ; this%core%pool_to_livestem                  (:) = spval
-    allocate(this%core%pool_to_livestem_storage          (begp:endp)) ; this%core%pool_to_livestem_storage          (:) = spval
-    allocate(this%core%pool_to_deadstem                  (begp:endp)) ; this%core%pool_to_deadstem                  (:) = spval
-    allocate(this%core%pool_to_deadstem_storage          (begp:endp)) ; this%core%pool_to_deadstem_storage          (:) = spval
-    allocate(this%core%pool_to_livecroot                 (begp:endp)) ; this%core%pool_to_livecroot                 (:) = spval
-    allocate(this%core%pool_to_livecroot_storage         (begp:endp)) ; this%core%pool_to_livecroot_storage         (:) = spval
-    allocate(this%core%pool_to_deadcroot                 (begp:endp)) ; this%core%pool_to_deadcroot                 (:) = spval
-    allocate(this%core%pool_to_deadcroot_storage         (begp:endp)) ; this%core%pool_to_deadcroot_storage         (:) = spval
-    allocate(this%core%leaf_storage_to_xfer               (begp:endp)) ; this%core%leaf_storage_to_xfer               (:) = spval
-    allocate(this%core%froot_storage_to_xfer              (begp:endp)) ; this%core%froot_storage_to_xfer              (:) = spval
-    allocate(this%core%livestem_storage_to_xfer           (begp:endp)) ; this%core%livestem_storage_to_xfer           (:) = spval
-    allocate(this%core%deadstem_storage_to_xfer           (begp:endp)) ; this%core%deadstem_storage_to_xfer           (:) = spval
-    allocate(this%core%livecroot_storage_to_xfer          (begp:endp)) ; this%core%livecroot_storage_to_xfer          (:) = spval
-    allocate(this%core%deadcroot_storage_to_xfer          (begp:endp)) ; this%core%deadcroot_storage_to_xfer          (:) = spval
-    allocate(this%core%livestem_to_deadstem              (begp:endp)) ; this%core%livestem_to_deadstem              (:) = spval
+    this%core%pool_to_leaf                      (:) = spval
+    this%core%pool_to_leaf_storage              (:) = spval
+    this%core%pool_to_froot                     (:) = spval
+    this%core%pool_to_froot_storage             (:) = spval
+    this%core%pool_to_livestem                  (:) = spval
+    this%core%pool_to_livestem_storage          (:) = spval
+    this%core%pool_to_deadstem                  (:) = spval
+    this%core%pool_to_deadstem_storage          (:) = spval
+    this%core%pool_to_livecroot                 (:) = spval
+    this%core%pool_to_livecroot_storage         (:) = spval
+    this%core%pool_to_deadcroot                 (:) = spval
+    this%core%pool_to_deadcroot_storage         (:) = spval
+    this%core%leaf_storage_to_xfer               (:) = spval
+    this%core%froot_storage_to_xfer              (:) = spval
+    this%core%livestem_storage_to_xfer           (:) = spval
+    this%core%deadstem_storage_to_xfer           (:) = spval
+    this%core%livecroot_storage_to_xfer          (:) = spval
+    this%core%deadcroot_storage_to_xfer          (:) = spval
+    this%core%livestem_to_deadstem              (:) = spval
     allocate(this%retrans%livestem_to_retrans               (begp:endp)) ; this%retrans%livestem_to_retrans               (:) = spval
-    allocate(this%core%livecroot_to_deadcroot            (begp:endp)) ; this%core%livecroot_to_deadcroot            (:) = spval
+    this%core%livecroot_to_deadcroot            (:) = spval
     allocate(this%retrans%livecroot_to_retrans              (begp:endp)) ; this%retrans%livecroot_to_retrans              (:) = spval
     allocate(this%uptake%pool_deploy                             (begp:endp)) ; this%uptake%pool_deploy                             (:) = spval
-    allocate(this%core%wood_harvest                       (begp:endp)) ; this%core%wood_harvest                       (:) = spval
-    allocate(this%core%fire_loss                          (begp:endp)) ; this%core%fire_loss                          (:) = spval
-    allocate(this%core%pool_to_grain                     (begp:endp)) ; this%core%pool_to_grain                     (:) = spval
-    allocate(this%core%pool_to_grain_storage             (begp:endp)) ; this%core%pool_to_grain_storage             (:) = spval
-    allocate(this%core%livestem_to_litter                 (begp:endp)) ; this%core%livestem_to_litter                 (:) = spval
-    allocate(this%core%grain_to_food                      (begp:endp)) ; this%core%grain_to_food                      (:) = spval
-    allocate(this%core%grain_xfer_to_grain               (begp:endp)) ; this%core%grain_xfer_to_grain               (:) = spval
-    allocate(this%core%grain_storage_to_xfer              (begp:endp)) ; this%core%grain_storage_to_xfer              (:) = spval
+    this%core%wood_harvest                       (:) = spval
+    this%core%fire_loss                          (:) = spval
     allocate(this%synthfert                           (begp:endp)) ; this%synthfert                           (:) = spval
     allocate(this%manure                              (begp:endp)) ; this%manure                              (:) = spval
     allocate(this%nfertilization                      (begp:endp)) ; this%nfertilization                      (:) = spval
     allocate(this%fert_counter                        (begp:endp)) ; this%fert_counter                        (:) = spval
     allocate(this%soyfixn                             (begp:endp)) ; this%soyfixn                             (:) = spval
     allocate(this%nfix_to_plantn                      (begp:endp)) ; this%nfix_to_plantn                      (:) = spval
-    allocate(this%core%crop_seed_to_leaf                  (begp:endp)) ; this%core%crop_seed_to_leaf                  (:) = spval
-    allocate(this%core%dwt_seed_to_leaf                   (begp:endp)) ; this%core%dwt_seed_to_leaf                   (:) = spval
-    allocate(this%core%dwt_seed_to_deadstem               (begp:endp)) ; this%core%dwt_seed_to_deadstem               (:) = spval
-    allocate(this%core%dwt_conv_flux                      (begp:endp)) ; this%core%dwt_conv_flux                      (:) = spval
-    allocate(this%core%dwt_prod10_gain                    (begp:endp)) ; this%core%dwt_prod10_gain                    (:) = spval
-    allocate(this%core%dwt_prod100_gain                   (begp:endp)) ; this%core%dwt_prod100_gain                   (:) = spval
-    allocate(this%core%dwt_crop_product_gain              (begp:endp)) ; this%core%dwt_crop_product_gain              (:) = spval
+    this%core%crop_seed_to_leaf                  (:) = spval
+    this%core%dwt_seed_to_leaf                   (:) = spval
+    this%core%dwt_seed_to_deadstem               (:) = spval
+    this%core%dwt_conv_flux                      (:) = spval
+    this%core%dwt_prod10_gain                    (:) = spval
+    this%core%dwt_prod100_gain                   (:) = spval
     allocate(this%dwt_seedn_to_npool                  (begp:endp)) ; this%dwt_seedn_to_npool                  (:) = spval
     allocate(this%uptake%plant_demand                       (begp:endp)) ; this%uptake%plant_demand                       (:) = spval
     allocate(this%smin_no3_to_plant_vr                (begp:endp,1:nlevdecomp_full)) ; this%smin_no3_to_plant_vr(:,:) = spval
     allocate(this%smin_nh4_to_plant_vr                (begp:endp,1:nlevdecomp_full)); this%smin_nh4_to_plant_vr(:,:) = spval
     allocate(this%retrans%avail_retrans                      (begp:endp)) ; this%retrans%avail_retrans                      (:) = spval
-    allocate(this%core%plant_alloc                        (begp:endp)) ; this%core%plant_alloc                        (:) = spval
+    this%core%plant_alloc                        (:) = spval
     allocate(this%smin_no3_to_plant                   (begp:endp)) ; this%smin_no3_to_plant                   (:) = spval
     allocate(this%smin_nh4_to_plant                   (begp:endp)) ; this%smin_nh4_to_plant                   (:) = spval
     allocate(this%uptake%smin_to_plant                      (begp:endp)) ; this%uptake%smin_to_plant                      (:) = spval
     allocate(this%plant_nh4demand_vr                  (begp:endp,1:nlevdecomp)); this%plant_nh4demand_vr    (:,:) = spval
     allocate(this%plant_no3demand_vr                  (begp:endp,1:nlevdecomp)); this%plant_no3demand_vr    (:,:) = spval
     allocate(this%uptake%plant_demand_vr                    (begp:endp,1:nlevdecomp)); this%uptake%plant_demand_vr      (:,:) = spval
-    allocate(this%core%prev_leaf_to_litter                (begp:endp)) ; this%core%prev_leaf_to_litter                (:) = spval
-    allocate(this%core%prev_froot_to_litter               (begp:endp)) ; this%core%prev_froot_to_litter               (:) = spval
     allocate(this%uptake%supplement_to_plant                (begp:endp)) ; this%uptake%supplement_to_plant                (:) = 0.d0
     allocate(this%gap_nloss_litter                    (begp:endp)) ; this%gap_nloss_litter                    (:) = spval
     allocate(this%fire_nloss_litter                   (begp:endp)) ; this%fire_nloss_litter                   (:) = spval
     allocate(this%hrv_nloss_litter                    (begp:endp)) ; this%hrv_nloss_litter                    (:) = spval
     allocate(this%sen_nloss_litter                    (begp:endp)) ; this%sen_nloss_litter                    (:) = spval
-
-    !-----------------------------------------------------------------------
-    ! initialize history fields for select members of veg_nf
-    !-----------------------------------------------------------------------
-    ! add suffix if number of soil decomposition depths is greater than 1
-
-    this%core%m_leaf_to_litter(begp:endp) = spval
     call hist_addfld1d (fname='M_LEAFN_TO_LITTER', units='gN/m^2/s', &
          avgflag='A', long_name='leaf N mortality', &
          ptr_patch=this%core%m_leaf_to_litter, default='inactive')
@@ -9592,166 +9661,109 @@ module VegetationDataType
     ! allocate for each member of veg_pf
     !-----------------------------------------------------------------------
     this%core%species = CN_SPECIES_P
-    allocate(this%core%m_leaf_to_litter                   (begp:endp)) ; this%core%m_leaf_to_litter                   (:) = spval
-    allocate(this%core%m_froot_to_litter                  (begp:endp)) ; this%core%m_froot_to_litter                  (:) = spval
-    allocate(this%core%m_leaf_storage_to_litter           (begp:endp)) ; this%core%m_leaf_storage_to_litter           (:) = spval
-    allocate(this%core%m_froot_storage_to_litter          (begp:endp)) ; this%core%m_froot_storage_to_litter          (:) = spval
-    allocate(this%core%m_livestem_storage_to_litter       (begp:endp)) ; this%core%m_livestem_storage_to_litter       (:) = spval
-    allocate(this%core%m_deadstem_storage_to_litter       (begp:endp)) ; this%core%m_deadstem_storage_to_litter       (:) = spval
-    allocate(this%core%m_livecroot_storage_to_litter      (begp:endp)) ; this%core%m_livecroot_storage_to_litter      (:) = spval
-    allocate(this%core%m_deadcroot_storage_to_litter      (begp:endp)) ; this%core%m_deadcroot_storage_to_litter      (:) = spval
-    allocate(this%core%m_leaf_xfer_to_litter              (begp:endp)) ; this%core%m_leaf_xfer_to_litter              (:) = spval
-    allocate(this%core%m_froot_xfer_to_litter             (begp:endp)) ; this%core%m_froot_xfer_to_litter             (:) = spval
-    allocate(this%core%m_livestem_xfer_to_litter          (begp:endp)) ; this%core%m_livestem_xfer_to_litter          (:) = spval
-    allocate(this%core%m_deadstem_xfer_to_litter          (begp:endp)) ; this%core%m_deadstem_xfer_to_litter          (:) = spval
-    allocate(this%core%m_livecroot_xfer_to_litter         (begp:endp)) ; this%core%m_livecroot_xfer_to_litter         (:) = spval
-    allocate(this%core%m_deadcroot_xfer_to_litter         (begp:endp)) ; this%core%m_deadcroot_xfer_to_litter         (:) = spval
-    allocate(this%core%m_livestem_to_litter               (begp:endp)) ; this%core%m_livestem_to_litter               (:) = spval
-    allocate(this%core%m_deadstem_to_litter               (begp:endp)) ; this%core%m_deadstem_to_litter               (:) = spval
-    allocate(this%core%m_livecroot_to_litter              (begp:endp)) ; this%core%m_livecroot_to_litter              (:) = spval
-    allocate(this%core%m_deadcroot_to_litter              (begp:endp)) ; this%core%m_deadcroot_to_litter              (:) = spval
+    call vegetation_nutrient_flux_init(this%core, begp, endp)
+    this%core%m_froot_to_litter                  (:) = spval
+    this%core%m_leaf_storage_to_litter           (:) = spval
+    this%core%m_froot_storage_to_litter          (:) = spval
+    this%core%m_livestem_storage_to_litter       (:) = spval
+    this%core%m_deadstem_storage_to_litter       (:) = spval
+    this%core%m_livecroot_storage_to_litter      (:) = spval
+    this%core%m_deadcroot_storage_to_litter      (:) = spval
+    this%core%m_leaf_xfer_to_litter              (:) = spval
+    this%core%m_froot_xfer_to_litter             (:) = spval
+    this%core%m_livestem_xfer_to_litter          (:) = spval
+    this%core%m_deadstem_xfer_to_litter          (:) = spval
+    this%core%m_livecroot_xfer_to_litter         (:) = spval
+    this%core%m_deadcroot_xfer_to_litter         (:) = spval
+    this%core%m_livestem_to_litter               (:) = spval
+    this%core%m_deadstem_to_litter               (:) = spval
+    this%core%m_livecroot_to_litter              (:) = spval
+    this%core%m_deadcroot_to_litter              (:) = spval
     allocate(this%retrans%m_retrans_to_litter                (begp:endp)) ; this%retrans%m_retrans_to_litter                (:) = spval
-    allocate(this%core%m_pool_to_litter                   (begp:endp)) ; this%core%m_pool_to_litter                   (:) = spval
-    allocate(this%core%hrv_leaf_to_litter                 (begp:endp)) ; this%core%hrv_leaf_to_litter                 (:) = spval
-    allocate(this%core%hrv_froot_to_litter                (begp:endp)) ; this%core%hrv_froot_to_litter                (:) = spval
-    allocate(this%core%hrv_leaf_storage_to_litter         (begp:endp)) ; this%core%hrv_leaf_storage_to_litter         (:) = spval
-    allocate(this%core%hrv_froot_storage_to_litter        (begp:endp)) ; this%core%hrv_froot_storage_to_litter        (:) = spval
-    allocate(this%core%hrv_livestem_storage_to_litter     (begp:endp)) ; this%core%hrv_livestem_storage_to_litter     (:) = spval
-    allocate(this%core%hrv_deadstem_storage_to_litter     (begp:endp)) ; this%core%hrv_deadstem_storage_to_litter     (:) = spval
-    allocate(this%core%hrv_livecroot_storage_to_litter    (begp:endp)) ; this%core%hrv_livecroot_storage_to_litter    (:) = spval
-    allocate(this%core%hrv_deadcroot_storage_to_litter    (begp:endp)) ; this%core%hrv_deadcroot_storage_to_litter    (:) = spval
-    allocate(this%core%hrv_leaf_xfer_to_litter            (begp:endp)) ; this%core%hrv_leaf_xfer_to_litter            (:) = spval
-    allocate(this%core%hrv_froot_xfer_to_litter           (begp:endp)) ; this%core%hrv_froot_xfer_to_litter           (:) = spval
-    allocate(this%core%hrv_livestem_xfer_to_litter        (begp:endp)) ; this%core%hrv_livestem_xfer_to_litter        (:) = spval
-    allocate(this%core%hrv_deadstem_xfer_to_litter        (begp:endp)) ; this%core%hrv_deadstem_xfer_to_litter        (:) = spval
-    allocate(this%core%hrv_livecroot_xfer_to_litter       (begp:endp)) ; this%core%hrv_livecroot_xfer_to_litter       (:) = spval
-    allocate(this%core%hrv_deadcroot_xfer_to_litter       (begp:endp)) ; this%core%hrv_deadcroot_xfer_to_litter       (:) = spval
-    allocate(this%core%hrv_livestem_to_litter             (begp:endp)) ; this%core%hrv_livestem_to_litter             (:) = spval
-    allocate(this%core%hrv_deadstem_to_prod10            (begp:endp)) ; this%core%hrv_deadstem_to_prod10            (:) = spval
-    allocate(this%core%hrv_deadstem_to_prod100           (begp:endp)) ; this%core%hrv_deadstem_to_prod100           (:) = spval
-    allocate(this%core%hrv_leaf_to_prod1                 (begp:endp)) ; this%core%hrv_leaf_to_prod1                 (:) = spval
-    allocate(this%core%hrv_livestem_to_prod1             (begp:endp)) ; this%core%hrv_livestem_to_prod1             (:) = spval
-    allocate(this%core%hrv_grain_to_prod1                (begp:endp)) ; this%core%hrv_grain_to_prod1                (:) = spval
-    allocate(this%core%hrv_crop_to_prod1                 (begp:endp)) ; this%core%hrv_crop_to_prod1                 (:) = spval
-    allocate(this%core%hrv_livecroot_to_litter            (begp:endp)) ; this%core%hrv_livecroot_to_litter            (:) = spval
-    allocate(this%core%hrv_deadcroot_to_litter            (begp:endp)) ; this%core%hrv_deadcroot_to_litter            (:) = spval
+    this%core%m_pool_to_litter                   (:) = spval
     allocate(this%retrans%hrv_retrans_to_litter              (begp:endp)) ; this%retrans%hrv_retrans_to_litter              (:) = spval
-    allocate(this%core%hrv_pool_to_litter                 (begp:endp)) ; this%core%hrv_pool_to_litter                 (:) = spval
-    allocate(this%core%m_leaf_to_fire                     (begp:endp)) ; this%core%m_leaf_to_fire                     (:) = spval
-    allocate(this%core%m_leaf_storage_to_fire             (begp:endp)) ; this%core%m_leaf_storage_to_fire             (:) = spval
-    allocate(this%core%m_leaf_xfer_to_fire                (begp:endp)) ; this%core%m_leaf_xfer_to_fire                (:) = spval
-    allocate(this%core%m_livestem_to_fire                 (begp:endp)) ; this%core%m_livestem_to_fire                 (:) = spval
-    allocate(this%core%m_livestem_storage_to_fire         (begp:endp)) ; this%core%m_livestem_storage_to_fire         (:) = spval
-    allocate(this%core%m_livestem_xfer_to_fire            (begp:endp)) ; this%core%m_livestem_xfer_to_fire            (:) = spval
-    allocate(this%core%m_deadstem_to_fire                 (begp:endp)) ; this%core%m_deadstem_to_fire                 (:) = spval
-    allocate(this%core%m_deadstem_storage_to_fire         (begp:endp)) ; this%core%m_deadstem_storage_to_fire         (:) = spval
-    allocate(this%core%m_deadstem_xfer_to_fire            (begp:endp)) ; this%core%m_deadstem_xfer_to_fire            (:) = spval
-    allocate(this%core%m_froot_to_fire                    (begp:endp)) ; this%core%m_froot_to_fire                    (:) = spval
-    allocate(this%core%m_froot_storage_to_fire            (begp:endp)) ; this%core%m_froot_storage_to_fire            (:) = spval
-    allocate(this%core%m_froot_xfer_to_fire               (begp:endp)) ; this%core%m_froot_xfer_to_fire               (:) = spval
-    allocate(this%core%m_livecroot_to_fire                (begp:endp)) ; this%core%m_livecroot_to_fire                (:) = spval
-    allocate(this%core%m_livecroot_storage_to_fire        (begp:endp)) ; this%core%m_livecroot_storage_to_fire        (:) = spval
-    allocate(this%core%m_livecroot_xfer_to_fire           (begp:endp)) ; this%core%m_livecroot_xfer_to_fire           (:) = spval
-    allocate(this%core%m_deadcroot_to_fire                (begp:endp)) ; this%core%m_deadcroot_to_fire                (:) = spval
-    allocate(this%core%m_deadcroot_storage_to_fire        (begp:endp)) ; this%core%m_deadcroot_storage_to_fire        (:) = spval
-    allocate(this%core%m_deadcroot_xfer_to_fire           (begp:endp)) ; this%core%m_deadcroot_xfer_to_fire           (:) = spval
+    this%core%m_leaf_to_fire                     (:) = spval
+    this%core%m_leaf_storage_to_fire             (:) = spval
+    this%core%m_leaf_xfer_to_fire                (:) = spval
+    this%core%m_livestem_to_fire                 (:) = spval
+    this%core%m_livestem_storage_to_fire         (:) = spval
+    this%core%m_livestem_xfer_to_fire            (:) = spval
+    this%core%m_deadstem_to_fire                 (:) = spval
+    this%core%m_deadstem_storage_to_fire         (:) = spval
+    this%core%m_deadstem_xfer_to_fire            (:) = spval
+    this%core%m_froot_to_fire                    (:) = spval
+    this%core%m_froot_storage_to_fire            (:) = spval
+    this%core%m_froot_xfer_to_fire               (:) = spval
+    this%core%m_livecroot_to_fire                (:) = spval
+    this%core%m_livecroot_storage_to_fire        (:) = spval
+    this%core%m_livecroot_xfer_to_fire           (:) = spval
+    this%core%m_deadcroot_to_fire                (:) = spval
+    this%core%m_deadcroot_storage_to_fire        (:) = spval
+    this%core%m_deadcroot_xfer_to_fire           (:) = spval
     allocate(this%retrans%m_retrans_to_fire                  (begp:endp)) ; this%retrans%m_retrans_to_fire                  (:) = spval
-    allocate(this%core%m_pool_to_fire                     (begp:endp)) ; this%core%m_pool_to_fire                     (:) = spval
-    allocate(this%core%m_leaf_to_litter_fire              (begp:endp)) ; this%core%m_leaf_to_litter_fire              (:) = spval
-    allocate(this%core%m_leaf_storage_to_litter_fire      (begp:endp)) ; this%core%m_leaf_storage_to_litter_fire      (:) = spval
-    allocate(this%core%m_leaf_xfer_to_litter_fire         (begp:endp)) ; this%core%m_leaf_xfer_to_litter_fire         (:) = spval
-    allocate(this%core%m_livestem_to_litter_fire          (begp:endp)) ; this%core%m_livestem_to_litter_fire          (:) = spval
-    allocate(this%core%m_livestem_storage_to_litter_fire  (begp:endp)) ; this%core%m_livestem_storage_to_litter_fire  (:) = spval
-    allocate(this%core%m_livestem_xfer_to_litter_fire     (begp:endp)) ; this%core%m_livestem_xfer_to_litter_fire     (:) = spval
-    allocate(this%core%m_livestem_to_deadstem_fire       (begp:endp)) ; this%core%m_livestem_to_deadstem_fire       (:) = spval
-    allocate(this%core%m_deadstem_to_litter_fire          (begp:endp)) ; this%core%m_deadstem_to_litter_fire          (:) = spval
-    allocate(this%core%m_deadstem_storage_to_litter_fire  (begp:endp)) ; this%core%m_deadstem_storage_to_litter_fire  (:) = spval
-    allocate(this%core%m_deadstem_xfer_to_litter_fire     (begp:endp)) ; this%core%m_deadstem_xfer_to_litter_fire     (:) = spval
-    allocate(this%core%m_froot_to_litter_fire             (begp:endp)) ; this%core%m_froot_to_litter_fire             (:) = spval
-    allocate(this%core%m_froot_storage_to_litter_fire     (begp:endp)) ; this%core%m_froot_storage_to_litter_fire     (:) = spval
-    allocate(this%core%m_froot_xfer_to_litter_fire        (begp:endp)) ; this%core%m_froot_xfer_to_litter_fire        (:) = spval
-    allocate(this%core%m_livecroot_to_litter_fire         (begp:endp)) ; this%core%m_livecroot_to_litter_fire         (:) = spval
-    allocate(this%core%m_livecroot_storage_to_litter_fire (begp:endp)) ; this%core%m_livecroot_storage_to_litter_fire (:) = spval
-    allocate(this%core%m_livecroot_xfer_to_litter_fire    (begp:endp)) ; this%core%m_livecroot_xfer_to_litter_fire    (:) = spval
-    allocate(this%core%m_livecroot_to_deadcroot_fire     (begp:endp)) ; this%core%m_livecroot_to_deadcroot_fire     (:) = spval
-    allocate(this%core%m_deadcroot_to_litter_fire         (begp:endp)) ; this%core%m_deadcroot_to_litter_fire         (:) = spval
-    allocate(this%core%m_deadcroot_storage_to_litter_fire (begp:endp)) ; this%core%m_deadcroot_storage_to_litter_fire (:) = spval
-    allocate(this%core%m_deadcroot_xfer_to_litter_fire    (begp:endp)) ; this%core%m_deadcroot_xfer_to_litter_fire    (:) = spval
+    this%core%m_pool_to_fire                     (:) = spval
+    this%core%m_deadstem_to_litter_fire          (:) = spval
+    this%core%m_deadcroot_to_litter_fire         (:) = spval
     allocate(this%retrans%m_retrans_to_litter_fire           (begp:endp)) ; this%retrans%m_retrans_to_litter_fire           (:) = spval
-    allocate(this%core%m_pool_to_litter_fire              (begp:endp)) ; this%core%m_pool_to_litter_fire              (:) = spval
-    allocate(this%core%leaf_xfer_to_leaf                 (begp:endp)) ; this%core%leaf_xfer_to_leaf                 (:) = spval
-    allocate(this%core%froot_xfer_to_froot               (begp:endp)) ; this%core%froot_xfer_to_froot               (:) = spval
-    allocate(this%core%livestem_xfer_to_livestem         (begp:endp)) ; this%core%livestem_xfer_to_livestem         (:) = spval
-    allocate(this%core%deadstem_xfer_to_deadstem         (begp:endp)) ; this%core%deadstem_xfer_to_deadstem         (:) = spval
-    allocate(this%core%livecroot_xfer_to_livecroot       (begp:endp)) ; this%core%livecroot_xfer_to_livecroot       (:) = spval
-    allocate(this%core%deadcroot_xfer_to_deadcroot       (begp:endp)) ; this%core%deadcroot_xfer_to_deadcroot       (:) = spval
-    allocate(this%core%leaf_to_litter                     (begp:endp)) ; this%core%leaf_to_litter                     (:) = spval
+    this%core%m_pool_to_litter_fire              (:) = spval
+    this%core%leaf_xfer_to_leaf                 (:) = spval
+    this%core%froot_xfer_to_froot               (:) = spval
+    this%core%livestem_xfer_to_livestem         (:) = spval
+    this%core%deadstem_xfer_to_deadstem         (:) = spval
+    this%core%livecroot_xfer_to_livecroot       (:) = spval
+    this%core%deadcroot_xfer_to_deadcroot       (:) = spval
+    this%core%leaf_to_litter                     (:) = spval
     allocate(this%retrans%leaf_to_retrans                   (begp:endp)) ; this%retrans%leaf_to_retrans                   (:) = spval
     allocate(this%retrans%froot_to_retrans                  (begp:endp)) ; this%retrans%froot_to_retrans                  (:) = spval
-    allocate(this%core%froot_to_litter                    (begp:endp)) ; this%core%froot_to_litter                    (:) = spval
+    this%core%froot_to_litter                    (:) = spval
     allocate(this%retrans%retrans_to_pool                   (begp:endp)) ; this%retrans%retrans_to_pool                   (:) = spval
     allocate(this%uptake%smin_to_pool                      (begp:endp)) ; this%uptake%smin_to_pool                      (:) = spval
     allocate(this%biochem_pmin_to_plant               (begp:endp)) ; this%biochem_pmin_to_plant               (:) = spval
-    allocate(this%core%pool_to_leaf                      (begp:endp)) ; this%core%pool_to_leaf                      (:) = spval
-    allocate(this%core%pool_to_leaf_storage              (begp:endp)) ; this%core%pool_to_leaf_storage              (:) = spval
-    allocate(this%core%pool_to_froot                     (begp:endp)) ; this%core%pool_to_froot                     (:) = spval
-    allocate(this%core%pool_to_froot_storage             (begp:endp)) ; this%core%pool_to_froot_storage             (:) = spval
-    allocate(this%core%pool_to_livestem                  (begp:endp)) ; this%core%pool_to_livestem                  (:) = spval
-    allocate(this%core%pool_to_livestem_storage          (begp:endp)) ; this%core%pool_to_livestem_storage          (:) = spval
-    allocate(this%core%pool_to_deadstem                  (begp:endp)) ; this%core%pool_to_deadstem                  (:) = spval
-    allocate(this%core%pool_to_deadstem_storage          (begp:endp)) ; this%core%pool_to_deadstem_storage          (:) = spval
-    allocate(this%core%pool_to_livecroot                 (begp:endp)) ; this%core%pool_to_livecroot                 (:) = spval
-    allocate(this%core%pool_to_livecroot_storage         (begp:endp)) ; this%core%pool_to_livecroot_storage         (:) = spval
-    allocate(this%core%pool_to_deadcroot                 (begp:endp)) ; this%core%pool_to_deadcroot                 (:) = spval
-    allocate(this%core%pool_to_deadcroot_storage         (begp:endp)) ; this%core%pool_to_deadcroot_storage         (:) = spval
-    allocate(this%core%leaf_storage_to_xfer               (begp:endp)) ; this%core%leaf_storage_to_xfer               (:) = spval
-    allocate(this%core%froot_storage_to_xfer              (begp:endp)) ; this%core%froot_storage_to_xfer              (:) = spval
-    allocate(this%core%livestem_storage_to_xfer           (begp:endp)) ; this%core%livestem_storage_to_xfer           (:) = spval
-    allocate(this%core%deadstem_storage_to_xfer           (begp:endp)) ; this%core%deadstem_storage_to_xfer           (:) = spval
-    allocate(this%core%livecroot_storage_to_xfer          (begp:endp)) ; this%core%livecroot_storage_to_xfer          (:) = spval
-    allocate(this%core%deadcroot_storage_to_xfer          (begp:endp)) ; this%core%deadcroot_storage_to_xfer          (:) = spval
-    allocate(this%core%livestem_to_deadstem              (begp:endp)) ; this%core%livestem_to_deadstem              (:) = spval
+    this%core%pool_to_leaf                      (:) = spval
+    this%core%pool_to_leaf_storage              (:) = spval
+    this%core%pool_to_froot                     (:) = spval
+    this%core%pool_to_froot_storage             (:) = spval
+    this%core%pool_to_livestem                  (:) = spval
+    this%core%pool_to_livestem_storage          (:) = spval
+    this%core%pool_to_deadstem                  (:) = spval
+    this%core%pool_to_deadstem_storage          (:) = spval
+    this%core%pool_to_livecroot                 (:) = spval
+    this%core%pool_to_livecroot_storage         (:) = spval
+    this%core%pool_to_deadcroot                 (:) = spval
+    this%core%pool_to_deadcroot_storage         (:) = spval
+    this%core%leaf_storage_to_xfer               (:) = spval
+    this%core%froot_storage_to_xfer              (:) = spval
+    this%core%livestem_storage_to_xfer           (:) = spval
+    this%core%deadstem_storage_to_xfer           (:) = spval
+    this%core%livecroot_storage_to_xfer          (:) = spval
+    this%core%deadcroot_storage_to_xfer          (:) = spval
+    this%core%livestem_to_deadstem              (:) = spval
     allocate(this%retrans%livestem_to_retrans               (begp:endp)) ; this%retrans%livestem_to_retrans               (:) = spval
-    allocate(this%core%livecroot_to_deadcroot            (begp:endp)) ; this%core%livecroot_to_deadcroot            (:) = spval
+    this%core%livecroot_to_deadcroot            (:) = spval
     allocate(this%retrans%livecroot_to_retrans              (begp:endp)) ; this%retrans%livecroot_to_retrans              (:) = spval
     allocate(this%uptake%pool_deploy                             (begp:endp)) ; this%uptake%pool_deploy                             (:) = spval
-    allocate(this%core%wood_harvest                       (begp:endp)) ; this%core%wood_harvest                       (:) = spval
-    allocate(this%core%fire_loss                          (begp:endp)) ; this%core%fire_loss                          (:) = spval
-    allocate(this%core%pool_to_grain                     (begp:endp)) ; this%core%pool_to_grain                     (:) = spval
-    allocate(this%core%pool_to_grain_storage             (begp:endp)) ; this%core%pool_to_grain_storage             (:) = spval
-    allocate(this%core%livestem_to_litter                 (begp:endp)) ; this%core%livestem_to_litter                 (:) = spval
-    allocate(this%core%grain_to_food                      (begp:endp)) ; this%core%grain_to_food                      (:) = spval
-    allocate(this%core%grain_xfer_to_grain               (begp:endp)) ; this%core%grain_xfer_to_grain               (:) = spval
-    allocate(this%core%grain_storage_to_xfer              (begp:endp)) ; this%core%grain_storage_to_xfer              (:) = spval
+    this%core%wood_harvest                       (:) = spval
+    this%core%fire_loss                          (:) = spval
     allocate(this%fert_p                              (begp:endp)) ; this%fert_p                              (:) = 0.d0
     allocate(this%fert_p_counter                      (begp:endp)) ; this%fert_p_counter                      (:) = spval
-    allocate(this%core%crop_seed_to_leaf                  (begp:endp)) ; this%core%crop_seed_to_leaf                  (:) = spval
-    allocate(this%core%dwt_seed_to_leaf                   (begp:endp)) ; this%core%dwt_seed_to_leaf                   (:) = spval
-    allocate(this%core%dwt_seed_to_deadstem               (begp:endp)) ; this%core%dwt_seed_to_deadstem               (:) = spval
-    allocate(this%core%dwt_conv_flux                      (begp:endp)) ; this%core%dwt_conv_flux                      (:) = spval
-    allocate(this%core%dwt_prod10_gain                    (begp:endp)) ; this%core%dwt_prod10_gain                    (:) = spval
-    allocate(this%core%dwt_prod100_gain                   (begp:endp)) ; this%core%dwt_prod100_gain                   (:) = spval
-    allocate(this%core%dwt_crop_product_gain              (begp:endp)) ; this%core%dwt_crop_product_gain              (:) = spval
+    this%core%crop_seed_to_leaf                  (:) = spval
+    this%core%dwt_seed_to_leaf                   (:) = spval
+    this%core%dwt_seed_to_deadstem               (:) = spval
+    this%core%dwt_conv_flux                      (:) = spval
+    this%core%dwt_prod10_gain                    (:) = spval
+    this%core%dwt_prod100_gain                   (:) = spval
     allocate(this%dwt_seedp_to_ppool                  (begp:endp)) ; this%dwt_seedp_to_ppool                  (:) = spval
     allocate(this%uptake%plant_demand                       (begp:endp)) ; this%uptake%plant_demand                       (:) = spval
     allocate(this%retrans%avail_retrans                      (begp:endp)) ; this%retrans%avail_retrans                      (:) = spval
-    allocate(this%core%plant_alloc                        (begp:endp)) ; this%core%plant_alloc                        (:) = spval
+    this%core%plant_alloc                        (:) = spval
     allocate(this%uptake%smin_to_plant                      (begp:endp)) ; this%uptake%smin_to_plant                      (:) = spval
     allocate(this%sminp_to_plant_trans                (begp:endp)) ; this%sminp_to_plant_trans                (:) = spval
     allocate(this%uptake%plant_demand_vr                    (begp:endp,1:nlevdecomp_full )) ; this%uptake%plant_demand_vr (:,:) = spval
-    allocate(this%core%prev_leaf_to_litter                (begp:endp)) ; this%core%prev_leaf_to_litter                (:) = spval
-    allocate(this%core%prev_froot_to_litter               (begp:endp)) ; this%core%prev_froot_to_litter               (:) = spval
     allocate(this%uptake%supplement_to_plant                (begp:endp)) ; this%uptake%supplement_to_plant                (:) = 0.d0
     allocate(this%gap_ploss_litter                    (begp:endp)) ; this%gap_ploss_litter                    (:) = spval
     allocate(this%fire_ploss_litter                   (begp:endp)) ; this%fire_ploss_litter                   (:) = spval
     allocate(this%hrv_ploss_litter                    (begp:endp)) ; this%hrv_ploss_litter                    (:) = spval
     allocate(this%sen_ploss_litter                    (begp:endp)) ; this%sen_ploss_litter                    (:) = spval
-
-
-    !-----------------------------------------------------------------------
-    ! initialize history fields for select members of veg_pf
-    !-----------------------------------------------------------------------
-    this%core%m_leaf_to_litter(begp:endp) = spval
     call hist_addfld1d (fname='M_LEAFP_TO_LITTER', units='gP/m^2/s', &
          avgflag='A', long_name='leaf P mortality', &
          ptr_patch=this%core%m_leaf_to_litter, default='inactive')
