@@ -32,6 +32,7 @@ module SpeciesMod
   integer, parameter, public :: CN_SPECIES_P   = 5
 
   public :: species_from_string  ! convert a string representation to one of the constants defined here
+  public :: nutrient_restart_name
   public :: nutrient_name
   public :: nutrient_units
   public :: nutrient_text
@@ -175,5 +176,24 @@ contains
        default = 'inactive'
     end if
   end function hist_default
+
+  pure function nutrient_restart_name(species, template) result(name)
+    ! restart variable name: '#' is the element letter in lowercase, carbon isotopes suffixed (leaf#_storage -> leafc_storage_13)
+    integer, intent(in) :: species
+    character(len=*), intent(in) :: template
+    character(len=:), allocatable :: name
+    select case (species)
+    case (CN_SPECIES_C13)
+       name = fill_template(template, 'c') // '_13'
+    case (CN_SPECIES_C14)
+       name = fill_template(template, 'c') // '_14'
+    case (CN_SPECIES_N)
+       name = fill_template(template, 'n')
+    case (CN_SPECIES_P)
+       name = fill_template(template, 'p')
+    case default
+       name = fill_template(template, 'c')
+    end select
+  end function nutrient_restart_name
 
 end module SpeciesMod
