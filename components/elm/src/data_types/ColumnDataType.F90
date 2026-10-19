@@ -4020,6 +4020,64 @@ contains
   end subroutine col_ns_restart
 
   !-----------------------------------------------------------------------
+  subroutine column_nutrient_state_setvalues ( this, num_column, filter_column, value_column)
+    !$acc routine seq
+    !
+    ! !DESCRIPTION:
+    ! Set column-level nitrogen state variables
+    !
+    ! !ARGUMENTS:
+    type(column_nutrient_state), intent(inout) :: this
+    integer , intent(in) :: num_column
+    integer , intent(in) :: filter_column(:)
+    real(r8), intent(in) :: value_column
+    !
+    ! !LOCAL VARIABLES:
+    integer :: fi,i     ! loop index
+    integer :: j,k      ! indices
+    !------------------------------------------------------------------------
+
+    do fi = 1,num_column
+       i = filter_column(fi)
+       this%trunc_sink(i)      = value_column
+       this%cwd(i)        = value_column
+       this%totlit(i)     = value_column
+       this%totsom(i)     = value_column
+       this%totecosys(i)  = value_column
+       this%totcol(i)     = value_column
+       this%totsom_1m(i)  = value_column
+       this%totlit_1m(i)  = value_column
+
+    end do
+
+    do j = 1,nlevdecomp_full
+       do fi = 1,num_column
+          i = filter_column(fi)
+          this%trunc_sink_vr(i,j)      = value_column
+       end do
+    end do
+
+    ! column and decomp_pools
+    do k = 1, ndecomp_pools
+       do fi = 1,num_column
+          i = filter_column(fi)
+          this%decomp_pools(i,k)    = value_column
+          this%decomp_pools_1m(i,k) = value_column
+       end do
+    end do
+
+    ! column levdecomp, and decomp_pools
+    do j = 1,nlevdecomp_full
+       do k = 1, ndecomp_pools
+          do fi = 1,num_column
+             i = filter_column(fi)
+             this%decomp_pools_vr(i,j,k) = value_column
+          end do
+       end do
+    end do
+
+  end subroutine column_nutrient_state_setvalues
+
   subroutine col_ns_setvalues ( this, num_column, filter_column, value_column)
     !
     ! !DESCRIPTION:
@@ -4036,23 +4094,16 @@ contains
     integer :: j,k      ! indices
     !------------------------------------------------------------------------
 
+    call column_nutrient_state_setvalues(this%core, num_column, filter_column, value_column)
     do fi = 1,num_column
        i = filter_column(fi)
 
        this%sminn(i)       = value_column
-       this%core%trunc_sink(i)      = value_column
-       this%core%cwd(i)        = value_column
        this%smin_no3(i) = value_column
        this%smin_nh4(i) = value_column
        if(use_pflotran .and. pf_cmode) then
           this%smin_nh4sorb(i) = value_column
        end if
-       this%core%totlit(i)     = value_column
-       this%core%totsom(i)     = value_column
-       this%core%totecosys(i)  = value_column
-       this%core%totcol(i)     = value_column
-       this%core%totsom_1m(i)  = value_column
-       this%core%totlit_1m(i)  = value_column
        if (use_fan) then
           this%tan_g1(i)   = value_column
           this%tan_g2(i)   = value_column
@@ -4085,31 +4136,11 @@ contains
        do fi = 1,num_column
           i = filter_column(fi)
           this%sminn_vr(i,j)       = value_column
-          this%core%trunc_sink_vr(i,j)      = value_column
           this%smin_no3_vr(i,j) = value_column
           this%smin_nh4_vr(i,j) = value_column
           if(use_pflotran .and. pf_cmode) then
              this%smin_nh4sorb_vr(i,j) = value_column
           end if
-       end do
-    end do
-
-    ! column and decomp_pools
-    do k = 1, ndecomp_pools
-       do fi = 1,num_column
-          i = filter_column(fi)
-          this%core%decomp_pools(i,k)    = value_column
-          this%core%decomp_pools_1m(i,k) = value_column
-       end do
-    end do
-
-    ! column levdecomp, and decomp_pools
-    do j = 1,nlevdecomp_full
-       do k = 1, ndecomp_pools
-          do fi = 1,num_column
-             i = filter_column(fi)
-             this%core%decomp_pools_vr(i,j,k) = value_column
-          end do
        end do
     end do
 
@@ -5107,6 +5138,7 @@ contains
     integer :: fi,i     ! loop index
     integer :: j,k      ! indices
     !------------------------------------------------------------------------
+    call column_nutrient_state_setvalues(this%core, num_column, filter_column, value_column)
     do fi = 1,num_column
        i = filter_column(fi)
 
@@ -5116,14 +5148,6 @@ contains
        this%secondp(i)     = value_column
        this%occlp(i)       = value_column
        this%primp(i)       = value_column
-       this%core%trunc_sink(i)      = value_column
-       this%core%cwd(i)        = value_column
-       this%core%totlit(i)     = value_column
-       this%core%totsom(i)     = value_column
-       this%core%totecosys(i)  = value_column
-       this%core%totcol(i)     = value_column
-       this%core%totsom_1m(i)  = value_column
-       this%core%totlit_1m(i)  = value_column
     end do
 
     do j = 1,nlevdecomp_full
@@ -5135,26 +5159,6 @@ contains
           this%secondp_vr(i,j)     = value_column
           this%occlp_vr(i,j)       = value_column
           this%primp_vr(i,j)       = value_column
-          this%core%trunc_sink_vr(i,j)      = value_column
-       end do
-    end do
-
-    ! column and decomp_pools
-    do k = 1, ndecomp_pools
-       do fi = 1,num_column
-          i = filter_column(fi)
-          this%core%decomp_pools(i,k)    = value_column
-          this%core%decomp_pools_1m(i,k) = value_column
-       end do
-    end do
-
-    ! column levdecomp, and decomp_pools
-    do j = 1,nlevdecomp_full
-       do k = 1, ndecomp_pools
-          do fi = 1,num_column
-             i = filter_column(fi)
-             this%core%decomp_pools_vr(i,j,k) = value_column
-          end do
        end do
     end do
 
@@ -7669,6 +7673,102 @@ contains
   end subroutine col_cf_summary_for_ch4
 
   !-----------------------------------------------------------------------
+  subroutine column_nutrient_flux_setvalues ( this, num_column, filter_column, value_column)
+    ! !DESCRIPTION:
+    ! Set column-level carbon fluxes
+    !
+    ! !ARGUMENTS:
+    type(column_nutrient_flux), intent(inout) :: this
+    integer , intent(in) :: num_column
+    integer , intent(in) :: filter_column(:)
+    real(r8), intent(in) :: value_column
+    !
+    ! !LOCAL VARIABLES:
+    integer :: fi,i,j,k,l     ! loop index
+    !------------------------------------------------------------------------
+    do j = 1, nlevdecomp_full
+       do fi = 1,num_column
+          i = filter_column(fi)
+
+          this%phenology_to_litr_met(i,j)     = value_column
+          this%phenology_to_litr_cel(i,j)     = value_column
+          this%phenology_to_litr_lig(i,j)     = value_column
+
+          this%gap_mortality_to_litr_met(i,j) = value_column
+          this%gap_mortality_to_litr_cel(i,j) = value_column
+          this%gap_mortality_to_litr_lig(i,j) = value_column
+          this%gap_mortality_to_cwd(i,j)       = value_column
+
+          this%fire_mortality_to_cwd(i,j)      = value_column
+          this%m_to_litr_met_fire(i,j)          = value_column
+          this%m_to_litr_cel_fire(i,j)          = value_column
+          this%m_to_litr_lig_fire(i,j)          = value_column
+
+          this%harvest_to_litr_met(i,j)       = value_column
+          this%harvest_to_litr_cel(i,j)       = value_column
+          this%harvest_to_litr_lig(i,j)       = value_column
+          this%harvest_to_cwd(i,j)             = value_column
+       end do
+    end do
+    do l = 1, ndecomp_cascade_transitions
+       do fi = 1,num_column
+          i = filter_column(fi)
+          this%decomp_cascade_transfer(i,l) = value_column
+       end do
+    end do
+    
+    do k = 1, ndecomp_pools
+       do j = 1, nlevdecomp_full
+          do fi = 1,num_column
+             i = filter_column(fi)
+             this%decomp_pools_sourcesink(i,j,k) = value_column
+          end do
+       end do
+    end do
+  
+    ! pflotran
+    if(nstep_mod == 0 .or. is_first_restart_step()) then 
+      do k = 1, ndecomp_pools
+         do j = 1, nlevdecomp_full
+            do fi = 1,num_column
+               i = filter_column(fi)
+               this%external_to_decomp_pools(i,j,k) = value_column
+            end do
+         end do
+      end do
+      do fi = 1,num_column
+         i = filter_column(fi)
+         this%external_to_decomp_delta(i) = value_column
+      end do
+    end if 
+
+    do k = 1, ndecomp_pools
+       do fi = 1,num_column
+          i = filter_column(fi)
+          this%decomp_pools_yield(i,k) = value_column !if ero_ccycle
+          this%m_decomp_pools_to_fire(i,k) = value_column
+       end do
+    end do 
+
+    do fi = 1,num_column
+       i = filter_column(fi)
+
+       this%hrv_deadstem_to_prod10(i)  = value_column
+       this%hrv_deadstem_to_prod100(i) = value_column
+       this%hrv_crop_to_prod1(i)       = value_column
+       this%prod1_loss(i)               = value_column
+       this%prod10_loss(i)              = value_column
+       this%prod100_loss(i)             = value_column
+       this%som_leached(i)             = value_column
+       this%inputs(i)                   = value_column
+       this%outputs(i)                  = value_column
+       this%som_leached(i)             = value_column  
+       this%fire_loss(i)            = value_column
+       this%wood_harvest(i)         = value_column
+    end do
+
+  end subroutine column_nutrient_flux_setvalues
+
   subroutine col_cf_setvalues ( this, num_column, filter_column, value_column)
     ! !DESCRIPTION:
     ! Set column-level carbon fluxes
@@ -7682,36 +7782,12 @@ contains
     ! !LOCAL VARIABLES:
     integer :: fi,i,j,k,l     ! loop index
     !------------------------------------------------------------------------
+    call column_nutrient_flux_setvalues(this%core, num_column, filter_column, value_column)
     do j = 1, nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)
 
-          this%core%phenology_to_litr_met(i,j)     = value_column
-          this%core%phenology_to_litr_cel(i,j)     = value_column
-          this%core%phenology_to_litr_lig(i,j)     = value_column
-
-          this%core%gap_mortality_to_litr_met(i,j) = value_column
-          this%core%gap_mortality_to_litr_cel(i,j) = value_column
-          this%core%gap_mortality_to_litr_lig(i,j) = value_column
-          this%core%gap_mortality_to_cwd(i,j)       = value_column
-
-          this%core%fire_mortality_to_cwd(i,j)      = value_column
-          this%core%m_to_litr_met_fire(i,j)          = value_column
-          this%core%m_to_litr_cel_fire(i,j)          = value_column
-          this%core%m_to_litr_lig_fire(i,j)          = value_column
-
-          this%core%harvest_to_litr_met(i,j)       = value_column
-          this%core%harvest_to_litr_cel(i,j)       = value_column
-          this%core%harvest_to_litr_lig(i,j)       = value_column
-          this%core%harvest_to_cwd(i,j)             = value_column
-
           this%hr_vr(i,j)                         = value_column
-       end do
-    end do
-    do l = 1, ndecomp_cascade_transitions
-       do fi = 1,num_column
-          i = filter_column(fi)
-          this%core%decomp_cascade_transfer(i,l) = value_column
        end do
     end do
     do j = 1, nlevdecomp_full
@@ -7725,7 +7801,6 @@ contains
        do j = 1, nlevdecomp_full
           do fi = 1,num_column
              i = filter_column(fi)
-             this%core%decomp_pools_sourcesink(i,j,k) = value_column
              this%core%decomp_pools_transport_tendency(i,j,k) = value_column
           end do
        end do
@@ -7733,62 +7808,32 @@ contains
   
     ! pflotran
     if(nstep_mod == 0 .or. is_first_restart_step()) then 
-      do k = 1, ndecomp_pools
-         do j = 1, nlevdecomp_full
-            do fi = 1,num_column
-               i = filter_column(fi)
-               this%core%external_to_decomp_pools(i,j,k) = value_column
-            end do
-         end do
-      end do
       do fi = 1,num_column
          i = filter_column(fi)
          this%f_co2_soil(i) = value_column
-         this%core%external_to_decomp_delta(i) = value_column
       end do
     end if 
 
-    do k = 1, ndecomp_pools
-       do fi = 1,num_column
-          i = filter_column(fi)
-          this%core%decomp_pools_yield(i,k) = value_column !if ero_ccycle
-          this%core%m_decomp_pools_to_fire(i,k) = value_column
-       end do
-    end do 
-
     do fi = 1,num_column
        i = filter_column(fi)
-
-       this%core%hrv_deadstem_to_prod10(i)  = value_column
-       this%core%hrv_deadstem_to_prod100(i) = value_column
-       this%core%hrv_crop_to_prod1(i)       = value_column
-       this%core%prod1_loss(i)               = value_column
-       this%core%prod10_loss(i)              = value_column
-       this%core%prod100_loss(i)             = value_column
        this%er(i)                        = value_column
-       this%core%som_leached(i)             = value_column
        this%core%som_yield(i)                = value_column
        this%somhr(i)                     = value_column 
        this%lithr(i)                     = value_column 
        this%hr(i)                        = value_column
-       this%core%inputs(i)                   = value_column
-       this%core%outputs(i)                  = value_column
        this%cwdc_hr(i)                   = value_column
        this%litterc_loss(i)              = value_column
        
        this%nee(i)                       = value_column
        this%er(i)                        = value_column  
-       this%core%som_leached(i)             = value_column  
 
        ! Zero p2c column fluxes
        this%rr(i)                    = value_column
        this%ar(i)                    = value_column
        this%gpp(i)                   = value_column
        this%npp(i)                   = value_column
-       this%core%fire_loss(i)            = value_column
        this%litfall(i)               = value_column
        this%vegfire(i)               = value_column
-       this%core%wood_harvest(i)         = value_column
        this%hrv_xsmrpool_to_atm(i)   = value_column
     end do
   
@@ -7896,6 +7941,42 @@ contains
 
 
   !-----------------------------------------------------------------------
+  subroutine column_nutrient_flux_zerodwt( this, bounds )
+    !
+    ! !DESCRIPTION
+    ! Initialize flux variables needed for dynamic land use.
+    !
+    ! !ARGUMENTS:
+    type(column_nutrient_flux), intent(inout)      :: this
+    type(bounds_type), intent(in)  :: bounds
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: c, j          ! indices
+    !-----------------------------------------------------------------------
+
+    ! set column-level conversion and product pool fluxes
+    ! to 0 at the beginning of every timestep
+
+    do c = bounds%begc,bounds%endc
+       this%dwt_conv_flux(c)           = 0._r8
+       this%dwt_prod10_gain(c)         = 0._r8
+       this%dwt_prod100_gain(c)        = 0._r8
+       this%dwt_crop_product_gain(c)   = 0._r8
+       this%dwt_slash_flux(c)          = 0._r8
+    end do
+
+    do j = 1, nlevdecomp_full
+       do c = bounds%begc,bounds%endc
+          this%dwt_froot_to_litr_met(c,j)    = 0._r8
+          this%dwt_froot_to_litr_cel(c,j)    = 0._r8
+          this%dwt_froot_to_litr_lig(c,j)    = 0._r8
+          this%dwt_livecroot_to_cwd(c,j)      = 0._r8
+          this%dwt_deadcroot_to_cwd(c,j)      = 0._r8
+       end do
+    end do
+
+  end subroutine column_nutrient_flux_zerodwt
+
   subroutine col_cf_zerodwt( this, bounds )
     !
     ! !DESCRIPTION
@@ -7907,29 +7988,8 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: c, j          ! indices
-    !-----------------------------------------------------------------------
 
-    ! set column-level conversion and product pool fluxes
-    ! to 0 at the beginning of every timestep
-
-    do c = bounds%begc,bounds%endc
-       this%core%dwt_conv_flux(c)           = 0._r8
-       this%core%dwt_prod10_gain(c)         = 0._r8
-       this%core%dwt_prod100_gain(c)        = 0._r8
-       this%core%dwt_crop_product_gain(c)   = 0._r8
-       this%core%dwt_slash_flux(c)          = 0._r8
-    end do
-
-    do j = 1, nlevdecomp_full
-       do c = bounds%begc,bounds%endc
-          this%core%dwt_froot_to_litr_met(c,j)    = 0._r8
-          this%core%dwt_froot_to_litr_cel(c,j)    = 0._r8
-          this%core%dwt_froot_to_litr_lig(c,j)    = 0._r8
-          this%core%dwt_livecroot_to_cwd(c,j)      = 0._r8
-          this%core%dwt_deadcroot_to_cwd(c,j)      = 0._r8
-       end do
-    end do
-
+    call column_nutrient_flux_zerodwt(this%core, bounds)
   end subroutine col_cf_zerodwt
 
   !-------------------------------------------------------------------------------------------------
@@ -9302,32 +9362,10 @@ contains
     ! !LOCAL VARIABLES:
     integer :: fi,i,j,k,l     ! loop index
     !------------------------------------------------------------------------
+    call column_nutrient_flux_setvalues(this%core, num_column, filter_column, value_column)
     do j = 1, nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)
-
-          ! phenology: litterfall and crop fluxes associated wit
-          this%core%phenology_to_litr_met(i,j)        = value_column
-          this%core%phenology_to_litr_cel(i,j)        = value_column
-          this%core%phenology_to_litr_lig(i,j)        = value_column
-
-          ! gap mortality
-          this%core%gap_mortality_to_litr_met(i,j)    = value_column
-          this%core%gap_mortality_to_litr_cel(i,j)    = value_column
-          this%core%gap_mortality_to_litr_lig(i,j)    = value_column
-          this%core%gap_mortality_to_cwd(i,j)          = value_column
-
-          ! fire
-          this%core%fire_mortality_to_cwd(i,j)         = value_column
-          this%core%m_to_litr_met_fire(i,j)             = value_column
-          this%core%m_to_litr_cel_fire(i,j)             = value_column
-          this%core%m_to_litr_lig_fire(i,j)             = value_column
-
-          ! harvest
-          this%core%harvest_to_litr_met(i,j)          = value_column
-          this%core%harvest_to_litr_cel(i,j)          = value_column
-          this%core%harvest_to_litr_lig(i,j)          = value_column
-          this%core%harvest_to_cwd(i,j)                = value_column
 
           this%net_nmin_vr(i,j)                      = value_column
           this%sminn_nh4_input_vr(i,j)               = value_column !not used anywhere?
@@ -9363,15 +9401,6 @@ contains
        this%denit(i)                     = value_column
        this%smin_nh4_to_plant(i)      = value_column
        this%smin_no3_to_plant(i)      = value_column
-       this%core%fire_loss(i)                = value_column
-       this%core%som_leached(i)             = value_column
-       
-       this%core%hrv_deadstem_to_prod10(i)  = value_column
-       this%core%hrv_deadstem_to_prod100(i) = value_column
-       this%core%hrv_crop_to_prod1(i)       = value_column
-       this%core%prod10_loss(i)              = value_column
-       this%core%prod100_loss(i)             = value_column
-       this%core%prod1_loss(i)               = value_column
        this%core%product_loss(i)             = value_column
        this%potential_immob(i)           = value_column
        this%actual_immob(i)              = value_column
@@ -9393,16 +9422,9 @@ contains
        this%f_ngas_denit(i)          = value_column
        this%f_n2o_soil(i)            = value_column
        this%f_n2_soil(i)             = value_column
-
-
-       this%core%inputs(i)                   = value_column
-       this%core%outputs(i)                  = value_column
        this%sminn_input(i)               = value_column
        this%sminn_nh4_input(i)           = value_column
        this%sminn_no3_input(i)           = value_column
-       ! Zero p2c column fluxes
-       this%core%fire_loss(i) = value_column
-       this%core%wood_harvest(i) = value_column
 
        ! bgc-interface
        this%plant_ndemand(i) = value_column
@@ -9437,35 +9459,14 @@ contains
        this%fan_totnout(i)        = value_column
 
     end do
-    do k = 1, ndecomp_pools
-       do fi = 1,num_column
-          i = filter_column(fi)
-          this%core%decomp_pools_yield(i,k) = value_column !ero_ccyle
-          this%core%m_decomp_pools_to_fire(i,k) = value_column
-          !NOTE: when are these used?
-          !this%bgc_npool_ext_inputs_vr(i,:,k) = value_column
-          !this%bgc_npool_ext_loss_vr(i,:,k) = value_column
-          !this%bgc_npool_inputs(i,k) = value_column
-       end do
-    end do
 
 
        do l = 1, ndecomp_cascade_transitions
           do fi = 1,num_column
              i = filter_column(fi)
-             this%core%decomp_cascade_transfer(i,l) = value_column
              this%decomp_cascade_sminn_flux(i,l) = value_column
           end do
        end do
-
-    do k = 1, ndecomp_pools
-       do j = 1, nlevdecomp_full
-          do fi = 1,num_column
-             i = filter_column(fi)
-             this%core%decomp_pools_sourcesink(i,j,k) = value_column
-          end do
-       end do
-    end do
 
     ! pflotran
     !------------------------------------------------------------------------
@@ -9475,8 +9476,6 @@ contains
             do fi = 1,num_column
                i = filter_column(fi)
                this%core%m_decomp_pools_to_fire_vr(i,j,k) = value_column
-               ! only initializing in the first time-step
-               this%core%external_to_decomp_pools(i,j,k) = value_column
             end do
          end do
       end do
@@ -9496,12 +9495,6 @@ contains
             this%no3_net_transport_vr(i,j) = value_column
             this%nh4_net_transport_vr(i,j) = value_column
          end do
-      end do
-    
-      do fi = 1,num_column
-         i = filter_column(fi)
-         ! only initializing in the first time-step
-         this%core%external_to_decomp_delta(i) = value_column
       end do
    end if
 
@@ -9528,26 +9521,8 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: c,j          ! indices
-    !-----------------------------------------------------------------------
 
-    do c = bounds%begc,bounds%endc
-       this%core%dwt_conv_flux(c)        = 0._r8
-       this%core%dwt_prod10_gain(c)      = 0._r8
-       this%core%dwt_prod100_gain(c)     = 0._r8
-       this%core%dwt_crop_product_gain(c) = 0._r8
-       this%core%dwt_slash_flux(c)       = 0._r8
-    end do
-
-    do j = 1, nlevdecomp_full
-       do c = bounds%begc,bounds%endc
-          this%core%dwt_froot_to_litr_met(c,j) = 0._r8
-          this%core%dwt_froot_to_litr_cel(c,j) = 0._r8
-          this%core%dwt_froot_to_litr_lig(c,j) = 0._r8
-          this%core%dwt_livecroot_to_cwd(c,j)   = 0._r8
-          this%core%dwt_deadcroot_to_cwd(c,j)   = 0._r8
-       end do
-    end do
-
+    call column_nutrient_flux_zerodwt(this%core, bounds)
   end subroutine col_nf_zerodwt
 
 
@@ -10858,32 +10833,10 @@ contains
     ! !LOCAL VARIABLES:
     integer :: fi,i,j,k,l     ! loop index
     !------------------------------------------------------------------------
+    call column_nutrient_flux_setvalues(this%core, num_column, filter_column, value_column)
     do j = 1, nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)
-
-          ! phenology: litterfall and crop fluxes associated wit
-          this%core%phenology_to_litr_met(i,j)        = value_column
-          this%core%phenology_to_litr_cel(i,j)        = value_column
-          this%core%phenology_to_litr_lig(i,j)        = value_column
-
-          ! gap mortality
-          this%core%gap_mortality_to_litr_met(i,j)    = value_column
-          this%core%gap_mortality_to_litr_cel(i,j)    = value_column
-          this%core%gap_mortality_to_litr_lig(i,j)    = value_column
-          this%core%gap_mortality_to_cwd(i,j)          = value_column
-
-          ! fire
-          this%core%fire_mortality_to_cwd(i,j)         = value_column
-          this%core%m_to_litr_met_fire(i,j)             = value_column
-          this%core%m_to_litr_cel_fire(i,j)             = value_column
-          this%core%m_to_litr_lig_fire(i,j)             = value_column
-
-          ! harvest
-          this%core%harvest_to_litr_met(i,j)          = value_column
-          this%core%harvest_to_litr_cel(i,j)          = value_column
-          this%core%harvest_to_litr_lig(i,j)          = value_column
-          this%core%harvest_to_cwd(i,j)                = value_column
 
           this%primp_to_labilep_vr(i,j)              = value_column
           this%labilep_to_secondp_vr(i,j)            = value_column
@@ -10919,13 +10872,7 @@ contains
 
        this%pdep_to_sminp(i)             = value_column
        this%fert_p_to_sminp(i)           = value_column
-       this%core%hrv_deadstem_to_prod10(i)  = value_column
-       this%core%hrv_deadstem_to_prod100(i) = value_column
-       this%core%hrv_crop_to_prod1(i)       = value_column
-       this%core%prod10_loss(i)              = value_column
-       this%core%prod100_loss(i)             = value_column
        this%core%product_loss(i)             = value_column
-       this%core%prod1_loss(i)               = value_column
        this%potential_immob_p(i)         = value_column
        this%actual_immob_p(i)            = value_column
        this%sminp_to_plant(i)            = value_column
@@ -10939,10 +10886,6 @@ contains
        this%secondp_to_labilep(i)        = value_column
        this%secondp_to_occlp(i)          = value_column
        this%sminp_leached(i)             = value_column
-       this%core%fire_loss(i)                = value_column
-       this%core%inputs(i)                   = value_column
-       this%core%outputs(i)                  = value_column
-       this%core%som_leached(i)             = value_column
        this%core%som_erode(i)                = value_column
        this%core%som_deposit(i)              = value_column
        this%core%som_yield(i)                = value_column
@@ -10959,14 +10902,8 @@ contains
        this%primp_deposit(i)             = value_column
        this%primp_yield(i)               = value_column
 
-       ! Zero p2c column fluxes
-       this%core%fire_loss(i)                = value_column
-       this%core%wood_harvest(i)             = value_column
-
        ! bgc-interface
        this%plant_pdemand(i)             = value_column
-
-       this%core%wood_harvest(i)             = value_column
 
        this%adsorb_to_labilep(i)         = value_column
        this%desorb_to_solutionp(i)       = value_column
@@ -10979,15 +10916,12 @@ contains
           this%core%decomp_pools_leached(i,k) = value_column
           this%core%decomp_pools_erode(i,k) = value_column
           this%core%decomp_pools_deposit(i,k) = value_column
-          this%core%decomp_pools_yield(i,k) = value_column
-          this%core%m_decomp_pools_to_fire(i,k) = value_column
        end do
     end do
 
     do l = 1, ndecomp_cascade_transitions
        do fi = 1,num_column
           i = filter_column(fi)
-          this%core%decomp_cascade_transfer(i,l) = value_column
           this%decomp_cascade_sminp_flux(i,l) = value_column
        end do
     end do
@@ -10996,7 +10930,6 @@ contains
        do j = 1, nlevdecomp_full
           do fi = 1,num_column
              i = filter_column(fi)
-             this%core%decomp_pools_sourcesink(i,j,k) = value_column
              this%biochem_pmin_ppools_vr(i,j,k) = value_column
           end do
        end do
@@ -11015,14 +10948,6 @@ contains
 
     ! pflotran
     if(nstep_mod == 0 .or. is_first_restart_step() ) then 
-      do k = 1, ndecomp_pools
-         do j = 1, nlevdecomp_full
-            do fi = 1,num_column
-               i = filter_column(fi)
-               this%core%external_to_decomp_pools(i,j,k) = value_column
-            end do
-         end do
-      end do
 
     do j = 1, nlevdecomp_full
        do fi = 1,num_column
@@ -11033,7 +10958,6 @@ contains
 
     do fi = 1,num_column
        i = filter_column(fi)
-       this%core%external_to_decomp_delta(i) = value_column
        this%sminp_net_transport_delta(i)   = value_column
      end do
   end if 
@@ -11052,25 +10976,8 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer  :: c, j          ! indices
-    !-----------------------------------------------------------------------
-    do c = bounds%begc,bounds%endc
-       this%core%dwt_conv_flux(c)        = 0._r8
-       this%core%dwt_prod10_gain(c)      = 0._r8
-       this%core%dwt_prod100_gain(c)     = 0._r8
-       this%core%dwt_crop_product_gain(c) = 0._r8
-       this%core%dwt_slash_flux(c)       = 0._r8
-    end do
 
-    do j = 1, nlevdecomp_full
-       do c = bounds%begc,bounds%endc
-          this%core%dwt_froot_to_litr_met(c,j) = 0._r8
-          this%core%dwt_froot_to_litr_cel(c,j) = 0._r8
-          this%core%dwt_froot_to_litr_lig(c,j) = 0._r8
-          this%core%dwt_livecroot_to_cwd(c,j)   = 0._r8
-          this%core%dwt_deadcroot_to_cwd(c,j)   = 0._r8
-       end do
-    end do
-
+    call column_nutrient_flux_zerodwt(this%core, bounds)
   end subroutine col_pf_zerodwt
 
   subroutine col_pf_zero_forfates_veg(this, bounds, num_soilc, filter_soilc)
