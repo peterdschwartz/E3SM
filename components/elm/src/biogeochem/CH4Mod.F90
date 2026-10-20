@@ -1746,7 +1746,7 @@ contains
          t_soisno       =>    col_es%t_soisno                       , & ! Input:  [real(r8) (:,:)  ]  soil temperature (Kelvin)  (-nlevsno+1:nlevsoi)
          h2osoi_vol     =>    col_ws%h2osoi_vol                     , & ! Input:  [real(r8) (:,:)  ]  volumetric soil water (0<=h2osoi_vol<=watsat) [m3/m3]
          qflx_tran_veg  =>    veg_wf%qflx_tran_veg                  , & ! Input:  [real(r8) (:)    ]  vegetation transpiration (mm H2O/s) (+ = to atm)
-         frootc         =>    veg_cs%frootc                         , & ! Input:  [real(r8) (:)    ]  (gC/m2) fine root C
+         frootc         =>    veg_cs%core%froot                         , & ! Input:  [real(r8) (:)    ]  (gC/m2) fine root C
          annavg_agnpp   =>    veg_cf%annavg_agnpp                   , & ! Input:  [real(r8) (:)    ]  (gC/m2/s) annual average aboveground NPP
          annavg_bgnpp   =>    veg_cf%annavg_bgnpp                     & ! Input:  [real(r8) (:)    ]  (gC/m2/s) annual average belowground NPP
          )
