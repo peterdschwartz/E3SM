@@ -671,8 +671,8 @@ contains
          flnr   => veg_vp%flnr              , & ! Input:  fraction of leaf N in the Rubisco enzyme (gN Rubisco / gN leaf)
          fnitr  => veg_vp%fnitr             , & ! Input:  foliage nitrogen limitation factor (-)
          t10    => veg_es%t_a10             , & ! Input:  10-day running mean of the 2 m temperature (K)
-         leafn  => veg_ns%leafn             , & ! Input:  leaf N (gN/m2)
-         leafp  => veg_ps%leafp               & ! Input:  leaf P (gP/m2)
+         leafn  => veg_ns%core%leaf             , & ! Input:  leaf N (gN/m2)
+         leafp  => veg_ps%core%leaf               & ! Input:  leaf P (gP/m2)
          )
 
       ! vcmax25 parameters, from CN
