@@ -46,6 +46,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine CarbonIsoFlux1(num_soilc, filter_soilc, num_soilp, filter_soilp, &
        cnstate_vars, isotope, isocol_cs, isoveg_cs, isocol_cf, isoveg_cf)
+    use CompactLayoutMod, only : compact_soilp_off  ! spel compact
     !
     ! !DESCRIPTION:
     ! On the radiation time step, set the carbon isotopic flux
@@ -67,6 +68,8 @@ contains
     !
     ! !LOCAL VARIABLES:
     integer :: fp,pi,l,fc,cc,j
+    integer :: k0p  ! begp-1 of the clump: compact index of filter_soilp(fp) is k0p+fp  ! spel compact
+    k0p = compact_soilp_off  ! spel compact
     !-----------------------------------------------------------------------
 
     associate(&
@@ -84,32 +87,32 @@ contains
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%leaf_xfer_to_leaf           , veg_cf%core%leaf_xfer_to_leaf, &
            isoveg_cs%core%leaf_xfer                   , veg_cs%core%leaf_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%froot_xfer_to_froot         , veg_cf%core%froot_xfer_to_froot, &
            isoveg_cs%core%froot_xfer                  , veg_cs%core%froot_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%livestem_xfer_to_livestem   , veg_cf%core%livestem_xfer_to_livestem, &
            isoveg_cs%core%livestem_xfer               , veg_cs%core%livestem_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%deadstem_xfer_to_deadstem   , veg_cf%core%deadstem_xfer_to_deadstem, &
            isoveg_cs%core%deadstem_xfer               , veg_cs%core%deadstem_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%livecroot_xfer_to_livecroot , veg_cf%core%livecroot_xfer_to_livecroot, &
            isoveg_cs%core%livecroot_xfer              , veg_cs%core%livecroot_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%deadcroot_xfer_to_deadcroot , veg_cf%core%deadcroot_xfer_to_deadcroot, &
            isoveg_cs%core%deadcroot_xfer              , veg_cs%core%deadcroot_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%leaf_to_litter               , veg_cf%core%leaf_to_litter, &
@@ -124,62 +127,62 @@ contains
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%livestem_to_deadstem        , veg_cf%core%livestem_to_deadstem, &
            isoveg_cs%core%livestem                    , veg_cs%core%livestem, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%livecroot_to_deadcroot      , veg_cf%core%livecroot_to_deadcroot, &
            isoveg_cs%core%livecroot                   , veg_cs%core%livecroot, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%leaf_curmr                    , veg_cf%leaf_curmr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%froot_curmr                   , veg_cf%froot_curmr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%livestem_curmr                , veg_cf%livestem_curmr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%livecroot_curmr               , veg_cf%livecroot_curmr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%xr                            , veg_cf%xr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%leaf_xsmr                     , veg_cf%leaf_xsmr, &
            isoveg_cs%core%totveg                      , veg_cs%core%totveg, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%froot_xsmr                    , veg_cf%froot_xsmr, &
            isoveg_cs%core%totveg                      , veg_cs%core%totveg, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%livestem_xsmr                 , veg_cf%livestem_xsmr, &
            isoveg_cs%core%totveg                      , veg_cs%core%totveg, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%livecroot_xsmr                , veg_cf%livecroot_xsmr, &
            isoveg_cs%core%totveg                      , veg_cs%core%totveg, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_to_xsmrpool             , veg_cf%cpool_to_xsmrpool, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_leaf                , veg_cf%core%pool_to_leaf, &
@@ -189,17 +192,17 @@ contains
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_leaf_storage        , veg_cf%core%pool_to_leaf_storage, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_froot               , veg_cf%core%pool_to_froot, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_froot_storage       , veg_cf%core%pool_to_froot_storage, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_livestem            , veg_cf%core%pool_to_livestem, &
@@ -209,37 +212,37 @@ contains
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_livestem_storage    , veg_cf%core%pool_to_livestem_storage, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_deadstem            , veg_cf%core%pool_to_deadstem, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_deadstem_storage    , veg_cf%core%pool_to_deadstem_storage, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_livecroot           , veg_cf%core%pool_to_livecroot, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_livecroot_storage   , veg_cf%core%pool_to_livecroot_storage, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_deadcroot           , veg_cf%core%pool_to_deadcroot, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%pool_to_deadcroot_storage   , veg_cf%core%pool_to_deadcroot_storage, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_leaf_gr                 , veg_cf%cpool_leaf_gr, &
@@ -254,22 +257,22 @@ contains
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_livestem_gr             , veg_cf%cpool_livestem_gr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_deadstem_gr             , veg_cf%cpool_deadstem_gr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_livecroot_gr            , veg_cf%cpool_livecroot_gr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_deadcroot_gr            , veg_cf%cpool_deadcroot_gr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_leaf_storage_gr         , veg_cf%cpool_leaf_storage_gr, &
@@ -284,27 +287,27 @@ contains
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_livestem_storage_gr     , veg_cf%cpool_livestem_storage_gr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_deadstem_storage_gr     , veg_cf%cpool_deadstem_storage_gr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_livecroot_storage_gr    , veg_cf%cpool_livecroot_storage_gr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_deadcroot_storage_gr    , veg_cf%cpool_deadcroot_storage_gr, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%cpool_to_gresp_storage        , veg_cf%cpool_to_gresp_storage, &
            isoveg_cs%core%pool                        , veg_cs%core%pool, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%transfer_leaf_gr              , veg_cf%transfer_leaf_gr, &
@@ -319,57 +322,57 @@ contains
       call CarbonIsoFluxCalc(&
            isoveg_cf%transfer_livestem_gr          , veg_cf%transfer_livestem_gr, &
            isoveg_cs%gresp_xfer                   , veg_cs%gresp_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%transfer_deadstem_gr          , veg_cf%transfer_deadstem_gr, &
            isoveg_cs%gresp_xfer                   , veg_cs%gresp_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%transfer_livecroot_gr         , veg_cf%transfer_livecroot_gr, &
            isoveg_cs%gresp_xfer                   , veg_cs%gresp_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%transfer_deadcroot_gr         , veg_cf%transfer_deadcroot_gr, &
            isoveg_cs%gresp_xfer                   , veg_cs%gresp_xfer, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%leaf_storage_to_xfer         , veg_cf%core%leaf_storage_to_xfer, &
            isoveg_cs%core%leaf_storage                , veg_cs%core%leaf_storage, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%froot_storage_to_xfer        , veg_cf%core%froot_storage_to_xfer, &
            isoveg_cs%core%froot_storage               , veg_cs%core%froot_storage, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%livestem_storage_to_xfer     , veg_cf%core%livestem_storage_to_xfer, &
            isoveg_cs%core%livestem_storage            , veg_cs%core%livestem_storage, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%deadstem_storage_to_xfer     , veg_cf%core%deadstem_storage_to_xfer, &
            isoveg_cs%core%deadstem_storage            , veg_cs%core%deadstem_storage, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%livecroot_storage_to_xfer    , veg_cf%core%livecroot_storage_to_xfer, &
            isoveg_cs%core%livecroot_storage           , veg_cs%core%livecroot_storage, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%core%deadcroot_storage_to_xfer    , veg_cf%core%deadcroot_storage_to_xfer, &
            isoveg_cs%core%deadcroot_storage           , veg_cs%core%deadcroot_storage, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       call CarbonIsoFluxCalc(&
            isoveg_cf%gresp_storage_to_xfer         , veg_cf%gresp_storage_to_xfer, &
            isoveg_cs%gresp_storage                , veg_cs%gresp_storage, &
-           num_soilp                                            , filter_soilp, 1._r8, 0, isotope)
+           num_soilp                                            , filter_soilp, 1._r8, 0, isotope, compact_off=k0p)
 
       ! call routine to shift patch-level litterfall fluxes to column, for isotopes
       ! the non-isotope version of this routine is called in PhenologyMod.F90.F90
@@ -1288,7 +1291,7 @@ contains
    subroutine CarbonIsoFluxCalc(&
         ciso_flux, ctot_flux, &
         ciso_state, ctot_state, &
-        num, filter, frax_c13, diag, isotope)
+        num, filter, frax_c13, diag, isotope, compact_off)
      !
      ! !DESCRIPTION:
      ! On the radiation time step, set the carbon isotopic flux
@@ -1311,6 +1314,8 @@ contains
      integer  :: i,f     ! indices
      real(r8) :: temp
      real(r8) :: frax
+     integer, intent(in), optional :: compact_off  ! begp-1 of the clump if the flux arrays are compact  ! spel compact
+     integer :: kc  ! index of the flux arrays  ! spel compact
      !-----------------------------------------------------------------------
 
      ! if C14, double the fractionation
@@ -1328,10 +1333,12 @@ contains
      ! loop over the supplied filter
      do f = 1,num
         i = filter(f)
+        kc = i  ! spel compact
+        if (present(compact_off)) kc = compact_off + f  ! spel compact
         if (ctot_state(i) /= 0._r8) then
-           ciso_flux(i) = ctot_flux(i) * (ciso_state(i)/ctot_state(i)) * frax
+           ciso_flux(kc) = ctot_flux(kc) * (ciso_state(i)/ctot_state(i)) * frax
         else
-           ciso_flux(i) = 0._r8
+           ciso_flux(kc) = 0._r8
         end if
 
         if (diag == 1) then

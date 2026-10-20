@@ -1,0 +1,323 @@
+{
+ "generated_by": "spel compact rewrite",
+ "spel_commit": "673ccbe17df5e356172891461612d240dbf09d28",
+ "e3sm": {
+  "commit": "97423d0173e448b2996dc422785d075f8d1a7e73",
+  "branch": "peterdschwartz/lnd/gpu-refactor-nutrient-types"
+ },
+ "unpack_after": "ecosystemdynleaching",
+ "types": {
+  "vegetation_nutrient_flux": {
+   "instances": [
+    "veg_cf",
+    "c13_veg_cf",
+    "c14_veg_cf",
+    "veg_nf",
+    "veg_pf"
+   ],
+   "embedded_in": {
+    "veg_cf": "core",
+    "c13_veg_cf": "core",
+    "c14_veg_cf": "core",
+    "veg_nf": "core",
+    "veg_pf": "core"
+   },
+   "classes": {
+    "1": {
+     "guard": "(.not.(is_carbon(this%species).and.use_fates))",
+     "fields": [
+      "deadcroot_storage_to_xfer",
+      "deadcroot_xfer_to_deadcroot",
+      "deadstem_storage_to_xfer",
+      "deadstem_xfer_to_deadstem",
+      "froot_storage_to_xfer",
+      "froot_xfer_to_froot",
+      "leaf_storage_to_xfer",
+      "leaf_xfer_to_leaf",
+      "livecroot_storage_to_xfer",
+      "livecroot_to_deadcroot",
+      "livecroot_xfer_to_livecroot",
+      "livestem_storage_to_xfer",
+      "livestem_to_deadstem",
+      "livestem_xfer_to_livestem",
+      "pool_to_deadcroot",
+      "pool_to_deadcroot_storage",
+      "pool_to_deadstem",
+      "pool_to_deadstem_storage",
+      "pool_to_froot",
+      "pool_to_froot_storage",
+      "pool_to_leaf_storage",
+      "pool_to_livecroot",
+      "pool_to_livecroot_storage",
+      "pool_to_livestem_storage"
+     ]
+    }
+   },
+   "unpack": [
+    "deadcroot_storage_to_xfer",
+    "deadcroot_xfer_to_deadcroot",
+    "deadstem_storage_to_xfer",
+    "deadstem_xfer_to_deadstem",
+    "froot_storage_to_xfer",
+    "froot_xfer_to_froot",
+    "leaf_storage_to_xfer",
+    "leaf_xfer_to_leaf",
+    "livecroot_storage_to_xfer",
+    "livecroot_to_deadcroot",
+    "livecroot_xfer_to_livecroot",
+    "livestem_storage_to_xfer",
+    "livestem_to_deadstem",
+    "livestem_xfer_to_livestem",
+    "pool_to_deadcroot",
+    "pool_to_deadcroot_storage",
+    "pool_to_deadstem",
+    "pool_to_deadstem_storage",
+    "pool_to_froot",
+    "pool_to_froot_storage",
+    "pool_to_leaf_storage",
+    "pool_to_livecroot",
+    "pool_to_livecroot_storage",
+    "pool_to_livestem_storage"
+   ],
+   "sites": 783
+  },
+  "vegetation_carbon_flux": {
+   "instances": [
+    "veg_cf",
+    "c13_veg_cf",
+    "c14_veg_cf"
+   ],
+   "embedded_in": {},
+   "classes": {
+    "1": {
+     "guard": "(.not.use_fates)",
+     "fields": [
+      "agnpp",
+      "agwdnpp",
+      "bgnpp",
+      "cinputs",
+      "coutputs",
+      "cpool_deadcroot_gr",
+      "cpool_deadcroot_storage_gr",
+      "cpool_deadstem_gr",
+      "cpool_deadstem_storage_gr",
+      "cpool_livecroot_gr",
+      "cpool_livecroot_storage_gr",
+      "cpool_livestem_gr",
+      "cpool_livestem_storage_gr",
+      "cpool_to_gresp_storage",
+      "cpool_to_xsmrpool",
+      "current_gr",
+      "froot_curmr",
+      "froot_mr",
+      "froot_xsmr",
+      "frootc_alloc",
+      "frootc_loss",
+      "gr",
+      "grain_curmr",
+      "grain_mr",
+      "grain_xsmr",
+      "gresp_storage_to_xfer",
+      "leaf_curmr",
+      "leaf_mr",
+      "leaf_xsmr",
+      "leafc_alloc",
+      "leafc_loss",
+      "livecroot_curmr",
+      "livecroot_mr",
+      "livecroot_xsmr",
+      "livestem_curmr",
+      "livestem_mr",
+      "livestem_xsmr",
+      "mr",
+      "psnshade_to_cpool",
+      "psnsun_to_cpool",
+      "storage_gr",
+      "transfer_deadcroot_gr",
+      "transfer_deadstem_gr",
+      "transfer_gr",
+      "transfer_livecroot_gr",
+      "transfer_livestem_gr",
+      "woodc_alloc",
+      "woodc_loss",
+      "xr",
+      "xsmrpool_turnover"
+     ]
+    },
+    "2": {
+     "guard": "(crop_prog)",
+     "fields": [
+      "xsmrpool_to_atm"
+     ]
+    }
+   },
+   "unpack": [
+    "agnpp",
+    "agwdnpp",
+    "bgnpp",
+    "cpool_deadcroot_gr",
+    "cpool_deadcroot_storage_gr",
+    "cpool_deadstem_gr",
+    "cpool_deadstem_storage_gr",
+    "cpool_livecroot_gr",
+    "cpool_livecroot_storage_gr",
+    "cpool_livestem_gr",
+    "cpool_livestem_storage_gr",
+    "cpool_to_gresp_storage",
+    "current_gr",
+    "froot_mr",
+    "frootc_alloc",
+    "frootc_loss",
+    "gr",
+    "gresp_storage_to_xfer",
+    "leaf_mr",
+    "leafc_alloc",
+    "leafc_loss",
+    "livecroot_mr",
+    "livestem_mr",
+    "mr",
+    "psnshade_to_cpool",
+    "psnsun_to_cpool",
+    "storage_gr",
+    "transfer_deadcroot_gr",
+    "transfer_deadstem_gr",
+    "transfer_gr",
+    "transfer_livecroot_gr",
+    "transfer_livestem_gr",
+    "woodc_alloc",
+    "woodc_loss",
+    "xr"
+   ],
+   "sites": 304
+  },
+  "vegetation_nitrogen_flux": {
+   "instances": [
+    "veg_nf"
+   ],
+   "embedded_in": {},
+   "classes": {
+    "1": {
+     "guard": null,
+     "fields": [
+      "fire_nloss_litter",
+      "gap_nloss_litter",
+      "hrv_nloss_litter",
+      "sen_nloss_litter"
+     ]
+    }
+   },
+   "unpack": [
+    "fire_nloss_litter",
+    "gap_nloss_litter",
+    "hrv_nloss_litter",
+    "sen_nloss_litter"
+   ],
+   "sites": 6
+  },
+  "vegetation_phosphorus_flux": {
+   "instances": [
+    "veg_pf"
+   ],
+   "embedded_in": {},
+   "classes": {
+    "1": {
+     "guard": null,
+     "fields": [
+      "fire_ploss_litter",
+      "gap_ploss_litter",
+      "hrv_ploss_litter",
+      "sen_ploss_litter"
+     ]
+    }
+   },
+   "unpack": [
+    "fire_ploss_litter",
+    "gap_ploss_litter",
+    "hrv_ploss_litter",
+    "sen_ploss_litter"
+   ],
+   "sites": 6
+  },
+  "vegetation_retrans_flux": {
+   "instances": [
+    "veg_nf",
+    "veg_pf"
+   ],
+   "embedded_in": {
+    "veg_nf": "retrans",
+    "veg_pf": "retrans"
+   },
+   "classes": {
+    "1": {
+     "guard": null,
+     "fields": [
+      "leaf_to_retrans",
+      "livecroot_to_retrans",
+      "livestem_to_retrans",
+      "retrans_to_pool"
+     ]
+    },
+    "2": {
+     "guard": "(crop_prog)",
+     "fields": [
+      "froot_to_retrans"
+     ]
+    }
+   },
+   "unpack": [
+    "leaf_to_retrans",
+    "livecroot_to_retrans",
+    "livestem_to_retrans",
+    "retrans_to_pool"
+   ],
+   "sites": 93
+  },
+  "vegetation_uptake_flux": {
+   "instances": [
+    "veg_nf",
+    "veg_pf"
+   ],
+   "embedded_in": {
+    "veg_nf": "uptake",
+    "veg_pf": "uptake"
+   },
+   "classes": {
+    "1": {
+     "guard": null,
+     "fields": [
+      "pool_deploy"
+     ]
+    }
+   },
+   "unpack": [
+    "pool_deploy"
+   ],
+   "sites": 2
+  }
+ },
+ "files": [
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/AllocationMod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/CH4Mod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/CarbonIsoFluxMod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/CarbonStateUpdate1Mod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/GrowthRespMod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/MaintenanceRespMod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/NitrogenStateUpdate1Mod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/PhenologyFluxLimitMod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/PhenologyMod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/PhosphorusStateUpdate1Mod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/RootDynamicsMod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/data_types/ColumnFluxTypes.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/data_types/NutrientFluxType.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/data_types/VegetationFluxTypes.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/main/decompMod.F90",
+  "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/main/elm_driver.F90"
+ ],
+ "nutrient": {
+  "spel_commit": "d30ed11a8a9317f1ae6eec450f8744da9808859c",
+  "e3sm": {
+   "commit": "34887d2ab60889ac216c4640279356c39fbf4e6b",
+   "branch": "peterdschwartz/lnd/gpu-refactor-nutrient-types"
+  }
+ }
+}
