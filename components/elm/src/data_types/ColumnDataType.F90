@@ -255,16 +255,23 @@ module ColumnDataType
   !-----------------------------------------------------------------------
   ! Define the data structure that holds nitrogen state information at the column level.
   !-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  ! mineral: fields of column_nitrogen_state, column_phosphorus_state
+  !-----------------------------------------------------------------------
+  type, public :: column_mineral_state
+    real(r8), pointer :: smin                    (:)     => null() ! (g/m2) soil mineral nutrient
+    real(r8), pointer :: smin_vr                 (:,:)   => null() ! (g/m3) vertically-resolved soil mineral nutrient
+  end type column_mineral_state
+
   type, public :: column_nitrogen_state
+    type(column_mineral_state) :: mineral  ! mineral fields of the N/P types
     type(column_nutrient_state) :: core  ! fields common to the C/N/P types
-    real(r8), pointer :: sminn_vr                 (:,:)   => null() ! (gN/m3) vertically-resolved soil mineral N
     real(r8), pointer :: smin_no3_vr              (:,:)   => null() ! (gN/m3) vertically-resolved soil mineral NO3
     real(r8), pointer :: smin_nh4_vr              (:,:)   => null() ! (gN/m3) vertically-resolved soil mineral NH4
     real(r8), pointer :: smin_nh4sorb_vr          (:,:)   => null() ! (gN/m3) vertically-resolved soil mineral NH4 absorbed
     real(r8), pointer :: smin_no3                 (:)     => null() ! (gN/m2) soil mineral NO3 pool
     real(r8), pointer :: smin_nh4                 (:)     => null() ! (gN/m2) soil mineral NH4 pool
     real(r8), pointer :: smin_nh4sorb             (:)     => null() ! (gN/m2) soil mineral NH4 pool absorbed
-    real(r8), pointer :: sminn                    (:)     => null() ! (gN/m2) soil mineral N
     real(r8), pointer :: totabgn                  (:)     => null() ! (gN/m2)
     real(r8), pointer :: totblgn                  (:)     => null() ! (gN/m2) total below ground nitrogen
     real(r8), pointer :: plant_n_buffer           (:)     => null() ! (gN/m2) col-level abstract N storage
@@ -316,14 +323,13 @@ module ColumnDataType
   ! Define the data structure that holds phosphorus state information at the column level.
   !-----------------------------------------------------------------------
   type, public :: column_phosphorus_state
+    type(column_mineral_state) :: mineral  ! mineral fields of the N/P types
     type(column_nutrient_state) :: core  ! fields common to the C/N/P types
     real(r8), pointer :: solutionp_vr             (:,:)    => null() ! (gP/m3) vertically-resolved soil solution P
     real(r8), pointer :: labilep_vr               (:,:)    => null() ! (gP/m3) vertically-resolved soil labile mineral P
     real(r8), pointer :: secondp_vr               (:,:)    => null() ! (gP/m3) vertically-resolved soil secondary mineralP
     real(r8), pointer :: occlp_vr                 (:,:)    => null() ! (gP/m3) vertically-resolved soil occluded mineral P
     real(r8), pointer :: primp_vr                 (:,:)    => null() ! (gP/m3) vertically-resolved soil parimary mineral P
-    real(r8), pointer :: sminp_vr                 (:,:)    => null() ! (gP/m3) vertically-resolved soil parimary mineral P
-    real(r8), pointer :: sminp                    (:)      => null() ! (gP/m2) soil mineral P
     real(r8), pointer :: solutionp                (:)      => null() ! (gP/m2) soil solution P
     real(r8), pointer :: labilep                  (:)      => null() ! (gP/m2) soil labile mineral P
     real(r8), pointer :: secondp                  (:)      => null() ! (gP/m2) soil secondary mineralP
@@ -644,14 +650,48 @@ module ColumnDataType
   !-----------------------------------------------------------------------
   ! Define the data structure that holds nitrogen flux information at the column level.
   !-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  ! mineral: fields of column_nitrogen_flux, column_phosphorus_flux
+  !-----------------------------------------------------------------------
+  type, public :: column_mineral_flux
+    real(r8), pointer :: dep_to_smin                         (:)     => null() ! atmospheric nutrient deposition to soil mineral nutrient (g/m2/s)
+    real(r8), pointer :: decomp_cascade_smin_flux_vr          (:,:,:) => null() ! vert-res mineral nutrient flux for transition along decomposition cascade (g/m3/s)
+    real(r8), pointer :: decomp_cascade_smin_flux             (:,:)   => null() ! vert-int (diagnostic) mineral nutrient flux for transition along decomposition cascade (g/m2/s)
+    real(r8), pointer :: supplement_to_smin_vr                (:,:)   => null() ! vertically-resolved supplemental nutrient supply (g/m3/s)
+    real(r8), pointer :: supplement_to_smin                   (:)     => null() ! vert-int (diagnostic) supplemental nutrient supply (g/m2/s)
+    real(r8), pointer :: gross_min_vr                         (:,:)   => null() ! vertically-resolved gross rate of nutrient mineralization (g/m3/s)
+    real(r8), pointer :: gross_min                            (:)     => null() ! vert-int (diagnostic) gross rate of nutrient mineralization (g/m2/s)
+    real(r8), pointer :: net_min_vr                           (:,:)   => null() ! vertically-resolved net rate of nutrient mineralization (g/m3/s)
+    real(r8), pointer :: net_min                              (:)     => null() ! vert-int (diagnostic) net rate of nutrient mineralization (g/m2/s)
+    real(r8), pointer :: smin_leached_vr                      (:,:)   => null() ! vertically-resolved soil mineral nutrient pool loss to leaching (g/m3/s)
+    real(r8), pointer :: smin_leached                         (:)     => null() ! soil mineral nutrient pool loss to leaching (g/m2/s)
+    real(r8), pointer :: pmf_decomp_cascade                   (:,:,:) => null() ! potential mineral nutrient flux, from one pool to another
+    real(r8), pointer :: soil_immob_flux                     (:)     => null() ! for the purpose of mass balance check
+    real(r8), pointer :: soil_immob_flux_vr                  (:,:)   => null() ! for the purpose of mass balance check
+    real(r8), pointer :: soil_grossmin_flux                  (:)     => null() ! for the purpose of mass balance check
+  end type column_mineral_flux
+
+  !-----------------------------------------------------------------------
+  ! uptake: fields of column_nitrogen_flux, column_phosphorus_flux
+  !-----------------------------------------------------------------------
+  type, public :: column_uptake_flux
+    real(r8), pointer :: plant_demand                         (:)     => null() ! nutrient flux required to support initial gpp (g/m2/s)
+    real(r8), pointer :: plant_demand_vr                      (:,:)   => null() ! vertically-resolved nutrient flux required to support initial gpp (g/m3/s)
+    real(r8), pointer :: col_plant_demand_vr                  (:,:)   => null() ! plant nutrient demand
+    real(r8), pointer :: smin_to_plant_vr                     (:,:)   => null() ! vertically-resolved plant uptake of soil mineral nutrient (g/m3/s)
+    real(r8), pointer :: smin_to_plant                        (:)     => null() ! vert-int (diagnostic) plant uptake of soil mineral nutrient (g/m2/s)
+    real(r8), pointer :: plant_uptake_flux                   (:)     => null() ! for the purpose of mass balance check
+  end type column_uptake_flux
+
   type, public :: column_nitrogen_flux
+    type(column_mineral_flux) :: mineral  ! mineral fields of the N/P types
+    type(column_uptake_flux) :: uptake  ! uptake fields of the N/P types
     type(column_nutrient_flux) :: core  ! fields common to the C/N/P types
     ! harvest fluxes
     ! fire N fluxes
     ! soil erosion fluxes
     ! summary (diagnostic) flux variables, not involved in mass balance
     ! deposition fluxes
-    real(r8), pointer :: ndep_to_sminn                         (:)     => null() ! atmospheric N deposition to soil mineral N (gN/m2/s)
     real(r8), pointer :: ndep_to_sminn_nh3                     (:)     => null() ! atmospheric N depsotion to soil mineral NH3 (gN/m2/s)
     real(r8), pointer :: ndep_to_sminn_no3                     (:)     => null() ! atmospheric N depsotion to soil mineral NO3 (gN/m2/s)
     real(r8), pointer :: nfix_to_sminn                         (:)     => null() ! symbiotic/asymbiotic N fixation to soil mineral N (gN/m2/s)
@@ -661,21 +701,11 @@ module ColumnDataType
     ! phenology: litterfall and crop fluxes
     ! gap mortality fluxes
     ! decomposition fluxes
-    real(r8), pointer :: decomp_cascade_sminn_flux_vr          (:,:,:) => null() ! vert-res mineral N flux for transition along decomposition cascade (gN/m3/s)
-    real(r8), pointer :: decomp_cascade_sminn_flux             (:,:)   => null() ! vert-int (diagnostic) mineral N flux for transition along decomposition cascade (gN/m2/s)
     ! vertically-resolved immobilization fluxes
     real(r8), pointer :: potential_immob_vr                    (:,:)   => null() ! vertically-resolved potential N immobilization (gN/m3/s) at each level
     real(r8), pointer :: potential_immob                       (:)     => null() ! vert-int (diagnostic) potential N immobilization (gN/m2/s)
     real(r8), pointer :: actual_immob_vr                       (:,:)   => null() ! vertically-resolved actual N immobilization (gN/m3/s) at each level
     real(r8), pointer :: actual_immob                          (:)     => null() ! vert-int (diagnostic) actual N immobilization (gN/m2/s)
-    real(r8), pointer :: sminn_to_plant_vr                     (:,:)   => null() ! vertically-resolved plant uptake of soil mineral N (gN/m3/s)
-    real(r8), pointer :: sminn_to_plant                        (:)     => null() ! vert-int (diagnostic) plant uptake of soil mineral N (gN/m2/s)
-    real(r8), pointer :: supplement_to_sminn_vr                (:,:)   => null() ! vertically-resolved supplemental N supply (gN/m3/s)
-    real(r8), pointer :: supplement_to_sminn                   (:)     => null() ! vert-int (diagnostic) supplemental N supply (gN/m2/s)
-    real(r8), pointer :: gross_nmin_vr                         (:,:)   => null() ! vertically-resolved gross rate of N mineralization (gN/m3/s)
-    real(r8), pointer :: gross_nmin                            (:)     => null() ! vert-int (diagnostic) gross rate of N mineralization (gN/m2/s)
-    real(r8), pointer :: net_nmin_vr                           (:,:)   => null() ! vertically-resolved net rate of N mineralization (gN/m3/s)
-    real(r8), pointer :: net_nmin                              (:)     => null() ! vert-int (diagnostic) net rate of N mineralization (gN/m2/s)
     real(r8), pointer :: sminn_no3_input_vr                    (:,:)   => null() ! no3 input, gN/m3/time step
     real(r8), pointer :: sminn_nh4_input_vr                    (:,:)   => null() ! nh4 input, gN/m3/time step
     real(r8), pointer :: sminn_no3_input                       (:)     => null() ! no3 input, gN/m2
@@ -739,16 +769,12 @@ module ColumnDataType
     real(r8), pointer :: sminn_to_denit_excess_vr              (:,:)   => null() ! vertically-resolved denitrification from excess mineral N pool (gN/m3/s)
     real(r8), pointer :: sminn_to_denit_excess                 (:)     => null() ! vertically-integrated (diagnostic) denitrification from excess mineral N pool (gN/m2/s)
     ! (old version) leaching fluxes
-    real(r8), pointer :: sminn_leached_vr                      (:,:)   => null() ! vertically-resolved soil mineral N pool loss to leaching (gN/m3/s)
-    real(r8), pointer :: sminn_leached                         (:)     => null() ! soil mineral N pool loss to leaching (gN/m2/s)
     ! dynamic landcover fluxes
     ! wood product pool loss fluxes
     ! summary (diagnostic) flux variables, not involved in mass balance
     real(r8), pointer :: denit                                 (:)     => null() ! total rate of denitrification (gN/m2/s)
     ! all n pools involved in decomposition
     ! bgc interface/pflotran
-    real(r8), pointer :: plant_ndemand                         (:)     => null() ! N flux required to support initial GPP (gN/m2/s)
-    real(r8), pointer :: plant_ndemand_vr                      (:,:)   => null() ! vertically-resolved N flux required to support initial GPP (gN/m3/s)
     real(r8), pointer :: f_ngas_decomp_vr                      (:,:)   => null() ! vertically-resolved N emission from excess mineral N pool due to mineralization (gN/m3/s)
     real(r8), pointer :: f_ngas_decomp                         (:)     => null() ! N emission from excess mineral N pool due to mineralization (gN/m2/s)
     real(r8), pointer :: f_ngas_nitri_vr                       (:,:)   => null() ! vertically-resolved N emission from nitrification (gN/m3/s)
@@ -761,14 +787,8 @@ module ColumnDataType
     real(r8), pointer :: f_n2_soil                             (:)     => null() ! flux of N2 from soil-N processes [gN/m^2/s]
     real(r8), pointer :: no3_net_transport_vr                  (:,:)   => null() ! net NO3 transport associated with runoff/leaching/diffusion (gN/m3/s)
     real(r8), pointer :: nh4_net_transport_vr                  (:,:)   => null() ! net NH4 transport associated with runoff/leaching/diffusion (gN/m3/s)
-    real(r8), pointer :: col_plant_ndemand_vr                  (:,:)   => null() ! plant N demand
     real(r8), pointer :: col_plant_nh4demand_vr                (:,:)   => null() ! plant NH4 demand
     real(r8), pointer :: col_plant_no3demand_vr                (:,:)   => null() ! plant NO3 demand
-    real(r8), pointer :: pmnf_decomp_cascade                   (:,:,:) => null() ! potential mineral N flux, from one pool to another
-    real(r8), pointer :: plant_n_uptake_flux                   (:)     => null() ! for the purpose of mass balance check
-    real(r8), pointer :: soil_n_immob_flux                     (:)     => null() ! for the purpose of mass balance check
-    real(r8), pointer :: soil_n_immob_flux_vr                  (:,:)   => null() ! for the purpose of mass balance check
-    real(r8), pointer :: soil_n_grossmin_flux                  (:)     => null() ! for the purpose of mass balance check
     ! C4MIP output variable
        real(r8), pointer :: plant_n_to_cwdn                      (:)     => null() ! sum of gap, fire, dynamic land use, and harvest mort
     ! FAN
@@ -814,24 +834,15 @@ module ColumnDataType
   ! Define the data structure that holds phosphorus flux information at the column level.
   !-----------------------------------------------------------------------
   type, public :: column_phosphorus_flux
+    type(column_mineral_flux) :: mineral  ! mineral fields of the N/P types
+    type(column_uptake_flux) :: uptake  ! uptake fields of the N/P types
     type(column_nutrient_flux) :: core  ! fields common to the C/N/P types
-    real(r8), pointer :: pdep_to_sminp                         (:)     => null() ! atmospheric P deposition to soil mineral P (gP/m2/s)
     real(r8), pointer :: fert_p_to_sminp                       (:)     => null() ! fertilizer P to soil mineral P (gP/m2/s)
-    real(r8), pointer :: decomp_cascade_sminp_flux_vr          (:,:,:) => null() ! vert-res mineral P flux for transition along decomposition cascade (gP/m3/s)
-    real(r8), pointer :: decomp_cascade_sminp_flux             (:,:)   => null() ! vert-int (diagnostic) mineral P flux for transition along decomposition cascade (gP/m2/s)
     real(r8), pointer :: potential_immob_p_vr                  (:,:)   => null() ! vertically-resolved potential P immobilization (gP/m3/s) at each level
     real(r8), pointer :: potential_immob_p                     (:)     => null() ! vert-int (diagnostic) potential P immobilization (gP/m2/s)
     real(r8), pointer :: actual_immob_p_vr                     (:,:)   => null() ! vertically-resolved actual P immobilization (gP/m3/s) at each level
     real(r8), pointer :: actual_immob_p                        (:)     => null() ! vert-int (diagnostic) actual P immobilization (gP/m2/s)
-    real(r8), pointer :: sminp_to_plant_vr                     (:,:)   => null() ! vertically-resolved plant uptake of soil mineral P (gP/m3/s)
-    real(r8), pointer :: sminp_to_plant                        (:)     => null() ! vert-int (diagnostic) plant uptake of soil mineral P (gP/m2/s)
     real(r8), pointer :: net_mineralization_p_vr               (:,:)   => null() 
-    real(r8), pointer :: supplement_to_sminp_vr                (:,:)   =>null() ! vertically-resolved supplemental P supply (gP/m3/s)
-    real(r8), pointer :: supplement_to_sminp                   (:)     =>null() ! vert-int (diagnostic) supplemental P supply (gP/m2/s)
-    real(r8), pointer :: gross_pmin_vr                         (:,:)   =>null() ! vertically-resolved gross rate of P mineralization (gP/m3/s)
-    real(r8), pointer :: gross_pmin                            (:)     =>null() ! vert-int (diagnostic) gross rate of P mineralization (gP/m2/s)
-    real(r8), pointer :: net_pmin_vr                           (:,:)   =>null() ! vertically-resolved net rate of P mineralization (gP/m3/s)
-    real(r8), pointer :: net_pmin                              (:)     =>null() ! vert-int (diagnostic) net rate of P mineralization (gP/m2/s)
     real(r8), pointer :: biochem_pmin_ppools_vr                (:,:,:) =>null() ! vertically-resolved biochemical P mineralization for each soi pool (gP/m3/s)
     real(r8), pointer :: biochem_pmin_vr                       (:,:)   =>null() ! vertically-resolved total biochemical P mineralization (gP/m3/s)
     real(r8), pointer :: biochem_pmin_to_ecosysp_vr            (:,:)   =>null() ! biochemical P mineralization directly goes to soil (gP/m3/s)
@@ -845,8 +856,6 @@ module ColumnDataType
     real(r8), pointer :: secondp_to_labilep                    (:)     =>null() ! (gP/m3/s) flux of the desorption of secondary mineral P to labile P
     real(r8), pointer :: secondp_to_occlp_vr                   (:,:)   =>null() ! (gP/m3/s) flux of the occlusion of secondary P to occluded P
     real(r8), pointer :: secondp_to_occlp                      (:)     =>null() ! (gP/m3/s) flux of the occlusion of secondary P to occluded P
-    real(r8), pointer :: sminp_leached_vr                      (:,:)   =>null() ! vertically-resolved soil mineral P pool loss to leaching (gP/m3/s)
-    real(r8), pointer :: sminp_leached                         (:)     =>null() ! soil mineral P pool loss to leaching (gP/m2/s)
     real(r8), pointer :: sminp_runoff                          (:)     => null()
     real(r8), pointer :: labilep_erode                         (:)     =>null() ! soil labile mineral P detachment (gP/m^2/s)
     real(r8), pointer :: labilep_deposit                       (:)     =>null() ! soil labile mineral P hillslope redeposition (gP/m^2/s)
@@ -864,20 +873,12 @@ module ColumnDataType
     real(r8), pointer :: secondp_yield_vr                      (:,:)   =>null() ! vertically-resolved secondary mineral P loss to inland waters (gP/m^3/s)
     real(r8), pointer :: occlp_yield_vr                        (:,:)   =>null() ! vertically-resolved occluded mineral P loss to inland waters (gP/m^3/s)
     real(r8), pointer :: primp_yield_vr                        (:,:)   =>null() ! vertically-resolved primary mineral P loss to inland waters (gP/m^3/s)
-    real(r8), pointer :: plant_pdemand                         (:)     => null() ! P flux required to support initial GPP (gN/m2/s)
-    real(r8), pointer :: plant_pdemand_vr                      (:,:)   => null() ! vertically-resolved P flux required to support initial GPP (gP/m3/s)
     real(r8), pointer :: sminp_net_transport_vr                (:,:)   => null() ! net sminp transport associated with runoff/leaching (gP/m3/s)
     real(r8), pointer :: sminp_net_transport_delta             (:)     => null() ! summarized net change of column-level sminp leaching bwtn time-step (for balance checking) (gP/m2)
     real(r8), pointer :: adsorb_to_labilep_vr                  (:,:)   => null()
     real(r8), pointer :: desorb_to_solutionp_vr                (:,:)   => null()
     real(r8), pointer :: adsorb_to_labilep                     (:)     => null()
     real(r8), pointer :: desorb_to_solutionp                   (:)     => null()
-    real(r8), pointer :: pmpf_decomp_cascade                   (:,:,:) => null()
-    real(r8), pointer :: plant_p_uptake_flux                   (:)     => null() ! for the purpose of mass balance check
-    real(r8), pointer :: col_plant_pdemand_vr                  (:,:)   => null() ! plant P demand
-    real(r8), pointer :: soil_p_immob_flux                     (:)   => null()  ! for the purpose of mass balance check
-    real(r8), pointer :: soil_p_immob_flux_vr                  (:,:) => null()  ! for the purpose of mass balance check
-    real(r8), pointer :: soil_p_grossmin_flux                  (:)   => null()  ! for the purpose of mass balance check
     real(r8), pointer :: smin_p_to_plant                       (:)   => null()  ! for the purpose of mass balance check
   contains
     procedure, public :: Init       => col_pf_init
@@ -3170,7 +3171,7 @@ contains
     this%core%species = CN_SPECIES_N
     allocate(this%core%decomp_pools_vr      (begc:endc,1:nlevdecomp_full,1:ndecomp_pools)) ; this%core%decomp_pools_vr(:,:,:) = spval
     allocate(this%core%trunc_sink_vr             (begc:endc,1:nlevdecomp_full))   ; this%core%trunc_sink_vr             (:,:) = spval
-    allocate(this%sminn_vr              (begc:endc,1:nlevdecomp_full))   ; this%sminn_vr              (:,:) = spval
+    allocate(this%mineral%smin_vr              (begc:endc,1:nlevdecomp_full))   ; this%mineral%smin_vr              (:,:) = spval
     allocate(this%smin_no3_vr           (begc:endc,1:nlevdecomp_full))   ; this%smin_no3_vr           (:,:) = spval
     allocate(this%smin_nh4_vr           (begc:endc,1:nlevdecomp_full))   ; this%smin_nh4_vr           (:,:) = spval
     allocate(this%smin_nh4sorb_vr       (begc:endc,1:nlevdecomp_full))   ; this%smin_nh4sorb_vr       (:,:) = spval
@@ -3179,7 +3180,7 @@ contains
     allocate(this%smin_no3              (begc:endc))                     ; this%smin_no3              (:)   = spval
     allocate(this%smin_nh4              (begc:endc))                     ; this%smin_nh4              (:)   = spval
     allocate(this%smin_nh4sorb          (begc:endc))                     ; this%smin_nh4sorb          (:)   = spval
-    allocate(this%sminn                 (begc:endc))                     ; this%sminn                 (:)   = spval
+    allocate(this%mineral%smin                 (begc:endc))                     ; this%mineral%smin                 (:)   = spval
     allocate(this%core%trunc_sink                (begc:endc))                     ; this%core%trunc_sink                (:)   = spval
     allocate(this%core%cwd                  (begc:endc))                     ; this%core%cwd                  (:)   = spval
     allocate(this%core%totlit               (begc:endc))                     ; this%core%totlit               (:)   = spval
@@ -3290,10 +3291,10 @@ contains
 
     if ( nlevdecomp_full > 1 ) then
 
-       this%sminn(begc:endc) = spval
+       this%mineral%smin(begc:endc) = spval
         call hist_addfld1d (fname='SMINN', units='gN/m^2', &
              avgflag='A', long_name='soil mineral N', &
-              ptr_col=this%sminn)
+              ptr_col=this%mineral%smin)
 
        this%core%totlit_1m(begc:endc) = spval
         call hist_addfld1d (fname='TOTLITN_1m', units='gN/m^2', &
@@ -3356,10 +3357,10 @@ contains
        end if
     end if
 
-    this%sminn_vr(begc:endc,:) = spval
+    this%mineral%smin_vr(begc:endc,:) = spval
     call hist_addfld_decomp (fname='SMINN'//trim(vr_suffix), units='gN/m^3',  type2d='levdcmp', &
          avgflag='A', long_name='soil mineral N', &
-         ptr_col=this%sminn_vr, default = 'inactive')
+         ptr_col=this%mineral%smin_vr, default = 'inactive')
 
 
 
@@ -3536,12 +3537,12 @@ contains
 
           ! column nitrogen state variables
           this%core%trunc_sink(c) = 0._r8
-          this%sminn(c) = 0._r8
+          this%mineral%smin(c) = 0._r8
           do j = 1, nlevdecomp
              do k = 1, ndecomp_pools
                 this%core%decomp_pools_vr(c,j,k) = col_cs%core%decomp_pools_vr(c,j,k) / decomp_cascade_con%initial_cn_ratio(k)
              end do
-             this%sminn_vr(c,j) = 0._r8
+             this%mineral%smin_vr(c,j) = 0._r8
              this%core%trunc_sink_vr(c,j) = 0._r8
           end do
           if ( nlevdecomp > 1 ) then
@@ -3549,7 +3550,7 @@ contains
                 do k = 1, ndecomp_pools
                    this%core%decomp_pools_vr(c,j,k) = 0._r8
                 end do
-                this%sminn_vr(c,j) = 0._r8
+                this%mineral%smin_vr(c,j) = 0._r8
                 this%core%trunc_sink_vr(c,j) = 0._r8
              end do
           end if
@@ -3679,13 +3680,13 @@ contains
 
     ! sminn
     if (use_vertsoilc) then
-       ptr2d => this%sminn_vr
+       ptr2d => this%mineral%smin_vr
        call restartvar(ncid=ncid, flag=flag, varname="sminn_vr", xtype=ncd_double,  &
             dim1name='column', dim2name='levgrnd', switchdim=.true., &
             long_name='',  units='', fill_value=spval, &
             interpinic_flag='interp', readvar=readvar, data=ptr2d)
     else
-       ptr1d => this%sminn_vr(:,1)
+       ptr1d => this%mineral%smin_vr(:,1)
        call restartvar(ncid=ncid, flag=flag, varname="sminn", xtype=ncd_double,  &
             dim1name='column', &
             long_name='',  units='', fill_value=spval, &
@@ -3791,12 +3792,12 @@ contains
     ! Set the integrated sminn based on sminn_vr, as is done in CNSummaryMod (this may
     ! not be the most appropriate method or place to do this)
 
-    this%sminn(bounds%begc:bounds%endc) = 0._r8
+    this%mineral%smin(bounds%begc:bounds%endc) = 0._r8
     do j = 1, nlevdecomp
        do c = bounds%begc, bounds%endc
-          this%sminn(c) = &
-               this%sminn(c) + &
-               this%sminn_vr(c,j) * dzsoi_decomp(j)
+          this%mineral%smin(c) = &
+               this%mineral%smin(c) + &
+               this%mineral%smin_vr(c,j) * dzsoi_decomp(j)
        end do
     end do
 
@@ -4094,7 +4095,7 @@ contains
     do fi = 1,num_column
        i = filter_column(fi)
 
-       this%sminn(i)       = value_column
+       this%mineral%smin(i)       = value_column
        this%smin_no3(i) = value_column
        this%smin_nh4(i) = value_column
        if(use_pflotran .and. pf_cmode) then
@@ -4131,7 +4132,7 @@ contains
     do j = 1,nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)
-          this%sminn_vr(i,j)       = value_column
+          this%mineral%smin_vr(i,j)       = value_column
           this%smin_no3_vr(i,j) = value_column
           this%smin_nh4_vr(i,j) = value_column
           if(use_pflotran .and. pf_cmode) then
@@ -4321,14 +4322,14 @@ contains
     ! total sminn
     do fc = 1,num_soilc
        c = filter_soilc(fc)
-       this%sminn(c)      = 0._r8
+       this%mineral%smin(c)      = 0._r8
     end do
     do j = 1, nlev
        do fc = 1,num_soilc
           c = filter_soilc(fc)
-          this%sminn(c) = &
-               this%sminn(c) + &
-               this%sminn_vr(c,j) * dzsoi_decomp(j)
+          this%mineral%smin(c) = &
+               this%mineral%smin(c) + &
+               this%mineral%smin_vr(c,j) * dzsoi_decomp(j)
        end do
     end do
 
@@ -4360,7 +4361,7 @@ contains
             this%core%cwd(c) + &
             this%core%totlit(c) + &
             this%core%totsom(c) + &
-            this%sminn(c) + &
+            this%mineral%smin(c) + &
             this%core%totprod(c) + &
             this%core%totveg(c)
 
@@ -4372,7 +4373,7 @@ contains
             this%core%cwd(c) + &
             this%core%totlit(c) + &
             this%core%totsom(c) + &
-            this%sminn(c) + &
+            this%mineral%smin(c) + &
             this%core%totprod(c) + &
             this%core%trunc_sink(c)+ &
             this%plant_n_buffer(c) + &
@@ -4394,7 +4395,7 @@ contains
             this%core%cwd(c) + &
             this%core%totlit(c) + &
             this%core%totsom(c) + &
-            this%sminn(c)
+            this%mineral%smin(c)
     end do
 
   end subroutine col_ns_summary
@@ -4470,14 +4471,14 @@ contains
     allocate(this%secondp_vr           (begc:endc,1:nlevdecomp_full)) ; this%secondp_vr           (:,:) = spval
     allocate(this%occlp_vr             (begc:endc,1:nlevdecomp_full)) ; this%occlp_vr             (:,:) = spval
     allocate(this%primp_vr             (begc:endc,1:nlevdecomp_full)) ; this%primp_vr             (:,:) = spval
-    allocate(this%sminp_vr             (begc:endc,1:nlevdecomp_full)) ; this%sminp_vr             (:,:) = spval
+    allocate(this%mineral%smin_vr             (begc:endc,1:nlevdecomp_full)) ; this%mineral%smin_vr             (:,:) = spval
     allocate(this%solutionp            (begc:endc))                   ; this%solutionp            (:)   = spval
     allocate(this%labilep              (begc:endc))                   ; this%labilep              (:)   = spval
     allocate(this%secondp              (begc:endc))                   ; this%secondp              (:)   = spval
     allocate(this%occlp                (begc:endc))                   ; this%occlp                (:)   = spval
     allocate(this%primp                (begc:endc))                   ; this%primp                (:)   = spval
     allocate(this%core%cwd                 (begc:endc))                   ; this%core%cwd                 (:)   = spval
-    allocate(this%sminp                (begc:endc))                   ; this%sminp                (:)   = spval
+    allocate(this%mineral%smin                (begc:endc))                   ; this%mineral%smin                (:)   = spval
     allocate(this%core%trunc_sink               (begc:endc))                   ; this%core%trunc_sink               (:)   = spval
     allocate(this%core%seed                (begc:endc))                   ; this%core%seed                (:)   = spval
     allocate(this%core%prod1               (begc:endc))                   ; this%core%prod1               (:)   = spval
@@ -4570,10 +4571,10 @@ contains
 
     if ( nlevdecomp_full > 1 ) then
 
-       this%sminp(begc:endc) = spval
+       this%mineral%smin(begc:endc) = spval
         call hist_addfld1d (fname='SMINP', units='gP/m^2', &
              avgflag='A', long_name='soil mineral P', &
-              ptr_col=this%sminp)
+              ptr_col=this%mineral%smin)
 
        this%core%totlit_1m(begc:endc) = spval
         call hist_addfld1d (fname='TOTLITP_1m', units='gP/m^2', &
@@ -4623,10 +4624,10 @@ contains
           avgflag='A', long_name='soil primary P (vert. res.)', &
            ptr_col=this%primp_vr)
 
-    this%sminp_vr(begc:endc,:) = spval
+    this%mineral%smin_vr(begc:endc,:) = spval
      call hist_addfld_decomp (fname='SMINP'//trim(vr_suffix), units='gp/m^3',  type2d='levdcmp', &
           avgflag='A', long_name='soil mineral P (vert. res.)', &
-           ptr_col=this%sminp_vr)
+           ptr_col=this%mineral%smin_vr)
 
     if ( nlevdecomp_full > 1 ) then
 
@@ -4719,12 +4720,12 @@ contains
 
           ! column phosphorus state variables
           this%core%trunc_sink(c) = 0._r8
-          this%sminp(c) = 0._r8
+          this%mineral%smin(c) = 0._r8
           do j = 1, nlevdecomp
              do k = 1, ndecomp_pools
                 this%core%decomp_pools_vr(c,j,k) = col_cs%core%decomp_pools_vr(c,j,k) / decomp_cascade_con%initial_cp_ratio(k)
              end do
-             this%sminp_vr(c,j) = 0._r8
+             this%mineral%smin_vr(c,j) = 0._r8
              this%core%trunc_sink_vr(c,j) = 0._r8
           end do
           if ( nlevdecomp > 1 ) then
@@ -4732,7 +4733,7 @@ contains
                 do k = 1, ndecomp_pools
                    this%core%decomp_pools_vr(c,j,k) = 0._r8
                 end do
-                this%sminp_vr(c,j) = 0._r8
+                this%mineral%smin_vr(c,j) = 0._r8
                 this%core%trunc_sink_vr(c,j) = 0._r8
              end do
           end if
@@ -4747,7 +4748,7 @@ contains
              this%secondp_vr(c,j)   = 0._r8
              this%occlp_vr(c,j)     = 0._r8
              this%primp_vr(c,j)     = 0._r8
-             this%sminp_vr(c,j) = 0._r8
+             this%mineral%smin_vr(c,j) = 0._r8
           end do
           this%solutionp(c) = 0._r8
           this%labilep(c)   = 0._r8
@@ -5138,7 +5139,7 @@ contains
     do fi = 1,num_column
        i = filter_column(fi)
 
-       this%sminp(i)       = value_column
+       this%mineral%smin(i)       = value_column
        this%solutionp(i)   = value_column
        this%labilep(i)     = value_column
        this%secondp(i)     = value_column
@@ -5149,7 +5150,7 @@ contains
     do j = 1,nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)
-          this%sminp_vr(i,j)       = value_column
+          this%mineral%smin_vr(i,j)       = value_column
           this%solutionp_vr(i,j)   = value_column
           this%labilep_vr(i,j)     = value_column
           this%secondp_vr(i,j)     = value_column
@@ -5336,12 +5337,12 @@ contains
    ! total sminp
    do fc = 1,num_soilc
       c = filter_soilc(fc)
-      this%sminp(c)      = 0._r8
+      this%mineral%smin(c)      = 0._r8
    end do
    do j = 1, nlevdecomp
       do fc = 1,num_soilc
          c = filter_soilc(fc)
-         this%sminp_vr(c,j) = this%solutionp_vr(c,j) + &
+         this%mineral%smin_vr(c,j) = this%solutionp_vr(c,j) + &
                                   this%labilep_vr(c,j) + &
                                   this%secondp_vr(c,j)
       end do
@@ -5349,8 +5350,8 @@ contains
    do j = 1, nlevdecomp
       do fc = 1,num_soilc
          c = filter_soilc(fc)
-         this%sminp(c) =  this%sminp(c) + &
-         this%sminp_vr(c,j) * dzsoi_decomp(j)
+         this%mineral%smin(c) =  this%mineral%smin(c) + &
+         this%mineral%smin_vr(c,j) * dzsoi_decomp(j)
       end do
    end do
 
@@ -8267,7 +8268,7 @@ contains
     ! allocate for each member of col_nf
     !-----------------------------------------------------------------------
     this%core%species = CN_SPECIES_N
-    allocate(this%ndep_to_sminn                   (begc:endc))                   ; this%ndep_to_sminn	                 (:)   = spval
+    allocate(this%mineral%dep_to_smin                   (begc:endc))                   ; this%mineral%dep_to_smin	                 (:)   = spval
     allocate(this%ndep_to_sminn_nh3               (begc:endc))                   ; this%ndep_to_sminn_nh3                (:)   = spval
     allocate(this%ndep_to_sminn_no3               (begc:endc))                   ; this%ndep_to_sminn_no3                (:)   = spval
     allocate(this%nfix_to_sminn                   (begc:endc))                   ; this%nfix_to_sminn	                 (:)   = spval
@@ -8278,13 +8279,13 @@ contains
     allocate(this%core%hrv_deadstem_to_prod10        (begc:endc))                   ; this%core%hrv_deadstem_to_prod10       (:)   = spval
     allocate(this%core%hrv_deadstem_to_prod100       (begc:endc))                   ; this%core%hrv_deadstem_to_prod100      (:)   = spval
     allocate(this%core%hrv_crop_to_prod1             (begc:endc))                   ; this%core%hrv_crop_to_prod1            (:)   = spval
-    allocate(this%sminn_to_plant                  (begc:endc))                   ; this%sminn_to_plant	               (:)   = spval
+    allocate(this%uptake%smin_to_plant                  (begc:endc))                   ; this%uptake%smin_to_plant	               (:)   = spval
     allocate(this%potential_immob                 (begc:endc))                   ; this%potential_immob                (:)   = spval
     allocate(this%actual_immob                    (begc:endc))                   ; this%actual_immob                   (:)   = spval
-    allocate(this%gross_nmin                      (begc:endc))                   ; this%gross_nmin                     (:)   = spval
-    allocate(this%net_nmin                        (begc:endc))                   ; this%net_nmin                       (:)   = spval
+    allocate(this%mineral%gross_min                      (begc:endc))                   ; this%mineral%gross_min                     (:)   = spval
+    allocate(this%mineral%net_min                        (begc:endc))                   ; this%mineral%net_min                       (:)   = spval
     allocate(this%denit                           (begc:endc))                   ; this%denit		                       (:)   = spval
-    allocate(this%supplement_to_sminn             (begc:endc))                   ; this%supplement_to_sminn            (:)   = spval
+    allocate(this%mineral%supplement_to_smin             (begc:endc))                   ; this%mineral%supplement_to_smin            (:)   = spval
     allocate(this%core%prod1_loss                     (begc:endc))                   ; this%core%prod1_loss                    (:)   = spval
     allocate(this%core%prod10_loss                    (begc:endc))                   ; this%core%prod10_loss                   (:)   = spval
     allocate(this%core%prod100_loss                   (begc:endc))                   ; this%core%prod100_loss	                 (:)   = spval
@@ -8306,10 +8307,10 @@ contains
     allocate(this%anaerobic_frac                  (begc:endc,1:nlevdecomp_full)) ; this%anaerobic_frac                 (:,:) = spval
     allocate(this%potential_immob_vr              (begc:endc,1:nlevdecomp_full)) ; this%potential_immob_vr             (:,:) = spval
     allocate(this%actual_immob_vr                 (begc:endc,1:nlevdecomp_full)) ; this%actual_immob_vr                (:,:) = spval
-    allocate(this%sminn_to_plant_vr               (begc:endc,1:nlevdecomp_full)) ; this%sminn_to_plant_vr              (:,:) = spval
-    allocate(this%supplement_to_sminn_vr          (begc:endc,1:nlevdecomp_full)) ; this%supplement_to_sminn_vr         (:,:) = spval
-    allocate(this%gross_nmin_vr                   (begc:endc,1:nlevdecomp_full)) ; this%gross_nmin_vr                  (:,:) = spval
-    allocate(this%net_nmin_vr                     (begc:endc,1:nlevdecomp_full)) ; this%net_nmin_vr                    (:,:) = spval
+    allocate(this%uptake%smin_to_plant_vr               (begc:endc,1:nlevdecomp_full)) ; this%uptake%smin_to_plant_vr              (:,:) = spval
+    allocate(this%mineral%supplement_to_smin_vr          (begc:endc,1:nlevdecomp_full)) ; this%mineral%supplement_to_smin_vr         (:,:) = spval
+    allocate(this%mineral%gross_min_vr                   (begc:endc,1:nlevdecomp_full)) ; this%mineral%gross_min_vr                  (:,:) = spval
+    allocate(this%mineral%net_min_vr                     (begc:endc,1:nlevdecomp_full)) ; this%mineral%net_min_vr                    (:,:) = spval
     allocate(this%core%dwt_slash_flux                 (begc:endc))                   ; this%core%dwt_slash_flux                (:)   = spval
     allocate(this%core%dwt_conv_flux                  (begc:endc))                   ; this%core%dwt_conv_flux                 (:)   = spval
     allocate(this%core%dwt_prod10_gain                (begc:endc))                   ; this%core%dwt_prod10_gain               (:)   = spval
@@ -8379,8 +8380,8 @@ contains
     allocate(this%core%harvest_to_litr_cel         (begc:endc, 1:nlevdecomp_full)) ; this%core%harvest_to_litr_cel       (:,:) = spval
     allocate(this%core%harvest_to_litr_lig         (begc:endc, 1:nlevdecomp_full)) ; this%core%harvest_to_litr_lig       (:,:) = spval
     allocate(this%core%harvest_to_cwd               (begc:endc, 1:nlevdecomp_full)) ; this%core%harvest_to_cwd             (:,:) = spval
-    allocate(this%plant_ndemand                   (begc:endc))                    ; this%plant_ndemand                 (:)   = spval
-    allocate(this%plant_ndemand_vr                (begc:endc,1:nlevdecomp_full))  ; this%plant_ndemand_vr              (:,:) = spval
+    allocate(this%uptake%plant_demand                   (begc:endc))                    ; this%uptake%plant_demand                 (:)   = spval
+    allocate(this%uptake%plant_demand_vr                (begc:endc,1:nlevdecomp_full))  ; this%uptake%plant_demand_vr              (:,:) = spval
     allocate(this%f_ngas_decomp_vr                (begc:endc,1:nlevdecomp_full))  ; this%f_ngas_decomp_vr              (:,:) = spval
     allocate(this%f_ngas_nitri_vr                 (begc:endc,1:nlevdecomp_full))  ; this%f_ngas_nitri_vr               (:,:) = spval
     allocate(this%f_ngas_denit_vr                 (begc:endc,1:nlevdecomp_full))  ; this%f_ngas_denit_vr               (:,:) = spval
@@ -8394,13 +8395,13 @@ contains
     allocate(this%core%external_to_decomp_delta       (begc:endc))                    ; this%core%external_to_decomp_delta     (:)   = spval
     allocate(this%no3_net_transport_vr            (begc:endc,1:nlevdecomp_full))  ; this%no3_net_transport_vr          (:,:) = spval
     allocate(this%nh4_net_transport_vr            (begc:endc,1:nlevdecomp_full))  ; this%nh4_net_transport_vr          (:,:) = spval
-    allocate(this%col_plant_ndemand_vr            (begc:endc,1:nlevdecomp))       ; this%col_plant_ndemand_vr          (:,:) = spval
+    allocate(this%uptake%col_plant_demand_vr            (begc:endc,1:nlevdecomp))       ; this%uptake%col_plant_demand_vr          (:,:) = spval
     allocate(this%col_plant_nh4demand_vr          (begc:endc,1:nlevdecomp))       ; this%col_plant_nh4demand_vr        (:,:) = spval
     allocate(this%col_plant_no3demand_vr          (begc:endc,1:nlevdecomp))       ; this%col_plant_no3demand_vr        (:,:) = spval
-    allocate(this%plant_n_uptake_flux             (begc:endc))                    ; this%plant_n_uptake_flux           (:)   = spval
-    allocate(this%soil_n_immob_flux               (begc:endc))                    ; this%soil_n_immob_flux	           (:)   = spval
-    allocate(this%soil_n_immob_flux_vr            (begc:endc,1:nlevdecomp))       ; this%soil_n_immob_flux_vr          (:,:) = spval
-    allocate(this%soil_n_grossmin_flux            (begc:endc))                    ; this%soil_n_grossmin_flux          (:)   = spval
+    allocate(this%uptake%plant_uptake_flux             (begc:endc))                    ; this%uptake%plant_uptake_flux           (:)   = spval
+    allocate(this%mineral%soil_immob_flux               (begc:endc))                    ; this%mineral%soil_immob_flux	           (:)   = spval
+    allocate(this%mineral%soil_immob_flux_vr            (begc:endc,1:nlevdecomp))       ; this%mineral%soil_immob_flux_vr          (:,:) = spval
+    allocate(this%mineral%soil_grossmin_flux            (begc:endc))                    ; this%mineral%soil_grossmin_flux          (:)   = spval
     allocate(this%actual_immob_no3                (begc:endc))                    ; this%actual_immob_no3              (:)   = spval
     allocate(this%actual_immob_nh4                (begc:endc))                    ; this%actual_immob_nh4              (:)   = spval
     allocate(this%smin_no3_to_plant               (begc:endc))                    ; this%smin_no3_to_plant             (:)   = spval
@@ -8413,10 +8414,10 @@ contains
     allocate(this%bgc_npool_ext_inputs_vr         (begc:endc,1:nlevdecomp_full,ndecomp_pools                )) ; this%bgc_npool_ext_inputs_vr          (:,:,:) = spval
     allocate(this%bgc_npool_ext_loss_vr           (begc:endc,1:nlevdecomp_full,ndecomp_pools                )) ; this%bgc_npool_ext_loss_vr            (:,:,:) = spval
     allocate(this%core%decomp_cascade_transfer_vr     (begc:endc,1:nlevdecomp_full,1:ndecomp_cascade_transitions)) ; this%core%decomp_cascade_transfer_vr      (:,:,:) = spval
-    allocate(this%decomp_cascade_sminn_flux_vr    (begc:endc,1:nlevdecomp_full,1:ndecomp_cascade_transitions)) ; this%decomp_cascade_sminn_flux_vr     (:,:,:) = spval
+    allocate(this%mineral%decomp_cascade_smin_flux_vr    (begc:endc,1:nlevdecomp_full,1:ndecomp_cascade_transitions)) ; this%mineral%decomp_cascade_smin_flux_vr     (:,:,:) = spval
     allocate(this%core%m_decomp_pools_to_fire_vr      (begc:endc,1:nlevdecomp_full,1:ndecomp_pools              )) ; this%core%m_decomp_pools_to_fire_vr       (:,:,:) = spval
     allocate(this%core%decomp_cascade_transfer        (begc:endc,1:ndecomp_cascade_transitions                  )) ; this%core%decomp_cascade_transfer         (:,:)   = spval
-    allocate(this%decomp_cascade_sminn_flux       (begc:endc,1:ndecomp_cascade_transitions                  )) ; this%decomp_cascade_sminn_flux        (:,:)   = spval
+    allocate(this%mineral%decomp_cascade_smin_flux       (begc:endc,1:ndecomp_cascade_transitions                  )) ; this%mineral%decomp_cascade_smin_flux        (:,:)   = spval
     allocate(this%core%m_decomp_pools_to_fire         (begc:endc,1:ndecomp_pools                                )) ; this%core%m_decomp_pools_to_fire          (:,:)   = spval
     allocate(this%core%decomp_pools_erode             (begc:endc,1:ndecomp_pools                                )) ; this%core%decomp_pools_erode              (:,:)   = spval
     allocate(this%core%decomp_pools_deposit           (begc:endc,1:ndecomp_pools                                )) ; this%core%decomp_pools_deposit            (:,:)   = spval
@@ -8426,13 +8427,13 @@ contains
     allocate(this%sminn_to_denit_decomp_cascade   (begc:endc,1:ndecomp_cascade_transitions                  )) ; this%sminn_to_denit_decomp_cascade    (:,:)   = spval
     allocate(this%sminn_to_denit_excess_vr        (begc:endc,1:nlevdecomp_full                              )) ; this%sminn_to_denit_excess_vr         (:,:)   = spval
     allocate(this%sminn_to_denit_excess           (begc:endc                                                )) ; this%sminn_to_denit_excess            (:)     = spval
-    allocate(this%sminn_leached_vr                (begc:endc,1:nlevdecomp_full                              )) ; this%sminn_leached_vr                 (:,:)   = spval
-    allocate(this%sminn_leached                   (begc:endc                                                )) ; this%sminn_leached                    (:)     = spval
+    allocate(this%mineral%smin_leached_vr                (begc:endc,1:nlevdecomp_full                              )) ; this%mineral%smin_leached_vr                 (:,:)   = spval
+    allocate(this%mineral%smin_leached                   (begc:endc                                                )) ; this%mineral%smin_leached                    (:)     = spval
     allocate(this%core%decomp_pools_leached           (begc:endc,1:ndecomp_pools                                )) ; this%core%decomp_pools_leached            (:,:)   = spval
     allocate(this%core%decomp_pools_transport_tendency(begc:endc,1:nlevdecomp_full,1:ndecomp_pools              )) ; this%core%decomp_pools_transport_tendency (:,:,:) = spval
     allocate(this%core%decomp_pools_sourcesink        (begc:endc,1:nlevdecomp_full,1:ndecomp_pools              )) ; this%core%decomp_pools_sourcesink         (:,:,:) = spval
     allocate(this%core%external_to_decomp_pools      (begc:endc,1:nlevdecomp_full, 1:ndecomp_pools             )) ; this%core%external_to_decomp_pools       (:,:,:) = spval
-    allocate(this%pmnf_decomp_cascade             (begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions     )) ; this%pmnf_decomp_cascade              (:,:,:) = spval
+    allocate(this%mineral%pmf_decomp_cascade             (begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions     )) ; this%mineral%pmf_decomp_cascade              (:,:,:) = spval
     !FAN
     allocate(this%manure_tan_appl                 (begc:endc)) ; this%manure_tan_appl               (:)   = spval
     allocate(this%manure_n_appl                   (begc:endc)) ; this%manure_n_appl                 (:)   = spval
@@ -8471,10 +8472,10 @@ contains
        vr_suffix = ""
     endif
 
-    this%ndep_to_sminn(begc:endc) = spval
+    this%mineral%dep_to_smin(begc:endc) = spval
      call hist_addfld1d (fname='NDEP_TO_SMINN', units='gN/m^2/s', &
           avgflag='A', long_name='atmospheric N deposition to soil mineral N', &
-           ptr_col=this%ndep_to_sminn)
+           ptr_col=this%mineral%dep_to_smin)
 
     this%nfix_to_ecosysn(begc:endc) = spval
     call hist_addfld1d (fname='NFIX_TO_ECOSYSN', units='gN/m^2/s', &
@@ -8522,8 +8523,8 @@ contains
           ! vertically integrated fluxes
           !-- mineralization/immobilization fluxes (none from CWD)
           if ( .not. decomp_cascade_con%is_cwd(decomp_cascade_con%cascade_donor_pool(l)) ) then
-             this%decomp_cascade_sminn_flux(begc:endc,l) = spval
-             data1dptr => this%decomp_cascade_sminn_flux(:,l)
+             this%mineral%decomp_cascade_smin_flux(begc:endc,l) = spval
+             data1dptr => this%mineral%decomp_cascade_smin_flux(:,l)
              if ( decomp_cascade_con%cascade_receiver_pool(l) /= 0 ) then
                 fieldname = 'SMINN_TO_'//&
                      trim(decomp_cascade_con%decomp_pool_name_history(decomp_cascade_con%cascade_receiver_pool(l)))//'N_'//&
@@ -8559,8 +8560,8 @@ contains
           if ( nlevdecomp_full > 1 ) then
              !-- mineralization/immobilization fluxes (none from CWD)
              if ( .not. decomp_cascade_con%is_cwd(decomp_cascade_con%cascade_donor_pool(l)) ) then
-                this%decomp_cascade_sminn_flux_vr(begc:endc,:,l) = spval
-                data2dptr => this%decomp_cascade_sminn_flux_vr(:,:,l)
+                this%mineral%decomp_cascade_smin_flux_vr(begc:endc,:,l) = spval
+                data2dptr => this%mineral%decomp_cascade_smin_flux_vr(:,:,l)
                 if ( decomp_cascade_con%cascade_receiver_pool(l) /= 0 ) then
                    fieldname = 'SMINN_TO_'&
                         //trim(decomp_cascade_con%decomp_pool_name_history(decomp_cascade_con%cascade_receiver_pool(l)))//'N_'//&
@@ -8911,32 +8912,32 @@ contains
     end if
 
     if ((nlevdecomp_full > 1) .or. (use_pflotran .and. pf_cmode)) then
-       this%sminn_to_plant_vr(begc:endc,:) = spval
+       this%uptake%smin_to_plant_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='SMINN_TO_PLANT'//trim(vr_suffix), units='gN/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='plant uptake of soil mineral N', &
-              ptr_col=this%sminn_to_plant_vr, default='inactive')
+              ptr_col=this%uptake%smin_to_plant_vr, default='inactive')
     end if
 
 
     if ((nlevdecomp_full > 1) .or. (use_pflotran .and. pf_cmode)) then
-       this%supplement_to_sminn_vr(begc:endc,:) = spval
+       this%mineral%supplement_to_smin_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='SUPPLEMENT_TO_SMINN'//trim(vr_suffix), units='gN/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='supplemental N supply', &
-              ptr_col=this%supplement_to_sminn_vr, default='inactive')
+              ptr_col=this%mineral%supplement_to_smin_vr, default='inactive')
     end if
 
     if ((nlevdecomp_full > 1) .or. (use_pflotran .and. pf_cmode)) then
-       this%gross_nmin_vr(begc:endc,:) = spval
+       this%mineral%gross_min_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='GROSS_NMIN'//trim(vr_suffix), units='gN/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='gross rate of N mineralization', &
-              ptr_col=this%gross_nmin_vr, default='inactive')
+              ptr_col=this%mineral%gross_min_vr, default='inactive')
     end if
 
     if ((nlevdecomp_full > 1) .or. (use_pflotran .and. pf_cmode)) then
-       this%net_nmin_vr(begc:endc,:) = spval
+       this%mineral%net_min_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='NET_NMIN'//trim(vr_suffix), units='gN/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='net rate of N mineralization', &
-              ptr_col=this%net_nmin_vr, default='inactive')
+              ptr_col=this%mineral%net_min_vr, default='inactive')
     end if
 
     this%potential_immob(begc:endc) = spval
@@ -8949,25 +8950,25 @@ contains
           avgflag='A', long_name='actual N immobilization', &
            ptr_col=this%actual_immob)
 
-    this%sminn_to_plant(begc:endc) = spval
+    this%uptake%smin_to_plant(begc:endc) = spval
      call hist_addfld1d (fname='SMINN_TO_PLANT', units='gN/m^2/s', &
           avgflag='A', long_name='plant uptake of soil mineral N', &
-           ptr_col=this%sminn_to_plant)
+           ptr_col=this%uptake%smin_to_plant)
 
-    this%supplement_to_sminn(begc:endc) = spval
+    this%mineral%supplement_to_smin(begc:endc) = spval
      call hist_addfld1d (fname='SUPPLEMENT_TO_SMINN', units='gN/m^2/s', &
           avgflag='A', long_name='supplemental N supply', &
-           ptr_col=this%supplement_to_sminn)
+           ptr_col=this%mineral%supplement_to_smin)
 
-    this%gross_nmin(begc:endc) = spval
+    this%mineral%gross_min(begc:endc) = spval
      call hist_addfld1d (fname='GROSS_NMIN', units='gN/m^2/s', &
           avgflag='A', long_name='gross rate of N mineralization', &
-           ptr_col=this%gross_nmin)
+           ptr_col=this%mineral%gross_min)
 
-    this%net_nmin(begc:endc) = spval
+    this%mineral%net_min(begc:endc) = spval
     call hist_addfld1d (fname='NET_NMIN', units='gN/m^2/s', &
          avgflag='A', long_name='net rate of N mineralization', &
-         ptr_col=this%net_nmin)
+         ptr_col=this%mineral%net_min)
 
     this%f_n2o_nit(begc:endc) = spval
     call hist_addfld1d (fname='F_N2O_NIT', units='gN/m^2/s', &
@@ -9078,10 +9079,10 @@ contains
               ptr_col=this%soyfixn_to_sminn)
     end if
 
-    this%plant_ndemand(begc:endc) = spval
+    this%uptake%plant_demand(begc:endc) = spval
         call hist_addfld1d (fname='PLANT_NDEMAND_COL', units='gN/m^2/s', &
              avgflag='A', long_name='N flux required to support initial GPP', &
-              ptr_col=this%plant_ndemand)
+              ptr_col=this%uptake%plant_demand)
 
     if (use_pflotran.and.pf_cmode) then
        this%f_ngas_decomp(begc:endc) = spval
@@ -9144,10 +9145,10 @@ contains
            avgflag='A', long_name='soil N2 exchange flux', &
             ptr_col=this%f_n2_soil_vr)
 
-       this%plant_ndemand_vr(begc:endc,:) = spval
+       this%uptake%plant_demand_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='PLANT_NDEMAND'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
            avgflag='A', long_name='plant N demand distribution via roots', &
-            ptr_col=this%plant_ndemand_vr, default='inactive')
+            ptr_col=this%uptake%plant_demand_vr, default='inactive')
     end if ! if (use_pflotran.and.pf_cmode)
 
     if (use_fan) then
@@ -9445,7 +9446,7 @@ contains
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
-          this%net_nmin_vr(idx,j)                      = value_column
+          this%mineral%net_min_vr(idx,j)                      = value_column
           this%sminn_nh4_input_vr(idx,j)               = value_column !not used anywhere?
           this%sminn_no3_input_vr(idx,j)               = value_column !not used anywhere?
 
@@ -9459,7 +9460,7 @@ contains
          do fi = 1,num_column,flux_setvalues_block_size
             associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
             ! pflotran
-            this%plant_ndemand_vr(idx,j)              = value_column !use_elm_interface.and.use_pflotran .and. pf_cmode
+            this%uptake%plant_demand_vr(idx,j)              = value_column !use_elm_interface.and.use_pflotran .and. pf_cmode
             this%f_ngas_decomp_vr(idx,j)              = value_column ! ""
             this%f_ngas_nitri_vr(idx,j)               = value_column ! ""
             this%f_ngas_denit_vr(idx,j)               = value_column
@@ -9474,21 +9475,21 @@ contains
     do fi = 1,num_column,flux_setvalues_block_size
        associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
-       this%ndep_to_sminn(idx)             = value_column
+       this%mineral%dep_to_smin(idx)             = value_column
        this%nfix_to_sminn(idx)             = value_column
        this%nfix_to_ecosysn(idx)           = value_column
        this%fert_to_sminn(idx)             = value_column
        this%soyfixn_to_sminn(idx)          = value_column
-       this%supplement_to_sminn(idx)       = value_column
+       this%mineral%supplement_to_smin(idx)       = value_column
        this%denit(idx)                     = value_column
        this%smin_nh4_to_plant(idx)      = value_column
        this%smin_no3_to_plant(idx)      = value_column
        this%core%product_loss(idx)             = value_column
        this%potential_immob(idx)           = value_column
        this%actual_immob(idx)              = value_column
-       this%sminn_to_plant(idx)            = value_column
-       this%gross_nmin(idx)                = value_column
-       this%net_nmin(idx)                  = value_column
+       this%uptake%smin_to_plant(idx)            = value_column
+       this%mineral%gross_min(idx)                = value_column
+       this%mineral%net_min(idx)                  = value_column
 
        this%f_nit(idx)                  = value_column
        this%pot_f_nit(idx)              = value_column
@@ -9509,7 +9510,7 @@ contains
        this%sminn_no3_input(idx)           = value_column
 
        ! bgc-interface
-       this%plant_ndemand(idx) = value_column
+       this%uptake%plant_demand(idx) = value_column
 
        ! FAN
        this%fert_nh4_runoff(idx)    = value_column
@@ -9532,7 +9533,7 @@ contains
        do l = 1, ndecomp_cascade_transitions
           do fi = 1,num_column
              i = filter_column(fi)
-             this%decomp_cascade_sminn_flux(i,l) = value_column
+             this%mineral%decomp_cascade_smin_flux(i,l) = value_column
           end do
        end do
 
@@ -9680,7 +9681,7 @@ contains
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%denit(c) = 0._r8
-       this%supplement_to_sminn(c) = 0._r8
+       this%mineral%supplement_to_smin(c) = 0._r8
        this%core%som_leached(c)       = 0._r8
        this%core%som_erode(c)          = 0._r8
        this%core%som_deposit(c)        = 0._r8
@@ -9699,9 +9700,9 @@ contains
                      this%core%decomp_cascade_transfer(c,k) + &
                      this%core%decomp_cascade_transfer_vr(c,j,k) * dzsoi_decomp(j)
 
-                this%decomp_cascade_sminn_flux(c,k) = &
-                     this%decomp_cascade_sminn_flux(c,k) + &
-                     this%decomp_cascade_sminn_flux_vr(c,j,k) * dzsoi_decomp(j)
+                this%mineral%decomp_cascade_smin_flux(c,k) = &
+                     this%mineral%decomp_cascade_smin_flux(c,k) + &
+                     this%mineral%decomp_cascade_smin_flux_vr(c,j,k) * dzsoi_decomp(j)
              end do
           end do
        end do
@@ -9813,9 +9814,9 @@ contains
     do j = 1, nlev
        do fc = 1,num_soilc
           c = filter_soilc(fc)
-          this%supplement_to_sminn(c) = &
-               this%supplement_to_sminn(c) + &
-               this%supplement_to_sminn_vr(c,j) * dzsoi_decomp(j)
+          this%mineral%supplement_to_smin(c) = &
+               this%mineral%supplement_to_smin(c) + &
+               this%mineral%supplement_to_smin_vr(c,j) * dzsoi_decomp(j)
 
           this%sminn_input(c) = &
                this%sminn_input(c) + &
@@ -9964,7 +9965,7 @@ contains
        this%f_ngas_denit(c) = 0._r8
        this%smin_no3_leached(c) = 0._r8
        this%smin_no3_runoff(c)  = 0._r8
-       this%sminn_leached(c)    = 0._r8
+       this%mineral%smin_leached(c)    = 0._r8
        do j = 1, nlevdecomp_full
           ! all N2/N2O gas exchange between atm. and soil (i.e., dissolving - degassing)
           this%f_n2_soil(c)  = this%f_n2_soil(c) + &
@@ -9995,12 +9996,12 @@ contains
           endif
 
           ! assign all no3-N leaching/runof,including diffusion from PF, to all mineral-N
-          this%sminn_leached_vr(c,j) = this%smin_no3_leached_vr(c,j) + &
+          this%mineral%smin_leached_vr(c,j) = this%smin_no3_leached_vr(c,j) + &
                                            this%smin_no3_runoff_vr(c,j) +  &
                                       this%nh4_net_transport_vr(c,j) * dzsoi_decomp(j)
 
-          this%sminn_leached(c) = this%sminn_leached(c) + &
-                                      this%sminn_leached_vr(c,j)*dzsoi_decomp(j)
+          this%mineral%smin_leached(c) = this%mineral%smin_leached(c) + &
+                                      this%mineral%smin_leached_vr(c,j)*dzsoi_decomp(j)
        end do !j = 1, nlevdecomp_full
        ! for balance-checking
        this%denit(c)     = this%f_ngas_denit(c)
@@ -10154,17 +10155,17 @@ contains
     ! allocate for each member of col_pf
     !-----------------------------------------------------------------------
     this%core%species = CN_SPECIES_P
-    allocate(this%pdep_to_sminp                    (begc:endc))                   ; this%pdep_to_sminp                 (:)   = spval
+    allocate(this%mineral%dep_to_smin                    (begc:endc))                   ; this%mineral%dep_to_smin                 (:)   = spval
     allocate(this%fert_p_to_sminp                  (begc:endc))                   ; this%fert_p_to_sminp               (:)   = spval
     allocate(this%core%hrv_deadstem_to_prod10         (begc:endc))                   ; this%core%hrv_deadstem_to_prod10      (:)   = spval
     allocate(this%core%hrv_deadstem_to_prod100        (begc:endc))                   ; this%core%hrv_deadstem_to_prod100     (:)   = spval
     allocate(this%core%hrv_crop_to_prod1              (begc:endc))                   ; this%core%hrv_crop_to_prod1           (:)   = spval
-    allocate(this%sminp_to_plant                   (begc:endc))                   ; this%sminp_to_plant                (:)   = spval
+    allocate(this%uptake%smin_to_plant                   (begc:endc))                   ; this%uptake%smin_to_plant                (:)   = spval
     allocate(this%potential_immob_p                (begc:endc))                   ; this%potential_immob_p             (:)   = spval
     allocate(this%actual_immob_p                   (begc:endc))                   ; this%actual_immob_p                (:)   = spval
-    allocate(this%gross_pmin                       (begc:endc))                   ; this%gross_pmin                    (:)   = spval
-    allocate(this%net_pmin                         (begc:endc))                   ; this%net_pmin                      (:)   = spval
-    allocate(this%supplement_to_sminp              (begc:endc))                   ; this%supplement_to_sminp           (:)   = spval
+    allocate(this%mineral%gross_min                       (begc:endc))                   ; this%mineral%gross_min                    (:)   = spval
+    allocate(this%mineral%net_min                         (begc:endc))                   ; this%mineral%net_min                      (:)   = spval
+    allocate(this%mineral%supplement_to_smin              (begc:endc))                   ; this%mineral%supplement_to_smin           (:)   = spval
     allocate(this%core%prod1_loss                      (begc:endc))                   ; this%core%prod1_loss                   (:)   = spval
     allocate(this%core%prod10_loss                     (begc:endc))                   ; this%core%prod10_loss                  (:)   = spval
     allocate(this%core%prod100_loss                    (begc:endc))                   ; this%core%prod100_loss                 (:)   = spval
@@ -10195,11 +10196,11 @@ contains
     allocate(this%core%m_to_litr_lig_fire             (begc:endc,1:nlevdecomp_full)) ; this%core%m_to_litr_lig_fire          (:,:) = spval
     allocate(this%potential_immob_p_vr             (begc:endc,1:nlevdecomp_full)) ; this%potential_immob_p_vr          (:,:) = spval
     allocate(this%actual_immob_p_vr                (begc:endc,1:nlevdecomp_full)) ; this%actual_immob_p_vr             (:,:) = spval
-    allocate(this%sminp_to_plant_vr                (begc:endc,1:nlevdecomp_full)) ; this%sminp_to_plant_vr             (:,:) = spval
+    allocate(this%uptake%smin_to_plant_vr                (begc:endc,1:nlevdecomp_full)) ; this%uptake%smin_to_plant_vr             (:,:) = spval
     allocate(this%net_mineralization_p_vr          (begc:endc,1:nlevdecomp_full)) ; this%net_mineralization_p_vr       (:,:) = spval
-    allocate(this%supplement_to_sminp_vr           (begc:endc,1:nlevdecomp_full)) ; this%supplement_to_sminp_vr        (:,:) = spval
-    allocate(this%gross_pmin_vr                    (begc:endc,1:nlevdecomp_full)) ; this%gross_pmin_vr                 (:,:) = spval
-    allocate(this%net_pmin_vr                      (begc:endc,1:nlevdecomp_full)) ; this%net_pmin_vr                   (:,:) = spval
+    allocate(this%mineral%supplement_to_smin_vr           (begc:endc,1:nlevdecomp_full)) ; this%mineral%supplement_to_smin_vr        (:,:) = spval
+    allocate(this%mineral%gross_min_vr                    (begc:endc,1:nlevdecomp_full)) ; this%mineral%gross_min_vr                 (:,:) = spval
+    allocate(this%mineral%net_min_vr                      (begc:endc,1:nlevdecomp_full)) ; this%mineral%net_min_vr                   (:,:) = spval
     allocate(this%biochem_pmin_to_ecosysp_vr       (begc:endc,1:nlevdecomp_full)) ; this%biochem_pmin_to_ecosysp_vr    (:,:) = spval
     allocate(this%biochem_pmin_ppools_vr           (begc:endc,1:nlevdecomp_full,1:ndecomp_pools)) ; this%biochem_pmin_ppools_vr      (:,:,:) = spval
     allocate(this%biochem_pmin_vr                  (begc:endc,1:nlevdecomp_full)) ; this%biochem_pmin_vr               (:,:) = spval
@@ -10218,10 +10219,10 @@ contains
     allocate(this%core%dwt_livecroot_to_cwd           (begc:endc,1:nlevdecomp_full)) ; this%core%dwt_livecroot_to_cwd        (:,:) = spval
     allocate(this%core%dwt_deadcroot_to_cwd           (begc:endc,1:nlevdecomp_full)) ; this%core%dwt_deadcroot_to_cwd        (:,:) = spval
     allocate(this%core%decomp_cascade_transfer_vr      (begc:endc,1:nlevdecomp_full,1:ndecomp_cascade_transitions )) ; this%core%decomp_cascade_transfer_vr  (:,:,:) = spval
-    allocate(this%decomp_cascade_sminp_flux_vr     (begc:endc,1:nlevdecomp_full,1:ndecomp_cascade_transitions )) ; this%decomp_cascade_sminp_flux_vr (:,:,:) = spval
+    allocate(this%mineral%decomp_cascade_smin_flux_vr     (begc:endc,1:nlevdecomp_full,1:ndecomp_cascade_transitions )) ; this%mineral%decomp_cascade_smin_flux_vr (:,:,:) = spval
     allocate(this%core%m_decomp_pools_to_fire_vr       (begc:endc,1:nlevdecomp_full,1:ndecomp_pools               )) ; this%core%m_decomp_pools_to_fire_vr   (:,:,:) = spval
     allocate(this%core%decomp_cascade_transfer         (begc:endc,1:ndecomp_cascade_transitions                   )) ; this%core%decomp_cascade_transfer     (:,:)   = spval
-    allocate(this%decomp_cascade_sminp_flux        (begc:endc,1:ndecomp_cascade_transitions                   )) ; this%decomp_cascade_sminp_flux    (:,:)   = spval
+    allocate(this%mineral%decomp_cascade_smin_flux        (begc:endc,1:ndecomp_cascade_transitions                   )) ; this%mineral%decomp_cascade_smin_flux    (:,:)   = spval
     allocate(this%core%m_decomp_pools_to_fire          (begc:endc,1:ndecomp_pools ))  ; this%core%m_decomp_pools_to_fire       (:,:) = spval
     allocate(this%core%phenology_to_litr_met        (begc:endc,1:nlevdecomp_full)) ; this%core%phenology_to_litr_met     (:,:) = spval
     allocate(this%core%phenology_to_litr_cel        (begc:endc,1:nlevdecomp_full)) ; this%core%phenology_to_litr_cel     (:,:) = spval
@@ -10243,8 +10244,8 @@ contains
     allocate(this%secondp_to_labilep               (begc:endc))                   ; this%secondp_to_labilep            (:)   = spval
     allocate(this%secondp_to_occlp_vr              (begc:endc,1:nlevdecomp_full)) ; this%secondp_to_occlp_vr           (:,:) = spval
     allocate(this%secondp_to_occlp                 (begc:endc))                   ; this%secondp_to_occlp              (:)   = spval
-    allocate(this%sminp_leached_vr                 (begc:endc,1:nlevdecomp_full)) ; this%sminp_leached_vr              (:,:) = spval
-    allocate(this%sminp_leached                    (begc:endc))                   ; this%sminp_leached                 (:)   = spval
+    allocate(this%mineral%smin_leached_vr                 (begc:endc,1:nlevdecomp_full)) ; this%mineral%smin_leached_vr              (:,:) = spval
+    allocate(this%mineral%smin_leached                    (begc:endc))                   ; this%mineral%smin_leached                 (:)   = spval
     allocate(this%sminp_runoff                     (begc:endc))                   ; this%sminp_runoff                  (:)   = spval
     allocate(this%core%som_runoff                     (begc:endc))                   ; this%core%som_runoff                  (:)   = spval
     allocate(this%core%decomp_pools_leached            (begc:endc,1:ndecomp_pools  )) ; this%core%decomp_pools_leached         (:,:) = spval
@@ -10262,17 +10263,17 @@ contains
     allocate(this%desorb_to_solutionp_vr           (begc:endc,1:nlevdecomp_full)) ; this%desorb_to_solutionp_vr        (:,:) = spval
     allocate(this%adsorb_to_labilep                (begc:endc))                   ; this%adsorb_to_labilep             (:)   = spval
     allocate(this%desorb_to_solutionp              (begc:endc))                   ; this%desorb_to_solutionp           (:)   = spval
-    allocate(this%pmpf_decomp_cascade              (begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions  )) ; this%pmpf_decomp_cascade              (:,:,:) = spval
-    allocate(this%plant_p_uptake_flux              (begc:endc))                   ; this%plant_p_uptake_flux           (:)   = spval
-    allocate(this%soil_p_immob_flux                (begc:endc))                   ; this%soil_p_immob_flux             (:)   = spval
-    allocate(this%soil_p_immob_flux_vr             (begc:endc,1:nlevdecomp_full)) ; this%soil_p_immob_flux_vr          (:,:) = spval
-    allocate(this%soil_p_grossmin_flux             (begc:endc))                   ; this%soil_p_grossmin_flux          (:)   = spval
+    allocate(this%mineral%pmf_decomp_cascade              (begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions  )) ; this%mineral%pmf_decomp_cascade              (:,:,:) = spval
+    allocate(this%uptake%plant_uptake_flux              (begc:endc))                   ; this%uptake%plant_uptake_flux           (:)   = spval
+    allocate(this%mineral%soil_immob_flux                (begc:endc))                   ; this%mineral%soil_immob_flux             (:)   = spval
+    allocate(this%mineral%soil_immob_flux_vr             (begc:endc,1:nlevdecomp_full)) ; this%mineral%soil_immob_flux_vr          (:,:) = spval
+    allocate(this%mineral%soil_grossmin_flux             (begc:endc))                   ; this%mineral%soil_grossmin_flux          (:)   = spval
     allocate(this%smin_p_to_plant                  (begc:endc))                   ; this%smin_p_to_plant               (:)   = spval
     allocate(this%core%plant_to_litter_flux            (begc:endc))                   ; this%core%plant_to_litter_flux         (:)   = 0._r8
     allocate(this%core%plant_to_cwd_flux               (begc:endc))                   ; this%core%plant_to_cwd_flux            (:)   = spval
-    allocate(this%plant_pdemand                    (begc:endc))                   ; this%plant_pdemand                 (:)   = spval
-    allocate(this%plant_pdemand_vr                 (begc:endc,1:nlevdecomp_full)) ; this%plant_pdemand_vr              (:,:) = spval
-    allocate(this%col_plant_pdemand_vr            (begc:endc,1:nlevdecomp))       ; this%col_plant_pdemand_vr          (:,:) = spval
+    allocate(this%uptake%plant_demand                    (begc:endc))                   ; this%uptake%plant_demand                 (:)   = spval
+    allocate(this%uptake%plant_demand_vr                 (begc:endc,1:nlevdecomp_full)) ; this%uptake%plant_demand_vr              (:,:) = spval
+    allocate(this%uptake%col_plant_demand_vr            (begc:endc,1:nlevdecomp))       ; this%uptake%col_plant_demand_vr          (:,:) = spval
     allocate(this%core%external_to_decomp_pools       (begc:endc,1:nlevdecomp_full, 1:ndecomp_pools          )) ;    this%core%external_to_decomp_pools    (:,:,:) = spval
     allocate(this%core%external_to_decomp_delta        (begc:endc))                   ; this%core%external_to_decomp_delta     (:)   = spval
     allocate(this%sminp_net_transport_vr           (begc:endc,1:nlevdecomp_full)) ; this%sminp_net_transport_vr        (:,:) = spval
@@ -10288,10 +10289,10 @@ contains
        vr_suffix = ""
     endif
 
-    this%pdep_to_sminp(begc:endc) = spval
+    this%mineral%dep_to_smin(begc:endc) = spval
      call hist_addfld1d (fname='PDEP_TO_SMINP', units='gP/m^2/s', &
           avgflag='A', long_name='atmospheric P deposition to soil mineral P', &
-           ptr_col=this%pdep_to_sminp)
+           ptr_col=this%mineral%dep_to_smin)
 
 
     do k = 1, ndecomp_pools
@@ -10337,8 +10338,8 @@ contains
        !-- mineralization/immobilization fluxes (none from CWD)
        if(trim(decomp_cascade_con%decomp_pool_name_history(decomp_cascade_con%cascade_receiver_pool(l)))=='')exit
        if ( .not. decomp_cascade_con%is_cwd(decomp_cascade_con%cascade_donor_pool(l)) ) then
-          this%decomp_cascade_sminp_flux(begc:endc,l) = spval
-          data1dptr => this%decomp_cascade_sminp_flux(:,l)
+          this%mineral%decomp_cascade_smin_flux(begc:endc,l) = spval
+          data1dptr => this%mineral%decomp_cascade_smin_flux(:,l)
           if ( decomp_cascade_con%cascade_receiver_pool(l) /= 0 ) then
              fieldname = 'SMINP_TO_'//&
                   trim(decomp_cascade_con%decomp_pool_name_history(decomp_cascade_con%cascade_receiver_pool(l)))//'P_'//&
@@ -10374,8 +10375,8 @@ contains
        if ( nlevdecomp_full > 1 ) then
           !-- mineralization/immobilization fluxes (none from CWD)
           if ( .not. decomp_cascade_con%is_cwd(decomp_cascade_con%cascade_donor_pool(l)) ) then
-             this%decomp_cascade_sminp_flux_vr(begc:endc,:,l) = spval
-             data2dptr => this%decomp_cascade_sminp_flux_vr(:,:,l)
+             this%mineral%decomp_cascade_smin_flux_vr(begc:endc,:,l) = spval
+             data2dptr => this%mineral%decomp_cascade_smin_flux_vr(:,:,l)
              if ( decomp_cascade_con%cascade_receiver_pool(l) /= 0 ) then
                 fieldname = 'SMINP_TO_'&
                      //trim(decomp_cascade_con%decomp_pool_name_history(decomp_cascade_con%cascade_receiver_pool(l)))//'P_'//&
@@ -10530,16 +10531,16 @@ contains
               ptr_col=this%secondp_to_occlp_vr, default='inactive')
     endif
 
-    this%sminp_leached(begc:endc) = spval
+    this%mineral%smin_leached(begc:endc) = spval
      call hist_addfld1d (fname='SMINP_LEACHED', units='gP/m^2/s',   &
           avgflag='A', long_name='soil mineral P pool loss to leaching', &
-           ptr_col=this%sminp_leached)
+           ptr_col=this%mineral%smin_leached)
 
     if ( nlevdecomp_full > 1 ) then
-       this%sminp_leached_vr(begc:endc,:) = spval
+       this%mineral%smin_leached_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='SMINP_LEACHED'//trim(vr_suffix), units='gP/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='soil mineral P pool loss to leaching', &
-              ptr_col=this%sminp_leached_vr, default='inactive')
+              ptr_col=this%mineral%smin_leached_vr, default='inactive')
     endif
 
     this%labilep_erode(begc:endc) = spval
@@ -10646,31 +10647,31 @@ contains
     end if
 
     if ( nlevdecomp_full > 1 ) then
-       this%sminp_to_plant_vr(begc:endc,:) = spval
+       this%uptake%smin_to_plant_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='SMINP_TO_PLANT'//trim(vr_suffix), units='gP/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='plant uptake of soil mineral P', &
-              ptr_col=this%sminp_to_plant_vr, default='inactive')
+              ptr_col=this%uptake%smin_to_plant_vr, default='inactive')
     end if
 
     if ( nlevdecomp_full > 1 ) then
-       this%supplement_to_sminp_vr(begc:endc,:) = spval
+       this%mineral%supplement_to_smin_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='SUPPLEMENT_TO_SMINP'//trim(vr_suffix), units='gP/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='supplemental P supply', &
-              ptr_col=this%supplement_to_sminp_vr, default='inactive')
+              ptr_col=this%mineral%supplement_to_smin_vr, default='inactive')
     end if
 
     if ( nlevdecomp_full > 1 ) then
-       this%gross_pmin_vr(begc:endc,:) = spval
+       this%mineral%gross_min_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='GROSS_PMIN'//trim(vr_suffix), units='gP/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='gross rate of P mineralization', &
-              ptr_col=this%gross_pmin_vr, default='inactive')
+              ptr_col=this%mineral%gross_min_vr, default='inactive')
     end if
 
     if ( nlevdecomp_full > 1 ) then
-       this%net_pmin_vr(begc:endc,:) = spval
+       this%mineral%net_min_vr(begc:endc,:) = spval
         call hist_addfld_decomp (fname='NET_PMIN'//trim(vr_suffix), units='gP/m^3/s',  type2d='levdcmp', &
              avgflag='A', long_name='net rate of P mineralization', &
-              ptr_col=this%net_pmin_vr, default='inactive')
+              ptr_col=this%mineral%net_min_vr, default='inactive')
     end if
 
     if ( nlevdecomp_full > 1 ) then
@@ -10690,25 +10691,25 @@ contains
           avgflag='A', long_name='actual P immobilization', &
            ptr_col=this%actual_immob_p)
 
-    this%sminp_to_plant(begc:endc) = spval
+    this%uptake%smin_to_plant(begc:endc) = spval
      call hist_addfld1d (fname='SMINP_TO_PLANT', units='gP/m^2/s', &
           avgflag='A', long_name='plant uptake of soil mineral P', &
-           ptr_col=this%sminp_to_plant)
+           ptr_col=this%uptake%smin_to_plant)
 
-    this%supplement_to_sminp(begc:endc) = spval
+    this%mineral%supplement_to_smin(begc:endc) = spval
      call hist_addfld1d (fname='SUPPLEMENT_TO_SMINP', units='gP/m^2/s', &
           avgflag='A', long_name='supplemental P supply', &
-           ptr_col=this%supplement_to_sminp)
+           ptr_col=this%mineral%supplement_to_smin)
 
-    this%gross_pmin(begc:endc) = spval
+    this%mineral%gross_min(begc:endc) = spval
      call hist_addfld1d (fname='GROSS_PMIN', units='gP/m^2/s', &
           avgflag='A', long_name='gross rate of P mineralization', &
-           ptr_col=this%gross_pmin)
+           ptr_col=this%mineral%gross_min)
 
-    this%net_pmin(begc:endc) = spval
+    this%mineral%net_min(begc:endc) = spval
      call hist_addfld1d (fname='NET_PMIN', units='gP/m^2/s', &
           avgflag='A', long_name='net rate of P mineralization', &
-           ptr_col=this%net_pmin)
+           ptr_col=this%mineral%net_min)
 
     this%biochem_pmin(begc:endc) = spval
      call hist_addfld1d (fname='BIOCHEM_PMIN', units='gP/m^2/s', &
@@ -10813,10 +10814,10 @@ contains
               ptr_col=this%fert_p_to_sminp)
     end if
 
-    this%plant_pdemand(begc:endc) = spval
+    this%uptake%plant_demand(begc:endc) = spval
      call hist_addfld1d (fname='PLANT_PDEMAND_COL', units='gN/m^2/s', &
          avgflag='A', long_name='P flux required to support initial GPP', &
-          ptr_col=this%plant_pdemand)
+          ptr_col=this%uptake%plant_demand)
 
     this%adsorb_to_labilep(begc:endc) = spval
      call hist_addfld1d (fname='ADSORBTION_P', units='gP/m^2/s', &
@@ -10838,7 +10839,7 @@ contains
           num_special_col = num_special_col + 1
           special_col(num_special_col) = c
        else
-          this%col_plant_pdemand_vr (c,1:nlevdecomp) = 0._r8
+          this%uptake%col_plant_demand_vr (c,1:nlevdecomp) = 0._r8
        end if
     end do
 
@@ -10961,20 +10962,20 @@ contains
           this%secondp_to_labilep_vr(idx,j)            = value_column
           this%secondp_to_occlp_vr(idx,j)              = value_column
 
-          this%sminp_leached_vr(idx,j)                 = value_column
+          this%mineral%smin_leached_vr(idx,j)                 = value_column
 
 
           this%potential_immob_p_vr(idx,j)             = value_column
           this%actual_immob_p_vr(idx,j)                = value_column
-          this%sminp_to_plant_vr(idx,j)                = value_column
-          this%supplement_to_sminp_vr(idx,j)           = value_column
-          this%gross_pmin_vr(idx,j)                    = value_column
-          this%net_pmin_vr(idx,j)                      = value_column
+          this%uptake%smin_to_plant_vr(idx,j)                = value_column
+          this%mineral%supplement_to_smin_vr(idx,j)           = value_column
+          this%mineral%gross_min_vr(idx,j)                    = value_column
+          this%mineral%net_min_vr(idx,j)                      = value_column
           this%biochem_pmin_vr(idx,j)                  = value_column
           this%biochem_pmin_to_ecosysp_vr(idx,j)       = value_column
 
           ! bgc interface & pflotran
-          this%plant_pdemand_vr(idx,j)                 = value_column
+          this%uptake%plant_demand_vr(idx,j)                 = value_column
           this%adsorb_to_labilep_vr(idx,j)             = value_column
           this%desorb_to_solutionp_vr(idx,j)           = value_column
           
@@ -10986,22 +10987,22 @@ contains
     do fi = 1,num_column,flux_setvalues_block_size
        associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
-       this%pdep_to_sminp(idx)             = value_column
+       this%mineral%dep_to_smin(idx)             = value_column
        this%fert_p_to_sminp(idx)           = value_column
        this%core%product_loss(idx)             = value_column
        this%potential_immob_p(idx)         = value_column
        this%actual_immob_p(idx)            = value_column
-       this%sminp_to_plant(idx)            = value_column
-       this%supplement_to_sminp(idx)       = value_column
-       this%gross_pmin(idx)                = value_column
-       this%net_pmin(idx)                  = value_column
+       this%uptake%smin_to_plant(idx)            = value_column
+       this%mineral%supplement_to_smin(idx)       = value_column
+       this%mineral%gross_min(idx)                = value_column
+       this%mineral%net_min(idx)                  = value_column
        this%biochem_pmin(idx)              = value_column
        this%biochem_pmin_to_plant(idx)     = value_column
        this%primp_to_labilep(idx)          = value_column
        this%labilep_to_secondp(idx)        = value_column
        this%secondp_to_labilep(idx)        = value_column
        this%secondp_to_occlp(idx)          = value_column
-       this%sminp_leached(idx)             = value_column
+       this%mineral%smin_leached(idx)             = value_column
        this%core%som_erode(idx)                = value_column
        this%core%som_deposit(idx)              = value_column
        this%core%som_yield(idx)                = value_column
@@ -11011,7 +11012,7 @@ contains
        this%primp_yield(idx)               = value_column
 
        ! bgc-interface
-       this%plant_pdemand(idx)             = value_column
+       this%uptake%plant_demand(idx)             = value_column
 
 
        this%adsorb_to_labilep(idx)         = value_column
@@ -11034,7 +11035,7 @@ contains
     do l = 1, ndecomp_cascade_transitions
        do fi = 1,num_column
           i = filter_column(fi)
-          this%decomp_cascade_sminp_flux(i,l) = value_column
+          this%mineral%decomp_cascade_smin_flux(i,l) = value_column
        end do
     end do
 
@@ -11188,7 +11189,7 @@ contains
     !-----------------------------------------------------------------------
     do fc = 1,num_soilc
        c = filter_soilc(fc)
-       this%supplement_to_sminp(c) = 0._r8
+       this%mineral%supplement_to_smin(c) = 0._r8
        this%core%som_leached(c)       = 0._r8
        this%core%som_erode(c)          = 0._r8
        this%core%som_deposit(c)        = 0._r8
@@ -11211,9 +11212,9 @@ contains
                   this%core%decomp_cascade_transfer(c,k) + &
                   this%core%decomp_cascade_transfer_vr(c,j,k) * dzsoi_decomp(j)
 
-             this%decomp_cascade_sminp_flux(c,k) = &
-                  this%decomp_cascade_sminp_flux(c,k) + &
-                  this%decomp_cascade_sminp_flux_vr(c,j,k) * dzsoi_decomp(j)
+             this%mineral%decomp_cascade_smin_flux(c,k) = &
+                  this%mineral%decomp_cascade_smin_flux(c,k) + &
+                  this%mineral%decomp_cascade_smin_flux_vr(c,j,k) * dzsoi_decomp(j)
           end do
        end do
     end do
@@ -11260,9 +11261,9 @@ contains
     do j = 1, nlevdecomp
        do fc = 1,num_soilc
           c = filter_soilc(fc)
-          this%sminp_leached(c) = &
-               this%sminp_leached(c) + &
-               this%sminp_leached_vr(c,j) * dzsoi_decomp(j)
+          this%mineral%smin_leached(c) = &
+               this%mineral%smin_leached(c) + &
+               this%mineral%smin_leached_vr(c,j) * dzsoi_decomp(j)
        end do
     end do
 
@@ -11350,9 +11351,9 @@ contains
     do j = 1, nlevdecomp
        do fc = 1,num_soilc
           c = filter_soilc(fc)
-          this%supplement_to_sminp(c) = &
-               this%supplement_to_sminp(c) + &
-               this%supplement_to_sminp_vr(c,j) * dzsoi_decomp(j)
+          this%mineral%supplement_to_smin(c) = &
+               this%mineral%supplement_to_smin(c) + &
+               this%mineral%supplement_to_smin_vr(c,j) * dzsoi_decomp(j)
        end do
     end do
 
@@ -11432,7 +11433,7 @@ contains
           this%actual_immob_p(c)= this%actual_immob_p(c) + &
                this%actual_immob_p_vr(c,j) * dzsoi_decomp(j)
           this%smin_p_to_plant(c)= this%smin_p_to_plant(c) + &
-               this%sminp_to_plant_vr(c,j) * dzsoi_decomp(j)
+               this%uptake%smin_to_plant_vr(c,j) * dzsoi_decomp(j)
        end do
     end do
 
