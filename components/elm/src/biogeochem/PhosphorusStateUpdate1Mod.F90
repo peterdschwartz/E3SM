@@ -97,7 +97,6 @@ contains
   !-----------------------------------------------------------------------
   subroutine PhosphorusStateUpdate1(num_soilc, filter_soilc, num_soilp, filter_soilp, &
        cnstate_vars, dt)
-    use CompactLayoutMod, only : compact_soilp_off  ! spel compact
     !
     ! !DESCRIPTION:
     ! On the radiation time step, update all the prognostic phosphorus state
@@ -120,8 +119,6 @@ contains
     integer:: kmo                     ! month of year  (1, ..., 12)
     integer:: kda                     ! day of month   (1, ..., 31)
     integer:: mcsec                   ! seconds of day (0, ..., seconds/day)
-    integer :: k0p  ! begp-1 of the clump: compact index of filter_soilp(fp) is k0p+fp  ! spel compact
-    k0p = compact_soilp_off  ! spel compact
     !-----------------------------------------------------------------------
 
     associate(                                                                                           &
@@ -239,26 +236,26 @@ contains
               p = filter_soilp(fp)
 
               ! phenology: transfer growth fluxes
-              veg_ps%core%leaf(p)       = veg_ps%core%leaf(p)       + veg_pf%core%leaf_xfer_to_leaf(k0p+fp)*dt
-              veg_ps%core%leaf_xfer(p)  = veg_ps%core%leaf_xfer(p)  - veg_pf%core%leaf_xfer_to_leaf(k0p+fp)*dt
-              veg_ps%core%froot(p)      = veg_ps%core%froot(p)      + veg_pf%core%froot_xfer_to_froot(k0p+fp)*dt
-              veg_ps%core%froot_xfer(p) = veg_ps%core%froot_xfer(p) - veg_pf%core%froot_xfer_to_froot(k0p+fp)*dt
+              veg_ps%core%leaf(p)       = veg_ps%core%leaf(p)       + veg_pf%core%leaf_xfer_to_leaf(p)*dt
+              veg_ps%core%leaf_xfer(p)  = veg_ps%core%leaf_xfer(p)  - veg_pf%core%leaf_xfer_to_leaf(p)*dt
+              veg_ps%core%froot(p)      = veg_ps%core%froot(p)      + veg_pf%core%froot_xfer_to_froot(p)*dt
+              veg_ps%core%froot_xfer(p) = veg_ps%core%froot_xfer(p) - veg_pf%core%froot_xfer_to_froot(p)*dt
 
               if (woody(ivt(p)) >= 1.0_r8) then
-                  veg_ps%core%livestem(p)       = veg_ps%core%livestem(p)       + veg_pf%core%livestem_xfer_to_livestem(k0p+fp)*dt
-                  veg_ps%core%livestem_xfer(p)  = veg_ps%core%livestem_xfer(p)  - veg_pf%core%livestem_xfer_to_livestem(k0p+fp)*dt
-                  veg_ps%core%deadstem(p)       = veg_ps%core%deadstem(p)       + veg_pf%core%deadstem_xfer_to_deadstem(k0p+fp)*dt
-                  veg_ps%core%deadstem_xfer(p)  = veg_ps%core%deadstem_xfer(p)  - veg_pf%core%deadstem_xfer_to_deadstem(k0p+fp)*dt
-                  veg_ps%core%livecroot(p)      = veg_ps%core%livecroot(p)      + veg_pf%core%livecroot_xfer_to_livecroot(k0p+fp)*dt
-                  veg_ps%core%livecroot_xfer(p) = veg_ps%core%livecroot_xfer(p) - veg_pf%core%livecroot_xfer_to_livecroot(k0p+fp)*dt
-                  veg_ps%core%deadcroot(p)      = veg_ps%core%deadcroot(p)      + veg_pf%core%deadcroot_xfer_to_deadcroot(k0p+fp)*dt
-                  veg_ps%core%deadcroot_xfer(p) = veg_ps%core%deadcroot_xfer(p) - veg_pf%core%deadcroot_xfer_to_deadcroot(k0p+fp)*dt
+                  veg_ps%core%livestem(p)       = veg_ps%core%livestem(p)       + veg_pf%core%livestem_xfer_to_livestem(p)*dt
+                  veg_ps%core%livestem_xfer(p)  = veg_ps%core%livestem_xfer(p)  - veg_pf%core%livestem_xfer_to_livestem(p)*dt
+                  veg_ps%core%deadstem(p)       = veg_ps%core%deadstem(p)       + veg_pf%core%deadstem_xfer_to_deadstem(p)*dt
+                  veg_ps%core%deadstem_xfer(p)  = veg_ps%core%deadstem_xfer(p)  - veg_pf%core%deadstem_xfer_to_deadstem(p)*dt
+                  veg_ps%core%livecroot(p)      = veg_ps%core%livecroot(p)      + veg_pf%core%livecroot_xfer_to_livecroot(p)*dt
+                  veg_ps%core%livecroot_xfer(p) = veg_ps%core%livecroot_xfer(p) - veg_pf%core%livecroot_xfer_to_livecroot(p)*dt
+                  veg_ps%core%deadcroot(p)      = veg_ps%core%deadcroot(p)      + veg_pf%core%deadcroot_xfer_to_deadcroot(p)*dt
+                  veg_ps%core%deadcroot_xfer(p) = veg_ps%core%deadcroot_xfer(p) - veg_pf%core%deadcroot_xfer_to_deadcroot(p)*dt
               end if
 
               if (iscft(ivt(p))) then ! skip 2 generic crops
                   ! lines here for consistency; the transfer terms are zero
-                  veg_ps%core%livestem(p)       = veg_ps%core%livestem(p)      + veg_pf%core%livestem_xfer_to_livestem(k0p+fp)*dt
-                  veg_ps%core%livestem_xfer(p)  = veg_ps%core%livestem_xfer(p) - veg_pf%core%livestem_xfer_to_livestem(k0p+fp)*dt
+                  veg_ps%core%livestem(p)       = veg_ps%core%livestem(p)      + veg_pf%core%livestem_xfer_to_livestem(p)*dt
+                  veg_ps%core%livestem_xfer(p)  = veg_ps%core%livestem_xfer(p) - veg_pf%core%livestem_xfer_to_livestem(p)*dt
                   veg_ps%core%grain(p)          = veg_ps%core%grain(p)         + veg_pf%core%grain_xfer_to_grain(p)*dt
                   veg_ps%core%grain_xfer(p)     = veg_ps%core%grain_xfer(p)    - veg_pf%core%grain_xfer_to_grain(p)*dt
               end if
@@ -266,26 +263,26 @@ contains
               ! phenology: litterfall and retranslocation fluxes
               veg_ps%core%leaf(p)    = veg_ps%core%leaf(p)    - veg_pf%core%leaf_to_litter(p)*dt
               veg_ps%core%froot(p)   = veg_ps%core%froot(p)   - veg_pf%core%froot_to_litter(p)*dt
-              veg_ps%core%leaf(p)    = veg_ps%core%leaf(p)    - veg_pf%retrans%leaf_to_retrans(k0p+fp)*dt
-              veg_ps%retrans%pool(p) = veg_ps%retrans%pool(p) + veg_pf%retrans%leaf_to_retrans(k0p+fp)*dt
+              veg_ps%core%leaf(p)    = veg_ps%core%leaf(p)    - veg_pf%retrans%leaf_to_retrans(p)*dt
+              veg_ps%retrans%pool(p) = veg_ps%retrans%pool(p) + veg_pf%retrans%leaf_to_retrans(p)*dt
 
               ! live wood turnover and retranslocation fluxes
               if (woody(ivt(p)) >= 1.0_r8) then
-                  veg_ps%core%livestem(p)  = veg_ps%core%livestem(p)  - veg_pf%core%livestem_to_deadstem(k0p+fp)*dt
-                  veg_ps%core%deadstem(p)  = veg_ps%core%deadstem(p)  + veg_pf%core%livestem_to_deadstem(k0p+fp)*dt
-                  veg_ps%core%livestem(p)  = veg_ps%core%livestem(p)  - veg_pf%retrans%livestem_to_retrans(k0p+fp)*dt
-                  veg_ps%retrans%pool(p)   = veg_ps%retrans%pool(p)   + veg_pf%retrans%livestem_to_retrans(k0p+fp)*dt
-                  veg_ps%core%livecroot(p) = veg_ps%core%livecroot(p) - veg_pf%core%livecroot_to_deadcroot(k0p+fp)*dt
-                  veg_ps%core%deadcroot(p) = veg_ps%core%deadcroot(p) + veg_pf%core%livecroot_to_deadcroot(k0p+fp)*dt
-                  veg_ps%core%livecroot(p) = veg_ps%core%livecroot(p) - veg_pf%retrans%livecroot_to_retrans(k0p+fp)*dt
-                  veg_ps%retrans%pool(p)   = veg_ps%retrans%pool(p)   + veg_pf%retrans%livecroot_to_retrans(k0p+fp)*dt
+                  veg_ps%core%livestem(p)  = veg_ps%core%livestem(p)  - veg_pf%core%livestem_to_deadstem(p)*dt
+                  veg_ps%core%deadstem(p)  = veg_ps%core%deadstem(p)  + veg_pf%core%livestem_to_deadstem(p)*dt
+                  veg_ps%core%livestem(p)  = veg_ps%core%livestem(p)  - veg_pf%retrans%livestem_to_retrans(p)*dt
+                  veg_ps%retrans%pool(p)   = veg_ps%retrans%pool(p)   + veg_pf%retrans%livestem_to_retrans(p)*dt
+                  veg_ps%core%livecroot(p) = veg_ps%core%livecroot(p) - veg_pf%core%livecroot_to_deadcroot(p)*dt
+                  veg_ps%core%deadcroot(p) = veg_ps%core%deadcroot(p) + veg_pf%core%livecroot_to_deadcroot(p)*dt
+                  veg_ps%core%livecroot(p) = veg_ps%core%livecroot(p) - veg_pf%retrans%livecroot_to_retrans(p)*dt
+                  veg_ps%retrans%pool(p)   = veg_ps%retrans%pool(p)   + veg_pf%retrans%livecroot_to_retrans(p)*dt
               end if
               if (iscft(ivt(p))) then ! Beth adds retrans from froot
-                  veg_ps%core%froot(p)     = veg_ps%core%froot(p)     - veg_pf%retrans%froot_to_retrans(k0p+fp)*dt
-                  veg_ps%retrans%pool(p)   = veg_ps%retrans%pool(p)   + veg_pf%retrans%froot_to_retrans(k0p+fp)*dt
+                  veg_ps%core%froot(p)     = veg_ps%core%froot(p)     - veg_pf%retrans%froot_to_retrans(p)*dt
+                  veg_ps%retrans%pool(p)   = veg_ps%retrans%pool(p)   + veg_pf%retrans%froot_to_retrans(p)*dt
                   veg_ps%core%livestem(p)  = veg_ps%core%livestem(p)  - veg_pf%core%livestem_to_litter(p)*dt
-                  veg_ps%core%livestem(p)  = veg_ps%core%livestem(p)  - veg_pf%retrans%livestem_to_retrans(k0p+fp)*dt
-                  veg_ps%retrans%pool(p)   = veg_ps%retrans%pool(p)   + veg_pf%retrans%livestem_to_retrans(k0p+fp)*dt
+                  veg_ps%core%livestem(p)  = veg_ps%core%livestem(p)  - veg_pf%retrans%livestem_to_retrans(p)*dt
+                  veg_ps%retrans%pool(p)   = veg_ps%retrans%pool(p)   + veg_pf%retrans%livestem_to_retrans(p)*dt
                   veg_ps%core%grain(p)     = veg_ps%core%grain(p)     - veg_pf%core%grain_to_food(p)*dt
 
                   veg_ps%core%cropseed_deficit(p) = veg_ps%core%cropseed_deficit(p) &
@@ -299,43 +296,43 @@ contains
               if (NFIX_PTASE_plant) veg_ps%core%pool(p) = veg_ps%core%pool(p) + veg_pf%biochem_pmin_to_plant(p)*dt
 
               ! deployment from retranslocation pool
-              veg_ps%core%pool(p)    = veg_ps%core%pool(p)    + veg_pf%retrans%retrans_to_pool(k0p+fp)*dt
-              veg_ps%retrans%pool(p) = veg_ps%retrans%pool(p) - veg_pf%retrans%retrans_to_pool(k0p+fp)*dt
+              veg_ps%core%pool(p)    = veg_ps%core%pool(p)    + veg_pf%retrans%retrans_to_pool(p)*dt
+              veg_ps%retrans%pool(p) = veg_ps%retrans%pool(p) - veg_pf%retrans%retrans_to_pool(p)*dt
 
               ! allocation fluxes
               veg_ps%core%pool(p)           = veg_ps%core%pool(p)          - veg_pf%core%pool_to_leaf(p)*dt
               veg_ps%core%leaf(p)           = veg_ps%core%leaf(p)          + veg_pf%core%pool_to_leaf(p)*dt
-              veg_ps%core%pool(p)           = veg_ps%core%pool(p)          - veg_pf%core%pool_to_leaf_storage(k0p+fp)*dt
-              veg_ps%core%leaf_storage(p)   = veg_ps%core%leaf_storage(p)  + veg_pf%core%pool_to_leaf_storage(k0p+fp)*dt
-              veg_ps%core%pool(p)           = veg_ps%core%pool(p)          - veg_pf%core%pool_to_froot(k0p+fp)*dt
-              veg_ps%core%froot(p)          = veg_ps%core%froot(p)         + veg_pf%core%pool_to_froot(k0p+fp)*dt
-              veg_ps%core%pool(p)           = veg_ps%core%pool(p)          - veg_pf%core%pool_to_froot_storage(k0p+fp)*dt
-              veg_ps%core%froot_storage(p)  = veg_ps%core%froot_storage(p) + veg_pf%core%pool_to_froot_storage(k0p+fp)*dt
+              veg_ps%core%pool(p)           = veg_ps%core%pool(p)          - veg_pf%core%pool_to_leaf_storage(p)*dt
+              veg_ps%core%leaf_storage(p)   = veg_ps%core%leaf_storage(p)  + veg_pf%core%pool_to_leaf_storage(p)*dt
+              veg_ps%core%pool(p)           = veg_ps%core%pool(p)          - veg_pf%core%pool_to_froot(p)*dt
+              veg_ps%core%froot(p)          = veg_ps%core%froot(p)         + veg_pf%core%pool_to_froot(p)*dt
+              veg_ps%core%pool(p)           = veg_ps%core%pool(p)          - veg_pf%core%pool_to_froot_storage(p)*dt
+              veg_ps%core%froot_storage(p)  = veg_ps%core%froot_storage(p) + veg_pf%core%pool_to_froot_storage(p)*dt
 
               if (woody(ivt(p)) >= 1.0_r8) then
                   veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livestem(p)*dt
                   veg_ps%core%livestem(p)          = veg_ps%core%livestem(p)          + veg_pf%core%pool_to_livestem(p)*dt
-                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livestem_storage(k0p+fp)*dt
-                  veg_ps%core%livestem_storage(p)  = veg_ps%core%livestem_storage(p)  + veg_pf%core%pool_to_livestem_storage(k0p+fp)*dt
-                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_deadstem(k0p+fp)*dt
-                  veg_ps%core%deadstem(p)          = veg_ps%core%deadstem(p)          + veg_pf%core%pool_to_deadstem(k0p+fp)*dt
-                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_deadstem_storage(k0p+fp)*dt
-                  veg_ps%core%deadstem_storage(p)  = veg_ps%core%deadstem_storage(p)  + veg_pf%core%pool_to_deadstem_storage(k0p+fp)*dt
-                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livecroot(k0p+fp)*dt
-                  veg_ps%core%livecroot(p)         = veg_ps%core%livecroot(p)         + veg_pf%core%pool_to_livecroot(k0p+fp)*dt
-                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livecroot_storage(k0p+fp)*dt
-                  veg_ps%core%livecroot_storage(p) = veg_ps%core%livecroot_storage(p) + veg_pf%core%pool_to_livecroot_storage(k0p+fp)*dt
-                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_deadcroot(k0p+fp)*dt
-                  veg_ps%core%deadcroot(p)         = veg_ps%core%deadcroot(p)         + veg_pf%core%pool_to_deadcroot(k0p+fp)*dt
-                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_deadcroot_storage(k0p+fp)*dt
-                  veg_ps%core%deadcroot_storage(p) = veg_ps%core%deadcroot_storage(p) + veg_pf%core%pool_to_deadcroot_storage(k0p+fp)*dt
+                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livestem_storage(p)*dt
+                  veg_ps%core%livestem_storage(p)  = veg_ps%core%livestem_storage(p)  + veg_pf%core%pool_to_livestem_storage(p)*dt
+                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_deadstem(p)*dt
+                  veg_ps%core%deadstem(p)          = veg_ps%core%deadstem(p)          + veg_pf%core%pool_to_deadstem(p)*dt
+                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_deadstem_storage(p)*dt
+                  veg_ps%core%deadstem_storage(p)  = veg_ps%core%deadstem_storage(p)  + veg_pf%core%pool_to_deadstem_storage(p)*dt
+                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livecroot(p)*dt
+                  veg_ps%core%livecroot(p)         = veg_ps%core%livecroot(p)         + veg_pf%core%pool_to_livecroot(p)*dt
+                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livecroot_storage(p)*dt
+                  veg_ps%core%livecroot_storage(p) = veg_ps%core%livecroot_storage(p) + veg_pf%core%pool_to_livecroot_storage(p)*dt
+                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_deadcroot(p)*dt
+                  veg_ps%core%deadcroot(p)         = veg_ps%core%deadcroot(p)         + veg_pf%core%pool_to_deadcroot(p)*dt
+                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_deadcroot_storage(p)*dt
+                  veg_ps%core%deadcroot_storage(p) = veg_ps%core%deadcroot_storage(p) + veg_pf%core%pool_to_deadcroot_storage(p)*dt
               end if
 
               if (iscft(ivt(p))) then ! skip 2 generic crops
                   veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livestem(p)*dt
                   veg_ps%core%livestem(p)          = veg_ps%core%livestem(p)          + veg_pf%core%pool_to_livestem(p)*dt
-                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livestem_storage(k0p+fp)*dt
-                  veg_ps%core%livestem_storage(p)  = veg_ps%core%livestem_storage(p)  + veg_pf%core%pool_to_livestem_storage(k0p+fp)*dt
+                  veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_livestem_storage(p)*dt
+                  veg_ps%core%livestem_storage(p)  = veg_ps%core%livestem_storage(p)  + veg_pf%core%pool_to_livestem_storage(p)*dt
                   veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_grain(p)*dt
                   veg_ps%core%grain(p)             = veg_ps%core%grain(p)             + veg_pf%core%pool_to_grain(p)*dt
                   veg_ps%core%pool(p)              = veg_ps%core%pool(p)              - veg_pf%core%pool_to_grain_storage(p)*dt
@@ -343,26 +340,26 @@ contains
               end if
 
               ! move storage pools into transfer pools
-              veg_ps%core%leaf_storage(p)  = veg_ps%core%leaf_storage(p)  - veg_pf%core%leaf_storage_to_xfer(k0p+fp)*dt
-              veg_ps%core%leaf_xfer(p)     = veg_ps%core%leaf_xfer(p)     + veg_pf%core%leaf_storage_to_xfer(k0p+fp)*dt
-              veg_ps%core%froot_storage(p) = veg_ps%core%froot_storage(p) - veg_pf%core%froot_storage_to_xfer(k0p+fp)*dt
-              veg_ps%core%froot_xfer(p)    = veg_ps%core%froot_xfer(p)    + veg_pf%core%froot_storage_to_xfer(k0p+fp)*dt
+              veg_ps%core%leaf_storage(p)  = veg_ps%core%leaf_storage(p)  - veg_pf%core%leaf_storage_to_xfer(p)*dt
+              veg_ps%core%leaf_xfer(p)     = veg_ps%core%leaf_xfer(p)     + veg_pf%core%leaf_storage_to_xfer(p)*dt
+              veg_ps%core%froot_storage(p) = veg_ps%core%froot_storage(p) - veg_pf%core%froot_storage_to_xfer(p)*dt
+              veg_ps%core%froot_xfer(p)    = veg_ps%core%froot_xfer(p)    + veg_pf%core%froot_storage_to_xfer(p)*dt
 
               if (woody(ivt(p)) >= 1.0_r8) then
-                  veg_ps%core%livestem_storage(p)  = veg_ps%core%livestem_storage(p)  - veg_pf%core%livestem_storage_to_xfer(k0p+fp)*dt
-                  veg_ps%core%livestem_xfer(p)     = veg_ps%core%livestem_xfer(p)     + veg_pf%core%livestem_storage_to_xfer(k0p+fp)*dt
-                  veg_ps%core%deadstem_storage(p)  = veg_ps%core%deadstem_storage(p)  - veg_pf%core%deadstem_storage_to_xfer(k0p+fp)*dt
-                  veg_ps%core%deadstem_xfer(p)     = veg_ps%core%deadstem_xfer(p)     + veg_pf%core%deadstem_storage_to_xfer(k0p+fp)*dt
-                  veg_ps%core%livecroot_storage(p) = veg_ps%core%livecroot_storage(p) - veg_pf%core%livecroot_storage_to_xfer(k0p+fp)*dt
-                  veg_ps%core%livecroot_xfer(p)    = veg_ps%core%livecroot_xfer(p)    + veg_pf%core%livecroot_storage_to_xfer(k0p+fp)*dt
-                  veg_ps%core%deadcroot_storage(p) = veg_ps%core%deadcroot_storage(p) - veg_pf%core%deadcroot_storage_to_xfer(k0p+fp)*dt
-                  veg_ps%core%deadcroot_xfer(p)    = veg_ps%core%deadcroot_xfer(p)    + veg_pf%core%deadcroot_storage_to_xfer(k0p+fp)*dt
+                  veg_ps%core%livestem_storage(p)  = veg_ps%core%livestem_storage(p)  - veg_pf%core%livestem_storage_to_xfer(p)*dt
+                  veg_ps%core%livestem_xfer(p)     = veg_ps%core%livestem_xfer(p)     + veg_pf%core%livestem_storage_to_xfer(p)*dt
+                  veg_ps%core%deadstem_storage(p)  = veg_ps%core%deadstem_storage(p)  - veg_pf%core%deadstem_storage_to_xfer(p)*dt
+                  veg_ps%core%deadstem_xfer(p)     = veg_ps%core%deadstem_xfer(p)     + veg_pf%core%deadstem_storage_to_xfer(p)*dt
+                  veg_ps%core%livecroot_storage(p) = veg_ps%core%livecroot_storage(p) - veg_pf%core%livecroot_storage_to_xfer(p)*dt
+                  veg_ps%core%livecroot_xfer(p)    = veg_ps%core%livecroot_xfer(p)    + veg_pf%core%livecroot_storage_to_xfer(p)*dt
+                  veg_ps%core%deadcroot_storage(p) = veg_ps%core%deadcroot_storage(p) - veg_pf%core%deadcroot_storage_to_xfer(p)*dt
+                  veg_ps%core%deadcroot_xfer(p)    = veg_ps%core%deadcroot_xfer(p)    + veg_pf%core%deadcroot_storage_to_xfer(p)*dt
               end if
 
               if (iscft(ivt(p))) then ! skip 2 generic crops
                   ! lines here for consistency; the transfer terms are zero
-                  veg_ps%core%livestem_storage(p)  = veg_ps%core%livestem_storage(p) - veg_pf%core%livestem_storage_to_xfer(k0p+fp)*dt
-                  veg_ps%core%livestem_xfer(p)     = veg_ps%core%livestem_xfer(p)    + veg_pf%core%livestem_storage_to_xfer(k0p+fp)*dt
+                  veg_ps%core%livestem_storage(p)  = veg_ps%core%livestem_storage(p) - veg_pf%core%livestem_storage_to_xfer(p)*dt
+                  veg_ps%core%livestem_xfer(p)     = veg_ps%core%livestem_xfer(p)    + veg_pf%core%livestem_storage_to_xfer(p)*dt
                   veg_ps%core%grain_storage(p)     = veg_ps%core%grain_storage(p)    - veg_pf%core%grain_storage_to_xfer(p)*dt
                   veg_ps%core%grain_xfer(p)        = veg_ps%core%grain_xfer(p)       + veg_pf%core%grain_storage_to_xfer(p)*dt
               end if

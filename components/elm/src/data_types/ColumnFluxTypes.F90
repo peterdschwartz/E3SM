@@ -2389,10 +2389,12 @@ contains
     do_zero_transport = .true.
     if (present(zero_transport)) do_zero_transport = zero_transport
     do j = 1, nlevdecomp_full
-       do concurrent (fi = 1:num_column)  ! spel compact
+       do fi = 1,num_column,flux_setvalues_block_size
+          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
-          this%hr_vr(filter_column(fi),j)                         = value_column
+          this%hr_vr(idx,j)                         = value_column
 
+          end associate
        end do
     end do
     do j = 1, nlevdecomp_full
@@ -2417,42 +2419,46 @@ contains
        end do
     end do 
 
-    do concurrent (fi = 1:num_column)  ! spel compact
-       this%er(filter_column(fi))                        = value_column
-       this%core%som_yield(filter_column(fi))                = value_column
-       this%somhr(filter_column(fi))                     = value_column
-       this%lithr(filter_column(fi))                     = value_column
-       this%hr(filter_column(fi))                        = value_column
-       this%cwdc_hr(filter_column(fi))                   = value_column
-       this%litterc_loss(filter_column(fi))              = value_column
+    do fi = 1,num_column,flux_setvalues_block_size
+       associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+       this%er(idx)                        = value_column
+       this%core%som_yield(idx)                = value_column
+       this%somhr(idx)                     = value_column
+       this%lithr(idx)                     = value_column
+       this%hr(idx)                        = value_column
+       this%cwdc_hr(idx)                   = value_column
+       this%litterc_loss(idx)              = value_column
        
-       this%nee(filter_column(fi))                       = value_column
+       this%nee(idx)                       = value_column
 
        ! Zero p2c column fluxes
-       this%rr(filter_column(fi))                    = value_column
-       this%ar(filter_column(fi))                    = value_column
-       this%gpp(filter_column(fi))                   = value_column
-       this%npp(filter_column(fi))                   = value_column
-       this%litfall(filter_column(fi))               = value_column
-       this%vegfire(filter_column(fi))               = value_column
+       this%rr(idx)                    = value_column
+       this%ar(idx)                    = value_column
+       this%gpp(idx)                   = value_column
+       this%npp(idx)                   = value_column
+       this%litfall(idx)               = value_column
+       this%vegfire(idx)               = value_column
 
+       end associate
     end do
   
     if(use_crop) then 
-      do concurrent (fi = 1:num_column)  ! spel compact
-         this%somc_fire(filter_column(fi))                 = value_column
-         this%core%product_loss(filter_column(fi))             = value_column
-         this%sr(filter_column(fi))                        = value_column
-         this%litfire(filter_column(fi))                   = value_column
-         this%somfire(filter_column(fi))                   = value_column
-         this%totfire(filter_column(fi))                   = value_column
-         this%nep(filter_column(fi))                       = value_column
-         this%nbp(filter_column(fi))                       = value_column
-         this%cwdc_loss(filter_column(fi))                 = value_column
-         this%core%som_erode(filter_column(fi))                = value_column
-         this%core%som_deposit(filter_column(fi))              = value_column
-         this%core%som_yield(filter_column(fi))                = value_column
+      do fi = 1,num_column,flux_setvalues_block_size
+         associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+         this%somc_fire(idx)                 = value_column
+         this%core%product_loss(idx)             = value_column
+         this%sr(idx)                        = value_column
+         this%litfire(idx)                   = value_column
+         this%somfire(idx)                   = value_column
+         this%totfire(idx)                   = value_column
+         this%nep(idx)                       = value_column
+         this%nbp(idx)                       = value_column
+         this%cwdc_loss(idx)                 = value_column
+         this%core%som_erode(idx)                = value_column
+         this%core%som_deposit(idx)              = value_column
+         this%core%som_yield(idx)                = value_column
 
+         end associate
       end do
     end if 
     
@@ -2465,17 +2471,21 @@ contains
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
     if (do_zero_harvest) then
-       do concurrent (fi = 1:num_column)  ! spel compact
-          this%hrv_xsmrpool_to_atm(filter_column(fi))       = value_column
+       do fi = 1,num_column,flux_setvalues_block_size
+          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+          this%hrv_xsmrpool_to_atm(idx)       = value_column
+          end associate
        end do
     end if
 
     ! Erosion fluxes, written only with ero_ccycle.
     if (do_zero_erosion) then
        do k = 1, ndecomp_pools
-          do concurrent (fi = 1:num_column)  ! spel compact
-             this%core%decomp_pools_erode(filter_column(fi),k)   = value_column
-             this%core%decomp_pools_deposit(filter_column(fi),k) = value_column
+          do fi = 1,num_column,flux_setvalues_block_size
+             associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+             this%core%decomp_pools_erode(idx,k)   = value_column
+             this%core%decomp_pools_deposit(idx,k) = value_column
+             end associate
           end do
        end do
     end if
@@ -3812,73 +3822,79 @@ contains
     do_zero_erosion = .true.
     if (present(zero_erosion)) do_zero_erosion = zero_erosion
     do j = 1, nlevdecomp_full
-       do concurrent (fi = 1:num_column)  ! spel compact
+       do fi = 1,num_column,flux_setvalues_block_size
+          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
-          this%mineral%net_min_vr(filter_column(fi),j)                      = value_column
-          this%sminn_nh4_input_vr(filter_column(fi),j)               = value_column !not used anywhere?
-          this%sminn_no3_input_vr(filter_column(fi),j)               = value_column !not used anywhere?
+          this%mineral%net_min_vr(idx,j)                      = value_column
+          this%sminn_nh4_input_vr(idx,j)               = value_column !not used anywhere?
+          this%sminn_no3_input_vr(idx,j)               = value_column !not used anywhere?
 
+          end associate
        end do
     end do
 
     if( use_pflotran .and. pf_cmode) then 
 
       do j = 1, nlevdecomp_full
-         do concurrent (fi = 1:num_column)  ! spel compact
+         do fi = 1,num_column,flux_setvalues_block_size
+            associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
             ! pflotran
-            this%uptake%plant_demand_vr(filter_column(fi),j)              = value_column !use_elm_interface.and.use_pflotran .and. pf_cmode
-            this%f_ngas_decomp_vr(filter_column(fi),j)              = value_column ! ""
-            this%f_ngas_nitri_vr(filter_column(fi),j)               = value_column ! ""
-            this%f_ngas_denit_vr(filter_column(fi),j)               = value_column
-            this%f_n2o_soil_vr(filter_column(fi),j)                 = value_column
-            this%f_n2_soil_vr(filter_column(fi),j)                  = value_column
+            this%uptake%plant_demand_vr(idx,j)              = value_column !use_elm_interface.and.use_pflotran .and. pf_cmode
+            this%f_ngas_decomp_vr(idx,j)              = value_column ! ""
+            this%f_ngas_nitri_vr(idx,j)               = value_column ! ""
+            this%f_ngas_denit_vr(idx,j)               = value_column
+            this%f_n2o_soil_vr(idx,j)                 = value_column
+            this%f_n2_soil_vr(idx,j)                  = value_column
 
+            end associate
          end do
        end do 
      end if 
 
-    do concurrent (fi = 1:num_column)  ! spel compact
+    do fi = 1,num_column,flux_setvalues_block_size
+       associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
-       this%mineral%dep_to_smin(filter_column(fi))             = value_column
-       this%nfix_to_sminn(filter_column(fi))             = value_column
-       this%nfix_to_ecosysn(filter_column(fi))           = value_column
-       this%fert_to_sminn(filter_column(fi))             = value_column
-       this%soyfixn_to_sminn(filter_column(fi))          = value_column
-       this%mineral%supplement_to_smin(filter_column(fi))       = value_column
-       this%denit(filter_column(fi))                     = value_column
-       this%smin_nh4_to_plant(filter_column(fi))      = value_column
-       this%smin_no3_to_plant(filter_column(fi))      = value_column
-       this%core%product_loss(filter_column(fi))             = value_column
-       this%potential_immob(filter_column(fi))           = value_column
-       this%actual_immob(filter_column(fi))              = value_column
-       this%uptake%smin_to_plant(filter_column(fi))            = value_column
-       this%mineral%gross_min(filter_column(fi))                = value_column
-       this%mineral%net_min(filter_column(fi))                  = value_column
+       this%mineral%dep_to_smin(idx)             = value_column
+       this%nfix_to_sminn(idx)             = value_column
+       this%nfix_to_ecosysn(idx)           = value_column
+       this%fert_to_sminn(idx)             = value_column
+       this%soyfixn_to_sminn(idx)          = value_column
+       this%mineral%supplement_to_smin(idx)       = value_column
+       this%denit(idx)                     = value_column
+       this%smin_nh4_to_plant(idx)      = value_column
+       this%smin_no3_to_plant(idx)      = value_column
+       this%core%product_loss(idx)             = value_column
+       this%potential_immob(idx)           = value_column
+       this%actual_immob(idx)              = value_column
+       this%uptake%smin_to_plant(idx)            = value_column
+       this%mineral%gross_min(idx)                = value_column
+       this%mineral%net_min(idx)                  = value_column
 
-       this%f_nit(filter_column(fi))                  = value_column
-       this%pot_f_nit(filter_column(fi))              = value_column
-       this%f_denit(filter_column(fi))                = value_column
-       this%pot_f_denit(filter_column(fi))            = value_column
-       this%f_n2o_denit(filter_column(fi))            = value_column
-       this%f_n2o_nit(filter_column(fi))              = value_column
-       this%smin_no3_leached(filter_column(fi))       = value_column
-       this%smin_no3_runoff(filter_column(fi))        = value_column
+       this%f_nit(idx)                  = value_column
+       this%pot_f_nit(idx)              = value_column
+       this%f_denit(idx)                = value_column
+       this%pot_f_denit(idx)            = value_column
+       this%f_n2o_denit(idx)            = value_column
+       this%f_n2o_nit(idx)              = value_column
+       this%smin_no3_leached(idx)       = value_column
+       this%smin_no3_runoff(idx)        = value_column
 
-       this%f_ngas_decomp(filter_column(fi))         = value_column
-       this%f_ngas_nitri(filter_column(fi))          = value_column
-       this%f_ngas_denit(filter_column(fi))          = value_column
-       this%f_n2o_soil(filter_column(fi))            = value_column
-       this%f_n2_soil(filter_column(fi))             = value_column
-       this%sminn_input(filter_column(fi))               = value_column
-       this%sminn_nh4_input(filter_column(fi))           = value_column
-       this%sminn_no3_input(filter_column(fi))           = value_column
+       this%f_ngas_decomp(idx)         = value_column
+       this%f_ngas_nitri(idx)          = value_column
+       this%f_ngas_denit(idx)          = value_column
+       this%f_n2o_soil(idx)            = value_column
+       this%f_n2_soil(idx)             = value_column
+       this%sminn_input(idx)               = value_column
+       this%sminn_nh4_input(idx)           = value_column
+       this%sminn_no3_input(idx)           = value_column
 
        ! bgc-interface
-       this%uptake%plant_demand(filter_column(fi)) = value_column
+       this%uptake%plant_demand(idx) = value_column
 
        ! FAN
-       this%fert_nh4_runoff(filter_column(fi))    = value_column
+       this%fert_nh4_runoff(idx)    = value_column
 
+       end associate
     end do
     do k = 1, ndecomp_pools
        do fi = 1,num_column
@@ -3940,32 +3956,34 @@ contains
 
     ! FAN fluxes, written only with use_fan or fan_to_bgc_veg/crop.
     if (do_zero_fan) then
-       do concurrent (fi = 1:num_column)  ! spel compact
-          this%manure_tan_appl(filter_column(fi))      = value_column
-          this%manure_n_appl(filter_column(fi))        = value_column
-          this%manure_n_grz(filter_column(fi))         = value_column
-          this%manure_n_mix(filter_column(fi))         = value_column
-          this%manure_n_barns(filter_column(fi))       = value_column
-          this%fert_n_appl(filter_column(fi))          = value_column
-          this%otherfert_n_appl(filter_column(fi))     = value_column
-          this%manure_n_transf(filter_column(fi))      = value_column
-          this%nh3_barns(filter_column(fi))            = value_column
-          this%nh3_stores(filter_column(fi))           = value_column
-          this%nh3_grz(filter_column(fi))              = value_column
-          this%nh3_manure_app(filter_column(fi))       = value_column
-          this%nh3_fert(filter_column(fi))             = value_column
-          this%nh3_otherfert(filter_column(fi))        = value_column
-          this%nh3_total(filter_column(fi))            = value_column
-          this%manure_no3_to_soil(filter_column(fi))   = value_column
-          this%fert_no3_to_soil(filter_column(fi))     = value_column
-          this%manure_nh4_to_soil(filter_column(fi))   = value_column
-          this%fert_nh4_to_soil(filter_column(fi))     = value_column
-          this%manure_nh4_runoff(filter_column(fi))    = value_column
-          this%manure_n_to_sminn(filter_column(fi))    = value_column
-          this%manure_n_total(filter_column(fi))       = value_column
-          this%synthfert_n_to_sminn(filter_column(fi)) = value_column
-          this%fan_totnin(filter_column(fi))           = value_column
-          this%fan_totnout(filter_column(fi))          = value_column
+       do fi = 1,num_column,flux_setvalues_block_size
+          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+          this%manure_tan_appl(idx)      = value_column
+          this%manure_n_appl(idx)        = value_column
+          this%manure_n_grz(idx)         = value_column
+          this%manure_n_mix(idx)         = value_column
+          this%manure_n_barns(idx)       = value_column
+          this%fert_n_appl(idx)          = value_column
+          this%otherfert_n_appl(idx)     = value_column
+          this%manure_n_transf(idx)      = value_column
+          this%nh3_barns(idx)            = value_column
+          this%nh3_stores(idx)           = value_column
+          this%nh3_grz(idx)              = value_column
+          this%nh3_manure_app(idx)       = value_column
+          this%nh3_fert(idx)             = value_column
+          this%nh3_otherfert(idx)        = value_column
+          this%nh3_total(idx)            = value_column
+          this%manure_no3_to_soil(idx)   = value_column
+          this%fert_no3_to_soil(idx)     = value_column
+          this%manure_nh4_to_soil(idx)   = value_column
+          this%fert_nh4_to_soil(idx)     = value_column
+          this%manure_nh4_runoff(idx)    = value_column
+          this%manure_n_to_sminn(idx)    = value_column
+          this%manure_n_total(idx)       = value_column
+          this%synthfert_n_to_sminn(idx) = value_column
+          this%fan_totnin(idx)           = value_column
+          this%fan_totnout(idx)          = value_column
+          end associate
        end do
     end if
 
@@ -5148,71 +5166,77 @@ contains
     do_zero_transport = .true.
     if (present(zero_transport)) do_zero_transport = zero_transport
     do j = 1, nlevdecomp_full
-       do concurrent (fi = 1:num_column)  ! spel compact
+       do fi = 1,num_column,flux_setvalues_block_size
+          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
-          this%primp_to_labilep_vr(filter_column(fi),j)              = value_column
-          this%labilep_to_secondp_vr(filter_column(fi),j)            = value_column
-          this%secondp_to_labilep_vr(filter_column(fi),j)            = value_column
-          this%secondp_to_occlp_vr(filter_column(fi),j)              = value_column
+          this%primp_to_labilep_vr(idx,j)              = value_column
+          this%labilep_to_secondp_vr(idx,j)            = value_column
+          this%secondp_to_labilep_vr(idx,j)            = value_column
+          this%secondp_to_occlp_vr(idx,j)              = value_column
 
-          this%mineral%smin_leached_vr(filter_column(fi),j)                 = value_column
+          this%mineral%smin_leached_vr(idx,j)                 = value_column
 
-          this%potential_immob_p_vr(filter_column(fi),j)             = value_column
-          this%actual_immob_p_vr(filter_column(fi),j)                = value_column
-          this%uptake%smin_to_plant_vr(filter_column(fi),j)                = value_column
-          this%mineral%supplement_to_smin_vr(filter_column(fi),j)           = value_column
-          this%mineral%gross_min_vr(filter_column(fi),j)                    = value_column
-          this%mineral%net_min_vr(filter_column(fi),j)                      = value_column
-          this%biochem_pmin_vr(filter_column(fi),j)                  = value_column
-          this%biochem_pmin_to_ecosysp_vr(filter_column(fi),j)       = value_column
+          this%potential_immob_p_vr(idx,j)             = value_column
+          this%actual_immob_p_vr(idx,j)                = value_column
+          this%uptake%smin_to_plant_vr(idx,j)                = value_column
+          this%mineral%supplement_to_smin_vr(idx,j)           = value_column
+          this%mineral%gross_min_vr(idx,j)                    = value_column
+          this%mineral%net_min_vr(idx,j)                      = value_column
+          this%biochem_pmin_vr(idx,j)                  = value_column
+          this%biochem_pmin_to_ecosysp_vr(idx,j)       = value_column
 
           ! bgc interface & pflotran
-          this%uptake%plant_demand_vr(filter_column(fi),j)                 = value_column
-          this%adsorb_to_labilep_vr(filter_column(fi),j)             = value_column
-          this%desorb_to_solutionp_vr(filter_column(fi),j)           = value_column
+          this%uptake%plant_demand_vr(idx,j)                 = value_column
+          this%adsorb_to_labilep_vr(idx,j)             = value_column
+          this%desorb_to_solutionp_vr(idx,j)           = value_column
           
+          end associate
        end do
     end do
 
-    do concurrent (fi = 1:num_column)  ! spel compact
+    do fi = 1,num_column,flux_setvalues_block_size
+       associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
-       this%mineral%dep_to_smin(filter_column(fi))             = value_column
-       this%fert_p_to_sminp(filter_column(fi))           = value_column
-       this%core%product_loss(filter_column(fi))             = value_column
-       this%potential_immob_p(filter_column(fi))         = value_column
-       this%actual_immob_p(filter_column(fi))            = value_column
-       this%uptake%smin_to_plant(filter_column(fi))            = value_column
-       this%mineral%supplement_to_smin(filter_column(fi))       = value_column
-       this%mineral%gross_min(filter_column(fi))                = value_column
-       this%mineral%net_min(filter_column(fi))                  = value_column
-       this%biochem_pmin(filter_column(fi))              = value_column
-       this%biochem_pmin_to_plant(filter_column(fi))     = value_column
-       this%primp_to_labilep(filter_column(fi))          = value_column
-       this%labilep_to_secondp(filter_column(fi))        = value_column
-       this%secondp_to_labilep(filter_column(fi))        = value_column
-       this%secondp_to_occlp(filter_column(fi))          = value_column
-       this%mineral%smin_leached(filter_column(fi))             = value_column
-       this%core%som_erode(filter_column(fi))                = value_column
-       this%core%som_deposit(filter_column(fi))              = value_column
-       this%core%som_yield(filter_column(fi))                = value_column
-       this%labilep_yield(filter_column(fi))             = value_column
-       this%secondp_yield(filter_column(fi))             = value_column
-       this%occlp_yield(filter_column(fi))               = value_column
-       this%primp_yield(filter_column(fi))               = value_column
+       this%mineral%dep_to_smin(idx)             = value_column
+       this%fert_p_to_sminp(idx)           = value_column
+       this%core%product_loss(idx)             = value_column
+       this%potential_immob_p(idx)         = value_column
+       this%actual_immob_p(idx)            = value_column
+       this%uptake%smin_to_plant(idx)            = value_column
+       this%mineral%supplement_to_smin(idx)       = value_column
+       this%mineral%gross_min(idx)                = value_column
+       this%mineral%net_min(idx)                  = value_column
+       this%biochem_pmin(idx)              = value_column
+       this%biochem_pmin_to_plant(idx)     = value_column
+       this%primp_to_labilep(idx)          = value_column
+       this%labilep_to_secondp(idx)        = value_column
+       this%secondp_to_labilep(idx)        = value_column
+       this%secondp_to_occlp(idx)          = value_column
+       this%mineral%smin_leached(idx)             = value_column
+       this%core%som_erode(idx)                = value_column
+       this%core%som_deposit(idx)              = value_column
+       this%core%som_yield(idx)                = value_column
+       this%labilep_yield(idx)             = value_column
+       this%secondp_yield(idx)             = value_column
+       this%occlp_yield(idx)               = value_column
+       this%primp_yield(idx)               = value_column
 
        ! bgc-interface
-       this%uptake%plant_demand(filter_column(fi))             = value_column
+       this%uptake%plant_demand(idx)             = value_column
 
-       this%adsorb_to_labilep(filter_column(fi))         = value_column
-       this%desorb_to_solutionp(filter_column(fi))       = value_column
+       this%adsorb_to_labilep(idx)         = value_column
+       this%desorb_to_solutionp(idx)       = value_column
 
+       end associate
     end do
 
     do k = 1, ndecomp_pools
-       do concurrent (fi = 1:num_column)  ! spel compact
-          this%core%decomp_pools_leached(filter_column(fi),k) = value_column
-          this%core%m_decomp_pools_to_fire(filter_column(fi),k) = value_column
+       do fi = 1,num_column,flux_setvalues_block_size
+          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+          this%core%decomp_pools_leached(idx,k) = value_column
+          this%core%m_decomp_pools_to_fire(idx,k) = value_column
 
+          end associate
        end do
     end do
 
@@ -5259,28 +5283,34 @@ contains
 
     ! Erosion fluxes, written only with ero_ccycle.
     if (do_zero_erosion) then
-       do concurrent (fi = 1:num_column)  ! spel compact
-          this%labilep_erode(filter_column(fi))   = value_column
-          this%labilep_deposit(filter_column(fi)) = value_column
-          this%secondp_erode(filter_column(fi))   = value_column
-          this%secondp_deposit(filter_column(fi)) = value_column
-          this%occlp_erode(filter_column(fi))     = value_column
-          this%occlp_deposit(filter_column(fi))   = value_column
-          this%primp_erode(filter_column(fi))     = value_column
-          this%primp_deposit(filter_column(fi))   = value_column
+       do fi = 1,num_column,flux_setvalues_block_size
+          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+          this%labilep_erode(idx)   = value_column
+          this%labilep_deposit(idx) = value_column
+          this%secondp_erode(idx)   = value_column
+          this%secondp_deposit(idx) = value_column
+          this%occlp_erode(idx)     = value_column
+          this%occlp_deposit(idx)   = value_column
+          this%primp_erode(idx)     = value_column
+          this%primp_deposit(idx)   = value_column
+          end associate
        end do
        do j = 1, nlevdecomp_full
-          do concurrent (fi = 1:num_column)  ! spel compact
-             this%labilep_yield_vr(filter_column(fi),j) = value_column
-             this%secondp_yield_vr(filter_column(fi),j) = value_column
-             this%occlp_yield_vr(filter_column(fi),j)   = value_column
-             this%primp_yield_vr(filter_column(fi),j)   = value_column
+          do fi = 1,num_column,flux_setvalues_block_size
+             associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+             this%labilep_yield_vr(idx,j) = value_column
+             this%secondp_yield_vr(idx,j) = value_column
+             this%occlp_yield_vr(idx,j)   = value_column
+             this%primp_yield_vr(idx,j)   = value_column
+             end associate
           end do
        end do
        do k = 1, ndecomp_pools
-          do concurrent (fi = 1:num_column)  ! spel compact
-             this%core%decomp_pools_erode(filter_column(fi),k)   = value_column
-             this%core%decomp_pools_deposit(filter_column(fi),k) = value_column
+          do fi = 1,num_column,flux_setvalues_block_size
+             associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
+             this%core%decomp_pools_erode(idx,k)   = value_column
+             this%core%decomp_pools_deposit(idx,k) = value_column
+             end associate
           end do
        end do
        do k = 1, ndecomp_pools

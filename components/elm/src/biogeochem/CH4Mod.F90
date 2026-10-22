@@ -3249,7 +3249,6 @@ contains
   subroutine ch4_annualupdate(bounds, &
        num_methc, filter_methc, &
        num_methp, filter_methp, ch4_vars, dt, dayspyr)
-    use CompactLayoutMod, only : compact_soilp_off  ! spel compact
     !
     ! !DESCRIPTION: Annual mean fields.
     !
@@ -3275,8 +3274,6 @@ contains
     integer :: fp        ! soil pft filter indices
     real(r8):: secsperyear
     logical :: newrun
-    integer :: k0p  ! begp-1 of the clump: compact index of filter_soilp(fp) is k0p+fp  ! spel compact
-    k0p = compact_soilp_off  ! spel compact
     !-----------------------------------------------------------------------
 
     associate(                                                      &
@@ -3364,8 +3361,8 @@ contains
                tempavg_bgnpp(p) = 0._r8
                
             else
-               tempavg_agnpp(p) = tempavg_agnpp(p) + dt/secsperyear * agnpp(k0p+fp)
-               tempavg_bgnpp(p) = tempavg_bgnpp(p) + dt/secsperyear * bgnpp(k0p+fp)
+               tempavg_agnpp(p) = tempavg_agnpp(p) + dt/secsperyear * agnpp(p)
+               tempavg_bgnpp(p) = tempavg_bgnpp(p) + dt/secsperyear * bgnpp(p)
             end if
          end if
       end do

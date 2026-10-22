@@ -588,7 +588,6 @@ contains
   subroutine carbon_flux_limiter(bounds, num_soilc, filter_soilc,&
       num_soilp, filter_soilp, crop_vars,  &
       veg_cf, veg_cs )
-    use CompactLayoutMod, only : compact_soilp_off  ! spel compact
     !
     ! DESCRIPTION
     ! the flux limiter for phenology carbon fluxes
@@ -612,8 +611,6 @@ contains
   real(r8) :: rscal
   real(r8) :: dt
   real(r8) :: ar_p
-    integer :: k0p  ! begp-1 of the clump: compact index of filter_soilp(fp) is k0p+fp  ! spel compact
-    k0p = compact_soilp_off  ! spel compact
   associate(                                                    &
          ivt                   =>    veg_pp%itype             , & ! Input:  [integer  (:)     ]  pft vegetation type
          woody                 =>    veg_vp%woody             , & ! Input:  [real(r8) (:)     ]  woody lifeform flag (0 = non-woody, 1 = tree, 2 = shrub)
@@ -659,81 +656,81 @@ contains
     ystates(s_gresp_storage)      = veg_cs%gresp_storage(p)
 
     rfluxes(:) = 0._r8
-    ar_p = veg_cf%leaf_curmr(k0p+fp)             &
-         + veg_cf%froot_curmr(k0p+fp)            &
+    ar_p = veg_cf%leaf_curmr(p)             &
+         + veg_cf%froot_curmr(p)            &
          + veg_cf%cpool_leaf_gr(p)          &
          + veg_cf%cpool_froot_gr(p)         &
          + veg_cf%cpool_leaf_storage_gr(p)  &
          + veg_cf%cpool_froot_storage_gr(p)
     if (woody(ivt(p)) >= 1.0_r8) then
       ar_p = ar_p                                 &
-         + veg_cf%livestem_curmr(k0p+fp)             &
-         + veg_cf%livecroot_curmr(k0p+fp)            &
-         + veg_cf%cpool_livestem_gr(k0p+fp)          &
-         + veg_cf%cpool_deadstem_gr(k0p+fp)          &
-         + veg_cf%cpool_livecroot_gr(k0p+fp)         &
-         + veg_cf%cpool_deadcroot_gr(k0p+fp)         &
-         + veg_cf%cpool_livestem_storage_gr(k0p+fp)  &
-         + veg_cf%cpool_deadstem_storage_gr(k0p+fp)  &
-         + veg_cf%cpool_livecroot_storage_gr(k0p+fp) &
-         + veg_cf%cpool_deadcroot_storage_gr(k0p+fp)
+         + veg_cf%livestem_curmr(p)             &
+         + veg_cf%livecroot_curmr(p)            &
+         + veg_cf%cpool_livestem_gr(p)          &
+         + veg_cf%cpool_deadstem_gr(p)          &
+         + veg_cf%cpool_livecroot_gr(p)         &
+         + veg_cf%cpool_deadcroot_gr(p)         &
+         + veg_cf%cpool_livestem_storage_gr(p)  &
+         + veg_cf%cpool_deadstem_storage_gr(p)  &
+         + veg_cf%cpool_livecroot_storage_gr(p) &
+         + veg_cf%cpool_deadcroot_storage_gr(p)
     endif
     if (iscft(ivt(p))) then
       ar_p= ar_p                                 &
-        + veg_cf%livestem_curmr(k0p+fp)             &
-        + veg_cf%grain_curmr(k0p+fp)                &
-        + veg_cf%cpool_livestem_gr(k0p+fp)          &
+        + veg_cf%livestem_curmr(p)             &
+        + veg_cf%grain_curmr(p)                &
+        + veg_cf%cpool_livestem_gr(p)          &
         + veg_cf%cpool_grain_gr(p)             &
-        + veg_cf%cpool_livestem_storage_gr(k0p+fp)  &
+        + veg_cf%cpool_livestem_storage_gr(p)  &
         + veg_cf%cpool_grain_storage_gr(p)
     endif
     !assemble reactive fluxes
     rfluxes(f_cpool_to_leafc)               = veg_cf%core%pool_to_leaf(p)
-    rfluxes(f_cpool_to_leafc_storage)       = veg_cf%core%pool_to_leaf_storage(k0p+fp)
-    rfluxes(f_cpool_to_frootc)              = veg_cf%core%pool_to_froot(k0p+fp)
-    rfluxes(f_cpool_to_frootc_storage)      = veg_cf%core%pool_to_froot_storage(k0p+fp)
-    rfluxes(f_cpool_to_xsmrpool)            = veg_cf%cpool_to_xsmrpool(k0p+fp)
-    rfluxes(f_cpool_to_gresp_storage)       = veg_cf%cpool_to_gresp_storage(k0p+fp)
+    rfluxes(f_cpool_to_leafc_storage)       = veg_cf%core%pool_to_leaf_storage(p)
+    rfluxes(f_cpool_to_frootc)              = veg_cf%core%pool_to_froot(p)
+    rfluxes(f_cpool_to_frootc_storage)      = veg_cf%core%pool_to_froot_storage(p)
+    rfluxes(f_cpool_to_xsmrpool)            = veg_cf%cpool_to_xsmrpool(p)
+    rfluxes(f_cpool_to_gresp_storage)       = veg_cf%cpool_to_gresp_storage(p)
     rfluxes(f_cpool_to_ar)                  = ar_p
     if (woody(ivt(p)) >= 1.0_r8) then
       rfluxes(f_cpool_to_livestemc)           = veg_cf%core%pool_to_livestem(p)
-      rfluxes(f_cpool_to_livestemc_storage)   = veg_cf%core%pool_to_livestem_storage(k0p+fp)
-      rfluxes(f_cpool_to_deadstemc)           = veg_cf%core%pool_to_deadstem(k0p+fp)
-      rfluxes(f_cpool_to_deadstemc_storage)   = veg_cf%core%pool_to_deadstem_storage(k0p+fp)
-      rfluxes(f_cpool_to_livecrootc)          = veg_cf%core%pool_to_livecroot(k0p+fp)
-      rfluxes(f_cpool_to_livecrootc_storage)  = veg_cf%core%pool_to_livecroot_storage(k0p+fp)
-      rfluxes(f_cpool_to_deadcrootc)          = veg_cf%core%pool_to_deadcroot(k0p+fp)
-      rfluxes(f_cpool_to_deadcrootc_storage)  = veg_cf%core%pool_to_deadcroot_storage(k0p+fp)
-      rfluxes(f_livestemc_to_deadstemc)       = veg_cf%core%livestem_to_deadstem(k0p+fp)
-      rfluxes(f_livestemc_xfer_to_livestemc)  = veg_cf%core%livestem_xfer_to_livestem(k0p+fp)
-      rfluxes(f_livestemc_storage_to_xfer)    = veg_cf%core%livestem_storage_to_xfer(k0p+fp)
-      rfluxes(f_deadstemc_xfer_to_deadstemc)  = veg_cf%core%deadstem_xfer_to_deadstem(k0p+fp)
-      rfluxes(f_deadstemc_storage_to_xfer)    = veg_cf%core%deadstem_storage_to_xfer(k0p+fp)
-      rfluxes(f_livecrootc_xfer_to_livecrootc)= veg_cf%core%livecroot_xfer_to_livecroot(k0p+fp)
-      rfluxes(f_livecrootc_storage_to_xfer)   = veg_cf%core%livecroot_storage_to_xfer(k0p+fp)
-      rfluxes(f_livecrootc_to_deadcrootc)     = veg_cf%core%livecroot_to_deadcroot(k0p+fp)
-      rfluxes(f_deadcrootc_xfer_to_deadcrootc)= veg_cf%core%deadcroot_xfer_to_deadcroot(k0p+fp)
-      rfluxes(f_deadcrootc_storage_to_xfer)   = veg_cf%core%deadcroot_storage_to_xfer(k0p+fp)
-      rfluxes(f_gresp_storage_to_xfer)        = veg_cf%gresp_storage_to_xfer(k0p+fp)
+      rfluxes(f_cpool_to_livestemc_storage)   = veg_cf%core%pool_to_livestem_storage(p)
+      rfluxes(f_cpool_to_deadstemc)           = veg_cf%core%pool_to_deadstem(p)
+      rfluxes(f_cpool_to_deadstemc_storage)   = veg_cf%core%pool_to_deadstem_storage(p)
+      rfluxes(f_cpool_to_livecrootc)          = veg_cf%core%pool_to_livecroot(p)
+      rfluxes(f_cpool_to_livecrootc_storage)  = veg_cf%core%pool_to_livecroot_storage(p)
+      rfluxes(f_cpool_to_deadcrootc)          = veg_cf%core%pool_to_deadcroot(p)
+      rfluxes(f_cpool_to_deadcrootc_storage)  = veg_cf%core%pool_to_deadcroot_storage(p)
+      rfluxes(f_livestemc_to_deadstemc)       = veg_cf%core%livestem_to_deadstem(p)
+      rfluxes(f_livestemc_xfer_to_livestemc)  = veg_cf%core%livestem_xfer_to_livestem(p)
+      rfluxes(f_livestemc_storage_to_xfer)    = veg_cf%core%livestem_storage_to_xfer(p)
+      rfluxes(f_deadstemc_xfer_to_deadstemc)  = veg_cf%core%deadstem_xfer_to_deadstem(p)
+      rfluxes(f_deadstemc_storage_to_xfer)    = veg_cf%core%deadstem_storage_to_xfer(p)
+      rfluxes(f_livecrootc_xfer_to_livecrootc)= veg_cf%core%livecroot_xfer_to_livecroot(p)
+      rfluxes(f_livecrootc_storage_to_xfer)   = veg_cf%core%livecroot_storage_to_xfer(p)
+      rfluxes(f_livecrootc_to_deadcrootc)     = veg_cf%core%livecroot_to_deadcroot(p)
+      rfluxes(f_deadcrootc_xfer_to_deadcrootc)= veg_cf%core%deadcroot_xfer_to_deadcroot(p)
+      rfluxes(f_deadcrootc_storage_to_xfer)   = veg_cf%core%deadcroot_storage_to_xfer(p)
+      rfluxes(f_gresp_storage_to_xfer)        = veg_cf%gresp_storage_to_xfer(p)
     endif
     if (iscft(ivt(p))) then
       rfluxes(f_cpool_to_livestemc)           = veg_cf%core%pool_to_livestem(p)
-      rfluxes(f_cpool_to_livestemc_storage)   = veg_cf%core%pool_to_livestem_storage(k0p+fp)
+      rfluxes(f_cpool_to_livestemc_storage)   = veg_cf%core%pool_to_livestem_storage(p)
       rfluxes(f_cpool_to_grainc)              = veg_cf%core%pool_to_grain(p)
       rfluxes(f_cpool_to_grainc_storage)      = veg_cf%core%pool_to_grain_storage(p)
-      rfluxes(f_livestemc_xfer_to_livestemc)  = veg_cf%core%livestem_xfer_to_livestem(k0p+fp)
-      rfluxes(f_livestemc_storage_to_xfer)    = veg_cf%core%livestem_storage_to_xfer(k0p+fp)
+      rfluxes(f_livestemc_xfer_to_livestemc)  = veg_cf%core%livestem_xfer_to_livestem(p)
+      rfluxes(f_livestemc_storage_to_xfer)    = veg_cf%core%livestem_storage_to_xfer(p)
       rfluxes(f_livestemc_to_litter)          = veg_cf%core%livestem_to_litter(p)
       rfluxes(f_grainc_to_food)               = veg_cf%core%grain_to_food(p)
       rfluxes(f_grainc_xfer_to_grainc)        = veg_cf%core%grain_xfer_to_grain(p)
       rfluxes(f_grainc_storage_to_xfer)       = veg_cf%core%grain_storage_to_xfer(p)
     endif
     rfluxes(f_leafc_to_litter)              = veg_cf%core%leaf_to_litter(p)
-    rfluxes(f_leafc_xfer_to_leafc)          = veg_cf%core%leaf_xfer_to_leaf(k0p+fp)
-    rfluxes(f_leafc_storage_to_xfer)        = veg_cf%core%leaf_storage_to_xfer(k0p+fp)
+    rfluxes(f_leafc_xfer_to_leafc)          = veg_cf%core%leaf_xfer_to_leaf(p)
+    rfluxes(f_leafc_storage_to_xfer)        = veg_cf%core%leaf_storage_to_xfer(p)
     rfluxes(f_frootc_to_litter)             = veg_cf%core%froot_to_litter(p)
-    rfluxes(f_frootc_xfer_to_frootc)        = veg_cf%core%froot_xfer_to_froot(k0p+fp)
-    rfluxes(f_frootc_storage_to_xfer)       = veg_cf%core%froot_storage_to_xfer(k0p+fp)
+    rfluxes(f_frootc_xfer_to_frootc)        = veg_cf%core%froot_xfer_to_froot(p)
+    rfluxes(f_frootc_storage_to_xfer)       = veg_cf%core%froot_storage_to_xfer(p)
 
     !obtain the limiting factor
 
@@ -743,78 +740,78 @@ contains
     !correct the fluxes
 
     call fpmax(rfluxes(f_cpool_to_leafc)               , veg_cf%core%pool_to_leaf(p))
-    call fpmax(rfluxes(f_cpool_to_leafc_storage)       , veg_cf%core%pool_to_leaf_storage(k0p+fp))
-    call fpmax(rfluxes(f_cpool_to_frootc)              , veg_cf%core%pool_to_froot(k0p+fp))
-    call fpmax(rfluxes(f_cpool_to_frootc_storage)      , veg_cf%core%pool_to_froot_storage(k0p+fp))
-    call fpmax(rfluxes(f_cpool_to_xsmrpool)            , veg_cf%cpool_to_xsmrpool(k0p+fp))
-    call fpmax(rfluxes(f_cpool_to_gresp_storage)       , veg_cf%cpool_to_gresp_storage(k0p+fp))
+    call fpmax(rfluxes(f_cpool_to_leafc_storage)       , veg_cf%core%pool_to_leaf_storage(p))
+    call fpmax(rfluxes(f_cpool_to_frootc)              , veg_cf%core%pool_to_froot(p))
+    call fpmax(rfluxes(f_cpool_to_frootc_storage)      , veg_cf%core%pool_to_froot_storage(p))
+    call fpmax(rfluxes(f_cpool_to_xsmrpool)            , veg_cf%cpool_to_xsmrpool(p))
+    call fpmax(rfluxes(f_cpool_to_gresp_storage)       , veg_cf%cpool_to_gresp_storage(p))
 
     if (woody(ivt(p)) >= 1.0_r8) then
       call fpmax(rfluxes(f_cpool_to_livestemc)           , veg_cf%core%pool_to_livestem(p))
-      call fpmax(rfluxes(f_cpool_to_livestemc_storage)   , veg_cf%core%pool_to_livestem_storage(k0p+fp))
-      call fpmax(rfluxes(f_cpool_to_deadstemc)           , veg_cf%core%pool_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_cpool_to_deadstemc_storage)   , veg_cf%core%pool_to_deadstem_storage(k0p+fp))
-      call fpmax(rfluxes(f_cpool_to_livecrootc)          , veg_cf%core%pool_to_livecroot(k0p+fp))
-      call fpmax(rfluxes(f_cpool_to_livecrootc_storage)  , veg_cf%core%pool_to_livecroot_storage(k0p+fp))
-      call fpmax(rfluxes(f_cpool_to_deadcrootc)          , veg_cf%core%pool_to_deadcroot(k0p+fp))
-      call fpmax(rfluxes(f_cpool_to_deadcrootc_storage)  , veg_cf%core%pool_to_deadcroot_storage(k0p+fp))
-      call fpmax(rfluxes(f_livestemc_to_deadstemc)       , veg_cf%core%livestem_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_livestemc_xfer_to_livestemc)  , veg_cf%core%livestem_xfer_to_livestem(k0p+fp))
-      call fpmax(rfluxes(f_livestemc_storage_to_xfer)    , veg_cf%core%livestem_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_deadstemc_xfer_to_deadstemc)  , veg_cf%core%deadstem_xfer_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_deadstemc_storage_to_xfer)    , veg_cf%core%deadstem_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_livecrootc_xfer_to_livecrootc), veg_cf%core%livecroot_xfer_to_livecroot(k0p+fp))
-      call fpmax(rfluxes(f_livecrootc_storage_to_xfer)   , veg_cf%core%livecroot_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_livecrootc_to_deadcrootc)     , veg_cf%core%livecroot_to_deadcroot(k0p+fp))
-      call fpmax(rfluxes(f_deadcrootc_xfer_to_deadcrootc), veg_cf%core%deadcroot_xfer_to_deadcroot(k0p+fp))
-      call fpmax(rfluxes(f_deadcrootc_storage_to_xfer)   , veg_cf%core%deadcroot_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_gresp_storage_to_xfer)        , veg_cf%gresp_storage_to_xfer(k0p+fp))
+      call fpmax(rfluxes(f_cpool_to_livestemc_storage)   , veg_cf%core%pool_to_livestem_storage(p))
+      call fpmax(rfluxes(f_cpool_to_deadstemc)           , veg_cf%core%pool_to_deadstem(p))
+      call fpmax(rfluxes(f_cpool_to_deadstemc_storage)   , veg_cf%core%pool_to_deadstem_storage(p))
+      call fpmax(rfluxes(f_cpool_to_livecrootc)          , veg_cf%core%pool_to_livecroot(p))
+      call fpmax(rfluxes(f_cpool_to_livecrootc_storage)  , veg_cf%core%pool_to_livecroot_storage(p))
+      call fpmax(rfluxes(f_cpool_to_deadcrootc)          , veg_cf%core%pool_to_deadcroot(p))
+      call fpmax(rfluxes(f_cpool_to_deadcrootc_storage)  , veg_cf%core%pool_to_deadcroot_storage(p))
+      call fpmax(rfluxes(f_livestemc_to_deadstemc)       , veg_cf%core%livestem_to_deadstem(p))
+      call fpmax(rfluxes(f_livestemc_xfer_to_livestemc)  , veg_cf%core%livestem_xfer_to_livestem(p))
+      call fpmax(rfluxes(f_livestemc_storage_to_xfer)    , veg_cf%core%livestem_storage_to_xfer(p))
+      call fpmax(rfluxes(f_deadstemc_xfer_to_deadstemc)  , veg_cf%core%deadstem_xfer_to_deadstem(p))
+      call fpmax(rfluxes(f_deadstemc_storage_to_xfer)    , veg_cf%core%deadstem_storage_to_xfer(p))
+      call fpmax(rfluxes(f_livecrootc_xfer_to_livecrootc), veg_cf%core%livecroot_xfer_to_livecroot(p))
+      call fpmax(rfluxes(f_livecrootc_storage_to_xfer)   , veg_cf%core%livecroot_storage_to_xfer(p))
+      call fpmax(rfluxes(f_livecrootc_to_deadcrootc)     , veg_cf%core%livecroot_to_deadcroot(p))
+      call fpmax(rfluxes(f_deadcrootc_xfer_to_deadcrootc), veg_cf%core%deadcroot_xfer_to_deadcroot(p))
+      call fpmax(rfluxes(f_deadcrootc_storage_to_xfer)   , veg_cf%core%deadcroot_storage_to_xfer(p))
+      call fpmax(rfluxes(f_gresp_storage_to_xfer)        , veg_cf%gresp_storage_to_xfer(p))
     endif
     if (iscft(ivt(p))) then
       call fpmax(rfluxes(f_cpool_to_livestemc)           , veg_cf%core%pool_to_livestem(p))
-      call fpmax(rfluxes(f_cpool_to_livestemc_storage)   , veg_cf%core%pool_to_livestem_storage(k0p+fp))
+      call fpmax(rfluxes(f_cpool_to_livestemc_storage)   , veg_cf%core%pool_to_livestem_storage(p))
       call fpmax(rfluxes(f_cpool_to_grainc)              , veg_cf%core%pool_to_grain(p))
       call fpmax(rfluxes(f_cpool_to_grainc_storage)      , veg_cf%core%pool_to_grain_storage(p))
-      call fpmax(rfluxes(f_livestemc_xfer_to_livestemc)  , veg_cf%core%livestem_xfer_to_livestem(k0p+fp))
-      call fpmax(rfluxes(f_livestemc_storage_to_xfer)    , veg_cf%core%livestem_storage_to_xfer(k0p+fp))
+      call fpmax(rfluxes(f_livestemc_xfer_to_livestemc)  , veg_cf%core%livestem_xfer_to_livestem(p))
+      call fpmax(rfluxes(f_livestemc_storage_to_xfer)    , veg_cf%core%livestem_storage_to_xfer(p))
       call fpmax(rfluxes(f_livestemc_to_litter)          , veg_cf%core%livestem_to_litter(p))
       call fpmax(rfluxes(f_grainc_to_food)               , veg_cf%core%grain_to_food(p))
       call fpmax(rfluxes(f_grainc_xfer_to_grainc)        , veg_cf%core%grain_xfer_to_grain(p))
       call fpmax(rfluxes(f_grainc_storage_to_xfer)       , veg_cf%core%grain_storage_to_xfer(p))
     endif
     call fpmax(rfluxes(f_leafc_to_litter)              , veg_cf%core%leaf_to_litter(p))
-    call fpmax(rfluxes(f_leafc_xfer_to_leafc)          , veg_cf%core%leaf_xfer_to_leaf(k0p+fp))
-    call fpmax(rfluxes(f_leafc_storage_to_xfer)        , veg_cf%core%leaf_storage_to_xfer(k0p+fp))
+    call fpmax(rfluxes(f_leafc_xfer_to_leafc)          , veg_cf%core%leaf_xfer_to_leaf(p))
+    call fpmax(rfluxes(f_leafc_storage_to_xfer)        , veg_cf%core%leaf_storage_to_xfer(p))
     call fpmax(rfluxes(f_frootc_to_litter)             , veg_cf%core%froot_to_litter(p))
-    call fpmax(rfluxes(f_frootc_xfer_to_frootc)        , veg_cf%core%froot_xfer_to_froot(k0p+fp))
-    call fpmax(rfluxes(f_frootc_storage_to_xfer)       , veg_cf%core%froot_storage_to_xfer(k0p+fp))
+    call fpmax(rfluxes(f_frootc_xfer_to_frootc)        , veg_cf%core%froot_xfer_to_froot(p))
+    call fpmax(rfluxes(f_frootc_storage_to_xfer)       , veg_cf%core%froot_storage_to_xfer(p))
 
     if(rfluxes(f_cpool_to_ar)  <  ar_p)then
       rscal= rfluxes(f_cpool_to_ar)/ar_p
-      call ascal(veg_cf%leaf_curmr(k0p+fp)                , rscal)
-      call ascal(veg_cf%froot_curmr(k0p+fp)               , rscal)
+      call ascal(veg_cf%leaf_curmr(p)                , rscal)
+      call ascal(veg_cf%froot_curmr(p)               , rscal)
       call ascal(veg_cf%cpool_leaf_gr(p)             , rscal)
       call ascal(veg_cf%cpool_froot_gr(p)            , rscal)
       call ascal(veg_cf%cpool_leaf_storage_gr(p)     , rscal)
       call ascal(veg_cf%cpool_froot_storage_gr(p)    , rscal)
       if (woody(ivt(p)) >= 1.0_r8) then
-        call ascal(veg_cf%livestem_curmr(k0p+fp)            , rscal)
-        call ascal(veg_cf%livecroot_curmr(k0p+fp)           , rscal)
-        call ascal(veg_cf%cpool_livestem_gr(k0p+fp)         , rscal)
-        call ascal(veg_cf%cpool_deadstem_gr(k0p+fp)         , rscal)
-        call ascal(veg_cf%cpool_livecroot_gr(k0p+fp)        , rscal)
-        call ascal(veg_cf%cpool_deadcroot_gr(k0p+fp)        , rscal)
-        call ascal(veg_cf%cpool_livestem_storage_gr(k0p+fp) , rscal)
-        call ascal(veg_cf%cpool_deadstem_storage_gr(k0p+fp) , rscal)
-        call ascal(veg_cf%cpool_livecroot_storage_gr(k0p+fp), rscal)
-        call ascal(veg_cf%cpool_deadcroot_storage_gr(k0p+fp), rscal)
+        call ascal(veg_cf%livestem_curmr(p)            , rscal)
+        call ascal(veg_cf%livecroot_curmr(p)           , rscal)
+        call ascal(veg_cf%cpool_livestem_gr(p)         , rscal)
+        call ascal(veg_cf%cpool_deadstem_gr(p)         , rscal)
+        call ascal(veg_cf%cpool_livecroot_gr(p)        , rscal)
+        call ascal(veg_cf%cpool_deadcroot_gr(p)        , rscal)
+        call ascal(veg_cf%cpool_livestem_storage_gr(p) , rscal)
+        call ascal(veg_cf%cpool_deadstem_storage_gr(p) , rscal)
+        call ascal(veg_cf%cpool_livecroot_storage_gr(p), rscal)
+        call ascal(veg_cf%cpool_deadcroot_storage_gr(p), rscal)
       endif
       if (iscft(ivt(p))) then
-        call ascal(veg_cf%livestem_curmr(k0p+fp)            , rscal)
-        call ascal(veg_cf%grain_curmr(k0p+fp)               , rscal)
-        call ascal(veg_cf%cpool_livestem_gr(k0p+fp)         , rscal)
+        call ascal(veg_cf%livestem_curmr(p)            , rscal)
+        call ascal(veg_cf%grain_curmr(p)               , rscal)
+        call ascal(veg_cf%cpool_livestem_gr(p)         , rscal)
         call ascal(veg_cf%cpool_grain_gr(p)            , rscal)
-        call ascal(veg_cf%cpool_livestem_storage_gr(k0p+fp) , rscal)
+        call ascal(veg_cf%cpool_livestem_storage_gr(p) , rscal)
         call ascal(veg_cf%cpool_grain_storage_gr(p)    , rscal)
       endif
     endif
@@ -825,7 +822,6 @@ contains
   subroutine nitrogen_flux_limiter(bounds, num_soilc, filter_soilc,&
       num_soilp, filter_soilp, cnstate_vars,  &
       veg_nf, veg_ns)
-    use CompactLayoutMod, only : compact_soilp_off  ! spel compact
 
     !
     ! DESCRIPTION
@@ -849,8 +845,6 @@ contains
   real(r8) :: ystates(num_nutrient_states)
   real(r8) :: rfluxes(num_nutrient_fluxes)
   real(r8) :: dt
-    integer :: k0p  ! begp-1 of the clump: compact index of filter_soilp(fp) is k0p+fp  ! spel compact
-    k0p = compact_soilp_off  ! spel compact
   associate(                                                       &
          ivt                   => veg_pp%itype                   , & ! Input:  [integer  (:)     ]  pft vegetation type
          woody                 => veg_vp%woody                   , & ! Input:  [real(r8) (:)     ]  woody lifeform flag (0 = non-woody, 1 = tree, 2 = shrub)
@@ -897,55 +891,55 @@ contains
     rfluxes(:) = 0._r8
     !assemble reactive fluxes
     rfluxes(f_npool_to_leafn)                = veg_nf%core%pool_to_leaf(p)
-    rfluxes(f_npool_to_leafn_storage)        = veg_nf%core%pool_to_leaf_storage(k0p+fp)
-    rfluxes(f_npool_to_frootn)               = veg_nf%core%pool_to_froot(k0p+fp)
-    rfluxes(f_npool_to_frootn_storage)       = veg_nf%core%pool_to_froot_storage(k0p+fp)
+    rfluxes(f_npool_to_leafn_storage)        = veg_nf%core%pool_to_leaf_storage(p)
+    rfluxes(f_npool_to_frootn)               = veg_nf%core%pool_to_froot(p)
+    rfluxes(f_npool_to_frootn_storage)       = veg_nf%core%pool_to_froot_storage(p)
     if (woody(ivt(p)) >= 1.0_r8) then
       rfluxes(f_npool_to_livestemn)            = veg_nf%core%pool_to_livestem(p)
-      rfluxes(f_npool_to_livestemn_storage)    = veg_nf%core%pool_to_livestem_storage(k0p+fp)
-      rfluxes(f_npool_to_livecrootn)           = veg_nf%core%pool_to_livecroot(k0p+fp)
-      rfluxes(f_npool_to_livecrootn_storage)   = veg_nf%core%pool_to_livecroot_storage(k0p+fp)
-      rfluxes(f_npool_to_deadstemn)            = veg_nf%core%pool_to_deadstem(k0p+fp)
-      rfluxes(f_npool_to_deadcrootn)           = veg_nf%core%pool_to_deadcroot(k0p+fp)
-      rfluxes(f_npool_to_deadstemn_storage)    = veg_nf%core%pool_to_deadstem_storage(k0p+fp)
-      rfluxes(f_npool_to_deadcrootn_storage)   = veg_nf%core%pool_to_deadcroot_storage(k0p+fp)
-      rfluxes(f_livestemn_storage_to_xfer)     = veg_nf%core%livestem_storage_to_xfer(k0p+fp)
-      rfluxes(f_livestemn_xfer_to_livestemn)   = veg_nf%core%livestem_xfer_to_livestem(k0p+fp)
-      rfluxes(f_livestemn_to_retransn)         = veg_nf%retrans%livestem_to_retrans(k0p+fp)
-      rfluxes(f_livestemn_to_deadstemn)        = veg_nf%core%livestem_to_deadstem(k0p+fp)
-      rfluxes(f_livecrootn_to_deadcrootn)      = veg_nf%core%livecroot_to_deadcroot(k0p+fp)
-      rfluxes(f_livecrootn_to_retransn)        = veg_nf%retrans%livecroot_to_retrans(k0p+fp)
-      rfluxes(f_livecrootn_storage_to_xfer)    = veg_nf%core%livecroot_storage_to_xfer(k0p+fp)
-      rfluxes(f_livecrootn_xfer_to_livecrootn) = veg_nf%core%livecroot_xfer_to_livecroot(k0p+fp)
-      rfluxes(f_deadstemn_storage_to_xfer)     = veg_nf%core%deadstem_storage_to_xfer(k0p+fp)
-      rfluxes(f_deadstemn_xfer_to_deadstem)    = veg_nf%core%deadstem_xfer_to_deadstem(k0p+fp)
-      rfluxes(f_deadcrootn_storage_to_xfer)    = veg_nf%core%deadcroot_storage_to_xfer(k0p+fp)
-      rfluxes(f_deadcrootn_xfer_to_deadcrootn) = veg_nf%core%deadcroot_xfer_to_deadcroot(k0p+fp)
+      rfluxes(f_npool_to_livestemn_storage)    = veg_nf%core%pool_to_livestem_storage(p)
+      rfluxes(f_npool_to_livecrootn)           = veg_nf%core%pool_to_livecroot(p)
+      rfluxes(f_npool_to_livecrootn_storage)   = veg_nf%core%pool_to_livecroot_storage(p)
+      rfluxes(f_npool_to_deadstemn)            = veg_nf%core%pool_to_deadstem(p)
+      rfluxes(f_npool_to_deadcrootn)           = veg_nf%core%pool_to_deadcroot(p)
+      rfluxes(f_npool_to_deadstemn_storage)    = veg_nf%core%pool_to_deadstem_storage(p)
+      rfluxes(f_npool_to_deadcrootn_storage)   = veg_nf%core%pool_to_deadcroot_storage(p)
+      rfluxes(f_livestemn_storage_to_xfer)     = veg_nf%core%livestem_storage_to_xfer(p)
+      rfluxes(f_livestemn_xfer_to_livestemn)   = veg_nf%core%livestem_xfer_to_livestem(p)
+      rfluxes(f_livestemn_to_retransn)         = veg_nf%retrans%livestem_to_retrans(p)
+      rfluxes(f_livestemn_to_deadstemn)        = veg_nf%core%livestem_to_deadstem(p)
+      rfluxes(f_livecrootn_to_deadcrootn)      = veg_nf%core%livecroot_to_deadcroot(p)
+      rfluxes(f_livecrootn_to_retransn)        = veg_nf%retrans%livecroot_to_retrans(p)
+      rfluxes(f_livecrootn_storage_to_xfer)    = veg_nf%core%livecroot_storage_to_xfer(p)
+      rfluxes(f_livecrootn_xfer_to_livecrootn) = veg_nf%core%livecroot_xfer_to_livecroot(p)
+      rfluxes(f_deadstemn_storage_to_xfer)     = veg_nf%core%deadstem_storage_to_xfer(p)
+      rfluxes(f_deadstemn_xfer_to_deadstem)    = veg_nf%core%deadstem_xfer_to_deadstem(p)
+      rfluxes(f_deadcrootn_storage_to_xfer)    = veg_nf%core%deadcroot_storage_to_xfer(p)
+      rfluxes(f_deadcrootn_xfer_to_deadcrootn) = veg_nf%core%deadcroot_xfer_to_deadcroot(p)
     endif
 
     if (iscft(ivt(p))) then
       rfluxes(f_npool_to_livestemn)            = veg_nf%core%pool_to_livestem(p)
-      rfluxes(f_npool_to_livestemn_storage)    = veg_nf%core%pool_to_livestem_storage(k0p+fp)
+      rfluxes(f_npool_to_livestemn_storage)    = veg_nf%core%pool_to_livestem_storage(p)
       rfluxes(f_npool_to_grainn)               = veg_nf%core%pool_to_grain(p)
       rfluxes(f_npool_to_grainn_storage)       = veg_nf%core%pool_to_grain_storage(p)
-      rfluxes(f_frootn_to_retransn)            = veg_nf%retrans%froot_to_retrans(k0p+fp)
+      rfluxes(f_frootn_to_retransn)            = veg_nf%retrans%froot_to_retrans(p)
       rfluxes(f_livestemn_to_litter)           = veg_nf%core%livestem_to_litter(p)
-      rfluxes(f_livestemn_storage_to_xfer)     = veg_nf%core%livestem_storage_to_xfer(k0p+fp)
-      rfluxes(f_livestemn_xfer_to_livestemn)   =  veg_nf%core%livestem_xfer_to_livestem(k0p+fp)
-      rfluxes(f_livestemn_to_retransn)         = veg_nf%retrans%livestem_to_retrans(k0p+fp)
+      rfluxes(f_livestemn_storage_to_xfer)     = veg_nf%core%livestem_storage_to_xfer(p)
+      rfluxes(f_livestemn_xfer_to_livestemn)   =  veg_nf%core%livestem_xfer_to_livestem(p)
+      rfluxes(f_livestemn_to_retransn)         = veg_nf%retrans%livestem_to_retrans(p)
       rfluxes(f_grainn_xfer_to_grainn)         = veg_nf%core%grain_xfer_to_grain(p)
       rfluxes(f_grainn_to_food)                = veg_nf%core%grain_to_food(p)
     endif
 
     rfluxes(f_leafn_to_litter)               = veg_nf%core%leaf_to_litter(p)
-    rfluxes(f_leafn_xfer_to_leafn)           = veg_nf%core%leaf_xfer_to_leaf(k0p+fp)
-    rfluxes(f_leafn_storage_to_xfer)         = veg_nf%core%leaf_storage_to_xfer(k0p+fp)
-    rfluxes(f_frootn_xfer_to_frootn)         = veg_nf%core%froot_xfer_to_froot(k0p+fp)
-    rfluxes(f_frootn_storage_to_xfer)        = veg_nf%core%froot_storage_to_xfer(k0p+fp)
-    rfluxes(f_leafn_to_retransn)             = veg_nf%retrans%leaf_to_retrans(k0p+fp)
+    rfluxes(f_leafn_xfer_to_leafn)           = veg_nf%core%leaf_xfer_to_leaf(p)
+    rfluxes(f_leafn_storage_to_xfer)         = veg_nf%core%leaf_storage_to_xfer(p)
+    rfluxes(f_frootn_xfer_to_frootn)         = veg_nf%core%froot_xfer_to_froot(p)
+    rfluxes(f_frootn_storage_to_xfer)        = veg_nf%core%froot_storage_to_xfer(p)
+    rfluxes(f_leafn_to_retransn)             = veg_nf%retrans%leaf_to_retrans(p)
     rfluxes(f_frootn_to_litter)              = veg_nf%core%froot_to_litter(p)
 
-    rfluxes(f_retransn_to_npool)             = veg_nf%retrans%retrans_to_pool(k0p+fp)
+    rfluxes(f_retransn_to_npool)             = veg_nf%retrans%retrans_to_pool(p)
     rfluxes(f_supplement_to_plantn)          = veg_nf%uptake%supplement_to_plant(p)
 
     call flux_correction(spm_nutrient_d%szrow, spm_nutrient_d%szcol, spm_nutrient_p, &
@@ -953,55 +947,55 @@ contains
 
     !correct the fluxes
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_nf%core%pool_to_leaf(p))
-    call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_nf%core%pool_to_leaf_storage(k0p+fp))
-    call fpmax(rfluxes(f_npool_to_frootn)               , veg_nf%core%pool_to_froot(k0p+fp))
-    call fpmax(rfluxes(f_npool_to_frootn_storage)       , veg_nf%core%pool_to_froot_storage(k0p+fp))
+    call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_nf%core%pool_to_leaf_storage(p))
+    call fpmax(rfluxes(f_npool_to_frootn)               , veg_nf%core%pool_to_froot(p))
+    call fpmax(rfluxes(f_npool_to_frootn_storage)       , veg_nf%core%pool_to_froot_storage(p))
     if (woody(ivt(p)) >= 1.0_r8) then
       call fpmax(rfluxes(f_npool_to_livestemn)            , veg_nf%core%pool_to_livestem(p))
-      call fpmax(rfluxes(f_npool_to_livestemn_storage)    , veg_nf%core%pool_to_livestem_storage(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_livecrootn)           , veg_nf%core%pool_to_livecroot(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_livecrootn_storage)   , veg_nf%core%pool_to_livecroot_storage(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_deadstemn)            , veg_nf%core%pool_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_deadcrootn)           , veg_nf%core%pool_to_deadcroot(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_deadstemn_storage)    , veg_nf%core%pool_to_deadstem_storage(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_deadcrootn_storage)   , veg_nf%core%pool_to_deadcroot_storage(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_storage_to_xfer)     , veg_nf%core%livestem_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_xfer_to_livestemn)   , veg_nf%core%livestem_xfer_to_livestem(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_to_retransn)         , veg_nf%retrans%livestem_to_retrans(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_to_deadstemn)        , veg_nf%core%livestem_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_livecrootn_to_deadcrootn)      , veg_nf%core%livecroot_to_deadcroot(k0p+fp))
-      call fpmax(rfluxes(f_livecrootn_to_retransn)        , veg_nf%retrans%livecroot_to_retrans(k0p+fp))
-      call fpmax(rfluxes(f_livecrootn_storage_to_xfer)    , veg_nf%core%livecroot_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_livecrootn_xfer_to_livecrootn) , veg_nf%core%livecroot_xfer_to_livecroot(k0p+fp))
-      call fpmax(rfluxes(f_deadstemn_storage_to_xfer)     , veg_nf%core%deadstem_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_deadstemn_xfer_to_deadstem)    , veg_nf%core%deadstem_xfer_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_deadcrootn_storage_to_xfer)    , veg_nf%core%deadcroot_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_deadcrootn_xfer_to_deadcrootn) , veg_nf%core%deadcroot_xfer_to_deadcroot(k0p+fp))
+      call fpmax(rfluxes(f_npool_to_livestemn_storage)    , veg_nf%core%pool_to_livestem_storage(p))
+      call fpmax(rfluxes(f_npool_to_livecrootn)           , veg_nf%core%pool_to_livecroot(p))
+      call fpmax(rfluxes(f_npool_to_livecrootn_storage)   , veg_nf%core%pool_to_livecroot_storage(p))
+      call fpmax(rfluxes(f_npool_to_deadstemn)            , veg_nf%core%pool_to_deadstem(p))
+      call fpmax(rfluxes(f_npool_to_deadcrootn)           , veg_nf%core%pool_to_deadcroot(p))
+      call fpmax(rfluxes(f_npool_to_deadstemn_storage)    , veg_nf%core%pool_to_deadstem_storage(p))
+      call fpmax(rfluxes(f_npool_to_deadcrootn_storage)   , veg_nf%core%pool_to_deadcroot_storage(p))
+      call fpmax(rfluxes(f_livestemn_storage_to_xfer)     , veg_nf%core%livestem_storage_to_xfer(p))
+      call fpmax(rfluxes(f_livestemn_xfer_to_livestemn)   , veg_nf%core%livestem_xfer_to_livestem(p))
+      call fpmax(rfluxes(f_livestemn_to_retransn)         , veg_nf%retrans%livestem_to_retrans(p))
+      call fpmax(rfluxes(f_livestemn_to_deadstemn)        , veg_nf%core%livestem_to_deadstem(p))
+      call fpmax(rfluxes(f_livecrootn_to_deadcrootn)      , veg_nf%core%livecroot_to_deadcroot(p))
+      call fpmax(rfluxes(f_livecrootn_to_retransn)        , veg_nf%retrans%livecroot_to_retrans(p))
+      call fpmax(rfluxes(f_livecrootn_storage_to_xfer)    , veg_nf%core%livecroot_storage_to_xfer(p))
+      call fpmax(rfluxes(f_livecrootn_xfer_to_livecrootn) , veg_nf%core%livecroot_xfer_to_livecroot(p))
+      call fpmax(rfluxes(f_deadstemn_storage_to_xfer)     , veg_nf%core%deadstem_storage_to_xfer(p))
+      call fpmax(rfluxes(f_deadstemn_xfer_to_deadstem)    , veg_nf%core%deadstem_xfer_to_deadstem(p))
+      call fpmax(rfluxes(f_deadcrootn_storage_to_xfer)    , veg_nf%core%deadcroot_storage_to_xfer(p))
+      call fpmax(rfluxes(f_deadcrootn_xfer_to_deadcrootn) , veg_nf%core%deadcroot_xfer_to_deadcroot(p))
     endif
 
     if (iscft(ivt(p))) then
       call fpmax(rfluxes(f_npool_to_livestemn)            , veg_nf%core%pool_to_livestem(p))
-      call fpmax(rfluxes(f_npool_to_livestemn_storage)    , veg_nf%core%pool_to_livestem_storage(k0p+fp))
+      call fpmax(rfluxes(f_npool_to_livestemn_storage)    , veg_nf%core%pool_to_livestem_storage(p))
       call fpmax(rfluxes(f_npool_to_grainn)               , veg_nf%core%pool_to_grain(p))
       call fpmax(rfluxes(f_npool_to_grainn_storage)       , veg_nf%core%pool_to_grain_storage(p))
-      call fpmax(rfluxes(f_frootn_to_retransn)            , veg_nf%retrans%froot_to_retrans(k0p+fp))
+      call fpmax(rfluxes(f_frootn_to_retransn)            , veg_nf%retrans%froot_to_retrans(p))
       call fpmax(rfluxes(f_livestemn_to_litter)           , veg_nf%core%livestem_to_litter(p))
-      call fpmax(rfluxes(f_livestemn_storage_to_xfer)     , veg_nf%core%livestem_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_xfer_to_livestemn)   ,  veg_nf%core%livestem_xfer_to_livestem(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_to_retransn)         , veg_nf%retrans%livestem_to_retrans(k0p+fp))
+      call fpmax(rfluxes(f_livestemn_storage_to_xfer)     , veg_nf%core%livestem_storage_to_xfer(p))
+      call fpmax(rfluxes(f_livestemn_xfer_to_livestemn)   ,  veg_nf%core%livestem_xfer_to_livestem(p))
+      call fpmax(rfluxes(f_livestemn_to_retransn)         , veg_nf%retrans%livestem_to_retrans(p))
       call fpmax(rfluxes(f_grainn_xfer_to_grainn)         , veg_nf%core%grain_xfer_to_grain(p))
       call fpmax(rfluxes(f_grainn_to_food)                , veg_nf%core%grain_to_food(p))
     endif
 
     rfluxes(f_leafn_to_litter)               = veg_nf%core%leaf_to_litter(p)
-    rfluxes(f_leafn_xfer_to_leafn)           = veg_nf%core%leaf_xfer_to_leaf(k0p+fp)
-    rfluxes(f_leafn_storage_to_xfer)         = veg_nf%core%leaf_storage_to_xfer(k0p+fp)
-    rfluxes(f_frootn_xfer_to_frootn)         = veg_nf%core%froot_xfer_to_froot(k0p+fp)
-    rfluxes(f_frootn_storage_to_xfer)        = veg_nf%core%froot_storage_to_xfer(k0p+fp)
-    rfluxes(f_leafn_to_retransn)             = veg_nf%retrans%leaf_to_retrans(k0p+fp)
+    rfluxes(f_leafn_xfer_to_leafn)           = veg_nf%core%leaf_xfer_to_leaf(p)
+    rfluxes(f_leafn_storage_to_xfer)         = veg_nf%core%leaf_storage_to_xfer(p)
+    rfluxes(f_frootn_xfer_to_frootn)         = veg_nf%core%froot_xfer_to_froot(p)
+    rfluxes(f_frootn_storage_to_xfer)        = veg_nf%core%froot_storage_to_xfer(p)
+    rfluxes(f_leafn_to_retransn)             = veg_nf%retrans%leaf_to_retrans(p)
     rfluxes(f_frootn_to_litter)              = veg_nf%core%froot_to_litter(p)
 
-    rfluxes(f_retransn_to_npool)             = veg_nf%retrans%retrans_to_pool(k0p+fp)
+    rfluxes(f_retransn_to_npool)             = veg_nf%retrans%retrans_to_pool(p)
     rfluxes(f_supplement_to_plantn)          = veg_nf%uptake%supplement_to_plant(p)
 
   enddo
@@ -1012,7 +1006,6 @@ contains
   subroutine phosphorus_flux_limiter(bounds, num_soilc, filter_soilc,&
       num_soilp, filter_soilp, cnstate_vars,  &
       veg_pf, veg_ps)
-    use CompactLayoutMod, only : compact_soilp_off  ! spel compact
     ! DESCRIPTION
     ! the flux limiter for phenology phosphorus  fluxes
     use decompMod           , only : bounds_type
@@ -1035,8 +1028,6 @@ contains
   real(r8) :: rfluxes(num_nutrient_fluxes)
 
   real(r8) :: dt
-    integer :: k0p  ! begp-1 of the clump: compact index of filter_soilp(fp) is k0p+fp  ! spel compact
-    k0p = compact_soilp_off  ! spel compact
 
   associate(                                                     &
     ivt                   => veg_pp%itype                      , & ! Input:  [integer  (:)     ]  pft vegetation type
@@ -1085,54 +1076,54 @@ contains
     rfluxes(:) = 0._r8
     !assemble reactive fluxes
     rfluxes(f_npool_to_leafn)                = veg_pf%core%pool_to_leaf(p)
-    rfluxes(f_npool_to_leafn_storage)        = veg_pf%core%pool_to_leaf_storage(k0p+fp)
-    rfluxes(f_npool_to_frootn)               = veg_pf%core%pool_to_froot(k0p+fp)
-    rfluxes(f_npool_to_frootn_storage)       = veg_pf%core%pool_to_froot_storage(k0p+fp)
+    rfluxes(f_npool_to_leafn_storage)        = veg_pf%core%pool_to_leaf_storage(p)
+    rfluxes(f_npool_to_frootn)               = veg_pf%core%pool_to_froot(p)
+    rfluxes(f_npool_to_frootn_storage)       = veg_pf%core%pool_to_froot_storage(p)
     if (woody(ivt(p)) >= 1.0_r8) then
       rfluxes(f_npool_to_livestemn)            = veg_pf%core%pool_to_livestem(p)
-      rfluxes(f_npool_to_livestemn_storage)    = veg_pf%core%pool_to_livestem_storage(k0p+fp)
-      rfluxes(f_npool_to_livecrootn)           = veg_pf%core%pool_to_livecroot(k0p+fp)
-      rfluxes(f_npool_to_livecrootn_storage)   = veg_pf%core%pool_to_livecroot_storage(k0p+fp)
-      rfluxes(f_npool_to_deadstemn)            = veg_pf%core%pool_to_deadstem(k0p+fp)
-      rfluxes(f_npool_to_deadcrootn)           = veg_pf%core%pool_to_deadcroot(k0p+fp)
-      rfluxes(f_npool_to_deadstemn_storage)    = veg_pf%core%pool_to_deadstem_storage(k0p+fp)
-      rfluxes(f_npool_to_deadcrootn_storage)   = veg_pf%core%pool_to_deadcroot_storage(k0p+fp)
-      rfluxes(f_livestemn_storage_to_xfer)     = veg_pf%core%livestem_storage_to_xfer(k0p+fp)
-      rfluxes(f_livestemn_xfer_to_livestemn)   = veg_pf%core%livestem_xfer_to_livestem(k0p+fp)
-      rfluxes(f_livestemn_to_retransn)         = veg_pf%retrans%livestem_to_retrans(k0p+fp)
-      rfluxes(f_livestemn_to_deadstemn)        = veg_pf%core%livestem_to_deadstem(k0p+fp)
-      rfluxes(f_livecrootn_to_deadcrootn)      = veg_pf%core%livecroot_to_deadcroot(k0p+fp)
-      rfluxes(f_livecrootn_to_retransn)        = veg_pf%retrans%livecroot_to_retrans(k0p+fp)
-      rfluxes(f_livecrootn_storage_to_xfer)    = veg_pf%core%livecroot_storage_to_xfer(k0p+fp)
-      rfluxes(f_livecrootn_xfer_to_livecrootn) = veg_pf%core%livecroot_xfer_to_livecroot(k0p+fp)
-      rfluxes(f_deadstemn_storage_to_xfer)     = veg_pf%core%deadstem_storage_to_xfer(k0p+fp)
-      rfluxes(f_deadstemn_xfer_to_deadstem)    = veg_pf%core%deadstem_xfer_to_deadstem(k0p+fp)
-      rfluxes(f_deadcrootn_storage_to_xfer)    = veg_pf%core%deadcroot_storage_to_xfer(k0p+fp)
-      rfluxes(f_deadcrootn_xfer_to_deadcrootn) = veg_pf%core%deadcroot_xfer_to_deadcroot(k0p+fp)
+      rfluxes(f_npool_to_livestemn_storage)    = veg_pf%core%pool_to_livestem_storage(p)
+      rfluxes(f_npool_to_livecrootn)           = veg_pf%core%pool_to_livecroot(p)
+      rfluxes(f_npool_to_livecrootn_storage)   = veg_pf%core%pool_to_livecroot_storage(p)
+      rfluxes(f_npool_to_deadstemn)            = veg_pf%core%pool_to_deadstem(p)
+      rfluxes(f_npool_to_deadcrootn)           = veg_pf%core%pool_to_deadcroot(p)
+      rfluxes(f_npool_to_deadstemn_storage)    = veg_pf%core%pool_to_deadstem_storage(p)
+      rfluxes(f_npool_to_deadcrootn_storage)   = veg_pf%core%pool_to_deadcroot_storage(p)
+      rfluxes(f_livestemn_storage_to_xfer)     = veg_pf%core%livestem_storage_to_xfer(p)
+      rfluxes(f_livestemn_xfer_to_livestemn)   = veg_pf%core%livestem_xfer_to_livestem(p)
+      rfluxes(f_livestemn_to_retransn)         = veg_pf%retrans%livestem_to_retrans(p)
+      rfluxes(f_livestemn_to_deadstemn)        = veg_pf%core%livestem_to_deadstem(p)
+      rfluxes(f_livecrootn_to_deadcrootn)      = veg_pf%core%livecroot_to_deadcroot(p)
+      rfluxes(f_livecrootn_to_retransn)        = veg_pf%retrans%livecroot_to_retrans(p)
+      rfluxes(f_livecrootn_storage_to_xfer)    = veg_pf%core%livecroot_storage_to_xfer(p)
+      rfluxes(f_livecrootn_xfer_to_livecrootn) = veg_pf%core%livecroot_xfer_to_livecroot(p)
+      rfluxes(f_deadstemn_storage_to_xfer)     = veg_pf%core%deadstem_storage_to_xfer(p)
+      rfluxes(f_deadstemn_xfer_to_deadstem)    = veg_pf%core%deadstem_xfer_to_deadstem(p)
+      rfluxes(f_deadcrootn_storage_to_xfer)    = veg_pf%core%deadcroot_storage_to_xfer(p)
+      rfluxes(f_deadcrootn_xfer_to_deadcrootn) = veg_pf%core%deadcroot_xfer_to_deadcroot(p)
     endif
 
     if (iscft(ivt(p))) then
       rfluxes(f_npool_to_livestemn)            = veg_pf%core%pool_to_livestem(p)
-      rfluxes(f_npool_to_livestemn_storage)    = veg_pf%core%pool_to_livestem_storage(k0p+fp)
+      rfluxes(f_npool_to_livestemn_storage)    = veg_pf%core%pool_to_livestem_storage(p)
       rfluxes(f_npool_to_grainn)               = veg_pf%core%pool_to_grain(p)
       rfluxes(f_npool_to_grainn_storage)       = veg_pf%core%pool_to_grain_storage(p)
-      rfluxes(f_frootn_to_retransn)            = veg_pf%retrans%froot_to_retrans(k0p+fp)
+      rfluxes(f_frootn_to_retransn)            = veg_pf%retrans%froot_to_retrans(p)
       rfluxes(f_livestemn_to_litter)           = veg_pf%core%livestem_to_litter(p)
-      rfluxes(f_livestemn_storage_to_xfer)     = veg_pf%core%livestem_storage_to_xfer(k0p+fp)
-      rfluxes(f_livestemn_xfer_to_livestemn)   = veg_pf%core%livestem_xfer_to_livestem(k0p+fp)
-      rfluxes(f_livestemn_to_retransn)         = veg_pf%retrans%livestem_to_retrans(k0p+fp)
+      rfluxes(f_livestemn_storage_to_xfer)     = veg_pf%core%livestem_storage_to_xfer(p)
+      rfluxes(f_livestemn_xfer_to_livestemn)   = veg_pf%core%livestem_xfer_to_livestem(p)
+      rfluxes(f_livestemn_to_retransn)         = veg_pf%retrans%livestem_to_retrans(p)
       rfluxes(f_grainn_xfer_to_grainn)         = veg_pf%core%grain_xfer_to_grain(p)
       rfluxes(f_grainn_to_food)                = veg_pf%core%grain_to_food(p)
     endif
 
     rfluxes(f_leafn_to_litter)               = veg_pf%core%leaf_to_litter(p)
-    rfluxes(f_leafn_xfer_to_leafn)           = veg_pf%core%leaf_xfer_to_leaf(k0p+fp)
-    rfluxes(f_leafn_storage_to_xfer)         = veg_pf%core%pool_to_leaf_storage(k0p+fp)
-    rfluxes(f_frootn_xfer_to_frootn)         = veg_pf%core%froot_xfer_to_froot(k0p+fp)
-    rfluxes(f_frootn_storage_to_xfer)        = veg_pf%core%froot_storage_to_xfer(k0p+fp)
-    rfluxes(f_leafn_to_retransn)             = veg_pf%retrans%leaf_to_retrans(k0p+fp)
+    rfluxes(f_leafn_xfer_to_leafn)           = veg_pf%core%leaf_xfer_to_leaf(p)
+    rfluxes(f_leafn_storage_to_xfer)         = veg_pf%core%pool_to_leaf_storage(p)
+    rfluxes(f_frootn_xfer_to_frootn)         = veg_pf%core%froot_xfer_to_froot(p)
+    rfluxes(f_frootn_storage_to_xfer)        = veg_pf%core%froot_storage_to_xfer(p)
+    rfluxes(f_leafn_to_retransn)             = veg_pf%retrans%leaf_to_retrans(p)
     rfluxes(f_frootn_to_litter)              = veg_pf%core%froot_to_litter(p)
-    rfluxes(f_retransn_to_npool)             = veg_pf%retrans%retrans_to_pool(k0p+fp)
+    rfluxes(f_retransn_to_npool)             = veg_pf%retrans%retrans_to_pool(p)
     rfluxes(f_supplement_to_plantn)          = veg_pf%uptake%supplement_to_plant(p)
     !assemble stoichiometry matrix
 
@@ -1141,54 +1132,54 @@ contains
       spm_nutrient_d, dt, ystates, rfluxes)
     !correct the fluxes
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_pf%core%pool_to_leaf(p))
-    call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_pf%core%pool_to_leaf_storage(k0p+fp))
-    call fpmax(rfluxes(f_npool_to_frootn)               , veg_pf%core%pool_to_froot(k0p+fp))
-    call fpmax(rfluxes(f_npool_to_frootn_storage)       , veg_pf%core%pool_to_froot_storage(k0p+fp))
+    call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_pf%core%pool_to_leaf_storage(p))
+    call fpmax(rfluxes(f_npool_to_frootn)               , veg_pf%core%pool_to_froot(p))
+    call fpmax(rfluxes(f_npool_to_frootn_storage)       , veg_pf%core%pool_to_froot_storage(p))
     if (woody(ivt(p)) >= 1.0_r8) then
       call fpmax(rfluxes(f_npool_to_livestemn)            , veg_pf%core%pool_to_livestem(p))
-      call fpmax(rfluxes(f_npool_to_livestemn_storage)    , veg_pf%core%pool_to_livestem_storage(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_livecrootn)           , veg_pf%core%pool_to_livecroot(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_livecrootn_storage)   , veg_pf%core%pool_to_livecroot_storage(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_deadstemn)            , veg_pf%core%pool_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_deadcrootn)           , veg_pf%core%pool_to_deadcroot(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_deadstemn_storage)    , veg_pf%core%pool_to_deadstem_storage(k0p+fp))
-      call fpmax(rfluxes(f_npool_to_deadcrootn_storage)   , veg_pf%core%pool_to_deadcroot_storage(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_storage_to_xfer)     , veg_pf%core%livestem_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_xfer_to_livestemn)   , veg_pf%core%livestem_xfer_to_livestem(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_to_retransn)         , veg_pf%retrans%livestem_to_retrans(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_to_deadstemn)        , veg_pf%core%livestem_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_livecrootn_to_deadcrootn)      , veg_pf%core%livecroot_to_deadcroot(k0p+fp))
-      call fpmax(rfluxes(f_livecrootn_to_retransn)        , veg_pf%retrans%livecroot_to_retrans(k0p+fp))
-      call fpmax(rfluxes(f_livecrootn_storage_to_xfer)    , veg_pf%core%livecroot_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_livecrootn_xfer_to_livecrootn) , veg_pf%core%livecroot_xfer_to_livecroot(k0p+fp))
-      call fpmax(rfluxes(f_deadstemn_storage_to_xfer)     , veg_pf%core%deadstem_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_deadstemn_xfer_to_deadstem)    , veg_pf%core%deadstem_xfer_to_deadstem(k0p+fp))
-      call fpmax(rfluxes(f_deadcrootn_storage_to_xfer)    , veg_pf%core%deadcroot_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_deadcrootn_xfer_to_deadcrootn) , veg_pf%core%deadcroot_xfer_to_deadcroot(k0p+fp))
+      call fpmax(rfluxes(f_npool_to_livestemn_storage)    , veg_pf%core%pool_to_livestem_storage(p))
+      call fpmax(rfluxes(f_npool_to_livecrootn)           , veg_pf%core%pool_to_livecroot(p))
+      call fpmax(rfluxes(f_npool_to_livecrootn_storage)   , veg_pf%core%pool_to_livecroot_storage(p))
+      call fpmax(rfluxes(f_npool_to_deadstemn)            , veg_pf%core%pool_to_deadstem(p))
+      call fpmax(rfluxes(f_npool_to_deadcrootn)           , veg_pf%core%pool_to_deadcroot(p))
+      call fpmax(rfluxes(f_npool_to_deadstemn_storage)    , veg_pf%core%pool_to_deadstem_storage(p))
+      call fpmax(rfluxes(f_npool_to_deadcrootn_storage)   , veg_pf%core%pool_to_deadcroot_storage(p))
+      call fpmax(rfluxes(f_livestemn_storage_to_xfer)     , veg_pf%core%livestem_storage_to_xfer(p))
+      call fpmax(rfluxes(f_livestemn_xfer_to_livestemn)   , veg_pf%core%livestem_xfer_to_livestem(p))
+      call fpmax(rfluxes(f_livestemn_to_retransn)         , veg_pf%retrans%livestem_to_retrans(p))
+      call fpmax(rfluxes(f_livestemn_to_deadstemn)        , veg_pf%core%livestem_to_deadstem(p))
+      call fpmax(rfluxes(f_livecrootn_to_deadcrootn)      , veg_pf%core%livecroot_to_deadcroot(p))
+      call fpmax(rfluxes(f_livecrootn_to_retransn)        , veg_pf%retrans%livecroot_to_retrans(p))
+      call fpmax(rfluxes(f_livecrootn_storage_to_xfer)    , veg_pf%core%livecroot_storage_to_xfer(p))
+      call fpmax(rfluxes(f_livecrootn_xfer_to_livecrootn) , veg_pf%core%livecroot_xfer_to_livecroot(p))
+      call fpmax(rfluxes(f_deadstemn_storage_to_xfer)     , veg_pf%core%deadstem_storage_to_xfer(p))
+      call fpmax(rfluxes(f_deadstemn_xfer_to_deadstem)    , veg_pf%core%deadstem_xfer_to_deadstem(p))
+      call fpmax(rfluxes(f_deadcrootn_storage_to_xfer)    , veg_pf%core%deadcroot_storage_to_xfer(p))
+      call fpmax(rfluxes(f_deadcrootn_xfer_to_deadcrootn) , veg_pf%core%deadcroot_xfer_to_deadcroot(p))
     endif
 
     if (iscft(ivt(p))) then
       call fpmax(rfluxes(f_npool_to_livestemn)            , veg_pf%core%pool_to_livestem(p))
-      call fpmax(rfluxes(f_npool_to_livestemn_storage)    , veg_pf%core%pool_to_livestem_storage(k0p+fp))
+      call fpmax(rfluxes(f_npool_to_livestemn_storage)    , veg_pf%core%pool_to_livestem_storage(p))
       call fpmax(rfluxes(f_npool_to_grainn)               , veg_pf%core%pool_to_grain(p))
       call fpmax(rfluxes(f_npool_to_grainn_storage)       , veg_pf%core%pool_to_grain_storage(p))
-      call fpmax(rfluxes(f_frootn_to_retransn)            , veg_pf%retrans%froot_to_retrans(k0p+fp))
+      call fpmax(rfluxes(f_frootn_to_retransn)            , veg_pf%retrans%froot_to_retrans(p))
       call fpmax(rfluxes(f_livestemn_to_litter)           , veg_pf%core%livestem_to_litter(p))
-      call fpmax(rfluxes(f_livestemn_storage_to_xfer)     , veg_pf%core%livestem_storage_to_xfer(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_xfer_to_livestemn)   , veg_pf%core%livestem_xfer_to_livestem(k0p+fp))
-      call fpmax(rfluxes(f_livestemn_to_retransn)         , veg_pf%retrans%livestem_to_retrans(k0p+fp))
+      call fpmax(rfluxes(f_livestemn_storage_to_xfer)     , veg_pf%core%livestem_storage_to_xfer(p))
+      call fpmax(rfluxes(f_livestemn_xfer_to_livestemn)   , veg_pf%core%livestem_xfer_to_livestem(p))
+      call fpmax(rfluxes(f_livestemn_to_retransn)         , veg_pf%retrans%livestem_to_retrans(p))
       call fpmax(rfluxes(f_grainn_xfer_to_grainn)         , veg_pf%core%grain_xfer_to_grain(p))
       call fpmax(rfluxes(f_grainn_to_food)                , veg_pf%core%grain_to_food(p))
     endif
 
     call fpmax(rfluxes(f_leafn_to_litter)               , veg_pf%core%leaf_to_litter(p))
-    call fpmax(rfluxes(f_leafn_xfer_to_leafn)           , veg_pf%core%leaf_xfer_to_leaf(k0p+fp))
-    call fpmax(rfluxes(f_leafn_storage_to_xfer)         , veg_pf%core%pool_to_leaf_storage(k0p+fp))
-    call fpmax(rfluxes(f_frootn_xfer_to_frootn)         , veg_pf%core%froot_xfer_to_froot(k0p+fp))
-    call fpmax(rfluxes(f_frootn_storage_to_xfer)        , veg_pf%core%froot_storage_to_xfer(k0p+fp))
-    call fpmax(rfluxes(f_leafn_to_retransn)             , veg_pf%retrans%leaf_to_retrans(k0p+fp))
+    call fpmax(rfluxes(f_leafn_xfer_to_leafn)           , veg_pf%core%leaf_xfer_to_leaf(p))
+    call fpmax(rfluxes(f_leafn_storage_to_xfer)         , veg_pf%core%pool_to_leaf_storage(p))
+    call fpmax(rfluxes(f_frootn_xfer_to_frootn)         , veg_pf%core%froot_xfer_to_froot(p))
+    call fpmax(rfluxes(f_frootn_storage_to_xfer)        , veg_pf%core%froot_storage_to_xfer(p))
+    call fpmax(rfluxes(f_leafn_to_retransn)             , veg_pf%retrans%leaf_to_retrans(p))
     call fpmax(rfluxes(f_frootn_to_litter)              , veg_pf%core%froot_to_litter(p))
-    call fpmax(rfluxes(f_retransn_to_npool)             , veg_pf%retrans%retrans_to_pool(k0p+fp))
+    call fpmax(rfluxes(f_retransn_to_npool)             , veg_pf%retrans%retrans_to_pool(p))
     call fpmax(rfluxes(f_supplement_to_plantn)          , veg_pf%uptake%supplement_to_plant(p))
 
   enddo
