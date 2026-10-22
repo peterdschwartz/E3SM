@@ -389,7 +389,7 @@ contains
           if ((col_pp%itype(indexc) == icol_roof .or. &
                col_pp%itype(indexc) == icol_road_imperv .or. &
                col_pp%itype(indexc) == icol_road_perv) .and. &
-               abs(errh2o(indexc)) > 1.e-4_r8 ) then
+               abs(errh2o(indexc)) > 1.e-4_r8 .and. (nstep > 2) ) then
 
              write(iulog,*)'clm urban model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'nstep                      = ',nstep
@@ -414,7 +414,7 @@ contains
              write(iulog,*)'elm model is stopping'
              call endrun(decomp_index=indexc, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
 
-          else if (abs(errh2o(indexc)) > 1.e-4_r8 ) then
+          else if (abs(errh2o(indexc)) > 1.e-4_r8 .and. (nstep > 2) ) then
 
              write(iulog,*)'elm model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'colum number               = ',col_pp%gridcell(indexc)

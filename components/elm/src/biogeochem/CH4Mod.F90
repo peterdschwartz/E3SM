@@ -1061,12 +1061,18 @@ contains
       if (lake) then
          if (sat == 0) then
             call ch4_prod_lake_layers(bounds, num_methc, filter_methc, jwt, sat, &
-                 ch4_vars%lake_soilc_col, ch4_vars%layer_sat_lag_col, ch4_vars%conc_o2_unsat_col, &
-                 ch4_vars%ch4_prod_depth_unsat_col, ch4_vars%o2_decomp_depth_unsat_col)
+                 ch4_vars%lake_soilc_col(bounds%begc:bounds%endc, :), &
+                 ch4_vars%layer_sat_lag_col(bounds%begc:bounds%endc, :), &
+                 ch4_vars%conc_o2_unsat_col(bounds%begc:bounds%endc, :), &
+                 ch4_vars%ch4_prod_depth_unsat_col(bounds%begc:bounds%endc, :), &
+                 ch4_vars%o2_decomp_depth_unsat_col(bounds%begc:bounds%endc, :))
          else
             call ch4_prod_lake_layers(bounds, num_methc, filter_methc, jwt, sat, &
-                 ch4_vars%lake_soilc_col, ch4_vars%layer_sat_lag_col, ch4_vars%conc_o2_sat_col, &
-                 ch4_vars%ch4_prod_depth_sat_col, ch4_vars%o2_decomp_depth_sat_col)
+                 ch4_vars%lake_soilc_col(bounds%begc:bounds%endc, :), &
+                 ch4_vars%layer_sat_lag_col(bounds%begc:bounds%endc, :), &
+                 ch4_vars%conc_o2_sat_col(bounds%begc:bounds%endc, :), &
+                 ch4_vars%ch4_prod_depth_sat_col(bounds%begc:bounds%endc, :), &
+                 ch4_vars%o2_decomp_depth_sat_col(bounds%begc:bounds%endc, :))
          end if
          return
       end if
@@ -1113,16 +1119,25 @@ contains
 
       if (sat == 0) then
          call ch4_prod_soil_layers(bounds, num_methc, filter_methc, jwt, sat, rr_vr, &
-              soilstate_vars%rootfr_col, ch4_vars%finundated_col, ch4_vars%pH_col, &
-              ch4_vars%annavg_finrw_col, ch4_vars%finundated_lag_col, ch4_vars%layer_sat_lag_col, &
-              ch4_vars%sif_col, ch4_vars%conc_o2_unsat_col, &
-              ch4_vars%ch4_prod_depth_unsat_col, ch4_vars%o2_decomp_depth_unsat_col)
+              soilstate_vars%rootfr_col(bounds%begc:bounds%endc, :), &
+              ch4_vars%finundated_col(bounds%begc:bounds%endc), ch4_vars%pH_col(bounds%begc:bounds%endc), &
+              ch4_vars%annavg_finrw_col(bounds%begc:bounds%endc), &
+              ch4_vars%finundated_lag_col(bounds%begc:bounds%endc), &
+              ch4_vars%layer_sat_lag_col(bounds%begc:bounds%endc, :), &
+              ch4_vars%sif_col(bounds%begc:bounds%endc), &
+              ch4_vars%conc_o2_unsat_col(bounds%begc:bounds%endc, :), &
+              ch4_vars%ch4_prod_depth_unsat_col(bounds%begc:bounds%endc, :), &
+              ch4_vars%o2_decomp_depth_unsat_col(bounds%begc:bounds%endc, :))
       else
          call ch4_prod_soil_layers(bounds, num_methc, filter_methc, jwt, sat, rr_vr, &
-              soilstate_vars%rootfr_col, ch4_vars%finundated_col, ch4_vars%pH_col, &
-              ch4_vars%annavg_finrw_col, ch4_vars%finundated_lag_col, ch4_vars%layer_sat_lag_col, &
-              ch4_vars%sif_col, ch4_vars%conc_o2_sat_col, &
-              ch4_vars%ch4_prod_depth_sat_col, ch4_vars%o2_decomp_depth_sat_col)
+              soilstate_vars%rootfr_col(bounds%begc:bounds%endc, :), &
+              ch4_vars%finundated_col(bounds%begc:bounds%endc), ch4_vars%pH_col(bounds%begc:bounds%endc), &
+              ch4_vars%annavg_finrw_col(bounds%begc:bounds%endc), &
+              ch4_vars%finundated_lag_col(bounds%begc:bounds%endc), &
+              ch4_vars%layer_sat_lag_col(bounds%begc:bounds%endc, :), &
+              ch4_vars%sif_col(bounds%begc:bounds%endc), ch4_vars%conc_o2_sat_col(bounds%begc:bounds%endc, :), &
+              ch4_vars%ch4_prod_depth_sat_col(bounds%begc:bounds%endc, :), &
+              ch4_vars%o2_decomp_depth_sat_col(bounds%begc:bounds%endc, :))
       end if
       !$acc exit data delete(rr_vr)
 
@@ -1444,14 +1459,20 @@ contains
 
     if (sat == 0) then                                   ! unsaturated
        call ch4_oxid_layers(bounds, num_methc, filter_methc, jwt, sat, &
-            soilstate_vars%watsat_col, soilstate_vars%smp_l_col, &
-            ch4_vars%conc_ch4_unsat_col, ch4_vars%conc_o2_unsat_col, &
-            ch4_vars%ch4_oxid_depth_unsat_col, ch4_vars%o2_oxid_depth_unsat_col)
+            soilstate_vars%watsat_col(bounds%begc:bounds%endc, :), &
+            soilstate_vars%smp_l_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%conc_ch4_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%conc_o2_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_oxid_depth_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%o2_oxid_depth_unsat_col(bounds%begc:bounds%endc, :))
     else                                                 ! saturated
        call ch4_oxid_layers(bounds, num_methc, filter_methc, jwt, sat, &
-            soilstate_vars%watsat_col, soilstate_vars%smp_l_col, &
-            ch4_vars%conc_ch4_sat_col, ch4_vars%conc_o2_sat_col, &
-            ch4_vars%ch4_oxid_depth_sat_col, ch4_vars%o2_oxid_depth_sat_col)
+            soilstate_vars%watsat_col(bounds%begc:bounds%endc, :), &
+            soilstate_vars%smp_l_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%conc_ch4_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%conc_o2_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_oxid_depth_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%o2_oxid_depth_sat_col(bounds%begc:bounds%endc, :))
     endif
 
   end subroutine ch4_oxid
@@ -1605,17 +1626,33 @@ contains
     !-----------------------------------------------------------------------
 
     if (sat == 0) then                                   ! unsaturated
-       call ch4_aere_columns(bounds, num_methc, filter_methc, num_methp, filter_methp, jwt, sat, lake, dtime, elm_fates, &
-            canopystate_vars%elai_patch, soilstate_vars%watsat_col, soilstate_vars%rootr_patch, &
-            soilstate_vars%rootfr_patch, ch4_vars%grnd_ch4_cond_patch, ch4_vars%c_atm_grc, &
-            ch4_vars%conc_ch4_unsat_col, ch4_vars%conc_o2_unsat_col, ch4_vars%ch4_prod_depth_unsat_col, &
-            ch4_vars%ch4_aere_depth_unsat_col, ch4_vars%ch4_tran_depth_unsat_col, ch4_vars%o2_aere_depth_unsat_col)
+       call ch4_aere_columns(bounds, num_methc, filter_methc, num_methp, filter_methp, jwt, sat, lake, dtime, &
+            elm_fates, canopystate_vars%elai_patch(bounds%begp:bounds%endp), &
+            soilstate_vars%watsat_col(bounds%begc:bounds%endc, :), &
+            soilstate_vars%rootr_patch(bounds%begp:bounds%endp, :), &
+            soilstate_vars%rootfr_patch(bounds%begp:bounds%endp, :), &
+            ch4_vars%grnd_ch4_cond_patch(bounds%begp:bounds%endp), &
+            ch4_vars%c_atm_grc(bounds%begg:bounds%endg, :), &
+            ch4_vars%conc_ch4_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%conc_o2_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_prod_depth_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_aere_depth_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_tran_depth_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%o2_aere_depth_unsat_col(bounds%begc:bounds%endc, :))
     else                                                 ! saturated
-       call ch4_aere_columns(bounds, num_methc, filter_methc, num_methp, filter_methp, jwt, sat, lake, dtime, elm_fates, &
-            canopystate_vars%elai_patch, soilstate_vars%watsat_col, soilstate_vars%rootr_patch, &
-            soilstate_vars%rootfr_patch, ch4_vars%grnd_ch4_cond_patch, ch4_vars%c_atm_grc, &
-            ch4_vars%conc_ch4_sat_col, ch4_vars%conc_o2_sat_col, ch4_vars%ch4_prod_depth_sat_col, &
-            ch4_vars%ch4_aere_depth_sat_col, ch4_vars%ch4_tran_depth_sat_col, ch4_vars%o2_aere_depth_sat_col)
+       call ch4_aere_columns(bounds, num_methc, filter_methc, num_methp, filter_methp, jwt, sat, lake, dtime, &
+            elm_fates, canopystate_vars%elai_patch(bounds%begp:bounds%endp), &
+            soilstate_vars%watsat_col(bounds%begc:bounds%endc, :), &
+            soilstate_vars%rootr_patch(bounds%begp:bounds%endp, :), &
+            soilstate_vars%rootfr_patch(bounds%begp:bounds%endp, :), &
+            ch4_vars%grnd_ch4_cond_patch(bounds%begp:bounds%endp), &
+            ch4_vars%c_atm_grc(bounds%begg:bounds%endg, :), &
+            ch4_vars%conc_ch4_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%conc_o2_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_prod_depth_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_aere_depth_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_tran_depth_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%o2_aere_depth_sat_col(bounds%begc:bounds%endc, :))
     endif
 
   end subroutine ch4_aere
@@ -2128,12 +2165,16 @@ contains
 
     if (sat == 0) then                                   ! unsaturated
        call ch4_ebul_layers(bounds, num_methc, filter_methc, jwt, sat, lake, dtime, &
-            lakestate_vars%lake_icefrac_col, soilstate_vars%watsat_col, &
-            ch4_vars%conc_ch4_unsat_col, ch4_vars%ch4_ebul_depth_unsat_col)
+            lakestate_vars%lake_icefrac_col(bounds%begc:bounds%endc, :), &
+            soilstate_vars%watsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%conc_ch4_unsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_ebul_depth_unsat_col(bounds%begc:bounds%endc, :))
     else                                                 ! saturated
        call ch4_ebul_layers(bounds, num_methc, filter_methc, jwt, sat, lake, dtime, &
-            lakestate_vars%lake_icefrac_col, soilstate_vars%watsat_col, &
-            ch4_vars%conc_ch4_sat_col, ch4_vars%ch4_ebul_depth_sat_col)
+            lakestate_vars%lake_icefrac_col(bounds%begc:bounds%endc, :), &
+            soilstate_vars%watsat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%conc_ch4_sat_col(bounds%begc:bounds%endc, :), &
+            ch4_vars%ch4_ebul_depth_sat_col(bounds%begc:bounds%endc, :))
     endif
 
   end subroutine ch4_ebul
