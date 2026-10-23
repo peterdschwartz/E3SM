@@ -29,7 +29,7 @@ module CanopyHydrologyMod
   use elm_varcon        , only : snw_rds_min
   use pftvarcon         , only : irrigated
   use GridcellType      , only : grc_pp
-  use timeinfoMod       , only : dtime_mod
+  use timeinfoMod, only : dtime_mod
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -93,6 +93,7 @@ contains
     end if
     ! Broadcast namelist variables read in
     call shr_mpi_bcast(oldfflag, mpicom)
+    !$acc update device(oldfflag) 
 
    end subroutine CanopyHydrology_readnl
 
@@ -122,9 +123,7 @@ contains
      use atm2lndType        , only : atm2lnd_type
      !use domainMod          , only : ldomain
      use TopounitType       , only : top_pp
-     use elm_time_manager   , only : get_step_size
      use subgridAveMod      , only : p2c,p2g
-     use elm_time_manager   , only : get_step_size, get_prev_date, get_nstep
      use SnowHydrologyMod   , only : NewSnowBulkDensity
      !
      ! !ARGUMENTS:
@@ -252,7 +251,7 @@ contains
 
        ! Compute time step
        
-       dtime = get_step_size()
+       dtime = dtime_mod
 
        do gg = bounds%begg,bounds%endg
           irrigated_ppg(gg) = 0
@@ -362,8 +361,8 @@ contains
              end if
              ! Urban sunwall and shadewall have no intercepted precipitation
           else
-             qflx_prec_grnd_snow(p) = 0.
-             qflx_prec_grnd_rain(p) = 0.
+             qflx_prec_grnd_snow(p) = 0._r8
+             qflx_prec_grnd_rain(p) = 0._r8
              qflx_dirct_rain(p) = 0._r8
              qflx_leafdrip(p) = 0._r8
           end if

@@ -84,6 +84,11 @@ module filterMod
      integer, pointer :: nolakeurbanp(:) ! non-lake, non-urban filter (pfts)
      integer :: num_nolakeurbanp         ! number of pfts in non-lake, non-urban filter
 
+     integer, pointer :: nolakeurban_barep(:) ! non-lake, non-urban, bare-ground filter (pfts)
+     integer :: num_nolakeurban_barep         ! number of pfts in non-lake, non-urban, bare-ground filter
+     integer, pointer :: nolakeurban_vegp(:)  ! non-lake, non-urban, vegetated filter (pfts)
+     integer :: num_nolakeurban_vegp          ! number of pfts in non-lake, non-urban, vegetated filter
+
      integer, pointer :: icemecc(:)      ! glacier mec filter (cols)
      integer :: num_icemecc              ! number of columns in glacier mec filter
      
@@ -103,7 +108,8 @@ module filterMod
   ! rarely appropriate to use these, but they are needed in a few places, e.g., where
   ! quantities are computed before weights, active flags and filters are updated due to
   ! landuse change. Note that, for the handful of filters that are computed elsewhere
-  ! (including the natvegp filter and the snow filters), these filters are NOT
+  ! (including the natvegp filter, the snow filters, and the nolakeurban_barep/
+  ! nolakeurban_vegp filters), these filters are NOT
   ! included in this variable - so they can only be used from the main 'filter' variable.
   !
   ! Ideally, we would like to restructure the initialization code and driver ordering so
@@ -113,8 +119,9 @@ module filterMod
   !
   type(clumpfilter), allocatable, public :: filter_inactive_and_active(:)
   !
-  public allocFilters   ! allocate memory for filters
-  public setFilters     ! set filters
+  public allocFilters            ! allocate memory for filters
+  public setFilters              ! set filters
+  public setExposedvegpFilters   ! set the dynamic, snow-dependent bare-ground/vegetated sub-filters
 
   private allocFiltersOneGroup  ! allocate memory for one group of filters
   private setFiltersOneGroup    ! set one group of filters
@@ -185,6 +192,8 @@ contains
        allocate(this_filter(nc)%lakep(bounds%endp-bounds%begp+1))
        allocate(this_filter(nc)%nolakep(bounds%endp-bounds%begp+1))
        allocate(this_filter(nc)%nolakeurbanp(bounds%endp-bounds%begp+1))
+       allocate(this_filter(nc)%nolakeurban_barep(bounds%endp-bounds%begp+1))
+       allocate(this_filter(nc)%nolakeurban_vegp(bounds%endp-bounds%begp+1))
 
        allocate(this_filter(nc)%lakec(bounds%endc-bounds%begc+1))
        allocate(this_filter(nc)%nolakec(bounds%endc-bounds%begc+1))
@@ -300,21 +309,31 @@ contains
 
     nc = bounds%clump_index
 
-    ! Create lake and non-lake filters at column-level 
+    ! ------------------------------------------------------------------
+    ! Each filter below is built in two OpenACC passes:
+    !  (1) a parallel "reduction" pass that counts how many points satisfy
+    !      each predicate (gives num_xxx, independent of execution order), and
+    !  (2) a serial pass (one thread, wherever the filters live) that fills
+    !      the filter in ascending point order, as upstream ELM does. The
+    !      order matters: code relies on it (e.g. a column's patches being
+    !      adjacent), and sums over a filter are only reproducible with a
+    !      fixed order. (Atomic-capture counters gave a thread-dependent order.)
+    ! ------------------------------------------------------------------
+
+    ! Create lake and non-lake filters at column-level
 
     fl = 0
     fnl = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fl,fnl)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
           if (col_pp%active(c) .or. include_inactive) then
-             l =col_pp%landunit(c)          
+             l =col_pp%landunit(c)
              if (lun_pp%lakpoi(l)) then
                 fl = fl + 1
-                this_filter(nc)%lakec(fl) = c
              else
                 fnl = fnl + 1
-                this_filter(nc)%nolakec(fnl) = c
              end if
           end if
        end if
@@ -322,11 +341,36 @@ contains
     this_filter(nc)%num_lakec = fl
     this_filter(nc)%num_nolakec = fnl
 
-    ! Create lake and non-lake filters at pft-level 
+    fl = 0
+    fnl = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(fl,fnl)
+    do c = bounds%begc,bounds%endc
+       t =col_pp%topounit(c)
+       if (top_pp%active(t)) then
+          if (col_pp%active(c) .or. include_inactive) then
+             l =col_pp%landunit(c)
+             if (lun_pp%lakpoi(l)) then
+                fl = fl + 1
+                f = fl
+                this_filter(nc)%lakec(f) = c
+             else
+                fnl = fnl + 1
+                f = fnl
+                this_filter(nc)%nolakec(f) = c
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
+    ! Create lake and non-lake filters at pft-level
 
     fl = 0
     fnl = 0
     fnlu = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fl,fnl,fnlu)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -334,13 +378,10 @@ contains
              l =veg_pp%landunit(p)
              if (lun_pp%lakpoi(l) ) then
                 fl = fl + 1
-                this_filter(nc)%lakep(fl) = p
              else
                 fnl = fnl + 1
-                this_filter(nc)%nolakep(fnl) = p
                 if (.not. lun_pp%urbpoi(l)) then
                    fnlu = fnlu + 1
-                   this_filter(nc)%nolakeurbanp(fnlu) = p
                 end if
              end if
           end if
@@ -350,9 +391,40 @@ contains
     this_filter(nc)%num_nolakep = fnl
     this_filter(nc)%num_nolakeurbanp = fnlu
 
+    fl = 0
+    fnl = 0
+    fnlu = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(fl,fnl,fnlu)
+    do p = bounds%begp,bounds%endp
+       t =veg_pp%topounit(p)
+       if (top_pp%active(t)) then
+          if (veg_pp%active(p) .or. include_inactive) then
+             l =veg_pp%landunit(p)
+             if (lun_pp%lakpoi(l) ) then
+                fl = fl + 1
+                f = fl
+                this_filter(nc)%lakep(f) = p
+             else
+                fnl = fnl + 1
+                f = fnl
+                this_filter(nc)%nolakep(f) = p
+                if (.not. lun_pp%urbpoi(l)) then
+                   fnlu = fnlu + 1
+                   f = fnlu
+                   this_filter(nc)%nolakeurbanp(f) = p
+                end if
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
     ! Create soil filter at column-level
 
     fs = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fs)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -360,16 +432,35 @@ contains
              l =col_pp%landunit(c)
              if (col_pp%is_soil(c) .or. col_pp%is_crop(c)) then
                 fs = fs + 1
-                this_filter(nc)%soilc(fs) = c
              end if
           end if
        end if
     end do
     this_filter(nc)%num_soilc = fs
 
+    fs = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(fs)
+    do c = bounds%begc,bounds%endc
+       t =col_pp%topounit(c)
+       if (top_pp%active(t)) then
+          if (col_pp%active(c) .or. include_inactive) then
+             l =col_pp%landunit(c)
+             if (col_pp%is_soil(c) .or. col_pp%is_crop(c)) then
+                fs = fs + 1
+                f = fs
+                this_filter(nc)%soilc(f) = c
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
     ! Create soil filter at pft-level
 
     fs = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fs)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -377,17 +468,36 @@ contains
              l =veg_pp%landunit(p)
              if (veg_pp%is_on_soil_col(p) .or. veg_pp%is_on_crop_col(p)) then
                 fs = fs + 1
-                this_filter(nc)%soilp(fs) = p
              end if
           end if
        end if
     end do
     this_filter(nc)%num_soilp = fs
 
-    ! Create column-level hydrology filter (soil and Urban pervious road cols) 
+    fs = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(fs)
+    do p = bounds%begp,bounds%endp
+       t =veg_pp%topounit(p)
+       if (top_pp%active(t)) then
+          if (veg_pp%active(p) .or. include_inactive) then
+             l =veg_pp%landunit(p)
+             if (veg_pp%is_on_soil_col(p) .or. veg_pp%is_on_crop_col(p)) then
+                fs = fs + 1
+                f = fs
+                this_filter(nc)%soilp(f) = p
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
 
-    f = 0
-    fn= 0
+    ! Create column-level hydrology filter (soil and Urban pervious road cols)
+
+    f  = 0
+    fn = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -396,13 +506,9 @@ contains
              if (col_pp%is_soil(c) .or. col_pp%itype(c) == icol_road_perv .or. &
                   col_pp%is_crop(c)) then
                 f = f + 1
-                this_filter(nc)%hydrologyc(f) = c
-
                 if (col_pp%itype(c) == icol_road_perv) then
                    fn = fn + 1
-                   this_filter(nc)%hydrononsoic(fn) = c
                 end if
-
              end if
           end if
        end if
@@ -410,12 +516,40 @@ contains
     this_filter(nc)%num_hydrologyc = f
     this_filter(nc)%num_hydrononsoic = fn
 
+    f  = 0
+    fn = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(f,fn)
+    do c = bounds%begc,bounds%endc
+       t =col_pp%topounit(c)
+       if (top_pp%active(t)) then
+          if (col_pp%active(c) .or. include_inactive) then
+             l =col_pp%landunit(c)
+             if (col_pp%is_soil(c) .or. col_pp%itype(c) == icol_road_perv .or. &
+                  col_pp%is_crop(c)) then
+                f = f + 1
+                fs = f
+                this_filter(nc)%hydrologyc(fs) = c
+
+                if (col_pp%itype(c) == icol_road_perv) then
+                   fn = fn + 1
+                   fc = fn
+                   this_filter(nc)%hydrononsoic(fc) = c
+                end if
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
     ! Create prognostic crop and soil w/o prog. crop filters at pft-level
     ! according to where the crop model should be used
 
     fc  = 0
     fpc = 0
     fnc = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fc,fpc,fnc)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -424,15 +558,12 @@ contains
                 l =veg_pp%landunit(p)
                 if (veg_pp%is_on_soil_col(p) .or. veg_pp%is_on_crop_col(p)) then
                    fnc = fnc + 1
-                   this_filter(nc)%soilnopcropp(fnc) = p
                 end if
              else
                 if (percrop(veg_pp%itype(p)) < 1) then
                    fc = fc + 1
-                   this_filter(nc)%pcropp(fc) = p
                 else if (percrop(veg_pp%itype(p)) >= 1) then
                    fpc = fpc + 1
-                   this_filter(nc)%ppercropp(fpc) = p
                 end if
              end if
           end if
@@ -442,20 +573,52 @@ contains
     this_filter(nc)%num_ppercropp   = fpc
     this_filter(nc)%num_soilnopcropp = fnc   ! This wasn't being set before...
 
+    fc  = 0
+    fpc = 0
+    fnc = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(fc,fpc,fnc)
+    do p = bounds%begp,bounds%endp
+       t =veg_pp%topounit(p)
+       if (top_pp%active(t)) then
+          if (veg_pp%active(p) .or. include_inactive) then
+             if (.not. iscft(veg_pp%itype(p))) then
+                l =veg_pp%landunit(p)
+                if (veg_pp%is_on_soil_col(p) .or. veg_pp%is_on_crop_col(p)) then
+                   fnc = fnc + 1
+                   f = fnc
+                   this_filter(nc)%soilnopcropp(f) = p
+                end if
+             else
+                if (percrop(veg_pp%itype(p)) < 1) then
+                   fc = fc + 1
+                   f = fc
+                   this_filter(nc)%pcropp(f) = p
+                else if (percrop(veg_pp%itype(p)) >= 1) then
+                   fpc = fpc + 1
+                   f = fpc
+                   this_filter(nc)%ppercropp(f) = p
+                end if
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
     ! Create landunit-level urban and non-urban filters
 
-    f = 0
+    f  = 0
     fn = 0
+    !$acc parallel loop independent gang vector default(present) private(t) reduction(+:f,fn)
     do l = bounds%begl,bounds%endl
        t =lun_pp%topounit(l)
        if (top_pp%active(t)) then
           if (lun_pp%active(l) .or. include_inactive) then
              if (lun_pp%urbpoi(l)) then
                 f = f + 1
-                this_filter(nc)%urbanl(f) = l
              else
                 fn = fn + 1
-                this_filter(nc)%nourbanl(fn) = l
              end if
           end if
        end if
@@ -463,10 +626,34 @@ contains
     this_filter(nc)%num_urbanl = f
     this_filter(nc)%num_nourbanl = fn
 
+    f  = 0
+    fn = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(f,fn)
+    do l = bounds%begl,bounds%endl
+       t =lun_pp%topounit(l)
+       if (top_pp%active(t)) then
+          if (lun_pp%active(l) .or. include_inactive) then
+             if (lun_pp%urbpoi(l)) then
+                f = f + 1
+                fs = f
+                this_filter(nc)%urbanl(fs) = l
+             else
+                fn = fn + 1
+                fs = fn
+                this_filter(nc)%nourbanl(fs) = l
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
     ! Create column-level urban and non-urban filters
 
-    f = 0
+    f  = 0
     fn = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -474,10 +661,8 @@ contains
              l = col_pp%landunit(c)
              if (lun_pp%urbpoi(l)) then
                 f = f + 1
-                this_filter(nc)%urbanc(f) = c
              else
                 fn = fn + 1
-                this_filter(nc)%nourbanc(fn) = c
              end if
           end if
        end if
@@ -485,10 +670,35 @@ contains
     this_filter(nc)%num_urbanc = f
     this_filter(nc)%num_nourbanc = fn
 
+    f  = 0
+    fn = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(f,fn)
+    do c = bounds%begc,bounds%endc
+       t =col_pp%topounit(c)
+       if (top_pp%active(t)) then
+          if (col_pp%active(c) .or. include_inactive) then
+             l = col_pp%landunit(c)
+             if (lun_pp%urbpoi(l)) then
+                f = f + 1
+                fs = f
+                this_filter(nc)%urbanc(fs) = c
+             else
+                fn = fn + 1
+                fs = fn
+                this_filter(nc)%nourbanc(fs) = c
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
     ! Create pft-level urban and non-urban filters
 
-    f = 0
+    f  = 0
     fn = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -496,10 +706,8 @@ contains
              l = veg_pp%landunit(p)
              if (lun_pp%urbpoi(l)) then
                 f = f + 1
-                this_filter(nc)%urbanp(f) = p
              else
                 fn = fn + 1
-                this_filter(nc)%nourbanp(fn) = p 
              end if
           end if
        end if
@@ -507,7 +715,34 @@ contains
     this_filter(nc)%num_urbanp = f
     this_filter(nc)%num_nourbanp = fn
 
+    f  = 0
+    fn = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(f,fn)
+    do p = bounds%begp,bounds%endp
+       t =veg_pp%topounit(p)
+       if (top_pp%active(t)) then
+          if (veg_pp%active(p) .or. include_inactive) then
+             l = veg_pp%landunit(p)
+             if (lun_pp%urbpoi(l)) then
+                f = f + 1
+                fs = f
+                this_filter(nc)%urbanp(fs) = p
+             else
+                fn = fn + 1
+                fs = fn
+                this_filter(nc)%nourbanp(fs) = p
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
+    ! Create column-level glacier mec filter
+
     f = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -515,14 +750,35 @@ contains
              l = col_pp%landunit(c)
              if (lun_pp%itype(l) == istice_mec) then
                 f = f + 1
-                this_filter(nc)%icemecc(f) = c
              end if
           end if
        end if
     end do
     this_filter(nc)%num_icemecc = f
-    
+
     f = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(f)
+    do c = bounds%begc,bounds%endc
+       t =col_pp%topounit(c)
+       if (top_pp%active(t)) then
+          if (col_pp%active(c) .or. include_inactive) then
+             l = col_pp%landunit(c)
+             if (lun_pp%itype(l) == istice_mec) then
+                f = f + 1
+                fs = f
+                this_filter(nc)%icemecc(fs) = c
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
+
+    ! Create column-level glacier+bareland SMB filter
+
+    f = 0
+    !$acc parallel loop independent gang vector default(present) private(t,l,g) reduction(+:f) copyin(icemask_grc)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -532,16 +788,107 @@ contains
              if ( lun_pp%itype(l) == istice_mec .or. &
                 (col_pp%is_soil(c) .and. icemask_grc(g) > 0.)) then
                 f = f + 1
-                this_filter(nc)%do_smb_c(f) = c
              end if
           end if
        end if
     end do
-    this_filter(nc)%num_do_smb_c = f    
+    this_filter(nc)%num_do_smb_c = f
+
+    f = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(f) copyin(icemask_grc)
+    do c = bounds%begc,bounds%endc
+       t =col_pp%topounit(c)
+       if (top_pp%active(t)) then
+          if (col_pp%active(c) .or. include_inactive) then
+             l = col_pp%landunit(c)
+             g = col_pp%gridcell(c)
+             if ( lun_pp%itype(l) == istice_mec .or. &
+                (col_pp%is_soil(c) .and. icemask_grc(g) > 0.)) then
+                f = f + 1
+                fs = f
+                this_filter(nc)%do_smb_c(fs) = c
+             end if
+          end if
+       end if
+    end do
+    !$acc end serial
 
     ! Note: snow filters are reconstructed each time step in
-    ! LakeHydrology and SnowHydrology
+    ! LakeHydrology and SnowHydrology.
+    ! Note: the nolakeurban_barep/nolakeurban_vegp filters are also
+    ! dynamic (they depend on the snow-dependent frac_veg_nosno flag) and
+    ! are reconstructed each time step by setExposedvegpFilters, below.
 
   end subroutine setFiltersOneGroup
+
+  !------------------------------------------------------------------------
+  subroutine setExposedvegpFilters(bounds, this_filter, frac_veg_nosno)
+    !
+    ! !DESCRIPTION:
+    ! Split the non-lake, non-urban pft filter (nolakeurbanp) into a
+    ! bare-ground sub-filter (nolakeurban_barep) and a vegetated
+    ! sub-filter (nolakeurban_vegp), based on the current, snow-dependent
+    ! frac_veg_nosno flag (0 => bare ground, 1 => vegetated). Unlike the
+    ! rest of the filters set up in setFiltersOneGroup, this must be
+    ! recomputed every time step, since frac_veg_nosno changes with snow
+    ! cover - similar to how the snow filters are reconstructed each time
+    ! step in LakeHydrology and SnowHydrology.
+    !
+    ! !USES:
+    use decompMod , only : BOUNDS_LEVEL_CLUMP
+    !
+    ! !ARGUMENTS:
+    type(bounds_type) , intent(in)    :: bounds
+    type(clumpfilter)  , intent(inout) :: this_filter(:)             ! the group of filters to set
+    integer            , intent(in)    :: frac_veg_nosno( bounds%begp: ) ! 0 => bare ground, 1 => vegetated [patch]
+    !
+    ! LOCAL VARIABLES:
+    integer :: nc          ! clump index
+    integer :: f, p        ! filter index, patch index
+    integer :: fbare, fveg ! bare-ground / vegetated filter indices
+    integer :: idx         ! position in the filter
+    !------------------------------------------------------------------------
+
+    SHR_ASSERT(bounds%level == BOUNDS_LEVEL_CLUMP, errMsg(__FILE__, __LINE__))
+    SHR_ASSERT_ALL((ubound(frac_veg_nosno) == (/bounds%endp/)), errMsg(__FILE__, __LINE__))
+
+    nc = bounds%clump_index
+
+    fbare = 0
+    fveg  = 0
+    !$acc parallel loop independent gang vector default(present) private(p) reduction(+:fbare,fveg)
+    do f = 1, this_filter(nc)%num_nolakeurbanp
+       p = this_filter(nc)%nolakeurbanp(f)
+       if (frac_veg_nosno(p) == 0) then
+          fbare = fbare + 1
+       else
+          fveg = fveg + 1
+       end if
+    end do
+    this_filter(nc)%num_nolakeurban_barep = fbare
+    this_filter(nc)%num_nolakeurban_vegp  = fveg
+
+    fbare = 0
+    fveg  = 0
+    ! ascending order, as the serial loops of upstream ELM (atomics gave a
+    ! thread-dependent order): one thread, wherever the filters live
+    !$acc serial default(present) copy(fbare,fveg)
+    do f = 1, this_filter(nc)%num_nolakeurbanp
+       p = this_filter(nc)%nolakeurbanp(f)
+       if (frac_veg_nosno(p) == 0) then
+          fbare = fbare + 1
+          idx = fbare
+          this_filter(nc)%nolakeurban_barep(idx) = p
+       else
+          fveg = fveg + 1
+          idx = fveg
+          this_filter(nc)%nolakeurban_vegp(idx) = p
+       end if
+    end do
+    !$acc end serial
+
+  end subroutine setExposedvegpFilters
 
 end module filterMod
