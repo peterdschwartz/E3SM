@@ -276,6 +276,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine update_column_state_no_special_handling(this, bounds, clump_index, &
        var, fractional_area_old, fractional_area_new, adjustment)
+    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! Adjust the values of a column-level state variable due to changes in subgrid
@@ -348,8 +349,10 @@ contains
        ! Since there is no special handling in this routine, the non_conserved_mass variable
        ! should not have any accumulation. We allow for roundoff-level accumulation in case
        ! non-conserved mass is determined in a way that is prone to roundoff-level errors.
+#ifndef _OPENACC
        err_msg = subname//': ERROR: failure to conserve mass when using no special handling'
        SHR_ASSERT_ALL(abs(non_conserved_mass(bounds%begg:bounds%endg)) < conservation_tolerance, err_msg)
+#endif
 
     end if
 
@@ -679,6 +682,7 @@ contains
        var, non_conserved_mass, &
        fractional_area_old, fractional_area_new, &
        adjustment)
+    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! Intermediate routine between the public routines and the real work routine
@@ -733,11 +737,15 @@ contains
     !-----------------------------------------------------------------------
 
     if (present(fractional_area_old) .and. .not. present(fractional_area_new)) then
+#ifndef _OPENACC
        call endrun(subname//' ERROR: If fractional_area_old is provided, then fractional_area_new must be provided, too')
+#endif
     end if
 
     if (present(fractional_area_new) .and. .not. present(fractional_area_old)) then
+#ifndef _OPENACC
        call endrun(subname//' ERROR: If fractional_area_new is provided, then fractional_area_old must be provided, too')
+#endif
     end if
 
     if (present(fractional_area_old)) then
@@ -771,6 +779,7 @@ contains
        vals_input, vals_input_valid, has_prognostic_state, &
        fractional_area_old, fractional_area_new, &
        var, non_conserved_mass, adjustment)
+    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! Do the work of updating a column-level state variable due to changes in subgrid
