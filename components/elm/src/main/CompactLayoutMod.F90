@@ -335,7 +335,7 @@ contains
     ! range: members from the field, active special-landunit points the
     ! group's fill, others spval (what the old array held). For restart writes.
     real(r8), pointer, intent(in) :: ptr(:)
-    real(r8), allocatable, intent(out) :: full(:)
+    real(r8), pointer, intent(out) :: full(:)   ! allocated here (a pointer: restartvar's data dummy is one)
     integer :: g, s, p, k
     !-----------------------------------------------------------------------
 
@@ -362,7 +362,7 @@ contains
   subroutine compact_gather2(ptr, full)
     ! compact_gather1 for a rank-2 compact field (full(point, level)).
     real(r8), pointer, intent(in) :: ptr(:,:)
-    real(r8), allocatable, intent(out) :: full(:,:)
+    real(r8), pointer, intent(out) :: full(:,:)   ! allocated here
     integer :: g, s, p, k
     !-----------------------------------------------------------------------
 
