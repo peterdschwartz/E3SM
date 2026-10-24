@@ -84,6 +84,10 @@ module CompactLayoutMod
   public :: compact_locate         ! (group, slot) of a pointer that aliases a compact field
   public :: compact_locate2        ! the same for a rank-2 pointer (a level block of a rank-2 group)
   public :: compact_report         ! the groups, for a log
+  public :: compact_gather1        ! full-layout copy of a compact field (restart writes)
+  public :: compact_gather2
+  public :: compact_scatter1       ! members of a compact field from a full-layout array (restart reads)
+  public :: compact_scatter2
   !-----------------------------------------------------------------------
 
 contains
@@ -324,6 +328,108 @@ contains
        end do
     end do
   end subroutine compact_locate2
+
+  !-----------------------------------------------------------------------
+  subroutine compact_gather1(ptr, full)
+    ! The full-layout copy of a rank-1 compact field over its level's process
+    ! range: members from the field, active special-landunit points the
+    ! group's fill, others spval (what the old array held). For restart writes.
+    real(r8), pointer, intent(in) :: ptr(:)
+    real(r8), allocatable, intent(out) :: full(:)
+    integer :: g, s, p, k
+    !-----------------------------------------------------------------------
+
+    call compact_locate(ptr, g, s)
+    if (g == 0) call shr_sys_abort('CompactLayoutMod: compact_gather1: not a compact field')
+    if (compact_groups(g)%level == compact_lev_patch) then
+       allocate(full(lbound(compact_cidx_p, 1):ubound(compact_cidx_p, 1)))
+       do p = lbound(full, 1), ubound(full, 1)
+          k = compact_cidx_p(p)
+          full(p) = merge(compact_groups(g)%fill, compact_spval, k < 0)
+          if (k > 0) full(p) = ptr(k)
+       end do
+    else
+       allocate(full(lbound(compact_cidx_c, 1):ubound(compact_cidx_c, 1)))
+       do p = lbound(full, 1), ubound(full, 1)
+          k = compact_cidx_c(p)
+          full(p) = merge(compact_groups(g)%fill, compact_spval, k < 0)
+          if (k > 0) full(p) = ptr(k)
+       end do
+    end if
+  end subroutine compact_gather1
+
+  !-----------------------------------------------------------------------
+  subroutine compact_gather2(ptr, full)
+    ! compact_gather1 for a rank-2 compact field (full(point, level)).
+    real(r8), pointer, intent(in) :: ptr(:,:)
+    real(r8), allocatable, intent(out) :: full(:,:)
+    integer :: g, s, p, k
+    !-----------------------------------------------------------------------
+
+    call compact_locate2(ptr, g, s)
+    if (g == 0) call shr_sys_abort('CompactLayoutMod: compact_gather2: not a compact field')
+    if (compact_groups(g)%level == compact_lev_patch) then
+       allocate(full(lbound(compact_cidx_p, 1):ubound(compact_cidx_p, 1), size(ptr, 2)))
+       do p = lbound(full, 1), ubound(full, 1)
+          k = compact_cidx_p(p)
+          full(p, :) = merge(compact_groups(g)%fill, compact_spval, k < 0)
+          if (k > 0) full(p, :) = ptr(k, :)
+       end do
+    else
+       allocate(full(lbound(compact_cidx_c, 1):ubound(compact_cidx_c, 1), size(ptr, 2)))
+       do p = lbound(full, 1), ubound(full, 1)
+          k = compact_cidx_c(p)
+          full(p, :) = merge(compact_groups(g)%fill, compact_spval, k < 0)
+          if (k > 0) full(p, :) = ptr(k, :)
+       end do
+    end if
+  end subroutine compact_gather2
+
+  !-----------------------------------------------------------------------
+  subroutine compact_scatter1(full, ptr)
+    ! The members of a rank-1 compact field from a full-layout array (restart reads).
+    real(r8), intent(in) :: full(:)
+    real(r8), pointer, intent(inout) :: ptr(:)
+    integer :: g, s, p, k
+    !-----------------------------------------------------------------------
+
+    call compact_locate(ptr, g, s)
+    if (g == 0) call shr_sys_abort('CompactLayoutMod: compact_scatter1: not a compact field')
+    if (compact_groups(g)%level == compact_lev_patch) then
+       do p = lbound(compact_cidx_p, 1), ubound(compact_cidx_p, 1)
+          k = compact_cidx_p(p)
+          if (k > 0) ptr(k) = full(p - lbound(compact_cidx_p, 1) + 1)
+       end do
+    else
+       do p = lbound(compact_cidx_c, 1), ubound(compact_cidx_c, 1)
+          k = compact_cidx_c(p)
+          if (k > 0) ptr(k) = full(p - lbound(compact_cidx_c, 1) + 1)
+       end do
+    end if
+  end subroutine compact_scatter1
+
+  !-----------------------------------------------------------------------
+  subroutine compact_scatter2(full, ptr)
+    ! compact_scatter1 for a rank-2 compact field.
+    real(r8), intent(in) :: full(:,:)
+    real(r8), pointer, intent(inout) :: ptr(:,:)
+    integer :: g, s, p, k
+    !-----------------------------------------------------------------------
+
+    call compact_locate2(ptr, g, s)
+    if (g == 0) call shr_sys_abort('CompactLayoutMod: compact_scatter2: not a compact field')
+    if (compact_groups(g)%level == compact_lev_patch) then
+       do p = lbound(compact_cidx_p, 1), ubound(compact_cidx_p, 1)
+          k = compact_cidx_p(p)
+          if (k > 0) ptr(k, :) = full(p - lbound(compact_cidx_p, 1) + 1, :)
+       end do
+    else
+       do p = lbound(compact_cidx_c, 1), ubound(compact_cidx_c, 1)
+          k = compact_cidx_c(p)
+          if (k > 0) ptr(k, :) = full(p - lbound(compact_cidx_c, 1) + 1, :)
+       end do
+    end if
+  end subroutine compact_scatter2
 
   !-----------------------------------------------------------------------
   subroutine compact_report(unit)
