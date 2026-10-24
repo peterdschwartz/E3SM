@@ -92,7 +92,7 @@ program test_hist_compute
        endt-begt+1, ' topounits, ', endl-begl+1, ' landunits, ', endc-begc+1, ' columns, ', &
        endp-begp+1, ' patches'
   write(*,'(a,i0,a,i0,a)') 'fields:  ', size(fields), ' on 3 tapes, from ', size(arrays), ' model arrays'
-  write(*,'(a,i0,a,i0,a,i0,a)') 'compact: ', count(arrays(:)%cgroup > 0), ' arrays in 2 groups; ', &
+  write(*,'(a,i0,a,i0,a,i0,a)') 'compact: ', count(arrays(:)%cgroup > 0), ' arrays in compact groups; ', &
        n_compact_p, ' member patches, ', n_compact_c, ' member columns'
   call compact_report(6)
 
@@ -152,8 +152,10 @@ contains
     ! group buffer (one group per level; fill 0 for patches, spval for columns,
     ! as the init-time zeroing leaves them); their full copy m%a1 only feeds the reference
     if (use_compact) then
-       call compact_arrays(lev_patch, compact_lev_patch, 0._r8, 'patch group')
-       call compact_arrays(lev_col, compact_lev_col, spval, 'column group')
+       call compact_arrays(lev_patch, compact_lev_patch, 1, 0._r8, 'patch group')
+       call compact_arrays(lev_col, compact_lev_col, 1, spval, 'column group')
+       call compact_arrays(lev_col, compact_lev_col, 2, 0._r8, 'column rank-2 group')
+       call compact_arrays(lev_patch, compact_lev_patch, 2, spval, 'patch rank-2 group')
     end if
 
     ! tapes 1 and 2 average to gridcells (hist_dov2xy), tape 3 doesn't
@@ -190,23 +192,39 @@ contains
   end subroutine setup_fields
 
   !-----------------------------------------------------------------------
-  subroutine compact_arrays(level, clevel, fill, name)
-    ! Every third rank-1 model array of `level` lives in one compact group
-    ! (its column of the group buffer); m%a1 stays as the reference's copy.
-    integer , intent(in) :: level, clevel
+  subroutine compact_arrays(level, clevel, rank, fill, name)
+    ! Every third rank-`rank` model array of `level` lives in one compact group
+    ! (its column of the group buffer); m%a1 / m%a2 stay as the reference's
+    ! copies. A rank-2 group takes the arrays of the first eligible array's
+    ! num2d (one level count per group); snow arrays never.
+    integer , intent(in) :: level, clevel, rank
     real(r8), intent(in) :: fill
     character(len=*), intent(in) :: name
-    integer :: i, g, slot, nfld
+    integer :: i, g, slot, nfld, nlev
+    logical :: eligible(size(arrays))
+    do i = 1, size(arrays)
+       eligible(i) = arrays(i)%level == level .and. arrays(i)%rank == rank .and. mod(i, 3) == 0 &
+            .and. arrays(i)%no_snow == no_snow_unset .and. arrays(i)%cgroup == 0
+    end do
+    nlev = 0
     nfld = 0
     do i = 1, size(arrays)
-       if (arrays(i)%level == level .and. arrays(i)%rank == 1 .and. mod(i, 3) == 0) nfld = nfld + 1
+       if (.not. eligible(i)) cycle
+       if (rank == 2 .and. nlev == 0) nlev = arrays(i)%num2d
+       if (rank == 2 .and. arrays(i)%num2d /= nlev) cycle
+       nfld = nfld + 1
     end do
     if (nfld == 0) return
-    g = compact_group_new(name, clevel, nfld)
+    if (rank == 2) then
+       g = compact_group_new(name, clevel, nfld, nlev)
+    else
+       g = compact_group_new(name, clevel, nfld)
+    end if
     call compact_group_fill(g, fill)
     slot = 0
     do i = 1, size(arrays)
-       if (arrays(i)%level /= level .or. arrays(i)%rank /= 1 .or. mod(i, 3) /= 0) cycle
+       if (.not. eligible(i)) cycle
+       if (rank == 2 .and. arrays(i)%num2d /= nlev) cycle
        slot = slot + 1
        arrays(i)%cgroup = g
        arrays(i)%cslot  = slot
@@ -287,6 +305,7 @@ contains
                 m%a2(k, j) = value(i + k + j)
              end do
           end do
+          if (m%cgroup > 0) call compact_values(m)
           !$acc update device(m%a2)
        end if
        end associate
@@ -302,22 +321,40 @@ contains
     type(model_array), intent(inout) :: m
     integer :: beg, end, k, p, lb
     beg = level_beg(m%level); end = level_end(m%level)
-    lb = lbound(m%a1, 1)
+    if (m%rank == 1) then
+       lb = lbound(m%a1, 1)
+    else
+       lb = lbound(m%a2, 1)
+    end if
     do p = beg, end
        if (m%level == lev_patch) then
           k = compact_cidx_p(p)
        else
           k = compact_cidx_c(p)
        end if
-       if (k > 0) then
-          compact_groups(m%cgroup)%data(k, m%cslot) = m%a1(p - beg + lb)
-       else if (k < 0) then
-          m%a1(p - beg + lb) = compact_groups(m%cgroup)%fill
+       if (m%rank == 1) then
+          if (k > 0) then
+             compact_groups(m%cgroup)%data(k, m%cslot) = m%a1(p - beg + lb)
+          else if (k < 0) then
+             m%a1(p - beg + lb) = compact_groups(m%cgroup)%fill
+          else
+             m%a1(p - beg + lb) = spval
+          end if
        else
-          m%a1(p - beg + lb) = spval
+          if (k > 0) then
+             compact_groups(m%cgroup)%data3(k, 1:m%num2d, m%cslot) = m%a2(p - beg + lb, 1:m%num2d)
+          else if (k < 0) then
+             m%a2(p - beg + lb, :) = compact_groups(m%cgroup)%fill
+          else
+             m%a2(p - beg + lb, :) = spval
+          end if
        end if
     end do
-    !$acc update device(compact_groups(m%cgroup)%data)
+    if (m%rank == 1) then
+       !$acc update device(compact_groups(m%cgroup)%data)
+    else
+       !$acc update device(compact_groups(m%cgroup)%data3)
+    end if
   end subroutine compact_values
 
   real(r8) function value(key)

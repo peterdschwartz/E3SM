@@ -40,7 +40,7 @@ module histFileMod
   use PRTGenericMod          , only : nelements_fates  => num_elements
   use TopounitType           , only : top_pp
   use topounit_varcon        , only: max_topounits, has_topounit
-  use CompactLayoutMod       , only : compact_locate
+  use CompactLayoutMod       , only : compact_locate, compact_locate2
   use histComputeMod         , only : hist_src1d, hist_src2d, hist_active_field, &
        no_snow_unset, no_snow_normal, no_snow_zero, &
        lev_grid, lev_topo, lev_lun, lev_col, lev_patch, &
@@ -3897,6 +3897,7 @@ contains
     ! !LOCAL VARIABLES:
     integer :: num2d                   ! size of second dimension (e.g. number of vertical levels)
     integer :: hpindex                 ! history buffer index
+    integer :: cgroup, cslot                     ! compact layout group and slot of the model array (0: full array)
     character(len=hist_dim_name_length) :: l_type1d         ! 1d data type
     character(len=hist_dim_name_length) :: l_type1d_out     ! 1d output type
     character(len=hist_dim_name_length) :: scale_type_p2c ! scale type for subgrid averaging of pfts to column
@@ -4090,10 +4091,23 @@ contains
 
     end if
 
-    ! Values for points on special landunits
+    ! A model array in the compact layout (CompactLayoutMod): history reads it
+    ! through the group buffer and the inverse map (see hist_addfld1d)
 
-    call set_special_values(l_type1d, bounds, set_lake, set_nolake, set_urb, set_nourb, &
-         set_spec, ptr2d=elmptr_ra(hpindex)%ptr)
+    call compact_locate2(elmptr_ra(hpindex)%ptr, cgroup, cslot)
+    if (cgroup > 0) then
+       if (present(set_lake) .or. present(set_nolake) .or. present(set_urb) .or. present(set_nourb) .or. &
+            present(set_spec)) then
+          write(iulog,*) trim(subname),' ERROR: field ', trim(fname), &
+               ' is in the compact layout and cannot use the set_* options'
+          call endrun(msg=errMsg(__FILE__, __LINE__))
+       end if
+       nullify(elmptr_ra(hpindex)%ptr)
+    else
+       ! Values for points on special landunits
+       call set_special_values(l_type1d, bounds, set_lake, set_nolake, set_urb, set_nourb, &
+            set_spec, ptr2d=elmptr_ra(hpindex)%ptr)
+    end if
 
     ! Set scaling factor
 
@@ -4122,7 +4136,8 @@ contains
          units=units, avgflag=avgflag, long_name=long_name, &
          standard_name=lstandard_name, hpindex=hpindex, &
          p2c_scale_type=scale_type_p2c, c2l_scale_type=scale_type_c2l, l2g_scale_type=scale_type_l2g, &
-         t2g_scale_type=scale_type_t2g, no_snow_behavior=no_snow_behavior)
+         t2g_scale_type=scale_type_t2g, no_snow_behavior=no_snow_behavior, &
+         compact_group=cgroup, compact_slot=cslot)
 
     l_default = 'active'
     if (present(default)) then

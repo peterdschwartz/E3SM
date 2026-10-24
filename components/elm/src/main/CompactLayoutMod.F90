@@ -53,8 +53,10 @@ module CompactLayoutMod
      integer  :: level = 0                 ! compact_lev_patch or compact_lev_col
      integer  :: nfld  = 0                 ! fields (columns of data)
      integer  :: n     = 0                 ! points of the filter at the last (re)allocation
+     integer  :: nlev  = 0                 ! levels of a rank-2 group (0: rank-1 fields)
      real(r8) :: fill  = compact_spval     ! value of active special-landunit points (not stored)
-     real(r8), pointer, contiguous :: data(:,:) => null()   ! (max(n,1), nfld)
+     real(r8), pointer, contiguous :: data(:,:) => null()    ! rank-1 fields: (max(n,1), nfld)
+     real(r8), pointer, contiguous :: data3(:,:,:) => null() ! rank-2 fields: (max(n,1), nlev, nfld)
   end type compact_group_type
 
   type(compact_group_type), public, target, save :: compact_groups(compact_max_groups)
@@ -80,6 +82,7 @@ module CompactLayoutMod
   public :: compact_group_resize   ! reallocate a group for the current filter
   public :: compact_group_fill     ! the group's value on active special-landunit points
   public :: compact_locate         ! (group, slot) of a pointer that aliases a compact field
+  public :: compact_locate2        ! the same for a rank-2 pointer (a level block of a rank-2 group)
   public :: compact_report         ! the groups, for a log
   !-----------------------------------------------------------------------
 
@@ -173,11 +176,13 @@ contains
   end subroutine compact_filters_set
 
   !-----------------------------------------------------------------------
-  integer function compact_group_new(name, level, nfld) result(id)
+  integer function compact_group_new(name, level, nfld, nlev) result(id)
     ! A new group of nfld fields at `level`, allocated for the current filter
-    ! and filled with spval.
+    ! and filled with spval. With nlev (> 0) the fields are rank 2 with levels
+    ! 1:nlev (data3), else rank 1 (data).
     character(len=*), intent(in) :: name
     integer         , intent(in) :: level, nfld
+    integer, optional, intent(in) :: nlev
     !-----------------------------------------------------------------------
 
     if (compact_ngroups >= compact_max_groups) call shr_sys_abort('CompactLayoutMod: too many compact groups')
@@ -189,6 +194,8 @@ contains
     compact_groups(id)%name  = name
     compact_groups(id)%level = level
     compact_groups(id)%nfld  = nfld
+    compact_groups(id)%nlev  = 0
+    if (present(nlev)) compact_groups(id)%nlev = max(nlev, 0)
     compact_groups(id)%n     = -1
     call compact_group_resize(id)
   end function compact_group_new
@@ -206,19 +213,35 @@ contains
     if (id < 1 .or. id > compact_ngroups) call shr_sys_abort('CompactLayoutMod: compact_group_resize: no such group')
     associate(g => compact_groups(id))
     n = merge(compact_num_soilp, compact_num_soilc, g%level == compact_lev_patch)
-    if (associated(g%data)) then
-       if (g%n == n) then
-          g%data(:,:) = compact_spval
-          !$acc update device(g%data)
-          return
+    if (g%nlev > 0) then
+       if (associated(g%data3)) then
+          if (g%n == n) then
+             g%data3(:,:,:) = compact_spval
+             !$acc update device(g%data3)
+             return
+          end if
+          !$acc exit data delete(g%data3)
+          deallocate(g%data3)
        end if
-       !$acc exit data delete(g%data)
-       deallocate(g%data)
+       g%n = n
+       allocate(g%data3(max(n,1), g%nlev, g%nfld))
+       g%data3(:,:,:) = compact_spval
+       !$acc enter data copyin(g%data3)
+    else
+       if (associated(g%data)) then
+          if (g%n == n) then
+             g%data(:,:) = compact_spval
+             !$acc update device(g%data)
+             return
+          end if
+          !$acc exit data delete(g%data)
+          deallocate(g%data)
+       end if
+       g%n = n
+       allocate(g%data(max(n,1), g%nfld))
+       g%data(:,:) = compact_spval
+       !$acc enter data copyin(g%data)
     end if
-    g%n = n
-    allocate(g%data(max(n,1), g%nfld))
-    g%data(:,:) = compact_spval
-    !$acc enter data copyin(g%data)
     end associate
   end subroutine compact_group_resize
 
@@ -260,6 +283,30 @@ contains
   end subroutine compact_locate
 
   !-----------------------------------------------------------------------
+  subroutine compact_locate2(ptr, group, slot)
+    ! The (group, slot) whose level block `ptr` aliases (a rank-2 field), or (0, 0).
+    real(r8), pointer, intent(in) :: ptr(:,:)
+    integer, intent(out) :: group, slot
+    integer :: g, s
+    !-----------------------------------------------------------------------
+
+    group = 0
+    slot = 0
+    if (.not. associated(ptr)) return
+    do g = 1, compact_ngroups
+       if (compact_groups(g)%nlev == 0 .or. .not. associated(compact_groups(g)%data3)) cycle
+       if (size(ptr, 1) /= size(compact_groups(g)%data3, 1) .or. size(ptr, 2) /= compact_groups(g)%nlev) cycle
+       do s = 1, compact_groups(g)%nfld
+          if (associated(ptr, compact_groups(g)%data3(:, :, s))) then
+             group = g
+             slot = s
+             return
+          end if
+       end do
+    end do
+  end subroutine compact_locate2
+
+  !-----------------------------------------------------------------------
   subroutine compact_report(unit)
     ! One line per group.
     integer, intent(in) :: unit
@@ -270,8 +317,8 @@ contains
          compact_num_soilp, ' patches, ', compact_num_soilc, ' columns'
     do g = 1, compact_ngroups
        associate(grp => compact_groups(g))
-       write(unit, '(a,i0,a,a,a,i0,a,i0,a,es9.2)') '  group ', g, ' ', trim(grp%name), ': ', grp%nfld, &
-            ' fields x ', grp%n, ' points, fill ', grp%fill
+       write(unit, '(a,i0,a,a,a,i0,a,i0,a,i0,a,es9.2)') '  group ', g, ' ', trim(grp%name), ': ', grp%nfld, &
+            ' fields x ', grp%n, ' points x ', max(grp%nlev, 1), ' levels, fill ', grp%fill
        end associate
     end do
   end subroutine compact_report

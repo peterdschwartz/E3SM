@@ -187,8 +187,15 @@ contains
           if (fld%compact_group > compact_ngroups) then
              ierr = f; errmsg = 'compact group does not exist'; return
           end if
-          if (fld%source_rank /= 1 .or. fld%num_levels /= 1) then
-             ierr = f; errmsg = 'compact fields must be rank-1 model arrays'; return
+          if (fld%no_snow_behavior /= no_snow_unset) then
+             ierr = f; errmsg = 'compact fields cannot be snow fields'; return
+          end if
+          if (fld%source_rank == 1) then
+             if (fld%num_levels /= 1 .or. compact_groups(fld%compact_group)%nlev /= 0) then
+                ierr = f; errmsg = 'compact rank-1 field with levels or in a rank-2 group'; return
+             end if
+          else if (compact_groups(fld%compact_group)%nlev < fld%num_levels) then
+             ierr = f; errmsg = 'compact rank-2 field: its group has fewer levels than num2d'; return
           end if
           if (fld%compact_slot < 1 .or. fld%compact_slot > compact_groups(fld%compact_group)%nfld) then
              ierr = f; errmsg = 'compact slot outside its group'; return
@@ -432,10 +439,17 @@ contains
              call field_level(view, fields(f), lev, snow_values(snow_index(fields(f), fields(f)%source_first, lev)), &
                   all_active, gridcell_samples, hbuf_pool, nacs_pool)
           else if (fields(f)%compact_group > 0) then
-             call field_level_compact(view, fields(f), &
-                  compact_groups(fields(f)%compact_group)%data(:, fields(f)%compact_slot), &
-                  compact_cidx_p, compact_cidx_c, compact_groups(fields(f)%compact_group)%fill, &
-                  all_active, gridcell_samples, hbuf_pool, nacs_pool)
+             if (compact_groups(fields(f)%compact_group)%nlev > 0) then
+                call field_level_compact(view, fields(f), lev, &
+                     compact_groups(fields(f)%compact_group)%data3(:, lev, fields(f)%compact_slot), &
+                     compact_cidx_p, compact_cidx_c, compact_groups(fields(f)%compact_group)%fill, &
+                     all_active, gridcell_samples, hbuf_pool, nacs_pool)
+             else
+                call field_level_compact(view, fields(f), lev, &
+                     compact_groups(fields(f)%compact_group)%data(:, fields(f)%compact_slot), &
+                     compact_cidx_p, compact_cidx_c, compact_groups(fields(f)%compact_group)%fill, &
+                     all_active, gridcell_samples, hbuf_pool, nacs_pool)
+             end if
           else if (fields(f)%source_rank == 1) then
              call field_level(view, fields(f), lev, src1(fields(f)%source_index)%ptr, &
                   all_active, gridcell_samples, hbuf_pool, nacs_pool)
@@ -579,12 +593,12 @@ contains
   end subroutine field_level
 
   !-----------------------------------------------------------------------
-  pure subroutine field_level_compact(view, fld, values, cidx_p, cidx_c, fill, all_active, gridcell_samples, &
+  pure subroutine field_level_compact(view, fld, lev, values, cidx_p, cidx_c, fill, all_active, gridcell_samples, &
        hbuf_pool, nacs_pool)
     !
     ! !DESCRIPTION:
-    ! field_level for a rank-1 field in the compact layout: values(k) is the
-    ! value of the point whose compact index is k (cidx_p / cidx_c, the maps
+    ! field_level for level lev of a field in the compact layout: values(k) is
+    ! the value of the point whose compact index is k (cidx_p / cidx_c, the maps
     ! of CompactLayoutMod, passed each step because they are reallocated when
     ! the filters change); a point with cidx -1 (active, on a special landunit)
     ! has the group's fill value and a point with cidx 0 has spval, as the
@@ -594,7 +608,8 @@ contains
     ! !ARGUMENTS:
     type(subgrid_ave_view) , intent(in)    :: view
     type(hist_active_field), intent(in)    :: fld
-    real(r8)               , intent(in)    :: values(*)           ! compact values of the field
+    integer                , intent(in)    :: lev
+    real(r8)               , intent(in)    :: values(*)           ! compact values of the level
     integer                , intent(in)    :: cidx_p(view%begp:)  ! compact index per patch
     integer                , intent(in)    :: cidx_c(view%begc:)  ! compact index per column
     real(r8)               , intent(in)    :: fill
@@ -608,10 +623,10 @@ contains
     !-----------------------------------------------------------------------
 
     num_points   = fld%last_point - fld%first_point + 1
-    buffer_first = fld%buffer_offset + 1
+    buffer_first = fld%buffer_offset + (lev - 1) * num_points + 1
 
     if (fld%average_to_gridcell) then
-       sample_first = fld%sample_offset + 1
+       sample_first = fld%sample_offset + (lev - 1) * num_points + 1
        if (fld%source_level == lev_patch) then
           call p2g_range_compact(view, view%begg, view%endg, values, cidx_p, fill, fld%c2l_scale, fld%l2g_scale, &
                gridcell_samples(sample_first))
