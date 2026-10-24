@@ -40,6 +40,7 @@ module histFileMod
   use PRTGenericMod          , only : nelements_fates  => num_elements
   use TopounitType           , only : top_pp
   use topounit_varcon        , only: max_topounits, has_topounit
+  use CompactLayoutMod       , only : compact_locate
   use histComputeMod         , only : hist_src1d, hist_src2d, hist_active_field, &
        no_snow_unset, no_snow_normal, no_snow_zero, &
        lev_grid, lev_topo, lev_lun, lev_col, lev_patch, &
@@ -194,6 +195,8 @@ module histFileMod
      character(len=hist_dim_name_length) :: l2g_scale_type        ! scale factor when averaging landunit to gridcell
      character(len=hist_dim_name_length) :: t2g_scale_type        ! scale factor when averaging topounit to gridcell
      integer :: no_snow_behavior               ! for multi-layer snow fields, flag saying how to treat times when a given snow layer is absent
+    integer :: compact_group = 0              ! compact layout: group and slot of the model array (0: a full array)
+    integer :: compact_slot  = 0
   end type field_info
 
   type master_entry
@@ -292,7 +295,7 @@ contains
   subroutine masterlist_addfld (fname, type1d, type1d_out,&
         type2d, numdims, num2d, units, avgflag, long_name, standard_name, hpindex, &
         p2c_scale_type, c2l_scale_type, l2g_scale_type, t2g_scale_type, &
-        no_snow_behavior)
+        no_snow_behavior, compact_group, compact_slot)
     !
     ! !DESCRIPTION:
     ! Add a field to the master field list. Put input arguments of
@@ -320,6 +323,8 @@ contains
     character(len=*), intent(in)  :: l2g_scale_type   ! scale type for subgrid averaging of landunits to gridcells
     character(len=*), intent(in)  :: t2g_scale_type   ! scale type for subgrid averaging of topounits to gridcells
     integer, intent(in), optional :: no_snow_behavior ! if a multi-layer snow field, behavior to use for absent snow layers
+    integer, intent(in), optional :: compact_group    ! compact layout: the model array is a group column (CompactLayoutMod)
+    integer, intent(in), optional :: compact_slot
     !
     ! !LOCAL VARIABLES:
     integer :: n            ! loop index
@@ -381,6 +386,10 @@ contains
     else
        masterlist(f)%field%no_snow_behavior = no_snow_unset
     end if
+    masterlist(f)%field%compact_group = 0
+    masterlist(f)%field%compact_slot  = 0
+    if (present(compact_group)) masterlist(f)%field%compact_group = compact_group
+    if (present(compact_slot))  masterlist(f)%field%compact_slot  = compact_slot
 
     ! The following two fields are used only in master field list,
     ! NOT in the runtime active field list
@@ -976,6 +985,8 @@ contains
           fld%source_level     = level_code(field%type1d)
           fld%num_levels       = field%num2d
           fld%no_snow_behavior = field%no_snow_behavior
+          fld%compact_group    = field%compact_group
+          fld%compact_slot     = field%compact_slot
           select case (tape(t)%hlist(f)%avgflag)
           case ('I'); fld%time_op = time_inst
           case ('A'); fld%time_op = time_mean
@@ -3726,6 +3737,7 @@ contains
     type(bounds_type):: bounds         ! boudns
     character(len=16):: l_default      ! local version of 'default'
     character(len=max_namlen) :: lstandard_name  ! local standard name
+    integer :: cgroup, cslot                     ! compact layout group and slot of the model array (0: full array)
     character(len=*),parameter :: subname = 'hist_addfld1d'
 !------------------------------------------------------------------------
 
@@ -3773,10 +3785,24 @@ contains
 
     end if
 
-    ! Values for points on special landunits
+    ! A model array in the compact layout (CompactLayoutMod): history reads it
+    ! through the group buffer and the inverse map, so the pointer is not kept
+    ! (a reallocation would leave it dangling) and no values can be set in it.
 
-    call set_special_values(l_type1d, bounds, set_lake, set_nolake, set_urb, set_nourb, &
-         set_spec, set_noglcmec, ptr1d=elmptr_rs(hpindex)%ptr)
+    call compact_locate(elmptr_rs(hpindex)%ptr, cgroup, cslot)
+    if (cgroup > 0) then
+       if (present(set_lake) .or. present(set_nolake) .or. present(set_urb) .or. present(set_nourb) .or. &
+            present(set_spec) .or. present(set_noglcmec)) then
+          write(iulog,*) trim(subname),' ERROR: field ', trim(fname), &
+               ' is in the compact layout and cannot use the set_* options'
+          call endrun(msg=errMsg(__FILE__, __LINE__))
+       end if
+       nullify(elmptr_rs(hpindex)%ptr)
+    else
+       ! Values for points on special landunits
+       call set_special_values(l_type1d, bounds, set_lake, set_nolake, set_urb, set_nourb, &
+            set_spec, set_noglcmec, ptr1d=elmptr_rs(hpindex)%ptr)
+    end if
 
     ! Set scaling factor
 
@@ -3803,7 +3829,7 @@ contains
          type2d='unset', numdims=1, num2d=1,  units=units, avgflag=avgflag, long_name=long_name, &
          standard_name=lstandard_name, hpindex=hpindex, &
          p2c_scale_type=scale_type_p2c, c2l_scale_type=scale_type_c2l, l2g_scale_type=scale_type_l2g, &
-         t2g_scale_type=scale_type_t2g)
+         t2g_scale_type=scale_type_t2g, compact_group=cgroup, compact_slot=cslot)
 
     l_default = 'active'
     if (present(default)) then

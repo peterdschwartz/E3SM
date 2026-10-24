@@ -27,6 +27,8 @@ program test_hist_compute
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use subgridAveViewMod , only : subgrid_ave_view, p2g_range, c2g_range, l2g_range, t2g_range
   use subgridAveViewMod , only : p2g_range_unity, c2g_range_unity, scale_unity
+  use CompactLayoutMod  , only : compact_groups, compact_group_new, compact_group_fill, &
+       compact_lev_patch, compact_lev_col, compact_cidx_p, compact_cidx_c, compact_report
   use histComputeMod
   use fake_subgrid_mod
   use hist_reference_mod
@@ -38,6 +40,7 @@ program test_hist_compute
   type model_array
      real(r8), allocatable :: a1(:), a2(:,:)
      integer :: level, rank, num2d, no_snow
+     integer :: cgroup = 0, cslot = 0   ! compact layout: group buffer column holding this array
   end type model_array
 
   type ref_buffer
@@ -57,6 +60,7 @@ program test_hist_compute
   character(len=16) :: arg
   real(r8) :: t_ref, t_new
   logical  :: bench = .false.   ! timing run: fixed missing values, fixed subgrid
+  logical  :: use_compact = .true.   ! 'nocompact': no model array in the compact layout
 
   call random_seed(size=seed_size)
   allocate(seed(seed_size))
@@ -66,6 +70,7 @@ program test_hist_compute
   arg = ' '
   if (command_argument_count() > 0) call get_command_argument(1, arg)
 
+  if (trim(arg) == 'nocompact') use_compact = .false.
   if (trim(arg) == 'bench') then
      bench = .true.
      call build_subgrid(ng=4000, offset=1000)
@@ -87,6 +92,9 @@ program test_hist_compute
        endt-begt+1, ' topounits, ', endl-begl+1, ' landunits, ', endc-begc+1, ' columns, ', &
        endp-begp+1, ' patches'
   write(*,'(a,i0,a,i0,a)') 'fields:  ', size(fields), ' on 3 tapes, from ', size(arrays), ' model arrays'
+  write(*,'(a,i0,a,i0,a,i0,a)') 'compact: ', count(arrays(:)%cgroup > 0), ' arrays in 2 groups; ', &
+       n_compact_p, ' member patches, ', n_compact_c, ' member columns'
+  call compact_report(6)
 
   nfail = 0
   ncase = 0
@@ -140,6 +148,14 @@ contains
        end associate
     end do
 
+    ! compact layout: a third of the rank-1 patch and column arrays live in a
+    ! group buffer (one group per level; fill 0 for patches, spval for columns,
+    ! as the init-time zeroing leaves them); their full copy m%a1 only feeds the reference
+    if (use_compact) then
+       call compact_arrays(lev_patch, compact_lev_patch, 0._r8, 'patch group')
+       call compact_arrays(lev_col, compact_lev_col, spval, 'column group')
+    end if
+
     ! tapes 1 and 2 average to gridcells (hist_dov2xy), tape 3 doesn't
     allocate(fields(nfld), ref(nfld))
     f = 0
@@ -153,6 +169,8 @@ contains
           fld%source_rank      = m%rank
           fld%num_levels       = m%num2d
           fld%no_snow_behavior = m%no_snow
+          fld%compact_group    = m%cgroup
+          fld%compact_slot     = m%cslot
           fld%time_op          = rand_int(time_inst, time_min_valid)
           fld%average_to_gridcell = t < 3 .and. m%level /= lev_grid
           fld%c2l_scale = 1          ! mostly 'unity', as in ELM's field list
@@ -170,6 +188,30 @@ contains
     end do
     tape_first(ntapes+1) = f + 1
   end subroutine setup_fields
+
+  !-----------------------------------------------------------------------
+  subroutine compact_arrays(level, clevel, fill, name)
+    ! Every third rank-1 model array of `level` lives in one compact group
+    ! (its column of the group buffer); m%a1 stays as the reference's copy.
+    integer , intent(in) :: level, clevel
+    real(r8), intent(in) :: fill
+    character(len=*), intent(in) :: name
+    integer :: i, g, slot, nfld
+    nfld = 0
+    do i = 1, size(arrays)
+       if (arrays(i)%level == level .and. arrays(i)%rank == 1 .and. mod(i, 3) == 0) nfld = nfld + 1
+    end do
+    if (nfld == 0) return
+    g = compact_group_new(name, clevel, nfld)
+    call compact_group_fill(g, fill)
+    slot = 0
+    do i = 1, size(arrays)
+       if (arrays(i)%level /= level .or. arrays(i)%rank /= 1 .or. mod(i, 3) /= 0) cycle
+       slot = slot + 1
+       arrays(i)%cgroup = g
+       arrays(i)%cslot  = slot
+    end do
+  end subroutine compact_arrays
 
   !-----------------------------------------------------------------------
   subroutine run(nsteps, extrasnow, check)
@@ -237,6 +279,7 @@ contains
           do k = lbound(m%a1, 1), ubound(m%a1, 1)
              m%a1(k) = value(i + k)
           end do
+          if (m%cgroup > 0) call compact_values(m)
           !$acc update device(m%a1)
        else
           do j = lbound(m%a2, 2), ubound(m%a2, 2)
@@ -249,6 +292,33 @@ contains
        end associate
     end do
   end subroutine new_values
+
+  subroutine compact_values(m)
+    ! The compact copy of a compact model array: members take the full copy's
+    ! value; the full copy itself gets the layout's values on non-members (the
+    ! group's fill on special points, spval elsewhere), as the full layout would
+    ! hold, so the reference (reading m%a1) and histComputeMod (reading the
+    ! buffer through the map) must agree bit for bit.
+    type(model_array), intent(inout) :: m
+    integer :: beg, end, k, p, lb
+    beg = level_beg(m%level); end = level_end(m%level)
+    lb = lbound(m%a1, 1)
+    do p = beg, end
+       if (m%level == lev_patch) then
+          k = compact_cidx_p(p)
+       else
+          k = compact_cidx_c(p)
+       end if
+       if (k > 0) then
+          compact_groups(m%cgroup)%data(k, m%cslot) = m%a1(p - beg + lb)
+       else if (k < 0) then
+          m%a1(p - beg + lb) = compact_groups(m%cgroup)%fill
+       else
+          m%a1(p - beg + lb) = spval
+       end if
+    end do
+    !$acc update device(compact_groups(m%cgroup)%data)
+  end subroutine compact_values
 
   real(r8) function value(key)
     ! 10% missing: random each step (test), or at fixed points (bench, as in

@@ -54,6 +54,8 @@ module histComputeMod
   use subgridAveViewMod, only : subgrid_ave_view, spval
   use subgridAveViewMod, only : p2g_range, c2g_range, l2g_range, t2g_range
   use subgridAveViewMod, only : p2g_range_unity, c2g_range_unity, scale_unity
+  use subgridAveViewMod, only : p2g_range_compact, c2g_range_compact
+  use CompactLayoutMod , only : compact_groups, compact_ngroups, compact_lev_patch, compact_lev_col
   !
   implicit none
   private
@@ -89,6 +91,9 @@ module histComputeMod
      logical :: average_to_gridcell = .false.
      integer :: c2l_scale = 1, l2g_scale = 1 ! scale types (subgridAveMod's numbering)
      integer :: no_snow_behavior = no_snow_unset
+     ! compact layout (CompactLayoutMod): the model array is column compact_slot of
+     ! compact_groups(compact_group)%data, indexed by the view's cidx map; 0 = a full array
+     integer :: compact_group = 0, compact_slot = 0
      ! set by hist_compute_build
      integer :: source_first = 1, source_last = 0 ! points of the source level
      integer :: first_point = 1, last_point = 0   ! output points (gridcells if averaged)
@@ -176,7 +181,29 @@ contains
 
        ! the model array covers the level's points; a 2d array has levels
        ! 1:num_levels, a snow field's levels start at its lower bound
-       if (fld%source_rank == 1) then
+       if (fld%compact_group > 0) then
+          ! a compact field: one level of a group buffer, read through the inverse map
+          if (fld%compact_group > compact_ngroups) then
+             ierr = f; errmsg = 'compact group does not exist'; return
+          end if
+          if (fld%source_rank /= 1 .or. fld%num_levels /= 1) then
+             ierr = f; errmsg = 'compact fields must be rank-1 model arrays'; return
+          end if
+          if (fld%compact_slot < 1 .or. fld%compact_slot > compact_groups(fld%compact_group)%nfld) then
+             ierr = f; errmsg = 'compact slot outside its group'; return
+          end if
+          if (.not. ((fld%source_level == lev_patch .and. compact_groups(fld%compact_group)%level == compact_lev_patch) &
+               .or. (fld%source_level == lev_col .and. compact_groups(fld%compact_group)%level == compact_lev_col))) then
+             ierr = f; errmsg = 'compact group level differs from the field level'; return
+          end if
+          if (fld%source_level == lev_patch .and. .not. associated(view%cidx_p)) then
+             ierr = f; errmsg = 'compact patch field without a cidx_p map in the view'; return
+          end if
+          if (fld%source_level == lev_col .and. .not. associated(view%cidx_c)) then
+             ierr = f; errmsg = 'compact column field without a cidx_c map in the view'; return
+          end if
+          extent = num_points
+       else if (fld%source_rank == 1) then
           if (.not. associated(src1(fld%source_index)%ptr)) then
              ierr = f; errmsg = 'model array not associated'; return
           end if
@@ -298,7 +325,9 @@ contains
     used1(:) = .false.
     used2(:) = .false.
     do f = 1, num_fields
-       if (fields(f)%source_rank == 1) then
+       if (fields(f)%compact_group > 0) then
+          cycle   ! read from its group buffer (CompactLayoutMod keeps it on the device)
+       else if (fields(f)%source_rank == 1) then
           used1(fields(f)%source_index) = .true.
        else
           used2(fields(f)%source_index) = .true.
@@ -400,6 +429,11 @@ contains
        do lev = 1, fields(f)%num_levels
           if (fields(f)%snow_offset >= 0) then
              call field_level(view, fields(f), lev, snow_values(snow_index(fields(f), fields(f)%source_first, lev)), &
+                  all_active, gridcell_samples, hbuf_pool, nacs_pool)
+          else if (fields(f)%compact_group > 0) then
+             call field_level_compact(view, fields(f), &
+                  compact_groups(fields(f)%compact_group)%data(:, fields(f)%compact_slot), &
+                  compact_groups(fields(f)%compact_group)%fill, &
                   all_active, gridcell_samples, hbuf_pool, nacs_pool)
           else if (fields(f)%source_rank == 1) then
              call field_level(view, fields(f), lev, src1(fields(f)%source_index)%ptr, &
@@ -542,6 +576,211 @@ contains
     end if
 
   end subroutine field_level
+
+  !-----------------------------------------------------------------------
+  pure subroutine field_level_compact(view, fld, values, fill, all_active, gridcell_samples, hbuf_pool, nacs_pool)
+    !
+    ! !DESCRIPTION:
+    ! field_level for a rank-1 field in the compact layout: values(k) is the
+    ! value of the point whose compact index is k (view%cidx_p / cidx_c); a
+    ! point with cidx -1 (active, on a special landunit) has the group's
+    ! fill value and a point with cidx 0 has spval, as the full layout held.
+    !
+    !$acc routine vector
+    ! !ARGUMENTS:
+    type(subgrid_ave_view) , intent(in)    :: view
+    type(hist_active_field), intent(in)    :: fld
+    real(r8)               , intent(in)    :: values(*)           ! compact values of the field
+    real(r8)               , intent(in)    :: fill
+    logical                , intent(in)    :: all_active(:)
+    real(r8)               , intent(inout) :: gridcell_samples(*)
+    real(r8)               , intent(inout) :: hbuf_pool(*)
+    integer                , intent(inout) :: nacs_pool(*)
+    !
+    ! !LOCAL VARIABLES:
+    integer :: num_points, buffer_first, sample_first
+    !-----------------------------------------------------------------------
+
+    num_points   = fld%last_point - fld%first_point + 1
+    buffer_first = fld%buffer_offset + 1
+
+    if (fld%average_to_gridcell) then
+       sample_first = fld%sample_offset + 1
+       if (fld%source_level == lev_patch) then
+          call p2g_range_compact(view, view%begg, view%endg, values, fill, fld%c2l_scale, fld%l2g_scale, &
+               gridcell_samples(sample_first))
+       else
+          call c2g_range_compact(view, view%begg, view%endg, values, fill, fld%c2l_scale, fld%l2g_scale, &
+               gridcell_samples(sample_first))
+       end if
+       call accumulate_samples(fld%time_op, .true., num_points, gridcell_samples(sample_first), &
+            all_active, hbuf_pool(buffer_first), nacs_pool(buffer_first))
+    else if (fld%source_level == lev_patch) then
+       call accumulate_samples_compact(fld%time_op, num_points, values, &
+            view%cidx_p(fld%source_first:fld%source_last), fill, &
+            view%active_p, hbuf_pool(buffer_first), nacs_pool(buffer_first))
+    else
+       call accumulate_samples_compact(fld%time_op, num_points, values, &
+            view%cidx_c(fld%source_first:fld%source_last), fill, &
+            view%active_c, hbuf_pool(buffer_first), nacs_pool(buffer_first))
+    end if
+
+  end subroutine field_level_compact
+
+  !-----------------------------------------------------------------------
+  pure subroutine accumulate_samples_compact(time_op, n, values, cidx, fill, active, hbuf, nacs)
+    !
+    ! !DESCRIPTION:
+    ! accumulate_samples (native output, gridcell_rule false) for a compact
+    ! field: point i's sample is values(cidx(i)) when cidx(i) > 0, fill when
+    ! cidx(i) < 0 and spval otherwise. Kept as a separate routine so the
+    ! full-array path is untouched.
+    !
+    !$acc routine vector
+    ! !ARGUMENTS:
+    integer , intent(in)    :: time_op
+    integer , intent(in)    :: n
+    real(r8), intent(in)    :: values(*)   ! compact values
+    integer , intent(in)    :: cidx(*)     ! cidx(i): compact index of point i (first point of the level = 1)
+    real(r8), intent(in)    :: fill
+    logical , intent(in)    :: active(:)
+    real(r8), intent(inout) :: hbuf(*)
+    integer , intent(inout) :: nacs(*)
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: i, k
+    real(r8) :: s
+    logical  :: valid
+    !-----------------------------------------------------------------------
+
+    select case (time_op)
+    case (time_inst)
+       !$acc loop vector private(valid, s, k)
+       do i = 1, n
+          k = cidx(i)
+          if (k > 0) then
+             s = values(k)
+          else if (k < 0) then
+             s = fill
+          else
+             s = spval
+          end if
+          valid = active(i) .and. s /= spval
+          if (valid) then
+             hbuf(i) = s
+          else
+             hbuf(i) = spval
+          end if
+          nacs(i) = 1
+       end do
+
+    case (time_mean)
+       !$acc loop vector private(valid, s, k)
+       do i = 1, n
+          k = cidx(i)
+          if (k > 0) then
+             s = values(k)
+          else if (k < 0) then
+             s = fill
+          else
+             s = spval
+          end if
+          valid = active(i) .and. s /= spval
+          if (valid) then
+             if (nacs(i) == 0) hbuf(i) = 0._r8
+             hbuf(i) = hbuf(i) + s
+             nacs(i) = nacs(i) + 1
+          else if (nacs(i) == 0) then
+             hbuf(i) = spval
+          end if
+       end do
+
+    case (time_max)
+       !$acc loop vector private(valid, s, k)
+       do i = 1, n
+          k = cidx(i)
+          if (k > 0) then
+             s = values(k)
+          else if (k < 0) then
+             s = fill
+          else
+             s = spval
+          end if
+          valid = active(i) .and. s /= spval
+          if (valid) then
+             if (nacs(i) == 0) hbuf(i) = -big
+             hbuf(i) = max(hbuf(i), s)
+          else if (nacs(i) == 0) then
+             hbuf(i) = spval
+          end if
+          nacs(i) = 1
+       end do
+
+    case (time_min)
+       !$acc loop vector private(valid, s, k)
+       do i = 1, n
+          k = cidx(i)
+          if (k > 0) then
+             s = values(k)
+          else if (k < 0) then
+             s = fill
+          else
+             s = spval
+          end if
+          valid = active(i) .and. s /= spval
+          if (valid) then
+             if (nacs(i) == 0) hbuf(i) = big
+             hbuf(i) = min(hbuf(i), s)
+          else if (nacs(i) == 0) then
+             hbuf(i) = spval
+          end if
+          nacs(i) = 1
+       end do
+
+    case (time_max_valid)
+       !$acc loop vector private(valid, s, k)
+       do i = 1, n
+          k = cidx(i)
+          if (k > 0) then
+             s = values(k)
+          else if (k < 0) then
+             s = fill
+          else
+             s = spval
+          end if
+          valid = active(i) .and. s /= spval
+          if (valid) then
+             if (nacs(i) == 0) hbuf(i) = -big
+             hbuf(i) = max(hbuf(i), s)
+             nacs(i) = nacs(i) + 1
+          else if (nacs(i) == 0) then
+             hbuf(i) = spval
+          end if
+       end do
+
+    case (time_min_valid)
+       !$acc loop vector private(valid, s, k)
+       do i = 1, n
+          k = cidx(i)
+          if (k > 0) then
+             s = values(k)
+          else if (k < 0) then
+             s = fill
+          else
+             s = spval
+          end if
+          valid = active(i) .and. s /= spval
+          if (valid) then
+             if (nacs(i) == 0) hbuf(i) = big
+             hbuf(i) = min(hbuf(i), s)
+             nacs(i) = nacs(i) + 1
+          else if (nacs(i) == 0) then
+             hbuf(i) = spval
+          end if
+       end do
+    end select
+
+  end subroutine accumulate_samples_compact
 
   !-----------------------------------------------------------------------
   pure subroutine accumulate_samples(time_op, gridcell_rule, n, samples, active, hbuf, nacs)

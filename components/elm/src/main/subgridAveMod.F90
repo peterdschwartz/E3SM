@@ -42,6 +42,7 @@ module subgridAveMod
   use subgridAveViewMod, only : subgrid_ave_view, view_spval => spval
   use subgridAveViewMod, only : p2g_range_unity, c2g_range_unity
   use subgridAveViewMod, only : build_child_map, subgrid_ave_view_attach, subgrid_ave_view_detach
+  use CompactLayoutMod , only : compact_cidx_p, compact_cidx_c
   use subgridAveViewMod, only : p2g_range, c2g_range, l2g_range, t2g_range
   !
   ! !PUBLIC TYPES:
@@ -269,6 +270,11 @@ contains
     v%scale_c2l        => main_scale_c2l
     v%scale_l2g_lookup => main_scale_l2g_lookup
     v%snl        => col_pp%snl
+    ! inverse maps of the compact layout (unassociated until compact fields exist)
+    v%cidx_p => null()
+    v%cidx_c => null()
+    if (allocated(compact_cidx_p)) v%cidx_p => compact_cidx_p
+    if (allocated(compact_cidx_c)) v%cidx_c => compact_cidx_c
     end associate
 
   end subroutine set_elm_subgrid_view

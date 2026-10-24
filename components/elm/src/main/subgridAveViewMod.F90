@@ -63,6 +63,10 @@ module subgridAveViewMod
      real(r8), pointer, contiguous :: scale_c2l(:,:) => null(), scale_l2g_lookup(:,:) => null()
      ! minus the number of snow layers of each column
      integer , pointer, contiguous :: snl(:) => null()
+     ! compact layout (CompactLayoutMod): compact index of each patch / column
+     ! (> 0), -1 on an active special-landunit point (the group's fill value),
+     ! 0 elsewhere (spval). Unassociated when no field is compact.
+     integer , pointer, contiguous :: cidx_p(:) => null(), cidx_c(:) => null()
   end type subgrid_ave_view
   !
   ! !PUBLIC MEMBER FUNCTIONS:
@@ -75,6 +79,8 @@ module subgridAveViewMod
   public :: c2g_range_unity          ! c2g_range for the unity scale types (no lookups)
   public :: l2g_range                ! landunit averages of a range of gridcells
   public :: t2g_range                ! topounit averages of a range of gridcells
+  public :: p2g_range_compact        ! p2g_range of a compact field (values indexed by cidx_p)
+  public :: c2g_range_compact        ! c2g_range of a compact field (values indexed by cidx_c)
   !-----------------------------------------------------------------------
 
 contains
@@ -136,6 +142,12 @@ contains
     !$acc    view%wtgcell_t, view%wtgcell_l, view%wtgcell_c, view%wtgcell_p, &
     !$acc    view%active_t, view%active_l, view%active_c, view%active_p, &
     !$acc    view%scale_c2l, view%scale_l2g_lookup, view%snl)
+    if (associated(view%cidx_p)) then
+       !$acc enter data attach(view%cidx_p)
+    end if
+    if (associated(view%cidx_c)) then
+       !$acc enter data attach(view%cidx_c)
+    end if
 
   end subroutine subgrid_ave_view_attach
 
@@ -149,6 +161,12 @@ contains
     type(subgrid_ave_view), intent(inout) :: view
     !-----------------------------------------------------------------------
 
+    if (associated(view%cidx_p)) then
+       !$acc exit data detach(view%cidx_p)
+    end if
+    if (associated(view%cidx_c)) then
+       !$acc exit data detach(view%cidx_c)
+    end if
     !$acc exit data detach(view%grc_lun_ptr, view%grc_lun_idx, view%topi, view%topf, &
     !$acc    view%coli, view%colf, view%pfti, view%pftf, view%col_of_pft, view%lun_type, &
     !$acc    view%wtgcell_t, view%wtgcell_l, view%wtgcell_c, view%wtgcell_p, &
@@ -413,6 +431,113 @@ contains
     end do
 
   end subroutine t2g_range
+
+  !-----------------------------------------------------------------------
+  pure subroutine p2g_range_compact(view, g0, g1, values, fill, c2l_scale_type, l2g_scale_type, garr)
+    !
+    ! !DESCRIPTION:
+    ! p2g_range for a field in the compact layout: the value of patch p is
+    ! values(view%cidx_p(p)) when cidx_p(p) > 0, `fill` when it is -1 (an
+    ! active special-landunit patch) and spval otherwise. Same sums, in the
+    ! same order, as p2g_range on the equivalent full array: bit-for-bit.
+    !
+    !$acc routine vector
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in)  :: view
+    integer , intent(in)  :: g0, g1
+    real(r8), intent(in)  :: values(*)        ! compact values; values(k) is compact index k
+    real(r8), intent(in)  :: fill
+    integer , intent(in)  :: c2l_scale_type
+    integer , intent(in)  :: l2g_scale_type
+    real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: g, k, l, p, ci
+    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    !-----------------------------------------------------------------------
+
+    !$acc loop vector private(sum_arr, sumwt)
+    do g = g0, g1
+       sum_arr = 0._r8
+       sumwt = 0._r8
+       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+          l = view%grc_lun_idx(k)
+          scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
+          if (scale_l2g == spval) cycle
+          do p = view%pfti(l), view%pftf(l)
+             if (view%active_p(p) .and. view%wtgcell_p(p) /= 0._r8) then
+                scale_c2l = view%scale_c2l(view%col_of_pft(p), c2l_scale_type)
+                ci = view%cidx_p(p)
+                if (ci > 0) then
+                   value = values(ci)
+                else if (ci < 0) then
+                   value = fill
+                else
+                   value = spval
+                end if
+                if (value /= spval .and. scale_c2l /= spval) then
+                   sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_p(p)
+                   sumwt = sumwt + view%wtgcell_p(p)
+                end if
+             end if
+          end do
+       end do
+       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+    end do
+
+  end subroutine p2g_range_compact
+
+  !-----------------------------------------------------------------------
+  pure subroutine c2g_range_compact(view, g0, g1, values, fill, c2l_scale_type, l2g_scale_type, garr)
+    !
+    ! !DESCRIPTION:
+    ! c2g_range for a field in the compact layout (see p2g_range_compact).
+    !
+    !$acc routine vector
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in)  :: view
+    integer , intent(in)  :: g0, g1
+    real(r8), intent(in)  :: values(*)        ! compact values; values(k) is compact index k
+    real(r8), intent(in)  :: fill
+    integer , intent(in)  :: c2l_scale_type
+    integer , intent(in)  :: l2g_scale_type
+    real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: g, k, l, c, ci
+    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    !-----------------------------------------------------------------------
+
+    !$acc loop vector private(sum_arr, sumwt)
+    do g = g0, g1
+       sum_arr = 0._r8
+       sumwt = 0._r8
+       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+          l = view%grc_lun_idx(k)
+          scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
+          if (scale_l2g == spval) cycle
+          do c = view%coli(l), view%colf(l)
+             if (view%active_c(c) .and. view%wtgcell_c(c) /= 0._r8) then
+                scale_c2l = view%scale_c2l(c, c2l_scale_type)
+                ci = view%cidx_c(c)
+                if (ci > 0) then
+                   value = values(ci)
+                else if (ci < 0) then
+                   value = fill
+                else
+                   value = spval
+                end if
+                if (value /= spval .and. scale_c2l /= spval) then
+                   sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_c(c)
+                   sumwt = sumwt + view%wtgcell_c(c)
+                end if
+             end if
+          end do
+       end do
+       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+    end do
+
+  end subroutine c2g_range_compact
 
   !-----------------------------------------------------------------------
   pure real(r8) function weighted_average(sum_arr, sumwt)

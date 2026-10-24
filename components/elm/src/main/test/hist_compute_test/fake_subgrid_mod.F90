@@ -15,6 +15,8 @@ module fake_subgrid_mod
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use subgridAveViewMod, only : subgrid_ave_view, build_child_map, &
        subgrid_ave_view_attach, spval
+  use CompactLayoutMod , only : compact_filters_set, compact_lev_patch, compact_lev_col, &
+       compact_cidx_p, compact_cidx_c
   use histComputeMod   , only : lev_grid, lev_topo, lev_lun, lev_col, lev_patch
 
   implicit none
@@ -37,6 +39,9 @@ module fake_subgrid_mod
   integer , allocatable, target :: coli(:), colf(:), pfti(:), pftf(:) ! columns, patches of a landunit
   real(r8), allocatable :: frac_l(:), frac_c(:), frac_p(:)   ! fractions of the parent
   logical :: extrasnowlayers = .false.
+  ! compact layout: a random subset of the patches / columns are "soil filter" members
+  ! (compact index > 0), some others lie on "special landunits" (-1), the rest are 0
+  integer :: n_compact_p = 0, n_compact_c = 0
 
 contains
 
@@ -239,12 +244,41 @@ contains
     view%scale_c2l => scale_c2l ; view%scale_l2g_lookup => scale_l2g_lookup
     view%snl => snl
 
+    call compact_layout(begp, endp, compact_lev_patch, n_compact_p)
+    call compact_layout(begc, endc, compact_lev_col, n_compact_c)
+    view%cidx_p => compact_cidx_p
+    view%cidx_c => compact_cidx_c
+
     !$acc enter data copyin(grc_lun_ptr, grc_lun_idx, topi, topf, coli, colf, pfti, pftf, &
     !$acc    wt_t, wt_l, wt_c, wt_p, act_t, act_l, act_c, act_p, col_p, itype_l, scale_c2l, &
     !$acc    scale_l2g_lookup, snl)
     call subgrid_ave_view_attach(view)
 
   contains
+
+    subroutine compact_layout(beg, end, level, n)
+      ! Random membership: 60% members (ascending compact indices), 20% special
+      ! non-members, 20% other; registered with CompactLayoutMod as one clump.
+      integer, intent(in)  :: beg, end, level
+      integer, intent(out) :: n
+      integer, allocatable :: idx(:)
+      logical, allocatable :: special(:)
+      integer :: i
+      real(r8) :: r
+      allocate(idx(end-beg+1), special(beg:end))
+      n = 0
+      special(:) = .false.
+      do i = beg, end
+         r = urand()
+         if (r < 0.6_r8) then
+            n = n + 1
+            idx(n) = i
+         else if (r < 0.8_r8) then
+            special(i) = .true.
+         end if
+      end do
+      call compact_filters_set(level, beg, end, [n], idx(1:max(n,1)), special)
+    end subroutine compact_layout
 
     subroutine ranges(first_child, first_parent, parent, first, last)
       ! first/last child of each parent; the children of a parent must be contiguous
