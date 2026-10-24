@@ -312,7 +312,9 @@ contains
     logical  :: vals_input_valid(bounds%begc:bounds%endc)
     logical  :: has_prognostic_state(bounds%begc:bounds%endc)
     real(r8) :: non_conserved_mass(bounds%begg:bounds%endg)
+#ifndef _OPENACC
     character(len=:), allocatable :: err_msg
+#endif
     real(r8), parameter :: conservation_tolerance = 1.e-12_r8
 
     character(len=*), parameter :: subname = 'update_column_state_no_special_handling'
