@@ -259,26 +259,45 @@ contains
   end subroutine compact_group_fill
 
   !-----------------------------------------------------------------------
-  subroutine compact_locate(ptr, group, slot)
-    ! The (group, slot) whose column `ptr` aliases, or (0, 0).
+  subroutine compact_locate(ptr, group, slot, lev)
+    ! The (group, slot) whose column `ptr` aliases, or (0, 0). With `lev`, also
+    ! a level slice `data3(:, lev, slot)` of a rank-2 group (a per-level
+    ! history registration of a rank-2 field); lev = 0 for a rank-1 group.
     real(r8), pointer, intent(in) :: ptr(:)
     integer, intent(out) :: group, slot
-    integer :: g, s
+    integer, intent(out), optional :: lev
+    integer :: g, s, l
     !-----------------------------------------------------------------------
 
     group = 0
     slot = 0
+    if (present(lev)) lev = 0
     if (.not. associated(ptr)) return
     do g = 1, compact_ngroups
-       if (.not. associated(compact_groups(g)%data)) cycle
-       if (size(ptr) /= size(compact_groups(g)%data, 1)) cycle
-       do s = 1, compact_groups(g)%nfld
-          if (associated(ptr, compact_groups(g)%data(:, s))) then
-             group = g
-             slot = s
-             return
-          end if
-       end do
+       if (compact_groups(g)%nlev == 0) then
+          if (.not. associated(compact_groups(g)%data)) cycle
+          if (size(ptr) /= size(compact_groups(g)%data, 1)) cycle
+          do s = 1, compact_groups(g)%nfld
+             if (associated(ptr, compact_groups(g)%data(:, s))) then
+                group = g
+                slot = s
+                return
+             end if
+          end do
+       else if (present(lev)) then
+          if (.not. associated(compact_groups(g)%data3)) cycle
+          if (size(ptr) /= size(compact_groups(g)%data3, 1)) cycle
+          do s = 1, compact_groups(g)%nfld
+             do l = 1, compact_groups(g)%nlev
+                if (associated(ptr, compact_groups(g)%data3(:, l, s))) then
+                   group = g
+                   slot = s
+                   lev = l
+                   return
+                end if
+             end do
+          end do
+       end if
     end do
   end subroutine compact_locate
 

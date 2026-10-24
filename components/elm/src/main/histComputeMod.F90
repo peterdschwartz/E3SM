@@ -95,6 +95,7 @@ module histComputeMod
      ! compact layout (CompactLayoutMod): the model array is column compact_slot of
      ! compact_groups(compact_group)%data, indexed by the view's cidx map; 0 = a full array
      integer :: compact_group = 0, compact_slot = 0
+     integer :: compact_lev = 0               ! > 0: a rank-1 field reading level compact_lev of a rank-2 group
      ! set by hist_compute_build
      integer :: source_first = 1, source_last = 0 ! points of the source level
      integer :: first_point = 1, last_point = 0   ! output points (gridcells if averaged)
@@ -191,8 +192,15 @@ contains
              ierr = f; errmsg = 'compact fields cannot be snow fields'; return
           end if
           if (fld%source_rank == 1) then
-             if (fld%num_levels /= 1 .or. compact_groups(fld%compact_group)%nlev /= 0) then
-                ierr = f; errmsg = 'compact rank-1 field with levels or in a rank-2 group'; return
+             if (fld%num_levels /= 1) then
+                ierr = f; errmsg = 'compact rank-1 field with levels'; return
+             end if
+             if (fld%compact_lev > 0) then
+                if (compact_groups(fld%compact_group)%nlev < fld%compact_lev) then
+                   ierr = f; errmsg = 'compact level slice beyond its group'; return
+                end if
+             else if (compact_groups(fld%compact_group)%nlev /= 0) then
+                ierr = f; errmsg = 'compact rank-1 field in a rank-2 group without a level'; return
              end if
           else if (compact_groups(fld%compact_group)%nlev < fld%num_levels) then
              ierr = f; errmsg = 'compact rank-2 field: its group has fewer levels than num2d'; return
@@ -441,7 +449,8 @@ contains
           else if (fields(f)%compact_group > 0) then
              if (compact_groups(fields(f)%compact_group)%nlev > 0) then
                 call field_level_compact(view, fields(f), lev, &
-                     compact_groups(fields(f)%compact_group)%data3(:, lev, fields(f)%compact_slot), &
+                     compact_groups(fields(f)%compact_group)%data3(:, merge(fields(f)%compact_lev, lev, &
+                     fields(f)%compact_lev > 0), fields(f)%compact_slot), &
                      compact_cidx_p, compact_cidx_c, compact_groups(fields(f)%compact_group)%fill, &
                      all_active, gridcell_samples, hbuf_pool, nacs_pool)
              else

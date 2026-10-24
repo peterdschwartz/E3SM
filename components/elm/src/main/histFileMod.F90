@@ -197,6 +197,7 @@ module histFileMod
      integer :: no_snow_behavior               ! for multi-layer snow fields, flag saying how to treat times when a given snow layer is absent
     integer :: compact_group = 0              ! compact layout: group and slot of the model array (0: a full array)
     integer :: compact_slot  = 0
+    integer :: compact_lev   = 0              ! > 0: a rank-1 field that is level compact_lev of a rank-2 group
   end type field_info
 
   type master_entry
@@ -295,7 +296,7 @@ contains
   subroutine masterlist_addfld (fname, type1d, type1d_out,&
         type2d, numdims, num2d, units, avgflag, long_name, standard_name, hpindex, &
         p2c_scale_type, c2l_scale_type, l2g_scale_type, t2g_scale_type, &
-        no_snow_behavior, compact_group, compact_slot)
+        no_snow_behavior, compact_group, compact_slot, compact_lev)
     !
     ! !DESCRIPTION:
     ! Add a field to the master field list. Put input arguments of
@@ -325,6 +326,7 @@ contains
     integer, intent(in), optional :: no_snow_behavior ! if a multi-layer snow field, behavior to use for absent snow layers
     integer, intent(in), optional :: compact_group    ! compact layout: the model array is a group column (CompactLayoutMod)
     integer, intent(in), optional :: compact_slot
+    integer, intent(in), optional :: compact_lev      ! level of a rank-2 group registered as a rank-1 field
     !
     ! !LOCAL VARIABLES:
     integer :: n            ! loop index
@@ -388,8 +390,10 @@ contains
     end if
     masterlist(f)%field%compact_group = 0
     masterlist(f)%field%compact_slot  = 0
+    masterlist(f)%field%compact_lev   = 0
     if (present(compact_group)) masterlist(f)%field%compact_group = compact_group
     if (present(compact_slot))  masterlist(f)%field%compact_slot  = compact_slot
+    if (present(compact_lev))   masterlist(f)%field%compact_lev   = compact_lev
 
     ! The following two fields are used only in master field list,
     ! NOT in the runtime active field list
@@ -987,6 +991,7 @@ contains
           fld%no_snow_behavior = field%no_snow_behavior
           fld%compact_group    = field%compact_group
           fld%compact_slot     = field%compact_slot
+          fld%compact_lev      = field%compact_lev
           select case (tape(t)%hlist(f)%avgflag)
           case ('I'); fld%time_op = time_inst
           case ('A'); fld%time_op = time_mean
@@ -3737,7 +3742,7 @@ contains
     type(bounds_type):: bounds         ! boudns
     character(len=16):: l_default      ! local version of 'default'
     character(len=max_namlen) :: lstandard_name  ! local standard name
-    integer :: cgroup, cslot                     ! compact layout group and slot of the model array (0: full array)
+    integer :: cgroup, cslot, clev               ! compact layout group, slot and level of the model array (0: full array)
     character(len=*),parameter :: subname = 'hist_addfld1d'
 !------------------------------------------------------------------------
 
@@ -3789,7 +3794,7 @@ contains
     ! through the group buffer and the inverse map, so the pointer is not kept
     ! (a reallocation would leave it dangling) and no values can be set in it.
 
-    call compact_locate(elmptr_rs(hpindex)%ptr, cgroup, cslot)
+    call compact_locate(elmptr_rs(hpindex)%ptr, cgroup, cslot, clev)
     if (cgroup > 0) then
        if (present(set_lake) .or. present(set_nolake) .or. present(set_urb) .or. present(set_nourb) .or. &
             present(set_spec) .or. present(set_noglcmec)) then
@@ -3829,7 +3834,7 @@ contains
          type2d='unset', numdims=1, num2d=1,  units=units, avgflag=avgflag, long_name=long_name, &
          standard_name=lstandard_name, hpindex=hpindex, &
          p2c_scale_type=scale_type_p2c, c2l_scale_type=scale_type_c2l, l2g_scale_type=scale_type_l2g, &
-         t2g_scale_type=scale_type_t2g, compact_group=cgroup, compact_slot=cslot)
+         t2g_scale_type=scale_type_t2g, compact_group=cgroup, compact_slot=cslot, compact_lev=clev)
 
     l_default = 'active'
     if (present(default)) then
