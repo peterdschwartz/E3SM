@@ -55,7 +55,8 @@ module histComputeMod
   use subgridAveViewMod, only : p2g_range, c2g_range, l2g_range, t2g_range
   use subgridAveViewMod, only : p2g_range_unity, c2g_range_unity, scale_unity
   use subgridAveViewMod, only : p2g_range_compact, c2g_range_compact
-  use CompactLayoutMod , only : compact_groups, compact_ngroups, compact_lev_patch, compact_lev_col
+  use CompactLayoutMod , only : compact_groups, compact_ngroups, compact_lev_patch, compact_lev_col, &
+                                compact_cidx_p, compact_cidx_c
   !
   implicit none
   private
@@ -196,11 +197,11 @@ contains
                .or. (fld%source_level == lev_col .and. compact_groups(fld%compact_group)%level == compact_lev_col))) then
              ierr = f; errmsg = 'compact group level differs from the field level'; return
           end if
-          if (fld%source_level == lev_patch .and. .not. associated(view%cidx_p)) then
-             ierr = f; errmsg = 'compact patch field without a cidx_p map in the view'; return
+          if (fld%source_level == lev_patch .and. .not. allocated(compact_cidx_p)) then
+             ierr = f; errmsg = 'compact patch field without a compact_cidx_p map'; return
           end if
-          if (fld%source_level == lev_col .and. .not. associated(view%cidx_c)) then
-             ierr = f; errmsg = 'compact column field without a cidx_c map in the view'; return
+          if (fld%source_level == lev_col .and. .not. allocated(compact_cidx_c)) then
+             ierr = f; errmsg = 'compact column field without a compact_cidx_c map'; return
           end if
           extent = num_points
        else if (fld%source_rank == 1) then
@@ -433,7 +434,7 @@ contains
           else if (fields(f)%compact_group > 0) then
              call field_level_compact(view, fields(f), &
                   compact_groups(fields(f)%compact_group)%data(:, fields(f)%compact_slot), &
-                  compact_groups(fields(f)%compact_group)%fill, &
+                  compact_cidx_p, compact_cidx_c, compact_groups(fields(f)%compact_group)%fill, &
                   all_active, gridcell_samples, hbuf_pool, nacs_pool)
           else if (fields(f)%source_rank == 1) then
              call field_level(view, fields(f), lev, src1(fields(f)%source_index)%ptr, &
@@ -578,19 +579,24 @@ contains
   end subroutine field_level
 
   !-----------------------------------------------------------------------
-  pure subroutine field_level_compact(view, fld, values, fill, all_active, gridcell_samples, hbuf_pool, nacs_pool)
+  pure subroutine field_level_compact(view, fld, values, cidx_p, cidx_c, fill, all_active, gridcell_samples, &
+       hbuf_pool, nacs_pool)
     !
     ! !DESCRIPTION:
     ! field_level for a rank-1 field in the compact layout: values(k) is the
-    ! value of the point whose compact index is k (view%cidx_p / cidx_c); a
-    ! point with cidx -1 (active, on a special landunit) has the group's
-    ! fill value and a point with cidx 0 has spval, as the full layout held.
+    ! value of the point whose compact index is k (cidx_p / cidx_c, the maps
+    ! of CompactLayoutMod, passed each step because they are reallocated when
+    ! the filters change); a point with cidx -1 (active, on a special landunit)
+    ! has the group's fill value and a point with cidx 0 has spval, as the
+    ! full layout held.
     !
     !$acc routine vector
     ! !ARGUMENTS:
     type(subgrid_ave_view) , intent(in)    :: view
     type(hist_active_field), intent(in)    :: fld
     real(r8)               , intent(in)    :: values(*)           ! compact values of the field
+    integer                , intent(in)    :: cidx_p(view%begp:)  ! compact index per patch
+    integer                , intent(in)    :: cidx_c(view%begc:)  ! compact index per column
     real(r8)               , intent(in)    :: fill
     logical                , intent(in)    :: all_active(:)
     real(r8)               , intent(inout) :: gridcell_samples(*)
@@ -607,21 +613,21 @@ contains
     if (fld%average_to_gridcell) then
        sample_first = fld%sample_offset + 1
        if (fld%source_level == lev_patch) then
-          call p2g_range_compact(view, view%begg, view%endg, values, fill, fld%c2l_scale, fld%l2g_scale, &
+          call p2g_range_compact(view, view%begg, view%endg, values, cidx_p, fill, fld%c2l_scale, fld%l2g_scale, &
                gridcell_samples(sample_first))
        else
-          call c2g_range_compact(view, view%begg, view%endg, values, fill, fld%c2l_scale, fld%l2g_scale, &
+          call c2g_range_compact(view, view%begg, view%endg, values, cidx_c, fill, fld%c2l_scale, fld%l2g_scale, &
                gridcell_samples(sample_first))
        end if
        call accumulate_samples(fld%time_op, .true., num_points, gridcell_samples(sample_first), &
             all_active, hbuf_pool(buffer_first), nacs_pool(buffer_first))
     else if (fld%source_level == lev_patch) then
        call accumulate_samples_compact(fld%time_op, num_points, values, &
-            view%cidx_p(fld%source_first:fld%source_last), fill, &
+            cidx_p(fld%source_first:fld%source_last), fill, &
             view%active_p, hbuf_pool(buffer_first), nacs_pool(buffer_first))
     else
        call accumulate_samples_compact(fld%time_op, num_points, values, &
-            view%cidx_c(fld%source_first:fld%source_last), fill, &
+            cidx_c(fld%source_first:fld%source_last), fill, &
             view%active_c, hbuf_pool(buffer_first), nacs_pool(buffer_first))
     end if
 

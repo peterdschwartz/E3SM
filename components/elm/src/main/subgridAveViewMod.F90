@@ -66,7 +66,6 @@ module subgridAveViewMod
      ! compact layout (CompactLayoutMod): compact index of each patch / column
      ! (> 0), -1 on an active special-landunit point (the group's fill value),
      ! 0 elsewhere (spval). Unassociated when no field is compact.
-     integer , pointer, contiguous :: cidx_p(:) => null(), cidx_c(:) => null()
   end type subgrid_ave_view
   !
   ! !PUBLIC MEMBER FUNCTIONS:
@@ -79,8 +78,8 @@ module subgridAveViewMod
   public :: c2g_range_unity          ! c2g_range for the unity scale types (no lookups)
   public :: l2g_range                ! landunit averages of a range of gridcells
   public :: t2g_range                ! topounit averages of a range of gridcells
-  public :: p2g_range_compact        ! p2g_range of a compact field (values indexed by cidx_p)
-  public :: c2g_range_compact        ! c2g_range of a compact field (values indexed by cidx_c)
+  public :: p2g_range_compact        ! p2g_range of a compact field (values indexed by the cidx map)
+  public :: c2g_range_compact        ! c2g_range of a compact field (values indexed by the cidx map)
   !-----------------------------------------------------------------------
 
 contains
@@ -142,12 +141,6 @@ contains
     !$acc    view%wtgcell_t, view%wtgcell_l, view%wtgcell_c, view%wtgcell_p, &
     !$acc    view%active_t, view%active_l, view%active_c, view%active_p, &
     !$acc    view%scale_c2l, view%scale_l2g_lookup, view%snl)
-    if (associated(view%cidx_p)) then
-       !$acc enter data attach(view%cidx_p)
-    end if
-    if (associated(view%cidx_c)) then
-       !$acc enter data attach(view%cidx_c)
-    end if
 
   end subroutine subgrid_ave_view_attach
 
@@ -161,12 +154,6 @@ contains
     type(subgrid_ave_view), intent(inout) :: view
     !-----------------------------------------------------------------------
 
-    if (associated(view%cidx_p)) then
-       !$acc exit data detach(view%cidx_p)
-    end if
-    if (associated(view%cidx_c)) then
-       !$acc exit data detach(view%cidx_c)
-    end if
     !$acc exit data detach(view%grc_lun_ptr, view%grc_lun_idx, view%topi, view%topf, &
     !$acc    view%coli, view%colf, view%pfti, view%pftf, view%col_of_pft, view%lun_type, &
     !$acc    view%wtgcell_t, view%wtgcell_l, view%wtgcell_c, view%wtgcell_p, &
@@ -433,19 +420,22 @@ contains
   end subroutine t2g_range
 
   !-----------------------------------------------------------------------
-  pure subroutine p2g_range_compact(view, g0, g1, values, fill, c2l_scale_type, l2g_scale_type, garr)
+  pure subroutine p2g_range_compact(view, g0, g1, values, cidx, fill, c2l_scale_type, l2g_scale_type, garr)
     !
     ! !DESCRIPTION:
     ! p2g_range for a field in the compact layout: the value of patch p is
-    ! values(view%cidx_p(p)) when cidx_p(p) > 0, `fill` when it is -1 (an
-    ! active special-landunit patch) and spval otherwise. Same sums, in the
-    ! same order, as p2g_range on the equivalent full array: bit-for-bit.
+    ! values(cidx(p)) when cidx(p) > 0, `fill` when it is -1 (an active
+    ! special-landunit patch) and spval otherwise. Same sums, in the same
+    ! order, as p2g_range on the equivalent full array: bit-for-bit. The map
+    ! is passed, not kept in the view: CompactLayoutMod reallocates it when
+    ! the filters change.
     !
     !$acc routine vector
     ! !ARGUMENTS:
     type(subgrid_ave_view), intent(in)  :: view
     integer , intent(in)  :: g0, g1
     real(r8), intent(in)  :: values(*)        ! compact values; values(k) is compact index k
+    integer , intent(in)  :: cidx(view%begp:) ! compact index of each patch (>0), -1 special, 0 other
     real(r8), intent(in)  :: fill
     integer , intent(in)  :: c2l_scale_type
     integer , intent(in)  :: l2g_scale_type
@@ -467,7 +457,7 @@ contains
           do p = view%pfti(l), view%pftf(l)
              if (view%active_p(p) .and. view%wtgcell_p(p) /= 0._r8) then
                 scale_c2l = view%scale_c2l(view%col_of_pft(p), c2l_scale_type)
-                ci = view%cidx_p(p)
+                ci = cidx(p)
                 if (ci > 0) then
                    value = values(ci)
                 else if (ci < 0) then
@@ -488,7 +478,7 @@ contains
   end subroutine p2g_range_compact
 
   !-----------------------------------------------------------------------
-  pure subroutine c2g_range_compact(view, g0, g1, values, fill, c2l_scale_type, l2g_scale_type, garr)
+  pure subroutine c2g_range_compact(view, g0, g1, values, cidx, fill, c2l_scale_type, l2g_scale_type, garr)
     !
     ! !DESCRIPTION:
     ! c2g_range for a field in the compact layout (see p2g_range_compact).
@@ -498,6 +488,7 @@ contains
     type(subgrid_ave_view), intent(in)  :: view
     integer , intent(in)  :: g0, g1
     real(r8), intent(in)  :: values(*)        ! compact values; values(k) is compact index k
+    integer , intent(in)  :: cidx(view%begc:) ! compact index of each column (>0), -1 special, 0 other
     real(r8), intent(in)  :: fill
     integer , intent(in)  :: c2l_scale_type
     integer , intent(in)  :: l2g_scale_type
@@ -519,7 +510,7 @@ contains
           do c = view%coli(l), view%colf(l)
              if (view%active_c(c) .and. view%wtgcell_c(c) /= 0._r8) then
                 scale_c2l = view%scale_c2l(c, c2l_scale_type)
-                ci = view%cidx_c(c)
+                ci = cidx(c)
                 if (ci > 0) then
                    value = values(ci)
                 else if (ci < 0) then

@@ -246,8 +246,6 @@ contains
 
     call compact_layout(begp, endp, compact_lev_patch, n_compact_p)
     call compact_layout(begc, endc, compact_lev_col, n_compact_c)
-    view%cidx_p => compact_cidx_p
-    view%cidx_c => compact_cidx_c
 
     !$acc enter data copyin(grc_lun_ptr, grc_lun_idx, topi, topf, coli, colf, pfti, pftf, &
     !$acc    wt_t, wt_l, wt_c, wt_p, act_t, act_l, act_c, act_p, col_p, itype_l, scale_c2l, &
