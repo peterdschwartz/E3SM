@@ -30,6 +30,7 @@ module pftvarcon
   ! Vegetation type constants
   !
   integer :: noveg                  !value for not vegetated
+  !$acc declare create(noveg)
   integer :: ndllf_evr_tmp_tree     !value for Needleleaf evergreen temperate tree
   integer :: ndllf_evr_brl_tree     !value for Needleleaf evergreen boreal tree
   integer :: ndllf_dcd_brl_tree     !value for Needleleaf deciduous boreal tree
@@ -1638,6 +1639,8 @@ contains
        write(iulog,*) 'Successfully read PFT physiological data'
        write(iulog,*)
     end if
+
+  !$acc update device(noveg)
 
   end subroutine pftconrd
 

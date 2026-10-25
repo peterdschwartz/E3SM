@@ -188,7 +188,6 @@ contains
 
    function getlblcef(rho,temp)result(cc)
      !$acc routine seq
-     !$acc routine seq
      !compute the scaling paramter for laminar boundary resistance
      !the laminar boundary layer resistance is formulated as
      !Rb=2/(k*ustar)*(Sci/Pr)^(2/3)

@@ -337,7 +337,6 @@ contains
        lwup_roof, lwup_improad, lwup_perroad, lwup_sunwall, lwup_shadewall, lwup_canyon, &
        vf_sr, vf_wr, vf_sw, vf_rw, vf_ww)
     !$acc routine seq
-    !$acc routine seq 
     ! !DESCRIPTION:
     ! Net longwave radiation for road and both walls in urban canyon allowing for
     ! multiple reflection. Also net longwave radiation for urban roof.

@@ -645,7 +645,6 @@ contains
   subroutine canopy_top_capacity(p, i_type, dayl_factor, total_lai, sum_nscaler, &
        lnc, vcmax25top, jmax25top)
     !$acc routine seq
-    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! Leaf nitrogen concentration and vcmax25/jmax25 at the canopy top, either from
@@ -1258,7 +1257,6 @@ contains
   !-------------------------------------------------------------------------------
   function ft(tl, ha) result(ans)
     !$acc routine seq
-    !$acc routine seq
     !!DESCRIPTION:
     ! photosynthesis temperature response
     !
@@ -1283,7 +1281,6 @@ contains
 
   !-------------------------------------------------------------------------------
   function fth(tl,hd,se,scaleFactor) result(ans)
-    !$acc routine seq
     !$acc routine seq
     !!DESCRIPTION:
     !photosynthesis temperature inhibition
@@ -1310,7 +1307,6 @@ contains
 
   !-------------------------------------------------------------------------------
   function fth25(hd,se)result(ans)
-    !$acc routine seq
     !$acc routine seq
     !!DESCRIPTION:
     ! scaling factor for photosynthesis temperature inhibition
