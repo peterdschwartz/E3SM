@@ -45,6 +45,7 @@ contains
    implicit none
 
    soil_stress_method = leepielke_1992
+   !$acc update device(soil_stress_method)
 
    end subroutine init_soil_stress
 

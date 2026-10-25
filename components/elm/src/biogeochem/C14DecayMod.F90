@@ -290,6 +290,8 @@ contains
              call endrun(msg=errMsg(__FILE__, __LINE__))
           endif
        end do
+       ! declare create allocated the device copies; send the values (bomb spike runs only)
+       !$acc update device(atm_c14file_time, atm_delta_c14)
     endif
 
   end subroutine C14_init_BombSpike

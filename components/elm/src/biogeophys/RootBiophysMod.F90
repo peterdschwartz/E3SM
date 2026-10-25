@@ -27,6 +27,7 @@ contains
     implicit none
 
     root_prof_method = zeng_2001_root
+    !$acc update device(root_prof_method)
 
   end subroutine init_rootprof
 

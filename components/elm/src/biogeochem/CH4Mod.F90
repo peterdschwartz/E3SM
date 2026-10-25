@@ -365,6 +365,7 @@ contains
      call ncd_io(trim(tString),tempr, 'read', ncid, readvar=readv)
      if ( .not. readv ) call endrun(msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
      CH4ParamsInst%capthick=tempr
+     !$acc update device(CH4ParamsInst)
 
   end subroutine readCH4Params
 
