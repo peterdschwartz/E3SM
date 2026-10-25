@@ -1582,7 +1582,9 @@ contains
             rsub_top_tot = - rsub_top(fc) * dtime
             !should never be positive... but include for completeness
             if(rsub_top_tot > 0.) then !rising water table
+#ifndef _OPENACC
               call endrun(msg="RSUB_TOP IS POSITIVE in Drainage!"//errmsg(__FILE__, __LINE__))
+#endif
             else ! deepening water table
                    if (use_vichydro) then
                       wtsub_vic = 0._r8
