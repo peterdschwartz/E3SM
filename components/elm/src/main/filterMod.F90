@@ -345,7 +345,7 @@ contains
     fnl = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fl,fnl)
+    !$acc serial default(present) copy(fl,fnl) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -396,7 +396,7 @@ contains
     fnlu = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fl,fnl,fnlu)
+    !$acc serial default(present) copy(fl,fnl,fnlu) copyin(bounds)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -441,7 +441,7 @@ contains
     fs = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fs)
+    !$acc serial default(present) copy(fs) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -477,7 +477,7 @@ contains
     fs = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fs)
+    !$acc serial default(present) copy(fs) copyin(bounds)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -520,7 +520,7 @@ contains
     fn = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(f,fn)
+    !$acc serial default(present) copy(f,fn) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -578,7 +578,7 @@ contains
     fnc = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fc,fpc,fnc)
+    !$acc serial default(present) copy(fc,fpc,fnc) copyin(bounds)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -630,7 +630,7 @@ contains
     fn = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(f,fn)
+    !$acc serial default(present) copy(f,fn) copyin(bounds)
     do l = bounds%begl,bounds%endl
        t =lun_pp%topounit(l)
        if (top_pp%active(t)) then
@@ -674,7 +674,7 @@ contains
     fn = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(f,fn)
+    !$acc serial default(present) copy(f,fn) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -719,7 +719,7 @@ contains
     fn = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(f,fn)
+    !$acc serial default(present) copy(f,fn) copyin(bounds)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -759,7 +759,7 @@ contains
     f = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(f)
+    !$acc serial default(present) copy(f) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -797,7 +797,7 @@ contains
     f = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(f) copyin(icemask_grc)
+    !$acc serial default(present) copy(f) copyin(icemask_grc) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -874,7 +874,7 @@ contains
     fveg  = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fbare,fveg)
+    !$acc serial default(present) copy(fbare,fveg) copyin(bounds)
     do f = 1, this_filter(nc)%num_nolakeurbanp
        p = this_filter(nc)%nolakeurbanp(f)
        if (frac_veg_nosno(p) == 0) then
