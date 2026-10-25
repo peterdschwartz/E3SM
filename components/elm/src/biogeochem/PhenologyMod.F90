@@ -228,8 +228,9 @@ contains
     if ( .not. readv ) call endrun( msg=trim(errCode)//trim(tString)//errMsg(__FILE__, __LINE__))
     PhenolParamsInst%lwtop=tempr
 
-     !!!!========== Update to device ========= !!!
-     !$acc update device(PhenolParamsInst%crit_dayl, &
+     !!!!========== Copy to device ========= !!!
+     ! the components are pointers: copy each target in (attached to the declared object)
+     !$acc enter data copyin(PhenolParamsInst%crit_dayl, &
      !$acc PhenolParamsInst%crit_dayl_stress, &
      !$acc PhenolParamsInst%cumprec_onset   , &
      !$acc PhenolParamsInst%ndays_on        , &
