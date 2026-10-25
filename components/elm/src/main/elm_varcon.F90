@@ -58,10 +58,6 @@ module elm_varcon
   real(r8) :: denh2o = SHR_CONST_RHOFW                      ! density of liquid water [kg/m3]
   real(r8) :: denice = SHR_CONST_RHOICE                     ! density of ice [kg/m3]
   real(r8) :: rgas   = SHR_CONST_RGAS                       ! universal gas constant [J/K/kmole]
-  ! constants read inside acc routines must have a device copy (initialized at load)
-  !$acc declare copyin(grav, sb, vkc, cpliq, cpice, cpair, hvap, hsub, hfus, rgas, rwat, rair, roverg, &
-  !$acc   denh2o, denice, tkair, tkice, tkwat, o2_molar_const, bdsno, alpha_aero, tlsai_crit, re, rpi, &
-  !$acc   zlnd, zsno, csoilc, capr, cnfac, ssi, wimp, pondmx, pondmx_urban, thk_bedrock, c13ratio, c14ratio)
   real(r8) :: tkair  = 0.023_r8                             ! thermal conductivity of air   [W/m/K]
   real(r8) :: tkice  = 2.290_r8                             ! thermal conductivity of ice   [W/m/K]
   real(r8) :: tkwat  = 0.57_r8                              ! thermal conductivity of water [W/m/K]
@@ -244,6 +240,11 @@ module elm_varcon
   real(r8), public, parameter :: frac_to_downhill = 1.0_r8  ! (fraction, valid values from 0.0 to 1.0)
   ! fraction of from_uphill water state that get transferred to columns on the topounit in each timestep
   real(r8), public, parameter :: frac_from_uphill = 0.5_r8  ! (fraction, valid values from 0.0 to 1.0)
+  ! constants read inside acc routines must have a device copy (initialized at load)
+  !$acc declare copyin(grav, sb, vkc, cpliq, cpice, cpair, hvap, hsub, hfus, rgas, rwat, rair, roverg, &
+  !$acc   denh2o, denice, tkair, tkice, tkwat, o2_molar_const, bdsno, alpha_aero, tlsai_crit, re, rpi, &
+  !$acc   zlnd, zsno, csoilc, capr, cnfac, ssi, wimp, pondmx, pondmx_urban, thk_bedrock, c13ratio, c14ratio)
+
 
 contains
 
