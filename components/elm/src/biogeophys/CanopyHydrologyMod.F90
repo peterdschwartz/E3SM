@@ -45,6 +45,7 @@ module CanopyHydrologyMod
   !
   ! !PRIVATE DATA MEMBERS:
   integer :: oldfflag=0  ! use old fsno parameterization (N&Y07) 
+  !$acc declare create(oldfflag)
   !-----------------------------------------------------------------------
 
 contains
