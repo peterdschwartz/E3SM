@@ -1978,7 +1978,8 @@ contains
     ! Code based on ORCHIDEE-MICT-BIOENERGY model (Li et al., 2018)
     ! !USES:
     use shr_const_mod    , only : SHR_CONST_TKFRZ
-    use elm_time_manager , only : get_curr_calday, get_days_per_year
+      !$acc routine seq
+    use timeinfoMod      , only : dayspyr_mod, jday_mod
     use pftvarcon        , only : gddmin, hybgdd, lfemerg, baset, nsugarcane, nsugarcaneirrig
     use pftvarcon        , only : minplanttemp, planttemp, senestemp, min_days_senes
     use elm_varcon       , only : spval, secspday
@@ -2060,8 +2061,8 @@ contains
 
       ! get time info
       dt = dtime_mod
-      dayspyr = get_days_per_year()
-      jday    = get_curr_calday()
+      dayspyr = dayspyr_mod
+      jday    = jday_mod
 
       ndays_on = 20._r8 ! number of days to fertilize
 
@@ -2381,7 +2382,8 @@ contains
     !the subroutine calculates the lethal temperature at 50% of crop alive,
     !survival rate, winter degree days
     ! !USES:
-    use elm_time_manager, only: get_step_size,get_curr_date
+      !$acc routine seq
+    use timeinfoMod, only: year_curr, mon_curr, day_curr, secs_curr, dtime_mod
     !
     ! !ARGUMENTS:
     implicit none
@@ -2477,7 +2479,7 @@ contains
          countfsurv(p) = countfsurv(p) + 1._r8
       end if
 
-      call get_curr_date(kyr, kmo, kda, mcsec)
+      kyr = year_curr; kmo = mon_curr; kda = day_curr; mcsec = secs_curr
 
       end_cd = (mcsec == 0)
       if(end_cd .and. wdd(p) > 0._r8 .and. vf(p) < 0.9_r8 .and. leafc(p) > 10._r8 ) then

@@ -98,6 +98,7 @@ contains
     ! !USES:
     use pftvarcon        , only : planttemp
     use CropType          , only : tcvp, tcvt, cst
+    !$acc routine seq
     ! !ARGUMENTS:
     implicit none
     integer,  intent(in)  :: p
