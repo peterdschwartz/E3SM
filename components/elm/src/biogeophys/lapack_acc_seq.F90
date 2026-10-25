@@ -104,7 +104,6 @@ contains
 !!$*  elements of U because of fill-in resulting from the row interchanges.
 
 INTEGER FUNCTION idamax(N,DX,INCX)
-  !$acc routine seq
   !*
   !*  -- Reference BLAS level1 routine (version 3.8.0) --
   !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -160,7 +159,6 @@ INTEGER FUNCTION idamax(N,DX,INCX)
 END FUNCTION idamax
 
  subroutine dswap_oacc(N,DX,INCX,DY,INCY)
-  !$acc routine seq
   !*
   !*  -- Reference BLAS level1 routine (version 3.8.0) --
   !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -232,7 +230,6 @@ END FUNCTION idamax
  end subroutine dswap_oacc
 
  subroutine dscal_oacc(N,DA,DX,INCX)
-  !$acc routine seq
   !*
   !*  -- Reference BLAS level1 routine (version 3.8.0) --
   !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -290,7 +287,6 @@ END FUNCTION idamax
  end subroutine dscal_oacc
 
  subroutine dger_oacc(M,N,ALPHA,X,INCX,Y,INCY,A,LDA)
-  !$acc routine seq
   !*
   !*  -- Reference BLAS level2 routine (version 3.7.0) --
   !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -384,7 +380,6 @@ END FUNCTION idamax
   end subroutine dger_oacc
 
 SUBROUTINE dgbtf2_oacc( M, N, KL, KU, AB, LDAB, IPIV, INFO )
-  !$acc routine seq
   !  -- LAPACK computational routine (version 3.7.0) --
   !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
   !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -514,7 +509,6 @@ SUBROUTINE dgbtf2_oacc( M, N, KL, KU, AB, LDAB, IPIV, INFO )
 END SUBROUTINE DGBTF2_oacc
 
 SUBROUTINE dgbtrf_oacc( M, N, KL, KU, AB, LDAB, IPIV, INFO )
-!$acc routine seq
 !  -- LAPACK computational routine (version 3.7.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -603,7 +597,6 @@ END subroutine dgbtrf_oacc
 
 
 SUBROUTINE dtbsv_oacc(UPLO,TRANS,DIAG,N,K,A,LDA,X,INCX)
-  !$acc routine seq
   !NOTE : FOR DGBTRS WE HARDCODE UPLO='UPPER',TRANS='NO TRANSPOSE',DIAG='NON-UNIT'
   !*
   !*  -- Reference BLAS level2 routine (version 3.7.0) --
@@ -716,7 +709,6 @@ SUBROUTINE dtbsv_oacc(UPLO,TRANS,DIAG,N,K,A,LDA,X,INCX)
 END subroutine DTBSV_oacc
 
 SUBROUTINE dgbtrs_oacc( TRANS, N, KL, KU, NRHS, AB, LDAB, IPIV, B, LDB, INFO )
-  !$acc routine seq
   !  -- LAPACK computational routine (version 3.7.0) --
   !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
   !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -822,7 +814,6 @@ SUBROUTINE dgbtrs_oacc( TRANS, N, KL, KU, NRHS, AB, LDAB, IPIV, B, LDB, INFO )
 
 
 subroutine dgbsv_oacc( N, KL, KU, NRHS, AB, LDAB, B, LDB, INFO )
-!$acc routine seq
 !  -- LAPACK driver routine (version 3.7.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--

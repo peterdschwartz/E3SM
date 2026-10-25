@@ -3311,7 +3311,6 @@ contains
     ! (2) nutrient/water limited, allocate more C into root
 
     ! !USES:
-      !$acc routine seq
     use pftvarcon      , only : laimax
 
     !

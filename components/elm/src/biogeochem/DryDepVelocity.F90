@@ -139,7 +139,6 @@ CONTAINS
     ! computes the dry deposition velocity of tracers
     !
     ! !USES:
-      !$acc routine seq
     use shr_const_mod  , only : tmelt => shr_const_tkfrz
     use seq_drydep_mod , only : seq_drydep_setHCoeff, mapping, drat, foxd
     use seq_drydep_mod , only : rcls, h2_a, h2_b, h2_c, ri, rac, rclo, rlu, rgss, rgso

@@ -1832,7 +1832,6 @@ contains
      ! Calculate subsurface drainage
      !
      ! !USES:
-      !$acc routine seq
      use elm_varpar       , only : nlevsoi, nlevgrnd, nlayer, nlayert
      use elm_varcon       , only : pondmx, tfrz, watmin,rpi, secspday, nlvic, e_ice
      use pftvarcon        , only : rsub_top_globalmax
@@ -2045,7 +2044,6 @@ contains
      ! Calculate subsurface drainage
      !
      ! !USES:
-      !$acc routine seq 
      use elm_varpar       , only : nlevsoi, nlevgrnd, nlayer, nlayert
      use elm_varcon       , only : pondmx, tfrz, watmin,rpi, secspday, nlvic
      use column_varcon    , only : icol_roof, icol_road_imperv, icol_road_perv
@@ -2461,7 +2459,6 @@ contains
      ! mapping from VIC to CLM layers, M.Huang
      !
      ! !USES:
-      !$acc routine seq 
      use elm_varcon  , only : denh2o, denice, watmin
      use elm_varpar  , only : nlevsoi, nlayer, nlayert, nlevgrnd
      use decompMod   , only : bounds_type

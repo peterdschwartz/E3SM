@@ -256,7 +256,6 @@ contains
     ! 1. grass phenology
     !
     ! !ARGUMENTS:
-      !$acc routine seq
     integer                  , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:) ! filter for soil columns
     integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
@@ -424,7 +423,6 @@ contains
     use timeinfoMod
     !
     ! !ARGUMENTS:
-      !$acc routine seq
     integer                , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                , intent(in)    :: filter_soilp(:) ! filter for soil patches
     integer                , intent(in)    :: num_pcropp      ! number of prognostic crops in filter
@@ -513,7 +511,6 @@ contains
     ! For coupled carbon-nitrogen code (CN).
     !
     ! !USES:
-    !$acc routine seq
     use elm_varcon       , only : secspday
     !
     ! !ARGUMENTS:
@@ -564,7 +561,6 @@ contains
     ! deciduous vegetation that has only one growing season per year).
     !
     ! !USES:
-      !$acc routine seq
     use shr_const_mod   , only: SHR_CONST_TKFRZ, SHR_CONST_PI
     use elm_varcon      , only: secspday
     !
@@ -906,7 +902,6 @@ contains
     ! per year.
     !
     ! !USES:
-      !$acc routine seq
     use elm_varcon       , only : secspday
     use shr_const_mod    , only : SHR_CONST_TKFRZ, SHR_CONST_PI
     !
@@ -1386,7 +1381,6 @@ contains
     ! handle CN fluxes during the phenological onset                       & offset periods.
 
     ! !USES:
-      !$acc routine seq
     use pftvarcon        , only : ncorn, nscereal, nwcereal, nsoybean, gddmin, hybgdd
     use pftvarcon        , only : nwcerealirrig, nsoybeanirrig, ncornirrig, nscerealirrig
     use pftvarcon        , only : lfemerg, grnfill, mxmat, minplanttemp, planttemp
@@ -1978,7 +1972,6 @@ contains
     ! Code based on ORCHIDEE-MICT-BIOENERGY model (Li et al., 2018)
     ! !USES:
     use shr_const_mod    , only : SHR_CONST_TKFRZ
-      !$acc routine seq
     use timeinfoMod      , only : dayspyr_mod, jday_mod
     use pftvarcon        , only : gddmin, hybgdd, lfemerg, baset, nsugarcane, nsugarcaneirrig
     use pftvarcon        , only : minplanttemp, planttemp, senestemp, min_days_senes
@@ -2304,7 +2297,6 @@ contains
     ! drastic effect on plant development.
     !
     ! !ARGUMENTS:
-      !$acc routine seq
     integer                , intent(in)    :: p    ! PATCH index running over
     type(cnstate_type)     , intent(inout) :: cnstate_vars
     type(crop_type)        , intent(inout) :: crop_vars
@@ -2382,7 +2374,6 @@ contains
     !the subroutine calculates the lethal temperature at 50% of crop alive,
     !survival rate, winter degree days
     ! !USES:
-      !$acc routine seq
     use timeinfoMod, only: year_curr, mon_curr, day_curr, secs_curr, dtime_mod
     !
     ! !ARGUMENTS:
@@ -2510,7 +2501,6 @@ contains
     ! CropPhenologyMod
     !
     ! !USES:
-      !$acc routine seq
     use elm_varcon       , only : secspday
     use elm_varpar       , only : numpft
     use pftvarcon        , only : planttemp
@@ -2717,7 +2707,6 @@ contains
     use elm_varctl           , only : use_crop
     !
     ! !ARGUMENTS:
-      !$acc routine seq
     integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:) ! filter for soil patches
     type(cnstate_type)       , intent(in)    :: cnstate_vars
@@ -2868,7 +2857,6 @@ contains
    ! determined based on the LPJ model.
    !
    ! !ARGUMENTS:
-      !$acc routine seq
    integer, intent(in) :: num_pcropp       ! number of prog crop pfts in filter
    integer, intent(in) :: filter_pcropp(:) ! filter for prognostic crop pfts
    integer, intent(in) :: num_soilc        ! number of soil columns in filter
@@ -3095,7 +3083,6 @@ contains
     ! pools during the phenological offset period.
     !
     ! !USES:
-      !$acc routine seq
     use pftvarcon , only : iscft
     !
     ! !ARGUMENTS:
@@ -3297,7 +3284,6 @@ contains
     ! pools as the result of background litter fall.
     !
     ! !ARGUMENTS:
-      !$acc routine seq
     integer                 , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                 , intent(in)    :: filter_soilp(:) ! filter for soil patches
     type(cnstate_type)      , intent(in)    :: cnstate_vars
@@ -3397,7 +3383,6 @@ contains
     ! add phosphorus flux - X.YANG
     !
     ! !ARGUMENTS:
-      !$acc routine seq
     integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:) ! filter for soil patches
     !
@@ -3516,7 +3501,6 @@ contains
     ! to the column level and assign them to the three litter pools
     !
     ! !USES:
-      !$acc routine seq
     use elm_varpar , only : max_patch_per_col, nlevdecomp
     use pftvarcon  , only : iscft
     !
@@ -3671,7 +3655,6 @@ contains
    ! to the column level and assign them to a product pools
    !
    ! !USES:
-      !$acc routine seq
    use elm_varpar, only : maxpatch_pft
    type(cnstate_type)       , intent(in)    :: cnstate_vars
    !

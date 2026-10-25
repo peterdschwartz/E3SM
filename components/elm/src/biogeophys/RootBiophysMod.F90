@@ -35,7 +35,6 @@ contains
     !
     !DESCRIPTION
     !initialize plant root profiles
-    !$acc routine seq 
     ! USES
     use shr_kind_mod   , only : r8 => shr_kind_r8   
     !use shr_assert_mod , only : shr_assert
@@ -80,7 +79,6 @@ contains
     ! DESCRIPTION
     ! compute root profile for soil water uptake
     ! using equation from Zeng 2001, J. Hydrometeorology
-    !$acc routine seq 
     ! USES
     use shr_kind_mod   , only : r8 => shr_kind_r8   
     use shr_assert_mod , only : shr_assert

@@ -19,7 +19,6 @@ implicit none
 contains
 !--------------------------------------------------------------------------------
   subroutine array_normalization_2d(which_dim, arr2d_inout)
-  !$acc routine seq
   !DESCRIPTIONS
   !do normalization for the input array along dimension which_dim
   !
@@ -77,7 +76,6 @@ contains
 
 !--------------------------------------------------------------------------------
 subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, arr2d_inout)
-  !$acc routine seq
   !DESCRIPTIONS
   !do normalization with filter for the input array along dimension 2
 
@@ -129,7 +127,6 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
 
   subroutine array_div_vector_filter(lbj1, ubj1, lbj2, ubj2, &
        arr1d_in, fn, filter,  arr2d_inout)
-  !$acc routine seq
   !DESCRIPTIONS
   !array divided by a vector, arr2d_in is divided by one
   !element in arr1d_in
@@ -170,7 +167,6 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
 !--------------------------------------------------------------------------------
 
   subroutine array_div_vector_nofilter(arr1d_in, which_dim, arr2d_inout)
-  !$acc routine seq
   !DESCRIPTIONS
   !array divided by a vector, each row in arr2d_in is divided by one
   !element in arr1d_in
@@ -233,7 +229,6 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
     END FUNCTION MAXLOC_
 
     subroutine matvec_acc(START,END_,RES,A,X)
-      !$acc routine seq
       !As of Cuda 10.1 calling cuBlas functions from device code
       !is not supported.  So must create any blas routines with
       !acc routine seq manually.  This is for square matrices Matrix Vector Multiplication

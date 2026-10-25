@@ -813,7 +813,6 @@ CONTAINS
   !====================================================================================
 
   subroutine set_hcoeff_scalar( sfc_temp, heff )
-    !$acc routine seq
     !========================================================================
     ! Interface to seq_drydep_setHCoeff when input is scalar
     ! wrapper routine used when surface temperature is a scalar (single column) rather
@@ -839,7 +838,6 @@ CONTAINS
   !====================================================================================
 
   subroutine set_hcoeff_vector( ncol, sfc_temp, heff )
-    !$acc routine seq
     !========================================================================
     ! Interface to seq_drydep_setHCoeff when input is vector
     ! sets dry depositions coefficients -- used by both land and atmosphere models

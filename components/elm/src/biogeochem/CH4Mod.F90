@@ -3253,7 +3253,6 @@ contains
     ! !DESCRIPTION: Annual mean fields.
     !
     ! !USES:
-      !$acc routine seq
     use elm_varcon      , only: secspday
     !
     ! !ARGUMENTS:

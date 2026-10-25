@@ -261,7 +261,6 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine glc2lnd_vars_update_glc2lnd_acc(glc2lnd_vars, bounds)
-    !$acc routine seq
     ! !DESCRIPTION:
     ! Update values to derived-type CLM variables based on input from GLC (via the coupler)
     !

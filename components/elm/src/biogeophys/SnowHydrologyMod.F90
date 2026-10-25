@@ -2707,7 +2707,6 @@ contains
      ! !USES:
      !
      ! !ARGUMENTS:
-      !$acc routine seq 
      real(r8) , intent(in)    :: bi              ! partial density of ice [kg/m3]
      real(r8) , intent(in)    :: forc_wind       ! atmospheric wind speed [m/s]
      real(r8) , intent(in)    :: dz              ! layer depth for this column and level [m]

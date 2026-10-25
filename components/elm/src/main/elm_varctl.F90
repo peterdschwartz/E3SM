@@ -663,7 +663,6 @@ contains
   end subroutine elm_varctl_set_iac_flag
 
   function get_carbontag(carbon_type)result(ctag)
-    !$acc routine seq
     implicit none
     character(len=*) :: carbon_type
 

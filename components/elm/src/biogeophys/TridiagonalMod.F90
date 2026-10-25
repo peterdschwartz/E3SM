@@ -24,7 +24,6 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine Tridiagonal_sr (bounds, lbj, ubj, jtop, numf, filter, a, b, c, r, u, is_col_active)
-    !$acc routine seq
     ! !DESCRIPTION:
     ! Tridiagonal matrix solution
     ! A x = r
@@ -166,7 +165,6 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine Tridiagonal_mr (bounds, lbj, ubj, jtop, numf, filter, ntrcs, a, b, c, r, u, is_col_active)
-    !$acc routine seq
     ! !DESCRIPTION:
     ! Tridiagonal matrix solution
     ! A X = R
@@ -388,7 +386,6 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine Tridiagonal_sr_with_var_bottom (bounds, lbj, ubj, jtop, jbot, numf, filter, a, b, c, r, u, is_col_active)
-    !$acc routine seq
     ! !DESCRIPTION:
     ! Tridiagonal matrix solution
     ! A x = r

@@ -25,7 +25,6 @@ contains
 
   subroutine increment_time_vars()
     !this subroutine is meant to do all time_advancement on gpu
-    !$acc routine seq
     implicit none
     integer  :: year
     integer  :: day

@@ -951,7 +951,6 @@ contains
     ! a given temperature, using a base temperature of heat_base_temp.
     !
     ! !USES:
-    !$acc routine seq 
     ! !ARGUMENTS: 
     real(r8) :: heat  ! function result
     real(r8), intent(in) :: temp  ! temperature [K]

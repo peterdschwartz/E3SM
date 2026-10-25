@@ -298,7 +298,6 @@ contains
     ! J. Geophys. Res., 112, D11202, doi: 10.1029/2006JD008003
     !
     ! !USES:
-      !$acc routine seq
     use elm_varpar       , only : nlevsno, numrad
     use shr_const_mod    , only : SHR_CONST_PI
     !
@@ -1240,7 +1239,6 @@ contains
     !   I am aware.
     !
     ! !USES:
-      !$acc routine seq
     use elm_varpar       , only : nlevsno
     use elm_varcon       , only : spval
     use shr_const_mod    , only : SHR_CONST_RHOICE, SHR_CONST_PI

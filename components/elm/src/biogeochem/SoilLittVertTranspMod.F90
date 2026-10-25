@@ -177,7 +177,6 @@ contains
   end subroutine readSoilLittVertTranspParams
 
   function aaa(pe) result(res)
-     !$acc routine seq
      implicit none
      real(r8) :: res
      real(r8) :: pe
@@ -511,7 +510,6 @@ contains
 
   subroutine calc_diffus_advflux(spinup_term, year, som_diffus_coef, som_adv_coef,&
                                    cnscalaravg_col, adv_fluxj, diffusj)
-    !$acc routine seq
     real(r8), intent(in)  ::  spinup_term
     integer ,  intent(in) :: year
     real(r8), intent(in)  ::  som_diffus_coef, som_adv_coef, cnscalaravg_col

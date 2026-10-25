@@ -276,7 +276,6 @@ contains
   !-----------------------------------------------------------------------
   subroutine update_column_state_no_special_handling(this, bounds, clump_index, &
        var, fractional_area_old, fractional_area_new, adjustment)
-    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! Adjust the values of a column-level state variable due to changes in subgrid
@@ -684,7 +683,6 @@ contains
        var, non_conserved_mass, &
        fractional_area_old, fractional_area_new, &
        adjustment)
-    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! Intermediate routine between the public routines and the real work routine
@@ -781,7 +779,6 @@ contains
        vals_input, vals_input_valid, has_prognostic_state, &
        fractional_area_old, fractional_area_new, &
        var, non_conserved_mass, adjustment)
-    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! Do the work of updating a column-level state variable due to changes in subgrid
