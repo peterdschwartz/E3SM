@@ -568,11 +568,13 @@ contains
                end if
 
                ! Make sure iterative solution is correct
+#ifndef _OPENACC
                if (gs_mol(p,iv) < 0._r8) then
                   write(iulog,*) 'Negative stomatal conductance:'
                   write (iulog,*)'p,iv,gs_mol= ',p,iv,gs_mol(p,iv)
                   call endrun(decomp_index=p, elmlevel=namep, msg=errmsg(__FILE__, __LINE__))
                end if
+#endif
 
                ! Compare with Ball-Berry model: gs_mol = m * an * hs/cs p + b
                hs = (gb_mol(p)*ceair + gs_mol(p,iv)*esat_tv(og)) / ((gb_mol(p)+gs_mol(p,iv))*esat_tv(og))
@@ -1081,10 +1083,12 @@ contains
     b=x2
     fa=f1
     fb=f2
+#ifndef _OPENACC
     if((fa > 0._r8 .and. fb > 0._r8).or.(fa < 0._r8 .and. fb < 0._r8))then
        write(iulog,*) 'root must be bracketed for brent'
        call endrun(msg=errmsg(__FILE__, __LINE__))
     endif
+#endif
     c=b
     fc=fb
     iter = 0

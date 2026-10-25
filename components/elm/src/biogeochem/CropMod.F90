@@ -111,6 +111,7 @@ contains
 
     ! !Local Variables:
     integer :: i
+    integer :: imax
     real(r8) :: r, t_m
     integer,  dimension(12) ::  month = (/10,11,12,1,2,3,4,5,6,7,8,9/)
     integer,  dimension(12) ::  jday  = (/1,32,60,91,121,152,182,213,244,274,305,335/)
@@ -132,7 +133,12 @@ contains
           if (minval(temp) .lt. cst)then ! cold season exists
               plantmonth = t_m
           else                            ! no cold season
-              plantmonth = month(maxloc(p2e))
+              ! (explicit loop: maxloc is not available inside an acc routine)
+              imax = 1
+              do i = 2, size(p2e)
+                 if (p2e(i) > p2e(imax)) imax = i
+              end do
+              plantmonth = month(imax)
           end if
        else                     ! precipitation seasonality
          plantmonth = month(maxloc(p2e))
