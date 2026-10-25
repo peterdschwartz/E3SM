@@ -30,7 +30,7 @@ module pftvarcon
   ! Vegetation type constants
   !
   integer :: noveg                  !value for not vegetated
-  !$acc declare create(noveg)
+  !$acc declare create(noveg, jmax_np1, jmax_np2, jmax_np3, vcmax_np1, vcmax_np2, vcmax_np3, vcmax_np4)
   integer :: ndllf_evr_tmp_tree     !value for Needleleaf evergreen temperate tree
   integer :: ndllf_evr_brl_tree     !value for Needleleaf evergreen boreal tree
   integer :: ndllf_dcd_brl_tree     !value for Needleleaf deciduous boreal tree
@@ -1640,7 +1640,7 @@ contains
        write(iulog,*)
     end if
 
-  !$acc update device(noveg)
+  !$acc update device(noveg, jmax_np1, jmax_np2, jmax_np3, vcmax_np1, vcmax_np2, vcmax_np3, vcmax_np4)
 
   end subroutine pftconrd
 
