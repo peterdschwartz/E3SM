@@ -324,7 +324,7 @@ contains
 
     fl = 0
     fnl = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fl,fnl)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fl,fnl) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -370,7 +370,7 @@ contains
     fl = 0
     fnl = 0
     fnlu = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fl,fnl,fnlu)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fl,fnl,fnlu) copyin(bounds)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -424,7 +424,7 @@ contains
     ! Create soil filter at column-level
 
     fs = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fs)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fs) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -460,7 +460,7 @@ contains
     ! Create soil filter at pft-level
 
     fs = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fs)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fs) copyin(bounds)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -497,7 +497,7 @@ contains
 
     f  = 0
     fn = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -549,7 +549,7 @@ contains
     fc  = 0
     fpc = 0
     fnc = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fc,fpc,fnc)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:fc,fpc,fnc) copyin(bounds)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -610,7 +610,7 @@ contains
 
     f  = 0
     fn = 0
-    !$acc parallel loop independent gang vector default(present) private(t) reduction(+:f,fn)
+    !$acc parallel loop independent gang vector default(present) private(t) reduction(+:f,fn) copyin(bounds)
     do l = bounds%begl,bounds%endl
        t =lun_pp%topounit(l)
        if (top_pp%active(t)) then
@@ -653,7 +653,7 @@ contains
 
     f  = 0
     fn = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -698,7 +698,7 @@ contains
 
     f  = 0
     fn = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f,fn) copyin(bounds)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -742,7 +742,7 @@ contains
     ! Create column-level glacier mec filter
 
     f = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f)
+    !$acc parallel loop independent gang vector default(present) private(t,l) reduction(+:f) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -778,7 +778,7 @@ contains
     ! Create column-level glacier+bareland SMB filter
 
     f = 0
-    !$acc parallel loop independent gang vector default(present) private(t,l,g) reduction(+:f) copyin(icemask_grc)
+    !$acc parallel loop independent gang vector default(present) private(t,l,g) reduction(+:f) copyin(icemask_grc) copyin(bounds)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -858,7 +858,7 @@ contains
 
     fbare = 0
     fveg  = 0
-    !$acc parallel loop independent gang vector default(present) private(p) reduction(+:fbare,fveg)
+    !$acc parallel loop independent gang vector default(present) private(p) reduction(+:fbare,fveg) copyin(bounds)
     do f = 1, this_filter(nc)%num_nolakeurbanp
        p = this_filter(nc)%nolakeurbanp(f)
        if (frac_veg_nosno(p) == 0) then
