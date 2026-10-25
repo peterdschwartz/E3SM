@@ -30,7 +30,6 @@ module pftvarcon
   ! Vegetation type constants
   !
   integer :: noveg                  !value for not vegetated
-  !$acc declare create(noveg, jmax_np1, jmax_np2, jmax_np3, vcmax_np1, vcmax_np2, vcmax_np3, vcmax_np4)
   integer :: ndllf_evr_tmp_tree     !value for Needleleaf evergreen temperate tree
   integer :: ndllf_evr_brl_tree     !value for Needleleaf evergreen boreal tree
   integer :: ndllf_dcd_brl_tree     !value for Needleleaf deciduous boreal tree
@@ -341,6 +340,8 @@ module pftvarcon
   ! 06/24/09, Erik Kluzek: Add indices for all pft types, and add expected_pftnames array and comparision
   ! 09/17/10, David Lawrence: Modified code to read in netCDF pft physiology file
   !-----------------------------------------------------------------------
+  !$acc declare create(noveg, jmax_np1, jmax_np2, jmax_np3, vcmax_np1, vcmax_np2, vcmax_np3, vcmax_np4)
+
 
 contains
 
