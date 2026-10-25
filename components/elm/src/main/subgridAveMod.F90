@@ -525,7 +525,7 @@ contains
     call check_scale_types('p2c_2d', p2c_scale_type=p2c_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) &
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
     !$acc private(sumwt,sum_arr) reduction(max:err_index)
     do j = 1, num2d
        do c = bounds%begc, bounds%endc
@@ -655,7 +655,7 @@ contains
     call check_scale_types('p2l_2d', p2c_scale_type, c2l_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) &
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
     !$acc private(sumwt,sum_arr,scale_c2l,c) reduction(max:err_index)
     do j = 1, num2d
        do l = bounds%begl, bounds%endl
@@ -703,7 +703,7 @@ contains
     call check_scale_types('p2g_1d', p2c_scale_type, c2l_scale_type, l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang default(present) private(g0, g1)
+    !$acc parallel loop gang default(present) copyin(bounds) private(g0, g1)
     do chunk = 1, nchunk
        g0 = bounds%begg + (chunk-1) * gridcell_chunk
        g1 = min(g0 + gridcell_chunk - 1, bounds%endg)
@@ -741,7 +741,7 @@ contains
     call check_scale_types('p2g_2d', p2c_scale_type, c2l_scale_type, l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang collapse(2) default(present) private(g0, g1)
+    !$acc parallel loop gang collapse(2) default(present) copyin(bounds) private(g0, g1)
     do j = 1, num2d
        do chunk = 1, nchunk
           g0 = bounds%begg + (chunk-1) * gridcell_chunk
@@ -827,7 +827,7 @@ contains
     call check_scale_types('c2l_2d', c2l_scale_type=c2l_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) &
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
     !$acc private(sumwt,sum_arr,scale_c2l) reduction(max:err_index)
     do j = 1, num2d
        do l = bounds%begl, bounds%endl
@@ -873,7 +873,7 @@ contains
     call check_scale_types('c2g_1d', c2l_scale_type=c2l_scale_type, l2g_scale_type=l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang default(present) private(g0, g1)
+    !$acc parallel loop gang default(present) copyin(bounds) private(g0, g1)
     do chunk = 1, nchunk
        g0 = bounds%begg + (chunk-1) * gridcell_chunk
        g1 = min(g0 + gridcell_chunk - 1, bounds%endg)
@@ -910,7 +910,7 @@ contains
     call check_scale_types('c2g_2d', c2l_scale_type=c2l_scale_type, l2g_scale_type=l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang collapse(2) default(present) private(g0, g1)
+    !$acc parallel loop gang collapse(2) default(present) copyin(bounds) private(g0, g1)
     do j = 1, num2d
        do chunk = 1, nchunk
           g0 = bounds%begg + (chunk-1) * gridcell_chunk
@@ -947,7 +947,7 @@ contains
     call check_scale_types('l2g_1d', l2g_scale_type=l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang default(present) private(g0, g1)
+    !$acc parallel loop gang default(present) copyin(bounds) private(g0, g1)
     do chunk = 1, nchunk
        g0 = bounds%begg + (chunk-1) * gridcell_chunk
        g1 = min(g0 + gridcell_chunk - 1, bounds%endg)
@@ -980,7 +980,7 @@ contains
     call check_scale_types('l2g_2d', l2g_scale_type=l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang collapse(2) default(present) private(g0, g1)
+    !$acc parallel loop gang collapse(2) default(present) copyin(bounds) private(g0, g1)
     do j = 1, num2d
        do chunk = 1, nchunk
           g0 = bounds%begg + (chunk-1) * gridcell_chunk
@@ -1070,7 +1070,7 @@ contains
     call check_scale_types('p2t_2d', p2c_scale_type, c2l_scale_type, l2t_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) &
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
     !$acc private(sumwt,sum_arr,scale_c2l,scale_l2t,p,c,l) reduction(max:err_index)
     do j = 1, num2d
        do t = bounds%begt, bounds%endt
@@ -1174,7 +1174,7 @@ contains
     call check_scale_types('c2t_2d', c2l_scale_type=c2l_scale_type, l2g_scale_type=l2t_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) &
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
     !$acc private(sumwt,sum_arr,scale_c2l,scale_l2t,c,l) reduction(max:err_index)
     do j = 1, num2d
        do t = bounds%begt, bounds%endt
@@ -1273,7 +1273,7 @@ contains
     call check_scale_types('l2t_2d', l2g_scale_type=l2t_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) &
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
     !$acc private(sumwt,sum_arr,scale_l2t,l) reduction(max:err_index)
     do j = 1, num2d
        do t = bounds%begt, bounds%endt
@@ -1323,7 +1323,7 @@ contains
     end if
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang default(present) private(g0, g1)
+    !$acc parallel loop gang default(present) copyin(bounds) private(g0, g1)
     do chunk = 1, nchunk
        g0 = bounds%begg + (chunk-1) * gridcell_chunk
        g1 = min(g0 + gridcell_chunk - 1, bounds%endg)
@@ -1359,7 +1359,7 @@ contains
     end if
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang collapse(2) default(present) private(g0, g1)
+    !$acc parallel loop gang collapse(2) default(present) copyin(bounds) private(g0, g1)
     do j = 1, num2d
        do chunk = 1, nchunk
           g0 = bounds%begg + (chunk-1) * gridcell_chunk
