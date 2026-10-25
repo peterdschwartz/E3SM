@@ -451,6 +451,7 @@ associate(                                                   &
   !-----------------------------------------------------------------------
   subroutine MoninObukIni (ur, thv, dthv, zldis, z0m, um, obu)
     !$acc routine seq
+    !$acc routine seq
     ! !DESCRIPTION:
     ! Initialization of the Obukhov length scale.
     ! The scheme is based on the work of Zeng et al. (1998):

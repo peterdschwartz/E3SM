@@ -2760,6 +2760,7 @@ contains
    
    !-----------------------------------------------------------------------
    subroutine Combo(dz,  wliq,  wice, t, dz2, wliq2, wice2, t2)
+     !$acc routine seq
      !
      ! !DESCRIPTION:
      ! Combines two elements and returns the following combined

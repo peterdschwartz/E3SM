@@ -336,6 +336,7 @@ contains
        lwnet_roof, lwnet_improad, lwnet_perroad, lwnet_sunwall, lwnet_shadewall, lwnet_canyon , &
        lwup_roof, lwup_improad, lwup_perroad, lwup_sunwall, lwup_shadewall, lwup_canyon, &
        vf_sr, vf_wr, vf_sw, vf_rw, vf_ww)
+    !$acc routine seq
     !$acc routine seq 
     ! !DESCRIPTION:
     ! Net longwave radiation for road and both walls in urban canyon allowing for

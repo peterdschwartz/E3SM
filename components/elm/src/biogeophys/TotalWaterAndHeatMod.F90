@@ -976,6 +976,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine AccumulateLiquidWaterHeat(temp, h2o, &
        heat_liquid, latent_heat_liquid, cv_liquid)
+    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! In the course of accumulating heat contents: Accumulate quantities that we need to
