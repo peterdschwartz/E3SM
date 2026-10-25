@@ -309,7 +309,8 @@ contains
      use elm_varcon       , only : pondmx, watmin
      use column_varcon    , only : icol_roof, icol_road_imperv, icol_sunwall, icol_shadewall, icol_road_perv
      use landunit_varcon  , only : istsoil, istcrop, ilowcenpoly, iflatcenpoly, ihighcenpoly
-     use elm_time_manager , only : get_step_size, get_nstep
+     use elm_time_manager , only : get_step_size
+     use timeinfoMod      , only : nstep_mod
      use atm2lndType      , only : atm2lnd_type ! land river two way coupling
      use ocn2lndType      , only : ocn2lnd_type
      use lnd2atmType      , only : lnd2atm_type
@@ -479,7 +480,7 @@ contains
 
              !0. partition grid-level floodplain/coastal inundation volume and fraction to each column
              if (use_lnd_rof_two_way) then
-                if (mod(get_nstep(),lnd_rof_coupling_nstep) == 1 .or. get_nstep() <= 1 .or. lnd_rof_coupling_nstep == 1) then
+                if (mod(nstep_mod,lnd_rof_coupling_nstep) == 1 .or. nstep_mod <= 1 .or. lnd_rof_coupling_nstep == 1) then
                    h2orof(c)      = atm2lnd_vars%h2orof_grc(g) * wtgcell(c)
                    frac_h2orof(c) = atm2lnd_vars%frac_h2orof_grc(g) * wtgcell(c)
                 endif
@@ -807,6 +808,7 @@ contains
      real(r8), intent(in)  :: dtime
      !
      ! !LOCAL VARIABLES:
+     logical  :: jwt_found              ! first saturated layer found (replaces an exit)
      integer  :: c,j,fc,i,l,g                            ! indices
      integer  :: nlevbed                                 ! # layers to bedrock
      integer  :: jwt(1:num_hydrologyc)            ! index of the soil layer right above the water table (-)
@@ -896,20 +898,20 @@ contains
        ! The layer index of the first unsaturated layer, i.e., the layer right above
        ! the water table
 
-       !$acc parallel loop independent gang vector default(present) private(c, nlevbed)
+       !$acc parallel loop independent gang vector default(present) private(c, nlevbed, jwt_found)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
           jwt(fc) = nlevbed
           ! allow jwt to equal zero when zwt is in top layer
+          ! (no `exit` in the seq loop: nvfortran 25.9 internal error in device code)
+          jwt_found = .false.
           !$acc loop seq
           do j = 1,nlevbed
-             if(zwt(c) <= zi(c,j)) then
-                if (zengdecker_2009_with_var_soil_thick .and. zwt(c) == zi(c,nlevbed)) then
-                   exit
-                else
+             if (.not. jwt_found .and. zwt(c) <= zi(c,j)) then
+                jwt_found = .true.
+                if (.not. (zengdecker_2009_with_var_soil_thick .and. zwt(c) == zi(c,nlevbed))) then
                    jwt(fc) = j-1
-                   exit
                 end if
              end if
           enddo
