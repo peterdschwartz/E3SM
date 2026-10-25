@@ -106,7 +106,6 @@ end subroutine normalize_test
     !read in as namelist
     !
     ! !ARGUMENTS:
-    !$acc routine seq
     implicit none
     logical, intent(in) :: perchroot_global
     logical, intent(in) :: perchroot_alt_global

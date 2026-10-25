@@ -60,7 +60,6 @@ contains
     ! run started.
     !
     ! !USES:
-      !$acc routine seq
     use elm_varcon, only : sb
 
     !
@@ -230,7 +229,6 @@ contains
     ! Compute lnd2atm_vars component of gridcell derived type
     !
     ! !USES:
-      !$acc routine seq
     use CH4varcon  , only : ch4offline
     !
     ! !ARGUMENTS:

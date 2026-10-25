@@ -121,7 +121,6 @@ contains
     ! !DESCRIPTION:
     ! Computes column-level burned area
     !
-      !$acc routine seq
     ! !USES:
     use elm_varpar           , only: max_patch_per_col
     use elm_varcon           , only: secspday, spval

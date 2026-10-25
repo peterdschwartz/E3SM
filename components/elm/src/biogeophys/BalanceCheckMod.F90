@@ -49,7 +49,6 @@ contains
     !
     ! !DESCRIPTION:
     ! Initialize column-level water balance at beginning of time step
-    !$acc routine seq
     ! !USES:
     use subgridAveMod    , only : p2c, c2g
     use elm_varpar       , only : nlevgrnd, nlevsoi, nlevurb

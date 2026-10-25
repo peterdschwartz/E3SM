@@ -207,7 +207,6 @@ contains
     ! Compute gridcell total liquid and ice water contents
     !
     ! !ARGUMENTS:
-    !$acc routine seq
     type(bounds_type)        , intent(in)    :: bounds
     integer                  , intent(in)    :: num_nolakec
     integer                  , intent(in)    :: filter_nolakec(:)
@@ -265,7 +264,6 @@ contains
     ! we include the latent heat of fusion.
     !
     ! !ARGUMENTS:
-      !$acc routine seq
     type(bounds_type)        , intent(in)  :: bounds
     integer                  , intent(in)  :: num_nolakec
     integer                  , intent(in)  :: filter_nolakec(:)
