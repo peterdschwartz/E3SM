@@ -180,6 +180,9 @@ contains
          end if
 
          ! decomposition fluxes
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_nf%core%decomp_cascade_transfer_vr, col_nf%core%decomp_pools_sourcesink, &
+         !$acc&   col_nf%mineral%decomp_cascade_smin_flux_vr) if_present
          do k = 1, ndecomp_cascade_transitions
             do j = 1, nlevdecomp
                ! column loop
@@ -217,6 +220,7 @@ contains
                end do
             end if
          end do
+         !$acc update device(col_nf%core%decomp_pools_sourcesink) if_present
 
          !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp

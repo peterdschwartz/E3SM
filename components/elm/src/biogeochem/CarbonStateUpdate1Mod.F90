@@ -210,11 +210,13 @@ contains
 
       ! column level fluxes
 
-      !$acc parallel loop gang vector default(present) private(c)
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(col_cs%core%decomp_pools_vr) if_present
       do fc = 1,num_soilc
           c = filter_soilc(fc)
           col_cs%decomp_som2c_vr(c,1:nlevdecomp) = col_cs%core%decomp_pools_vr(c,1:nlevdecomp,6)
       end do
+      !$acc update device(col_cs%decomp_som2c_vr) if_present
 
       if (.not.(use_pflotran .and. pf_cmode)) then
 
@@ -237,6 +239,9 @@ contains
          end if
 
          ! litter and SOM HR fluxes
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_cf%core%decomp_cascade_transfer_vr, col_cf%core%decomp_pools_sourcesink, &
+         !$acc&   col_cf%decomp_cascade_hr_vr) if_present
          do k = 1, ndecomp_cascade_transitions
             do j = 1,nlevdecomp
                ! column loop
@@ -261,6 +266,7 @@ contains
                end do
             end if
          end do
+         !$acc update device(col_cf%core%decomp_pools_sourcesink) if_present
 
       endif   
 

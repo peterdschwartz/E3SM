@@ -2288,7 +2288,8 @@ contains
          is_soil   =>    decomp_cascade_con%is_soil   , & ! Input:  [logical (:) ]  TRUE => pool is a soil pool
          is_cwd    =>    decomp_cascade_con%is_cwd      &
     )
-    !$acc parallel loop gang vector default(present) private(c)
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%decomp_cascade_hr, this%lithr, this%somhr) if_present
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%somhr(c)              = 0._r8
@@ -2300,6 +2301,7 @@ contains
             this%hr_vr(c,1:nlevdecomp) = 0._r8
        end if
     enddo
+    !$acc update device(this%decomp_cascade_hr, this%hr_vr, this%lithr, this%somhr) if_present
 
     if ((.not. (use_pflotran .and. pf_cmode))) then
       ! vertically integrate HR and decomposition cascade fluxes
@@ -2348,6 +2350,8 @@ contains
 
       ! total heterotrophic respiration, vertically resolved (HR)
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(this%decomp_cascade_hr_vr) if_present
       do k = 1, ndecomp_cascade_transitions
         do j = 1,nlevdecomp
           do fc = 1,num_soilc
@@ -2358,6 +2362,7 @@ contains
           end do
         end do
       end do
+      !$acc update device(this%hr_vr) if_present
     endif
 
     end associate
@@ -2387,6 +2392,13 @@ contains
     logical :: do_zero_erosion
     logical :: do_zero_transport
     !------------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%decomp_pools_sourcesink, this%core%gap_mortality_to_cwd, &
+    !$acc&   this%core%gap_mortality_to_litr_cel, this%core%gap_mortality_to_litr_lig, &
+    !$acc&   this%core%gap_mortality_to_litr_met, this%core%harvest_to_cwd, this%core%harvest_to_litr_cel, &
+    !$acc&   this%core%harvest_to_litr_lig, this%core%harvest_to_litr_met, this%core%phenology_to_litr_cel, &
+    !$acc&   this%core%phenology_to_litr_lig, this%core%phenology_to_litr_met, this%core%prod100_loss, &
+    !$acc&   this%core%prod10_loss, this%core%prod1_loss) if_present
     call column_nutrient_flux_setvalues(this%core, num_column, filter_column, value_column)
     do_zero_harvest = .true.
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
@@ -2394,9 +2406,7 @@ contains
     if (present(zero_erosion)) do_zero_erosion = zero_erosion
     do_zero_transport = .true.
     if (present(zero_transport)) do_zero_transport = zero_transport
-    !$acc parallel loop gang vector default(present) private(fi)
     do j = 1, nlevdecomp_full
-       !$acc loop seq
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -2405,6 +2415,18 @@ contains
           end associate
        end do
     end do
+    !$acc update device(this%core%decomp_cascade_transfer, this%core%decomp_pools_sourcesink, &
+    !$acc&   this%core%decomp_pools_yield, this%core%external_to_decomp_delta, &
+    !$acc&   this%core%external_to_decomp_pools, this%core%fire_loss, this%core%fire_mortality_to_cwd, &
+    !$acc&   this%core%gap_mortality_to_cwd, this%core%gap_mortality_to_litr_cel, &
+    !$acc&   this%core%gap_mortality_to_litr_lig, this%core%gap_mortality_to_litr_met, &
+    !$acc&   this%core%harvest_to_cwd, this%core%harvest_to_litr_cel, this%core%harvest_to_litr_lig, &
+    !$acc&   this%core%harvest_to_litr_met, this%core%hrv_crop_to_prod1, this%core%hrv_deadstem_to_prod10, &
+    !$acc&   this%core%hrv_deadstem_to_prod100, this%core%inputs, this%core%m_to_litr_cel_fire, &
+    !$acc&   this%core%m_to_litr_lig_fire, this%core%m_to_litr_met_fire, this%core%outputs, &
+    !$acc&   this%core%phenology_to_litr_cel, this%core%phenology_to_litr_lig, &
+    !$acc&   this%core%phenology_to_litr_met, this%core%prod100_loss, this%core%prod10_loss, &
+    !$acc&   this%core%prod1_loss, this%core%som_leached, this%core%wood_harvest, this%hr_vr) if_present
     !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do j = 1, nlevdecomp_full
        do fi = 1,num_column
@@ -2430,7 +2452,8 @@ contains
        end do
     end do 
 
-    !$acc parallel loop gang vector default(present)
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%lithr, this%rr, this%somc_fire, this%somhr) if_present
     do fi = 1,num_column,flux_setvalues_block_size
        associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
        this%er(idx)                        = value_column
@@ -2455,7 +2478,6 @@ contains
     end do
   
     if(use_crop) then 
-      !$acc parallel loop gang vector default(present)
       do fi = 1,num_column,flux_setvalues_block_size
          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
          this%somc_fire(idx)                 = value_column
@@ -2474,6 +2496,10 @@ contains
          end associate
       end do
     end if 
+    !$acc update device(this%ar, this%core%product_loss, this%core%som_deposit, this%core%som_erode, &
+    !$acc&   this%core%som_yield, this%cwdc_hr, this%cwdc_loss, this%er, this%gpp, this%hr, this%litfall, &
+    !$acc&   this%litfire, this%lithr, this%litterc_loss, this%nbp, this%nee, this%nep, this%npp, this%rr, &
+    !$acc&   this%somc_fire, this%somfire, this%somhr, this%sr, this%totfire, this%vegfire) if_present
     
     !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do k = 1, ndecomp_pools
@@ -2484,8 +2510,9 @@ contains
     end do
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%decomp_pools_deposit, this%core%decomp_pools_erode) if_present
     if (do_zero_harvest) then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
           this%hrv_xsmrpool_to_atm(idx)       = value_column
@@ -2495,9 +2522,7 @@ contains
 
     ! Erosion fluxes, written only with ero_ccycle.
     if (do_zero_erosion) then
-       !$acc parallel loop gang vector default(present) private(fi)
        do k = 1, ndecomp_pools
-          !$acc loop seq
           do fi = 1,num_column,flux_setvalues_block_size
              associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
              this%core%decomp_pools_erode(idx,k)   = value_column
@@ -2506,6 +2531,8 @@ contains
           end do
        end do
     end if
+    !$acc update device(this%core%decomp_pools_deposit, this%core%decomp_pools_erode, &
+    !$acc&   this%hrv_xsmrpool_to_atm) if_present
 
     ! Vertical transport tendencies, rewritten every step by SoilLittVertTransp.
     if (do_zero_transport) then
@@ -3833,6 +3860,16 @@ contains
     logical :: do_zero_fan
     logical :: do_zero_erosion
     !------------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%actual_immob, this%core%decomp_pools_sourcesink, this%core%gap_mortality_to_cwd, &
+    !$acc&   this%core%gap_mortality_to_litr_cel, this%core%gap_mortality_to_litr_lig, &
+    !$acc&   this%core%gap_mortality_to_litr_met, this%core%harvest_to_cwd, this%core%harvest_to_litr_cel, &
+    !$acc&   this%core%harvest_to_litr_lig, this%core%harvest_to_litr_met, this%core%phenology_to_litr_cel, &
+    !$acc&   this%core%phenology_to_litr_lig, this%core%phenology_to_litr_met, this%core%prod100_loss, &
+    !$acc&   this%core%prod10_loss, this%core%prod1_loss, this%fert_to_sminn, this%mineral%dep_to_smin, &
+    !$acc&   this%mineral%gross_min, this%mineral%net_min, this%mineral%net_min_vr, this%nfix_to_ecosysn, &
+    !$acc&   this%nfix_to_sminn, this%potential_immob, this%soyfixn_to_sminn, this%uptake%plant_demand, &
+    !$acc&   this%uptake%plant_demand_vr, this%uptake%smin_to_plant) if_present
     call column_nutrient_flux_setvalues(this%core, num_column, filter_column, value_column)
     do_zero_harvest = .true.
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
@@ -3840,9 +3877,7 @@ contains
     if (present(zero_fan)) do_zero_fan = zero_fan
     do_zero_erosion = .true.
     if (present(zero_erosion)) do_zero_erosion = zero_erosion
-    !$acc parallel loop gang vector default(present) private(fi)
     do j = 1, nlevdecomp_full
-       !$acc loop seq
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -3856,9 +3891,7 @@ contains
 
     if( use_pflotran .and. pf_cmode) then 
 
-      !$acc parallel loop gang vector default(present) private(fi)
       do j = 1, nlevdecomp_full
-         !$acc loop seq
          do fi = 1,num_column,flux_setvalues_block_size
             associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
             ! pflotran
@@ -3874,7 +3907,6 @@ contains
        end do 
      end if 
 
-    !$acc parallel loop gang vector default(present)
     do fi = 1,num_column,flux_setvalues_block_size
        associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -3920,6 +3952,28 @@ contains
 
        end associate
     end do
+    !$acc update device(this%actual_immob, this%core%decomp_cascade_transfer, &
+    !$acc&   this%core%decomp_pools_sourcesink, this%core%decomp_pools_yield, &
+    !$acc&   this%core%external_to_decomp_delta, this%core%external_to_decomp_pools, this%core%fire_loss, &
+    !$acc&   this%core%fire_mortality_to_cwd, this%core%gap_mortality_to_cwd, &
+    !$acc&   this%core%gap_mortality_to_litr_cel, this%core%gap_mortality_to_litr_lig, &
+    !$acc&   this%core%gap_mortality_to_litr_met, this%core%harvest_to_cwd, this%core%harvest_to_litr_cel, &
+    !$acc&   this%core%harvest_to_litr_lig, this%core%harvest_to_litr_met, this%core%hrv_crop_to_prod1, &
+    !$acc&   this%core%hrv_deadstem_to_prod10, this%core%hrv_deadstem_to_prod100, this%core%inputs, &
+    !$acc&   this%core%m_to_litr_cel_fire, this%core%m_to_litr_lig_fire, this%core%m_to_litr_met_fire, &
+    !$acc&   this%core%outputs, this%core%phenology_to_litr_cel, this%core%phenology_to_litr_lig, &
+    !$acc&   this%core%phenology_to_litr_met, this%core%prod100_loss, this%core%prod10_loss, &
+    !$acc&   this%core%prod1_loss, this%core%product_loss, this%core%som_leached, this%core%wood_harvest, &
+    !$acc&   this%denit, this%f_denit, this%f_n2_soil, this%f_n2_soil_vr, this%f_n2o_denit, this%f_n2o_nit, &
+    !$acc&   this%f_n2o_soil, this%f_n2o_soil_vr, this%f_ngas_decomp, this%f_ngas_decomp_vr, &
+    !$acc&   this%f_ngas_denit, this%f_ngas_denit_vr, this%f_ngas_nitri, this%f_ngas_nitri_vr, this%f_nit, &
+    !$acc&   this%fert_nh4_runoff, this%fert_to_sminn, this%mineral%dep_to_smin, this%mineral%gross_min, &
+    !$acc&   this%mineral%net_min, this%mineral%net_min_vr, this%mineral%supplement_to_smin, &
+    !$acc&   this%nfix_to_ecosysn, this%nfix_to_sminn, this%pot_f_denit, this%pot_f_nit, &
+    !$acc&   this%potential_immob, this%smin_nh4_to_plant, this%smin_no3_leached, this%smin_no3_runoff, &
+    !$acc&   this%smin_no3_to_plant, this%sminn_input, this%sminn_nh4_input, this%sminn_nh4_input_vr, &
+    !$acc&   this%sminn_no3_input, this%sminn_no3_input_vr, this%soyfixn_to_sminn, this%uptake%plant_demand, &
+    !$acc&   this%uptake%plant_demand_vr, this%uptake%smin_to_plant) if_present
     !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do k = 1, ndecomp_pools
        do fi = 1,num_column
@@ -3985,8 +4039,11 @@ contains
     end if
 
     ! FAN fluxes, written only with use_fan or fan_to_bgc_veg/crop.
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%fan_totnin, this%fan_totnout, this%fert_n_appl, this%manure_n_appl, &
+    !$acc&   this%manure_n_to_sminn, this%manure_n_total, this%manure_tan_appl, &
+    !$acc&   this%synthfert_n_to_sminn) if_present
     if (do_zero_fan) then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
           this%manure_tan_appl(idx)      = value_column
@@ -4017,6 +4074,12 @@ contains
           end associate
        end do
     end if
+    !$acc update device(this%fan_totnin, this%fan_totnout, this%fert_n_appl, this%fert_nh4_to_soil, &
+    !$acc&   this%fert_no3_to_soil, this%manure_n_appl, this%manure_n_barns, this%manure_n_grz, &
+    !$acc&   this%manure_n_mix, this%manure_n_to_sminn, this%manure_n_total, this%manure_n_transf, &
+    !$acc&   this%manure_nh4_runoff, this%manure_nh4_to_soil, this%manure_no3_to_soil, this%manure_tan_appl, &
+    !$acc&   this%nh3_barns, this%nh3_fert, this%nh3_grz, this%nh3_manure_app, this%nh3_otherfert, &
+    !$acc&   this%nh3_stores, this%nh3_total, this%otherfert_n_appl, this%synthfert_n_to_sminn) if_present
 
   end subroutine col_nf_setvalues
 
@@ -5189,6 +5252,20 @@ contains
     logical :: do_zero_erosion
     logical :: do_zero_transport
     !------------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%actual_immob_p, this%actual_immob_p_vr, this%biochem_pmin_to_ecosysp_vr, &
+    !$acc&   this%biochem_pmin_vr, this%core%decomp_pools_leached, this%core%decomp_pools_sourcesink, &
+    !$acc&   this%core%gap_mortality_to_cwd, this%core%gap_mortality_to_litr_cel, &
+    !$acc&   this%core%gap_mortality_to_litr_lig, this%core%gap_mortality_to_litr_met, &
+    !$acc&   this%core%harvest_to_cwd, this%core%harvest_to_litr_cel, this%core%harvest_to_litr_lig, &
+    !$acc&   this%core%harvest_to_litr_met, this%core%m_decomp_pools_to_fire, &
+    !$acc&   this%core%phenology_to_litr_cel, this%core%phenology_to_litr_lig, &
+    !$acc&   this%core%phenology_to_litr_met, this%core%prod100_loss, this%core%prod10_loss, &
+    !$acc&   this%core%prod1_loss, this%fert_p_to_sminp, this%mineral%dep_to_smin, this%mineral%gross_min, &
+    !$acc&   this%mineral%gross_min_vr, this%mineral%net_min, this%mineral%net_min_vr, &
+    !$acc&   this%mineral%supplement_to_smin_vr, this%potential_immob_p, this%potential_immob_p_vr, &
+    !$acc&   this%primp_to_labilep_vr, this%uptake%plant_demand, this%uptake%plant_demand_vr, &
+    !$acc&   this%uptake%smin_to_plant, this%uptake%smin_to_plant_vr) if_present
     call column_nutrient_flux_setvalues(this%core, num_column, filter_column, value_column)
     do_zero_harvest = .true.
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
@@ -5196,9 +5273,7 @@ contains
     if (present(zero_erosion)) do_zero_erosion = zero_erosion
     do_zero_transport = .true.
     if (present(zero_transport)) do_zero_transport = zero_transport
-    !$acc parallel loop gang vector default(present) private(fi)
     do j = 1, nlevdecomp_full
-       !$acc loop seq
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -5227,7 +5302,6 @@ contains
        end do
     end do
 
-    !$acc parallel loop gang vector default(present)
     do fi = 1,num_column,flux_setvalues_block_size
        associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -5264,9 +5338,7 @@ contains
        end associate
     end do
 
-    !$acc parallel loop gang vector default(present) private(fi)
     do k = 1, ndecomp_pools
-       !$acc loop seq
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
           this%core%decomp_pools_leached(idx,k) = value_column
@@ -5275,6 +5347,31 @@ contains
           end associate
        end do
     end do
+    !$acc update device(this%actual_immob_p, this%actual_immob_p_vr, this%adsorb_to_labilep, &
+    !$acc&   this%adsorb_to_labilep_vr, this%biochem_pmin, this%biochem_pmin_to_ecosysp_vr, &
+    !$acc&   this%biochem_pmin_to_plant, this%biochem_pmin_vr, this%core%decomp_cascade_transfer, &
+    !$acc&   this%core%decomp_pools_leached, this%core%decomp_pools_sourcesink, this%core%decomp_pools_yield, &
+    !$acc&   this%core%external_to_decomp_delta, this%core%external_to_decomp_pools, this%core%fire_loss, &
+    !$acc&   this%core%fire_mortality_to_cwd, this%core%gap_mortality_to_cwd, &
+    !$acc&   this%core%gap_mortality_to_litr_cel, this%core%gap_mortality_to_litr_lig, &
+    !$acc&   this%core%gap_mortality_to_litr_met, this%core%harvest_to_cwd, this%core%harvest_to_litr_cel, &
+    !$acc&   this%core%harvest_to_litr_lig, this%core%harvest_to_litr_met, this%core%hrv_crop_to_prod1, &
+    !$acc&   this%core%hrv_deadstem_to_prod10, this%core%hrv_deadstem_to_prod100, this%core%inputs, &
+    !$acc&   this%core%m_decomp_pools_to_fire, this%core%m_to_litr_cel_fire, this%core%m_to_litr_lig_fire, &
+    !$acc&   this%core%m_to_litr_met_fire, this%core%outputs, this%core%phenology_to_litr_cel, &
+    !$acc&   this%core%phenology_to_litr_lig, this%core%phenology_to_litr_met, this%core%prod100_loss, &
+    !$acc&   this%core%prod10_loss, this%core%prod1_loss, this%core%product_loss, this%core%som_deposit, &
+    !$acc&   this%core%som_erode, this%core%som_leached, this%core%som_yield, this%core%wood_harvest, &
+    !$acc&   this%desorb_to_solutionp, this%desorb_to_solutionp_vr, this%fert_p_to_sminp, &
+    !$acc&   this%labilep_to_secondp, this%labilep_to_secondp_vr, this%labilep_yield, &
+    !$acc&   this%mineral%dep_to_smin, this%mineral%gross_min, this%mineral%gross_min_vr, &
+    !$acc&   this%mineral%net_min, this%mineral%net_min_vr, this%mineral%smin_leached, &
+    !$acc&   this%mineral%smin_leached_vr, this%mineral%supplement_to_smin, &
+    !$acc&   this%mineral%supplement_to_smin_vr, this%occlp_yield, this%potential_immob_p, &
+    !$acc&   this%potential_immob_p_vr, this%primp_to_labilep, this%primp_to_labilep_vr, this%primp_yield, &
+    !$acc&   this%secondp_to_labilep, this%secondp_to_labilep_vr, this%secondp_to_occlp, &
+    !$acc&   this%secondp_to_occlp_vr, this%secondp_yield, this%uptake%plant_demand, &
+    !$acc&   this%uptake%plant_demand_vr, this%uptake%smin_to_plant, this%uptake%smin_to_plant_vr) if_present
 
     !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do l = 1, ndecomp_cascade_transitions
@@ -5324,7 +5421,8 @@ contains
 
     ! Erosion fluxes, written only with ero_ccycle.
     if (do_zero_erosion) then
-       !$acc parallel loop gang vector default(present)
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(this%core%decomp_pools_deposit, this%core%decomp_pools_erode) if_present
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
           this%labilep_erode(idx)   = value_column
@@ -5337,9 +5435,7 @@ contains
           this%primp_deposit(idx)   = value_column
           end associate
        end do
-       !$acc parallel loop gang vector default(present) private(fi)
        do j = 1, nlevdecomp_full
-          !$acc loop seq
           do fi = 1,num_column,flux_setvalues_block_size
              associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
              this%labilep_yield_vr(idx,j) = value_column
@@ -5349,9 +5445,7 @@ contains
              end associate
           end do
        end do
-       !$acc parallel loop gang vector default(present) private(fi)
        do k = 1, ndecomp_pools
-          !$acc loop seq
           do fi = 1,num_column,flux_setvalues_block_size
              associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
              this%core%decomp_pools_erode(idx,k)   = value_column
@@ -5359,6 +5453,11 @@ contains
              end associate
           end do
        end do
+       !$acc update device(this%core%decomp_pools_deposit, this%core%decomp_pools_erode, &
+       !$acc&   this%labilep_deposit, this%labilep_erode, this%labilep_yield_vr, this%occlp_deposit, &
+       !$acc&   this%occlp_erode, this%occlp_yield_vr, this%primp_deposit, this%primp_erode, &
+       !$acc&   this%primp_yield_vr, this%secondp_deposit, this%secondp_erode, &
+       !$acc&   this%secondp_yield_vr) if_present
        !$acc parallel loop gang vector collapse(3) default(present) private(i)
        do k = 1, ndecomp_pools
           do j = 1, nlevdecomp_full

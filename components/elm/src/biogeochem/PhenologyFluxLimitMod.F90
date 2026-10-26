@@ -620,6 +620,36 @@ contains
   dt = real( get_step_size(), r8 )
 
   do fp = 1,num_soilp
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(veg_cf%core%deadcroot_storage_to_xfer, veg_cf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_cf%core%deadstem_storage_to_xfer, veg_cf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_cf%core%froot_storage_to_xfer, veg_cf%core%froot_to_litter, veg_cf%core%froot_xfer_to_froot, &
+    !$acc&   veg_cf%core%grain_storage_to_xfer, veg_cf%core%grain_to_food, veg_cf%core%grain_xfer_to_grain, &
+    !$acc&   veg_cf%core%leaf_storage_to_xfer, veg_cf%core%leaf_to_litter, veg_cf%core%leaf_xfer_to_leaf, &
+    !$acc&   veg_cf%core%livecroot_storage_to_xfer, veg_cf%core%livecroot_to_deadcroot, &
+    !$acc&   veg_cf%core%livecroot_xfer_to_livecroot, veg_cf%core%livestem_storage_to_xfer, &
+    !$acc&   veg_cf%core%livestem_to_deadstem, veg_cf%core%livestem_to_litter, &
+    !$acc&   veg_cf%core%livestem_xfer_to_livestem, veg_cf%core%pool_to_deadcroot, &
+    !$acc&   veg_cf%core%pool_to_deadcroot_storage, veg_cf%core%pool_to_deadstem, &
+    !$acc&   veg_cf%core%pool_to_deadstem_storage, veg_cf%core%pool_to_froot, &
+    !$acc&   veg_cf%core%pool_to_froot_storage, veg_cf%core%pool_to_grain, veg_cf%core%pool_to_grain_storage, &
+    !$acc&   veg_cf%core%pool_to_leaf, veg_cf%core%pool_to_leaf_storage, veg_cf%core%pool_to_livecroot, &
+    !$acc&   veg_cf%core%pool_to_livecroot_storage, veg_cf%core%pool_to_livestem, &
+    !$acc&   veg_cf%core%pool_to_livestem_storage, veg_cf%cpool_deadcroot_gr, &
+    !$acc&   veg_cf%cpool_deadcroot_storage_gr, veg_cf%cpool_deadstem_gr, veg_cf%cpool_deadstem_storage_gr, &
+    !$acc&   veg_cf%cpool_froot_gr, veg_cf%cpool_froot_storage_gr, veg_cf%cpool_grain_gr, &
+    !$acc&   veg_cf%cpool_grain_storage_gr, veg_cf%cpool_leaf_gr, veg_cf%cpool_leaf_storage_gr, &
+    !$acc&   veg_cf%cpool_livecroot_gr, veg_cf%cpool_livecroot_storage_gr, veg_cf%cpool_livestem_gr, &
+    !$acc&   veg_cf%cpool_livestem_storage_gr, veg_cf%cpool_to_gresp_storage, veg_cf%cpool_to_xsmrpool, &
+    !$acc&   veg_cf%froot_curmr, veg_cf%grain_curmr, veg_cf%gresp_storage_to_xfer, veg_cf%leaf_curmr, &
+    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr, veg_cs%core%deadcroot, &
+    !$acc&   veg_cs%core%deadcroot_storage, veg_cs%core%deadcroot_xfer, veg_cs%core%deadstem, &
+    !$acc&   veg_cs%core%deadstem_storage, veg_cs%core%deadstem_xfer, veg_cs%core%froot, &
+    !$acc&   veg_cs%core%froot_storage, veg_cs%core%froot_xfer, veg_cs%core%grain, veg_cs%core%grain_storage, &
+    !$acc&   veg_cs%core%grain_xfer, veg_cs%core%leaf, veg_cs%core%leaf_storage, veg_cs%core%leaf_xfer, &
+    !$acc&   veg_cs%core%livecroot, veg_cs%core%livecroot_storage, veg_cs%core%livecroot_xfer, &
+    !$acc&   veg_cs%core%livestem, veg_cs%core%livestem_storage, veg_cs%core%livestem_xfer, veg_cs%core%pool, &
+    !$acc&   veg_cs%gresp_storage, veg_cs%gresp_xfer) if_present
     p = filter_soilp(fp)
     !assemble state variables
     ystates(:)=0._r8
@@ -741,6 +771,29 @@ contains
     !correct the fluxes
 
     !$acc end data
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(veg_cf%core%deadcroot_storage_to_xfer, veg_cf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_cf%core%deadstem_storage_to_xfer, veg_cf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_cf%core%froot_storage_to_xfer, veg_cf%core%froot_to_litter, veg_cf%core%froot_xfer_to_froot, &
+    !$acc&   veg_cf%core%grain_storage_to_xfer, veg_cf%core%grain_to_food, veg_cf%core%grain_xfer_to_grain, &
+    !$acc&   veg_cf%core%leaf_storage_to_xfer, veg_cf%core%leaf_to_litter, veg_cf%core%leaf_xfer_to_leaf, &
+    !$acc&   veg_cf%core%livecroot_storage_to_xfer, veg_cf%core%livecroot_to_deadcroot, &
+    !$acc&   veg_cf%core%livecroot_xfer_to_livecroot, veg_cf%core%livestem_storage_to_xfer, &
+    !$acc&   veg_cf%core%livestem_to_deadstem, veg_cf%core%livestem_to_litter, &
+    !$acc&   veg_cf%core%livestem_xfer_to_livestem, veg_cf%core%pool_to_deadcroot, &
+    !$acc&   veg_cf%core%pool_to_deadcroot_storage, veg_cf%core%pool_to_deadstem, &
+    !$acc&   veg_cf%core%pool_to_deadstem_storage, veg_cf%core%pool_to_froot, &
+    !$acc&   veg_cf%core%pool_to_froot_storage, veg_cf%core%pool_to_grain, veg_cf%core%pool_to_grain_storage, &
+    !$acc&   veg_cf%core%pool_to_leaf, veg_cf%core%pool_to_leaf_storage, veg_cf%core%pool_to_livecroot, &
+    !$acc&   veg_cf%core%pool_to_livecroot_storage, veg_cf%core%pool_to_livestem, &
+    !$acc&   veg_cf%core%pool_to_livestem_storage, veg_cf%cpool_deadcroot_gr, &
+    !$acc&   veg_cf%cpool_deadcroot_storage_gr, veg_cf%cpool_deadstem_gr, veg_cf%cpool_deadstem_storage_gr, &
+    !$acc&   veg_cf%cpool_froot_gr, veg_cf%cpool_froot_storage_gr, veg_cf%cpool_grain_gr, &
+    !$acc&   veg_cf%cpool_grain_storage_gr, veg_cf%cpool_leaf_gr, veg_cf%cpool_leaf_storage_gr, &
+    !$acc&   veg_cf%cpool_livecroot_gr, veg_cf%cpool_livecroot_storage_gr, veg_cf%cpool_livestem_gr, &
+    !$acc&   veg_cf%cpool_livestem_storage_gr, veg_cf%cpool_to_gresp_storage, veg_cf%cpool_to_xsmrpool, &
+    !$acc&   veg_cf%froot_curmr, veg_cf%grain_curmr, veg_cf%gresp_storage_to_xfer, veg_cf%leaf_curmr, &
+    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr) if_present
     call fpmax(rfluxes(f_cpool_to_leafc)               , veg_cf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_cpool_to_leafc_storage)       , veg_cf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_cpool_to_frootc)              , veg_cf%core%pool_to_froot(p))
@@ -817,6 +870,28 @@ contains
         call ascal(veg_cf%cpool_grain_storage_gr(p)    , rscal)
       endif
     endif
+    !$acc update device(veg_cf%core%deadcroot_storage_to_xfer, veg_cf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_cf%core%deadstem_storage_to_xfer, veg_cf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_cf%core%froot_storage_to_xfer, veg_cf%core%froot_to_litter, veg_cf%core%froot_xfer_to_froot, &
+    !$acc&   veg_cf%core%grain_storage_to_xfer, veg_cf%core%grain_to_food, veg_cf%core%grain_xfer_to_grain, &
+    !$acc&   veg_cf%core%leaf_storage_to_xfer, veg_cf%core%leaf_to_litter, veg_cf%core%leaf_xfer_to_leaf, &
+    !$acc&   veg_cf%core%livecroot_storage_to_xfer, veg_cf%core%livecroot_to_deadcroot, &
+    !$acc&   veg_cf%core%livecroot_xfer_to_livecroot, veg_cf%core%livestem_storage_to_xfer, &
+    !$acc&   veg_cf%core%livestem_to_deadstem, veg_cf%core%livestem_to_litter, &
+    !$acc&   veg_cf%core%livestem_xfer_to_livestem, veg_cf%core%pool_to_deadcroot, &
+    !$acc&   veg_cf%core%pool_to_deadcroot_storage, veg_cf%core%pool_to_deadstem, &
+    !$acc&   veg_cf%core%pool_to_deadstem_storage, veg_cf%core%pool_to_froot, &
+    !$acc&   veg_cf%core%pool_to_froot_storage, veg_cf%core%pool_to_grain, veg_cf%core%pool_to_grain_storage, &
+    !$acc&   veg_cf%core%pool_to_leaf, veg_cf%core%pool_to_leaf_storage, veg_cf%core%pool_to_livecroot, &
+    !$acc&   veg_cf%core%pool_to_livecroot_storage, veg_cf%core%pool_to_livestem, &
+    !$acc&   veg_cf%core%pool_to_livestem_storage, veg_cf%cpool_deadcroot_gr, &
+    !$acc&   veg_cf%cpool_deadcroot_storage_gr, veg_cf%cpool_deadstem_gr, veg_cf%cpool_deadstem_storage_gr, &
+    !$acc&   veg_cf%cpool_froot_gr, veg_cf%cpool_froot_storage_gr, veg_cf%cpool_grain_gr, &
+    !$acc&   veg_cf%cpool_grain_storage_gr, veg_cf%cpool_leaf_gr, veg_cf%cpool_leaf_storage_gr, &
+    !$acc&   veg_cf%cpool_livecroot_gr, veg_cf%cpool_livecroot_storage_gr, veg_cf%cpool_livestem_gr, &
+    !$acc&   veg_cf%cpool_livestem_storage_gr, veg_cf%cpool_to_gresp_storage, veg_cf%cpool_to_xsmrpool, &
+    !$acc&   veg_cf%froot_curmr, veg_cf%grain_curmr, veg_cf%gresp_storage_to_xfer, veg_cf%leaf_curmr, &
+    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr) if_present
   enddo
   end associate
   end subroutine carbon_flux_limiter
@@ -856,6 +931,32 @@ contains
   ! set time steps
   dt = real( get_step_size(), r8 )
   do fp = 1,num_soilp
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(veg_nf%core%deadcroot_storage_to_xfer, veg_nf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_nf%core%deadstem_storage_to_xfer, veg_nf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_nf%core%froot_storage_to_xfer, veg_nf%core%froot_to_litter, veg_nf%core%froot_xfer_to_froot, &
+    !$acc&   veg_nf%core%grain_to_food, veg_nf%core%grain_xfer_to_grain, veg_nf%core%leaf_storage_to_xfer, &
+    !$acc&   veg_nf%core%leaf_to_litter, veg_nf%core%leaf_xfer_to_leaf, &
+    !$acc&   veg_nf%core%livecroot_storage_to_xfer, veg_nf%core%livecroot_to_deadcroot, &
+    !$acc&   veg_nf%core%livecroot_xfer_to_livecroot, veg_nf%core%livestem_storage_to_xfer, &
+    !$acc&   veg_nf%core%livestem_to_deadstem, veg_nf%core%livestem_to_litter, &
+    !$acc&   veg_nf%core%livestem_xfer_to_livestem, veg_nf%core%pool_to_deadcroot, &
+    !$acc&   veg_nf%core%pool_to_deadcroot_storage, veg_nf%core%pool_to_deadstem, &
+    !$acc&   veg_nf%core%pool_to_deadstem_storage, veg_nf%core%pool_to_froot, &
+    !$acc&   veg_nf%core%pool_to_froot_storage, veg_nf%core%pool_to_grain, veg_nf%core%pool_to_grain_storage, &
+    !$acc&   veg_nf%core%pool_to_leaf, veg_nf%core%pool_to_leaf_storage, veg_nf%core%pool_to_livecroot, &
+    !$acc&   veg_nf%core%pool_to_livecroot_storage, veg_nf%core%pool_to_livestem, &
+    !$acc&   veg_nf%core%pool_to_livestem_storage, veg_nf%retrans%froot_to_retrans, &
+    !$acc&   veg_nf%retrans%leaf_to_retrans, veg_nf%retrans%livecroot_to_retrans, &
+    !$acc&   veg_nf%retrans%livestem_to_retrans, veg_nf%retrans%retrans_to_pool, &
+    !$acc&   veg_nf%uptake%supplement_to_plant, veg_ns%core%deadcroot, veg_ns%core%deadcroot_storage, &
+    !$acc&   veg_ns%core%deadcroot_xfer, veg_ns%core%deadstem, veg_ns%core%deadstem_storage, &
+    !$acc&   veg_ns%core%deadstem_xfer, veg_ns%core%froot, veg_ns%core%froot_storage, veg_ns%core%froot_xfer, &
+    !$acc&   veg_ns%core%grain, veg_ns%core%grain_storage, veg_ns%core%grain_xfer, veg_ns%core%leaf, &
+    !$acc&   veg_ns%core%leaf_storage, veg_ns%core%leaf_xfer, veg_ns%core%livecroot, &
+    !$acc&   veg_ns%core%livecroot_storage, veg_ns%core%livecroot_xfer, veg_ns%core%livestem, &
+    !$acc&   veg_ns%core%livestem_storage, veg_ns%core%livestem_xfer, veg_ns%core%pool, &
+    !$acc&   veg_ns%retrans%pool) if_present
     p = filter_soilp(fp)
     ystates(:) = 0._r8
     !assemble state variables
@@ -950,6 +1051,25 @@ contains
 
     !correct the fluxes
     !$acc end data
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(veg_nf%core%deadcroot_storage_to_xfer, veg_nf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_nf%core%deadstem_storage_to_xfer, veg_nf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_nf%core%froot_storage_to_xfer, veg_nf%core%froot_to_litter, veg_nf%core%froot_xfer_to_froot, &
+    !$acc&   veg_nf%core%grain_to_food, veg_nf%core%grain_xfer_to_grain, veg_nf%core%leaf_storage_to_xfer, &
+    !$acc&   veg_nf%core%leaf_to_litter, veg_nf%core%leaf_xfer_to_leaf, &
+    !$acc&   veg_nf%core%livecroot_storage_to_xfer, veg_nf%core%livecroot_to_deadcroot, &
+    !$acc&   veg_nf%core%livecroot_xfer_to_livecroot, veg_nf%core%livestem_storage_to_xfer, &
+    !$acc&   veg_nf%core%livestem_to_deadstem, veg_nf%core%livestem_to_litter, &
+    !$acc&   veg_nf%core%livestem_xfer_to_livestem, veg_nf%core%pool_to_deadcroot, &
+    !$acc&   veg_nf%core%pool_to_deadcroot_storage, veg_nf%core%pool_to_deadstem, &
+    !$acc&   veg_nf%core%pool_to_deadstem_storage, veg_nf%core%pool_to_froot, &
+    !$acc&   veg_nf%core%pool_to_froot_storage, veg_nf%core%pool_to_grain, veg_nf%core%pool_to_grain_storage, &
+    !$acc&   veg_nf%core%pool_to_leaf, veg_nf%core%pool_to_leaf_storage, veg_nf%core%pool_to_livecroot, &
+    !$acc&   veg_nf%core%pool_to_livecroot_storage, veg_nf%core%pool_to_livestem, &
+    !$acc&   veg_nf%core%pool_to_livestem_storage, veg_nf%retrans%froot_to_retrans, &
+    !$acc&   veg_nf%retrans%leaf_to_retrans, veg_nf%retrans%livecroot_to_retrans, &
+    !$acc&   veg_nf%retrans%livestem_to_retrans, veg_nf%retrans%retrans_to_pool, &
+    !$acc&   veg_nf%uptake%supplement_to_plant) if_present
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_nf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_nf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_npool_to_frootn)               , veg_nf%core%pool_to_froot(p))
@@ -1001,6 +1121,20 @@ contains
 
     rfluxes(f_retransn_to_npool)             = veg_nf%retrans%retrans_to_pool(p)
     rfluxes(f_supplement_to_plantn)          = veg_nf%uptake%supplement_to_plant(p)
+    !$acc update device(veg_nf%core%deadcroot_storage_to_xfer, veg_nf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_nf%core%deadstem_storage_to_xfer, veg_nf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_nf%core%grain_to_food, veg_nf%core%grain_xfer_to_grain, &
+    !$acc&   veg_nf%core%livecroot_storage_to_xfer, veg_nf%core%livecroot_to_deadcroot, &
+    !$acc&   veg_nf%core%livecroot_xfer_to_livecroot, veg_nf%core%livestem_storage_to_xfer, &
+    !$acc&   veg_nf%core%livestem_to_deadstem, veg_nf%core%livestem_to_litter, &
+    !$acc&   veg_nf%core%livestem_xfer_to_livestem, veg_nf%core%pool_to_deadcroot, &
+    !$acc&   veg_nf%core%pool_to_deadcroot_storage, veg_nf%core%pool_to_deadstem, &
+    !$acc&   veg_nf%core%pool_to_deadstem_storage, veg_nf%core%pool_to_froot, &
+    !$acc&   veg_nf%core%pool_to_froot_storage, veg_nf%core%pool_to_grain, veg_nf%core%pool_to_grain_storage, &
+    !$acc&   veg_nf%core%pool_to_leaf, veg_nf%core%pool_to_leaf_storage, veg_nf%core%pool_to_livecroot, &
+    !$acc&   veg_nf%core%pool_to_livecroot_storage, veg_nf%core%pool_to_livestem, &
+    !$acc&   veg_nf%core%pool_to_livestem_storage, veg_nf%retrans%froot_to_retrans, &
+    !$acc&   veg_nf%retrans%livecroot_to_retrans, veg_nf%retrans%livestem_to_retrans) if_present
 
   enddo
   end associate
@@ -1043,6 +1177,31 @@ contains
   ! set time steps
   dt = real( get_step_size(), r8 )
   do fp = 1,num_soilp
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(veg_pf%core%deadcroot_storage_to_xfer, veg_pf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_pf%core%deadstem_storage_to_xfer, veg_pf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_pf%core%froot_storage_to_xfer, veg_pf%core%froot_to_litter, veg_pf%core%froot_xfer_to_froot, &
+    !$acc&   veg_pf%core%grain_to_food, veg_pf%core%grain_xfer_to_grain, veg_pf%core%leaf_to_litter, &
+    !$acc&   veg_pf%core%leaf_xfer_to_leaf, veg_pf%core%livecroot_storage_to_xfer, &
+    !$acc&   veg_pf%core%livecroot_to_deadcroot, veg_pf%core%livecroot_xfer_to_livecroot, &
+    !$acc&   veg_pf%core%livestem_storage_to_xfer, veg_pf%core%livestem_to_deadstem, &
+    !$acc&   veg_pf%core%livestem_to_litter, veg_pf%core%livestem_xfer_to_livestem, &
+    !$acc&   veg_pf%core%pool_to_deadcroot, veg_pf%core%pool_to_deadcroot_storage, &
+    !$acc&   veg_pf%core%pool_to_deadstem, veg_pf%core%pool_to_deadstem_storage, veg_pf%core%pool_to_froot, &
+    !$acc&   veg_pf%core%pool_to_froot_storage, veg_pf%core%pool_to_grain, veg_pf%core%pool_to_grain_storage, &
+    !$acc&   veg_pf%core%pool_to_leaf, veg_pf%core%pool_to_leaf_storage, veg_pf%core%pool_to_livecroot, &
+    !$acc&   veg_pf%core%pool_to_livecroot_storage, veg_pf%core%pool_to_livestem, &
+    !$acc&   veg_pf%core%pool_to_livestem_storage, veg_pf%retrans%froot_to_retrans, &
+    !$acc&   veg_pf%retrans%leaf_to_retrans, veg_pf%retrans%livecroot_to_retrans, &
+    !$acc&   veg_pf%retrans%livestem_to_retrans, veg_pf%retrans%retrans_to_pool, &
+    !$acc&   veg_pf%uptake%supplement_to_plant, veg_ps%core%deadcroot, veg_ps%core%deadcroot_storage, &
+    !$acc&   veg_ps%core%deadcroot_xfer, veg_ps%core%deadstem, veg_ps%core%deadstem_storage, &
+    !$acc&   veg_ps%core%deadstem_xfer, veg_ps%core%froot, veg_ps%core%froot_storage, veg_ps%core%froot_xfer, &
+    !$acc&   veg_ps%core%grain, veg_ps%core%grain_storage, veg_ps%core%grain_xfer, veg_ps%core%leaf, &
+    !$acc&   veg_ps%core%leaf_storage, veg_ps%core%leaf_xfer, veg_ps%core%livecroot, &
+    !$acc&   veg_ps%core%livecroot_storage, veg_ps%core%livecroot_xfer, veg_ps%core%livestem, &
+    !$acc&   veg_ps%core%livestem_storage, veg_ps%core%livestem_xfer, veg_ps%core%pool, &
+    !$acc&   veg_ps%retrans%pool) if_present
     p = filter_soilp(fp)
     ystates(:) = 0._r8
     !assemble state variables
@@ -1137,6 +1296,24 @@ contains
       spm_nutrient_d, dt, ystates, rfluxes)
     !correct the fluxes
     !$acc end data
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(veg_pf%core%deadcroot_storage_to_xfer, veg_pf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_pf%core%deadstem_storage_to_xfer, veg_pf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_pf%core%froot_storage_to_xfer, veg_pf%core%froot_to_litter, veg_pf%core%froot_xfer_to_froot, &
+    !$acc&   veg_pf%core%grain_to_food, veg_pf%core%grain_xfer_to_grain, veg_pf%core%leaf_to_litter, &
+    !$acc&   veg_pf%core%leaf_xfer_to_leaf, veg_pf%core%livecroot_storage_to_xfer, &
+    !$acc&   veg_pf%core%livecroot_to_deadcroot, veg_pf%core%livecroot_xfer_to_livecroot, &
+    !$acc&   veg_pf%core%livestem_storage_to_xfer, veg_pf%core%livestem_to_deadstem, &
+    !$acc&   veg_pf%core%livestem_to_litter, veg_pf%core%livestem_xfer_to_livestem, &
+    !$acc&   veg_pf%core%pool_to_deadcroot, veg_pf%core%pool_to_deadcroot_storage, &
+    !$acc&   veg_pf%core%pool_to_deadstem, veg_pf%core%pool_to_deadstem_storage, veg_pf%core%pool_to_froot, &
+    !$acc&   veg_pf%core%pool_to_froot_storage, veg_pf%core%pool_to_grain, veg_pf%core%pool_to_grain_storage, &
+    !$acc&   veg_pf%core%pool_to_leaf, veg_pf%core%pool_to_leaf_storage, veg_pf%core%pool_to_livecroot, &
+    !$acc&   veg_pf%core%pool_to_livecroot_storage, veg_pf%core%pool_to_livestem, &
+    !$acc&   veg_pf%core%pool_to_livestem_storage, veg_pf%retrans%froot_to_retrans, &
+    !$acc&   veg_pf%retrans%leaf_to_retrans, veg_pf%retrans%livecroot_to_retrans, &
+    !$acc&   veg_pf%retrans%livestem_to_retrans, veg_pf%retrans%retrans_to_pool, &
+    !$acc&   veg_pf%uptake%supplement_to_plant) if_present
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_pf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_pf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_npool_to_frootn)               , veg_pf%core%pool_to_froot(p))
@@ -1187,6 +1364,23 @@ contains
     call fpmax(rfluxes(f_frootn_to_litter)              , veg_pf%core%froot_to_litter(p))
     call fpmax(rfluxes(f_retransn_to_npool)             , veg_pf%retrans%retrans_to_pool(p))
     call fpmax(rfluxes(f_supplement_to_plantn)          , veg_pf%uptake%supplement_to_plant(p))
+    !$acc update device(veg_pf%core%deadcroot_storage_to_xfer, veg_pf%core%deadcroot_xfer_to_deadcroot, &
+    !$acc&   veg_pf%core%deadstem_storage_to_xfer, veg_pf%core%deadstem_xfer_to_deadstem, &
+    !$acc&   veg_pf%core%froot_storage_to_xfer, veg_pf%core%froot_to_litter, veg_pf%core%froot_xfer_to_froot, &
+    !$acc&   veg_pf%core%grain_to_food, veg_pf%core%grain_xfer_to_grain, veg_pf%core%leaf_to_litter, &
+    !$acc&   veg_pf%core%leaf_xfer_to_leaf, veg_pf%core%livecroot_storage_to_xfer, &
+    !$acc&   veg_pf%core%livecroot_to_deadcroot, veg_pf%core%livecroot_xfer_to_livecroot, &
+    !$acc&   veg_pf%core%livestem_storage_to_xfer, veg_pf%core%livestem_to_deadstem, &
+    !$acc&   veg_pf%core%livestem_to_litter, veg_pf%core%livestem_xfer_to_livestem, &
+    !$acc&   veg_pf%core%pool_to_deadcroot, veg_pf%core%pool_to_deadcroot_storage, &
+    !$acc&   veg_pf%core%pool_to_deadstem, veg_pf%core%pool_to_deadstem_storage, veg_pf%core%pool_to_froot, &
+    !$acc&   veg_pf%core%pool_to_froot_storage, veg_pf%core%pool_to_grain, veg_pf%core%pool_to_grain_storage, &
+    !$acc&   veg_pf%core%pool_to_leaf, veg_pf%core%pool_to_leaf_storage, veg_pf%core%pool_to_livecroot, &
+    !$acc&   veg_pf%core%pool_to_livecroot_storage, veg_pf%core%pool_to_livestem, &
+    !$acc&   veg_pf%core%pool_to_livestem_storage, veg_pf%retrans%froot_to_retrans, &
+    !$acc&   veg_pf%retrans%leaf_to_retrans, veg_pf%retrans%livecroot_to_retrans, &
+    !$acc&   veg_pf%retrans%livestem_to_retrans, veg_pf%retrans%retrans_to_pool, &
+    !$acc&   veg_pf%uptake%supplement_to_plant) if_present
 
   enddo
   end associate

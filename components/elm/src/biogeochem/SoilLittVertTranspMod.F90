@@ -236,8 +236,6 @@ contains
     !-----------------------------------------------------------------------
 
     ! Set statement functions
-    ! spel acc-locals: device storage of the local work arrays
-    !$acc enter data create(conc_trcr)
     associate(                                                      &
          is_cwd           => decomp_cascade_con%is_cwd            , & ! Input:  [logical (:)    ]  TRUE => pool is a cwd pool
          spinup_factor    => decomp_cascade_con%spinup_factor     , & ! Input:  [real(r8) (:)   ]  spinup accelerated decomposition factor, used to accelerate transport as well
@@ -315,6 +313,8 @@ contains
             ncoef = 1
             icoef(:) = 1
          end if
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(cnstate_vars%som_adv_coef_col, cnstate_vars%som_diffus_coef_col) if_present
          s_rep = 0
          do s = 1, ndecomp_pools
             if ( .not. is_cwd(s) ) then
@@ -457,15 +457,22 @@ contains
                ! Build the right-hand side, store the initial concentration and
                ! source terms for the tendency calculation, and eliminate forward.
                ! The top boundary row has r = 0 and b = 1.
-               !$acc data copy(bet_coef)
+               !$acc data copy(bet_coef, conc_trcr)
                !$acc parallel loop gang vector default(present)
                do fc = 1, num_soilc
                   conc_trcr(fc,0) = 0._r8 / bet_coef(fc,0,l)
                end do
                !$acc end data
-               !$acc data copy(a_coef, bet_coef, r_coef)
-               !$acc parallel loop gang vector collapse(2) default(present) &
-               !$acc   private(c, conc_old, r_tri)
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(c13_col_cf%core%decomp_pools_sourcesink, &
+               !$acc&   c13_col_cf%core%decomp_pools_transport_tendency, c13_col_cs%core%decomp_pools_vr, &
+               !$acc&   c14_col_cf%core%decomp_pools_sourcesink, &
+               !$acc&   c14_col_cf%core%decomp_pools_transport_tendency, c14_col_cs%core%decomp_pools_vr, &
+               !$acc&   col_cf%core%decomp_pools_sourcesink, col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_cs%core%decomp_pools_vr, col_nf%core%decomp_pools_sourcesink, &
+               !$acc&   col_nf%core%decomp_pools_transport_tendency, col_ns%core%decomp_pools_vr, &
+               !$acc&   col_pf%core%decomp_pools_sourcesink, col_pf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_ps%core%decomp_pools_vr) if_present
                do j = 1, nlevdecomp
                   do fc = 1, num_soilc
                      c = filter_soilc (fc)
@@ -476,9 +483,13 @@ contains
                      conc_trcr(fc,j) = (r_tri - a_coef(fc,j,l)*conc_trcr(fc,j-1)) / bet_coef(fc,j,l)
                   end do
                end do
-               !$acc end data
+               !$acc update device(c13_col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   c14_col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_nf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_pf%core%decomp_pools_transport_tendency) if_present
                ! The bottom boundary row has r = 0.
-               !$acc data copy(a_coef, bet_coef)
+               !$acc data copy(a_coef, bet_coef, conc_trcr)
                !$acc parallel loop gang vector default(present)
                do fc = 1, num_soilc
                   conc_trcr(fc,nlevdecomp+1) = (0._r8 - a_coef(fc,nlevdecomp+1,l)*conc_trcr(fc,nlevdecomp)) &
@@ -488,8 +499,13 @@ contains
 
                ! Back substitution. Level j is final once it is reached, so add the
                ! post-transport concentration to the tendency term and store it.
-               !$acc data copy(gam_coef)
-               !$acc parallel loop gang vector collapse(2) default(present) private(c)
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(c13_col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   c13_col_cs%core%decomp_pools_vr, c14_col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   c14_col_cs%core%decomp_pools_vr, col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_cs%core%decomp_pools_vr, col_nf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_ns%core%decomp_pools_vr, col_pf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_ps%core%decomp_pools_vr) if_present
                do j = nlevdecomp,1,-1
                   do fc = 1, num_soilc
                      c = filter_soilc (fc)
@@ -499,7 +515,12 @@ contains
                      transport_ptr_list(i_type)%conc_ptr(c,j,s) = conc_trcr(fc,j)
                   end do
                end do
-               !$acc end data
+               !$acc update device(c13_col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   c13_col_cs%core%decomp_pools_vr, c14_col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   c14_col_cs%core%decomp_pools_vr, col_cf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_cs%core%decomp_pools_vr, col_nf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_ns%core%decomp_pools_vr, col_pf%core%decomp_pools_transport_tendency, &
+               !$acc&   col_ps%core%decomp_pools_vr) if_present
             end do ! s (pool loop)
 
          else !use_vertsoilc?
@@ -527,7 +548,6 @@ contains
    
     end associate
 
-    !$acc exit data delete(conc_trcr)
   end subroutine SoilLittVertTransp
 
   subroutine calc_diffus_advflux(spinup_term, year, som_diffus_coef, som_adv_coef,&

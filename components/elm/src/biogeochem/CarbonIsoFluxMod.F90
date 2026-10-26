@@ -858,6 +858,10 @@ contains
 
       ! calculate the column-level flux of deadstem and deadcrootc to cwdc as the result of fire mortality.
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%leaf_prof_patch, &
+      !$acc&   cnstate_vars%stem_prof_patch, isoveg_cf%core%m_deadcroot_to_litter_fire, &
+      !$acc&   isoveg_cf%core%m_deadstem_to_litter_fire, isoveg_cf%core%m_pool_to_litter_fire) if_present
       do pi = 1,max_patch_per_col
          do fc = 1,num_soilc
             cc = filter_soilc(fc)
@@ -880,6 +884,7 @@ contains
             end if
          end do
       end do
+      !$acc update device(isocol_cf%core%fire_mortality_to_cwd) if_present
 
 
       !$acc parallel loop gang vector default(present) private(cc, j, l)
@@ -1275,6 +1280,8 @@ contains
           end do
        end do
 
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(veg_cf%core%hrv_deadstem_to_prod10, veg_cf%core%hrv_deadstem_to_prod100) if_present
        do pi = 1,maxpatch_pft
           do fc = 1,num_soilc
              c = filter_soilc(fc)
@@ -1290,6 +1297,7 @@ contains
              end if
           end do
        end do
+       !$acc update device(col_cf%core%hrv_deadstem_to_prod10, col_cf%core%hrv_deadstem_to_prod100) if_present
 
      end associate
 

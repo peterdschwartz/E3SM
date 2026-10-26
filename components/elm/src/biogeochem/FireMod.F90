@@ -269,6 +269,13 @@ contains
            deadstemc(bounds%begp:bounds%endp), &
            deadstemc_col(bounds%begc:bounds%endc))
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(cnstate_vars%lfc_col, col_cs%core%decomp_pools_vr, col_cs%core%totlit, &
+      !$acc&   col_cs%core%totveg, col_cs%deadstemc, col_cs%leafc, veg_cs%core%deadcroot, &
+      !$acc&   veg_cs%core%deadcroot_storage, veg_cs%core%deadcroot_xfer, veg_cs%core%froot, &
+      !$acc&   veg_cs%core%froot_storage, veg_cs%core%froot_xfer, veg_cs%core%leaf, veg_cs%core%leaf_storage, &
+      !$acc&   veg_cs%core%leaf_xfer, veg_cs%core%livecroot, veg_cs%core%livecroot_storage, &
+      !$acc&   veg_cs%core%livecroot_xfer) if_present
       dt = dtime_mod        ! time step variable (s)
       dayspyr = dayspyr_mod ! days per year
       kyr = year_curr   ; kmo   = mon_curr;
@@ -288,6 +295,13 @@ contains
            fbac1(c)        = 0._r8
            cropf_col(c)    = 0._r8
         end do
+        !$acc update device(cnstate_vars%baf_crop_col, cnstate_vars%baf_peatf_col, &
+        !$acc&   cnstate_vars%burndate_patch, cnstate_vars%cropf_col, cnstate_vars%dtrotr_col, &
+        !$acc&   cnstate_vars%farea_burned_col, cnstate_vars%fbac1_col, cnstate_vars%fbac_col, &
+        !$acc&   cnstate_vars%fd_col, cnstate_vars%fsr_col, cnstate_vars%lfc_col, cnstate_vars%lfwt_col, &
+        !$acc&   cnstate_vars%lgdp1_col, cnstate_vars%lgdp_col, cnstate_vars%lpop_col, &
+        !$acc&   cnstate_vars%nfire_col, cnstate_vars%trotr1_col, cnstate_vars%trotr2_col, &
+        !$acc&   cnstate_vars%wtlf_col, col_cs%fuelc, col_cs%fuelc_crop, col_cs%rootc) if_present
         return
      end if
      !
@@ -661,6 +675,13 @@ contains
         end if
 
      end do  ! end of column loop
+      !$acc update device(cnstate_vars%baf_crop_col, cnstate_vars%baf_peatf_col, cnstate_vars%burndate_patch, &
+      !$acc&   cnstate_vars%cropf_col, cnstate_vars%dtrotr_col, cnstate_vars%farea_burned_col, &
+      !$acc&   cnstate_vars%fbac1_col, cnstate_vars%fbac_col, cnstate_vars%fd_col, cnstate_vars%fsr_col, &
+      !$acc&   cnstate_vars%lfc_col, cnstate_vars%lfwt_col, cnstate_vars%lgdp1_col, cnstate_vars%lgdp_col, &
+      !$acc&   cnstate_vars%lpop_col, cnstate_vars%nfire_col, cnstate_vars%trotr1_col, &
+      !$acc&   cnstate_vars%trotr2_col, cnstate_vars%wtlf_col, col_cs%fuelc, col_cs%fuelc_crop, &
+      !$acc&   col_cs%rootc) if_present
 
    end associate
 
@@ -1259,6 +1280,40 @@ contains
 
      ! fire-induced transfer of carbon and nitrogen pools to litter and cwd
      ! add phosphorus transfer fluxes -X.YANG
+     ! spel acc-sync: device data this host code uses
+     !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
+     !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%stem_prof_patch, &
+     !$acc&   veg_cf%core%m_deadcroot_storage_to_litter_fire, veg_cf%core%m_deadcroot_to_litter_fire, &
+     !$acc&   veg_cf%core%m_deadcroot_xfer_to_litter_fire, veg_cf%core%m_deadstem_storage_to_litter_fire, &
+     !$acc&   veg_cf%core%m_deadstem_to_litter_fire, veg_cf%core%m_deadstem_xfer_to_litter_fire, &
+     !$acc&   veg_cf%core%m_froot_storage_to_litter_fire, veg_cf%core%m_froot_to_litter_fire, &
+     !$acc&   veg_cf%core%m_froot_xfer_to_litter_fire, veg_cf%core%m_leaf_storage_to_litter_fire, &
+     !$acc&   veg_cf%core%m_leaf_to_litter_fire, veg_cf%core%m_leaf_xfer_to_litter_fire, &
+     !$acc&   veg_cf%core%m_livecroot_storage_to_litter_fire, veg_cf%core%m_livecroot_to_litter_fire, &
+     !$acc&   veg_cf%core%m_livecroot_xfer_to_litter_fire, veg_cf%core%m_livestem_storage_to_litter_fire, &
+     !$acc&   veg_cf%core%m_livestem_to_litter_fire, veg_cf%core%m_livestem_xfer_to_litter_fire, &
+     !$acc&   veg_cf%core%m_pool_to_litter_fire, veg_cf%m_gresp_storage_to_litter_fire, &
+     !$acc&   veg_cf%m_gresp_xfer_to_litter_fire, veg_nf%core%m_deadcroot_storage_to_litter_fire, &
+     !$acc&   veg_nf%core%m_deadcroot_to_litter_fire, veg_nf%core%m_deadcroot_xfer_to_litter_fire, &
+     !$acc&   veg_nf%core%m_deadstem_storage_to_litter_fire, veg_nf%core%m_deadstem_to_litter_fire, &
+     !$acc&   veg_nf%core%m_deadstem_xfer_to_litter_fire, veg_nf%core%m_froot_storage_to_litter_fire, &
+     !$acc&   veg_nf%core%m_froot_to_litter_fire, veg_nf%core%m_froot_xfer_to_litter_fire, &
+     !$acc&   veg_nf%core%m_leaf_storage_to_litter_fire, veg_nf%core%m_leaf_to_litter_fire, &
+     !$acc&   veg_nf%core%m_leaf_xfer_to_litter_fire, veg_nf%core%m_livecroot_storage_to_litter_fire, &
+     !$acc&   veg_nf%core%m_livecroot_to_litter_fire, veg_nf%core%m_livecroot_xfer_to_litter_fire, &
+     !$acc&   veg_nf%core%m_livestem_storage_to_litter_fire, veg_nf%core%m_livestem_to_litter_fire, &
+     !$acc&   veg_nf%core%m_livestem_xfer_to_litter_fire, veg_nf%core%m_pool_to_litter_fire, &
+     !$acc&   veg_nf%retrans%m_retrans_to_litter_fire, veg_pf%core%m_deadcroot_storage_to_litter_fire, &
+     !$acc&   veg_pf%core%m_deadcroot_to_litter_fire, veg_pf%core%m_deadcroot_xfer_to_litter_fire, &
+     !$acc&   veg_pf%core%m_deadstem_storage_to_litter_fire, veg_pf%core%m_deadstem_to_litter_fire, &
+     !$acc&   veg_pf%core%m_deadstem_xfer_to_litter_fire, veg_pf%core%m_froot_storage_to_litter_fire, &
+     !$acc&   veg_pf%core%m_froot_to_litter_fire, veg_pf%core%m_froot_xfer_to_litter_fire, &
+     !$acc&   veg_pf%core%m_leaf_storage_to_litter_fire, veg_pf%core%m_leaf_to_litter_fire, &
+     !$acc&   veg_pf%core%m_leaf_xfer_to_litter_fire, veg_pf%core%m_livecroot_storage_to_litter_fire, &
+     !$acc&   veg_pf%core%m_livecroot_to_litter_fire, veg_pf%core%m_livecroot_xfer_to_litter_fire, &
+     !$acc&   veg_pf%core%m_livestem_storage_to_litter_fire, veg_pf%core%m_livestem_to_litter_fire, &
+     !$acc&   veg_pf%core%m_livestem_xfer_to_litter_fire, veg_pf%core%m_pool_to_litter_fire, &
+     !$acc&   veg_pf%retrans%m_retrans_to_litter_fire) if_present
      do fp = 1,num_soilp
        p = filter_soilp(fp)
        c = veg_pp%column(p)
@@ -1375,6 +1430,12 @@ contains
 
         end do
      end do
+     !$acc update device(col_cf%core%fire_mortality_to_cwd, col_cf%core%m_to_litr_cel_fire, &
+     !$acc&   col_cf%core%m_to_litr_lig_fire, col_cf%core%m_to_litr_met_fire, &
+     !$acc&   col_nf%core%fire_mortality_to_cwd, col_nf%core%m_to_litr_cel_fire, &
+     !$acc&   col_nf%core%m_to_litr_lig_fire, col_nf%core%m_to_litr_met_fire, &
+     !$acc&   col_pf%core%fire_mortality_to_cwd, col_pf%core%m_to_litr_cel_fire, &
+     !$acc&   col_pf%core%m_to_litr_lig_fire, col_pf%core%m_to_litr_met_fire) if_present
      !
      ! vertically-resolved decomposing C/N fire loss
      ! column loop

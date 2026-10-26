@@ -820,6 +820,10 @@ contains
         end do
      end do
    
+     ! spel acc-sync: device data this host code uses
+     !$acc update self(veg_cf%core%hrv_deadstem_to_prod10, veg_cf%core%hrv_deadstem_to_prod100, &
+     !$acc&   veg_nf%core%hrv_deadstem_to_prod10, veg_nf%core%hrv_deadstem_to_prod100, &
+     !$acc&   veg_pf%core%hrv_deadstem_to_prod10, veg_pf%core%hrv_deadstem_to_prod100) if_present
      do pi = 1,maxpatch_pft
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -856,6 +860,9 @@ contains
         end do
 
      end do
+     !$acc update device(col_cf%core%hrv_deadstem_to_prod10, col_cf%core%hrv_deadstem_to_prod100, &
+     !$acc&   col_nf%core%hrv_deadstem_to_prod10, col_nf%core%hrv_deadstem_to_prod100, &
+     !$acc&   col_pf%core%hrv_deadstem_to_prod10, col_pf%core%hrv_deadstem_to_prod100) if_present
 
    end associate 
 

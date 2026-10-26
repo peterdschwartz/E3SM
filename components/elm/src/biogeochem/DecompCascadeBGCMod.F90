@@ -694,8 +694,6 @@ contains
     !----- CENTURY T response function
     catanf(t1) = 11.75_r8 +(29.7_r8 / SHR_CONST_PI) * atan( SHR_CONST_PI * 0.031_r8  * ( t1 - 15.4_r8 ))
 
-    ! spel acc-locals: device storage of the local work arrays
-    !$acc enter data create(depth_scalar)
     associate(                                             &
          sucsat         => soilstate_vars%sucsat_col     , & ! Input:  [real(r8) (:,:)   ]  minimum soil suction (mm)
          soilpsi        => soilstate_vars%soilpsi_col    , & ! Input:  [real(r8) (:,:)   ]  soil water potential in each soil layer (MPa)
@@ -795,6 +793,7 @@ contains
          k_s2 = k_s2 * DecompBGCParamsInst%spinup_vector(2)
          k_s3 = k_s3 * DecompBGCParamsInst%spinup_vector(3)
       endif
+      !$acc update device(decomp_cascade_con%decomp_k_pools) if_present
 
       !--- time dependent coefficients-----!
       if ( nlevdecomp .eq. 1 ) then
@@ -814,6 +813,7 @@ contains
                frw(c) = frw(c) + col_pp%dz(c,j)
             end do
          end do
+         !$acc update device(nlev_soildecomp_standard) if_present
          !$acc data copy(fr, frw)
          !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlev_soildecomp_standard
@@ -828,6 +828,8 @@ contains
          end do
          !$acc end data
 
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_cf%t_scalar, col_cf%w_scalar) if_present
          if ( .not. use_century_tfunc ) then
             ! calculate rate constant scalar for soil temperature
             ! assuming that the base rate constants are assigned for non-moisture
@@ -882,6 +884,7 @@ contains
                end if
             end do
          end do
+         !$acc update device(col_cf%t_scalar, col_cf%w_scalar) if_present
 
          if (use_lch4) then
             if (anoxia_wtsat) then ! Adjust for saturated fraction if unfrozen
@@ -895,6 +898,8 @@ contains
             end if
          end if
 
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_cf%o_scalar) if_present
          if (use_lch4) then
             ! Calculate ANOXIA
             if (anoxia) then
@@ -923,6 +928,7 @@ contains
          end if
 
          deallocate(fr)
+         !$acc update device(col_cf%o_scalar) if_present
 
       else
 
@@ -1008,10 +1014,16 @@ contains
                   end do
                end do
             else
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(col_cf%o_scalar) if_present
                o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
+               !$acc update device(col_cf%o_scalar) if_present
             end if
          else
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_cf%o_scalar) if_present
             o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
+            !$acc update device(col_cf%o_scalar) if_present
          end if
 
       end if
@@ -1031,6 +1043,7 @@ contains
       if (use_vertsoilc) then
          ! add a term to reduce decomposition rate at depth
          ! for now used a fixed e-folding depth
+         !$acc data copy(depth_scalar)
          !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
@@ -1038,10 +1051,12 @@ contains
                depth_scalar(c,j) = exp(-zsoi(j)/decomp_depth_efolding)
             end do
          end do
+         !$acc end data
       end if
 
       !Calcluate location and depth-specific acceleration factors
-      !$acc parallel loop gang vector default(present) private(c)
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(col_cf%o_scalar, col_cf%t_scalar, col_cf%w_scalar) if_present
       do fc=1,num_soilc
           c = filter_soilc(fc)
           if (year < 20 .and. spinup_state == 1) then
@@ -1056,8 +1071,10 @@ contains
               end if
           end if
       end do
+      !$acc update device(cnstate_vars%scalaravg_col) if_present
 
       if (use_vertsoilc) then
+         !$acc data copy(depth_scalar)
          !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
@@ -1070,6 +1087,8 @@ contains
                decomp_k(c,j,i_soil3) = k_s3    * t_scalar(c,j) * w_scalar(c,j) * depth_scalar(c,j) * o_scalar(c,j)
             end do
          end do
+         !$acc end data
+         !$acc data copy(depth_scalar)
          !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
              do fc = 1,num_soilc
@@ -1077,6 +1096,7 @@ contains
                  decomp_k(c,j,i_cwd)   = k_frag  * t_scalar(c,j) * w_scalar(c,j) * depth_scalar(c,j) * o_scalar(c,j)
              end do
          end do
+         !$acc end data
      else
          !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
@@ -1125,7 +1145,6 @@ contains
 
     end associate
 
-    !$acc exit data delete(depth_scalar)
  end subroutine decomp_rate_constants_bgc
 
 end module DecompCascadeBGCMod

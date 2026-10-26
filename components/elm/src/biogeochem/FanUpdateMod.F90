@@ -251,6 +251,8 @@ contains
          veg_nf%synthfert(bounds%begp:bounds%endp), &
          col_nf%fert_n_appl(bounds%begc:bounds%endc))
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_nf%fert_n_appl, col_nf%manure_n_appl) if_present
     if (do_balance_checks) then
        nstored_old = get_total_n('pools_storage')
        nsoilman_old = get_total_n('pools_manure')
@@ -283,6 +285,7 @@ contains
     if (any(isnan(col_nf%manure_n_appl))) then
        call endrun('nan man n appl before storage')
     end if
+    !$acc update device(col_nf%manure_n_grz) if_present
 
     call handle_storage(bounds, frictionvel_vars, dt, &
          atm2lnd_vars%forc_ndep_mgrz_grc, & 
@@ -295,6 +298,8 @@ contains
          fract_tan, &
          filter_soilc, num_soilc)
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_nf%fert_n_appl, col_nf%manure_n_appl, col_nf%manure_tan_appl) if_present
     if (debug_fan) then
        if (any(isnan(col_nf%nh3_stores))) then
           call endrun('nan nh3 stores')
@@ -595,6 +600,14 @@ contains
        call balance_check('Fertilizer', nsoilfert_old, &
             get_total_n('pools_fertilizer'), get_total_n('fluxes_fertilizer'))
     end if
+    !$acc update device(col_nf%fert_nh4_runoff, col_nf%fert_nh4_to_soil, col_nf%fert_no3_to_soil, &
+    !$acc&   col_nf%manure_nh4_runoff, col_nf%manure_nh4_to_soil, col_nf%manure_no3_to_soil, col_nf%nh3_fert, &
+    !$acc&   col_nf%nh3_grz, col_nf%nh3_manure_app, col_nf%nh3_otherfert, col_nf%nh3_total, &
+    !$acc&   col_nf%otherfert_n_appl, col_ns%fan_grz_fract, col_ns%fert_u1, col_ns%fert_u2, &
+    !$acc&   col_ns%manure_a_app, col_ns%manure_a_grz, col_ns%manure_r_app, col_ns%manure_r_grz, &
+    !$acc&   col_ns%manure_u_app, col_ns%manure_u_grz, col_ns%tan_f1, col_ns%tan_f2, col_ns%tan_f3, &
+    !$acc&   col_ns%tan_f4, col_ns%tan_g1, col_ns%tan_g2, col_ns%tan_g3, col_ns%tan_s0, col_ns%tan_s1, &
+    !$acc&   col_ns%tan_s2, col_ns%tan_s3) if_present
 
     call update_summary(filter_soilc, num_soilc)
 
@@ -769,6 +782,8 @@ contains
        n_manure_spread(c) = 0.0_r8
     end do
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(n_manure_spread, tan_manure_spread) if_present
     do g = begg, endg
        ! First find out if there are grasslands in this cell. If yes, a fraction of manure
        ! can be diverted to them before storage. At this time, we assume that the
@@ -873,6 +888,8 @@ contains
        end if
 
     end do ! grid
+    !$acc update device(grz_fract, manure_n_barns, manure_n_transf, n_manure_graze, n_manure_mixed, &
+    !$acc&   n_manure_spread, nh3_flux_barns, nh3_flux_stores, tan_manure_spread) if_present
   end associate
   end subroutine handle_storage
 

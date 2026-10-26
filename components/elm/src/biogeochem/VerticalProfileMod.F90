@@ -123,6 +123,10 @@ contains
          !$acc end data
 
          ! initialize profiles to zero
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
+         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
+         !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
          leaf_prof(begp:endp, :)      = 0._r8
          froot_prof(begp:endp, :)     = 0._r8
          croot_prof(begp:endp, :)     = 0._r8
@@ -133,6 +137,9 @@ contains
 
          cinput_rootfr(begp:endp, :)     = 0._r8
          col_cinput_rootfr(begc:endc, :) = 0._r8
+         !$acc update device(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
+         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
+         !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
 
          if ( exponential_rooting_profile ) then
             if ( .not. pftspecific_rootingprofile ) then
@@ -312,6 +319,10 @@ contains
       else
 
          ! for one layer decomposition model, set profiles to unity
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
+         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
+         !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
          leaf_prof(begp:endp, :) = 1._r8
          froot_prof(begp:endp, :) = 1._r8
          croot_prof(begp:endp, :) = 1._r8
@@ -319,10 +330,17 @@ contains
          nfixation_prof(begc:endc, :) = 1._r8
          ndep_prof(begc:endc, :) = 1._r8
          pdep_prof(begc:endc, :) = 1._r8
+         !$acc update device(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
+         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
+         !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
 
       end if
 
       ! check to make sure integral of all profiles = 1.
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
+      !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
+      !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          ndep_prof_sum = 0._r8

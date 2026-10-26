@@ -531,6 +531,8 @@ contains
 
 
     ! set initial values for potential C and N fluxes
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_pf%biochem_pmin_ppools_vr) if_present
     biochem_pmin_ppools_vr_col(bounds%begc : bounds%endc, :, :) = 0._r8
 
     if(use_fates) then
@@ -543,14 +545,18 @@ contains
        biochem_pmin_to_plant_patch(bounds%begp:bounds%endp) = 0._r8
     end if
     biochem_pmin_to_plant_vr_patch(:,:) = 0._r8
+    !$acc update device(col_pf%biochem_pmin_ppools_vr, veg_pf%biochem_pmin_to_plant) if_present
 
     do fc = 1,num_soilc
+        ! spel acc-sync: device data this host code uses
+        !$acc update self(col_pf%biochem_pmin_vr) if_present
         c = filter_soilc(fc)
 
 
         biochem_pmin_vr(c,:) = 0.0_r8
         biochem_pmin_to_ecosysp_vr_col_pot(c,:) = 0._r8
         biochem_pmin_to_plant(c) = 0._r8
+        !$acc update device(col_pf%biochem_pmin_to_plant, col_pf%biochem_pmin_vr) if_present
 
         if(use_fates) then
            s = alm_fates%f2hmap(ci)%hsites(c)
@@ -610,6 +616,8 @@ contains
 
         do j = 1,nlevdecomp
             ! sum total
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_ps%core%decomp_pools_vr) if_present
             sop_tot = 0._r8
             do l = 1,ndecomp_pools
                 if (is_soil(l)) then
@@ -724,6 +732,7 @@ contains
                               biochem_pmin_to_plant_patch(p)*veg_pp%wtcol(p)
                     end if
                 end do
+                !$acc update device(col_pf%biochem_pmin_to_plant, veg_pf%biochem_pmin_to_plant) if_present
             else
                 !$acc parallel loop gang vector default(present)
                 do j = 1,nlevdecomp

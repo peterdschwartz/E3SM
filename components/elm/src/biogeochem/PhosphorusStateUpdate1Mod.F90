@@ -175,6 +175,9 @@ contains
       end if
 
       ! decomposition fluxes
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(col_pf%core%decomp_cascade_transfer_vr, col_pf%core%decomp_pools_sourcesink, &
+      !$acc&   col_pf%mineral%decomp_cascade_smin_flux_vr) if_present
       do k = 1, ndecomp_cascade_transitions
          do j = 1, nlevdecomp
             ! column loop
@@ -215,6 +218,7 @@ contains
 
       ! forest fertilization
       call get_curr_date(kyr, kmo, kda, mcsec)
+      !$acc update device(col_pf%core%decomp_pools_sourcesink) if_present
       if (forest_fert_exp) then
          !$acc parallel loop gang vector default(present) private(c, j)
          do fc = 1,num_soilc

@@ -114,6 +114,8 @@ contains
          )
 
       !initialize to 0
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(soilstate_vars%root_depth_patch) if_present
       w_limit(bounds%begp:bounds%endp)              = 0._r8
       sumrswa(bounds%begp:bounds%endp)              = 0._r8
       sumrsmn(bounds%begp:bounds%endp)              = 0._r8
@@ -123,6 +125,7 @@ contains
       frootc_dz(bounds%begp:bounds%endp,1:nlevgrnd) = 0._r8
       root_depth(bounds%begp:bounds%endp)           = 0._r8
       rootfr_coarse(bounds%begp:bounds%endp,1:nlevgrnd) = 0._r8
+      !$acc update device(soilstate_vars%root_depth_patch) if_present
 
       !---------------------------------------------------------------
       ! Set root depth, dynamic for crops, fixed for other vegetation

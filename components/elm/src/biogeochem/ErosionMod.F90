@@ -111,6 +111,14 @@ contains
          dt = dtime_mod
          ! soil col filters
          do fc = 1, num_soilc
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_cf%core%decomp_pools_deposit, col_cf%core%decomp_pools_erode, &
+            !$acc&   col_cf%core%decomp_pools_yield_vr, col_cs%core%decomp_pools_vr, &
+            !$acc&   col_nf%core%decomp_pools_deposit, col_nf%core%decomp_pools_erode, &
+            !$acc&   col_nf%core%decomp_pools_yield_vr, col_ns%core%decomp_pools_vr, &
+            !$acc&   col_pf%core%decomp_pools_deposit, col_pf%core%decomp_pools_erode, &
+            !$acc&   col_pf%core%decomp_pools_yield_vr, col_ps%core%decomp_pools_vr, col_ps%labilep_vr, &
+            !$acc&   col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present
             c = filter_soilc(fc)
 
             ! initialization
@@ -230,6 +238,14 @@ contains
                dm = dm - ptot*dzsoi_decomp(j)
                kp = kp + 1
             end do
+            !$acc update device(col_cf%core%decomp_pools_deposit, col_cf%core%decomp_pools_erode, &
+            !$acc&   col_cf%core%decomp_pools_yield_vr, col_nf%core%decomp_pools_deposit, &
+            !$acc&   col_nf%core%decomp_pools_erode, col_nf%core%decomp_pools_yield_vr, &
+            !$acc&   col_pf%core%decomp_pools_deposit, col_pf%core%decomp_pools_erode, &
+            !$acc&   col_pf%core%decomp_pools_yield_vr, col_pf%labilep_deposit, col_pf%labilep_erode, &
+            !$acc&   col_pf%labilep_yield_vr, col_pf%occlp_deposit, col_pf%occlp_erode, &
+            !$acc&   col_pf%occlp_yield_vr, col_pf%primp_deposit, col_pf%primp_erode, col_pf%primp_yield_vr, &
+            !$acc&   col_pf%secondp_deposit, col_pf%secondp_erode, col_pf%secondp_yield_vr) if_present
 
             ! particulate C loss
             if ( soc_yld > 0._r8 .and. kc <= nlevdecomp) then
@@ -370,6 +386,9 @@ contains
                            decomp_ppools_vr_new(l) = decomp_ppools_vr(c,j,l)
                         end if
                      end do
+                     ! spel acc-sync: device data this host code uses
+                     !$acc update self(col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, &
+                     !$acc&   col_ps%secondp_vr) if_present
                      if ( all(labilep_vr(c,:)>=0._r8) ) then
                         if (k1<=nlevdecomp) then
                            labilep_vr_new = labilep_vr(c,k1)
@@ -420,6 +439,9 @@ contains
                            decomp_ppools_vr_new(l) = decomp_ppools_vr(c,j,l)
                         end if
                      end do
+                     ! spel acc-sync: device data this host code uses
+                     !$acc update self(col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, &
+                     !$acc&   col_ps%secondp_vr) if_present
                      if ( all(labilep_vr(c,:)>=0._r8) ) then
                         if (k2<=nlevdecomp) then
                            labilep_vr_new = labilep_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j) + &
@@ -472,6 +494,9 @@ contains
                            ppools_yield_vr(c,j,l)*dzsoi_decomp(j)
                      end if
                   end do
+                  ! spel acc-sync: device data this host code uses
+                  !$acc update self(col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, &
+                  !$acc&   col_ps%secondp_vr) if_present
                   labilep_yield_vr(c,j) = (labilep_vr(c,j)-labilep_vr_new)/dt
                   labilep_erode(c) = labilep_erode(c) + labilep_yield_vr(c,j)* &
                      dzsoi_decomp(j)*dm_ero/dm_yld
@@ -497,6 +522,10 @@ contains
                      primp_yield_vr(c,j)*dzsoi_decomp(j)
 
                   k1 = k2     ! update top index
+                  !$acc update device(col_pf%labilep_deposit, col_pf%labilep_erode, col_pf%labilep_yield_vr, &
+                  !$acc&   col_pf%occlp_deposit, col_pf%occlp_erode, col_pf%occlp_yield_vr, &
+                  !$acc&   col_pf%primp_deposit, col_pf%primp_erode, col_pf%primp_yield_vr, &
+                  !$acc&   col_pf%secondp_deposit, col_pf%secondp_erode, col_pf%secondp_yield_vr) if_present
                end do
             end if
 

@@ -2583,7 +2583,6 @@ contains
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
 
     if(.not.use_fates) then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_patch,flux_setvalues_block_size
           associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
           this%leaf_mr(idx)                             = value_patch
@@ -2650,7 +2649,6 @@ contains
     end if !(.not.use_fates)
 
     if ( crop_prog )then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_patch,flux_setvalues_block_size
           associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
           this%xsmrpool_to_atm(idx)         = value_patch
@@ -2666,7 +2664,6 @@ contains
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
     if (do_zero_harvest) then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_patch,flux_setvalues_block_size
           associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
           this%hrv_gresp_storage_to_litter(idx)      = value_patch
@@ -2994,7 +2991,6 @@ contains
     do_zero_harvest = .true.
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
 
-    !$acc parallel loop gang vector default(present)
     do fi = 1,num_patch,flux_setvalues_block_size
        associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
        this%retrans%leaf_to_retrans(idx)                   = value_patch
@@ -3015,7 +3011,6 @@ contains
     end do
 
     if ( crop_prog )then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_patch,flux_setvalues_block_size
           associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
           this%soyfixn(idx)                          = value_patch
@@ -3027,7 +3022,6 @@ contains
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
     if (do_zero_harvest) then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_patch,flux_setvalues_block_size
           associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
           this%retrans%hrv_retrans_to_litter(idx)           = value_patch
@@ -3481,7 +3475,6 @@ contains
     call vegetation_nutrient_flux_setvalues(this%core, num_patch, filter_patch, value_patch)
     do_zero_harvest = .true.
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
-    !$acc parallel loop gang vector default(present)
     do fi = 1,num_patch,flux_setvalues_block_size
        associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
        this%retrans%leaf_to_retrans(idx)                   = value_patch
@@ -3501,7 +3494,6 @@ contains
     end do
 
     if ( crop_prog )then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_patch,flux_setvalues_block_size
           associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
           this%retrans%froot_to_retrans(idx)               = value_patch
@@ -3513,7 +3505,6 @@ contains
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
     if (do_zero_harvest) then
-       !$acc parallel loop gang vector default(present)
        do fi = 1,num_patch,flux_setvalues_block_size
           associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
           this%retrans%hrv_retrans_to_litter(idx)           = value_patch

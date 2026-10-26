@@ -203,6 +203,8 @@ contains
 
       ! soil and patch loop for fine root
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(soilstate_vars%rootfr_patch, veg_ns%core%froot) if_present
       do j = 1,nlevgrnd
          do fp = 1,num_soilp
             p = filter_soilp(fp)
@@ -217,6 +219,7 @@ contains
             froot_mr(p) = froot_mr(p) + frootn(p)*br_mr*tcsoi(c,j)*rootfr(p,j)
          end do
       end do
+      !$acc update device(veg_cf%froot_mr) if_present
 
     end associate
 

@@ -289,6 +289,17 @@ contains
          soilstate_vars, atm2lnd_vars, cnstate_vars &
          )
 
+   ! spel acc-sync: device data this host code uses
+   !$acc update self(cnstate_vars%bglfr_froot_patch, cnstate_vars%bglfr_leaf_patch, cnstate_vars%bgtr_patch, &
+   !$acc&   cnstate_vars%gddmaturity_patch, cnstate_vars%huileaf_patch, cnstate_vars%lgsf_patch, &
+   !$acc&   cnstate_vars%offset_counter_patch, cnstate_vars%offset_flag_patch, &
+   !$acc&   cnstate_vars%onset_counter_patch, cnstate_vars%onset_flag_patch, crop_vars%croplive_patch, &
+   !$acc&   crop_vars%crpyld_patch, crop_vars%dmyield_patch, crop_vars%harvdate_patch, &
+   !$acc&   crop_vars%harvday_patch, veg_cf%core%crop_seed_to_leaf, veg_cf%core%leaf_to_litter, &
+   !$acc&   veg_cs%core%leaf, veg_cs%core%leaf_xfer, veg_es%gdd020, veg_es%gdd1020, veg_es%gdd820, &
+   !$acc&   veg_nf%core%crop_seed_to_leaf, veg_nf%core%leaf_to_litter, veg_nf%fert_counter, veg_nf%manure, &
+   !$acc&   veg_nf%synthfert, veg_ns%core%leaf_xfer, veg_pf%core%crop_seed_to_leaf, veg_pf%fert_p, &
+   !$acc&   veg_ps%core%leaf_xfer) if_present
    if (num_pcropp > 0 ) then
        call CropPlantDate(num_soilp, filter_soilp, num_pcropp, filter_pcropp,&
             cnstate_vars, crop_vars, solarabs_vars)
@@ -299,6 +310,24 @@ contains
             crop_vars, canopystate_vars, cnstate_vars &
             )
     end if
+   !$acc update device(cnstate_vars%bglfr_froot_patch, cnstate_vars%bglfr_leaf_patch, &
+   !$acc&   cnstate_vars%bgtr_patch, cnstate_vars%cumvd_patch, cnstate_vars%gddmaturity_patch, &
+   !$acc&   cnstate_vars%hdidx_patch, cnstate_vars%huigrain_patch, cnstate_vars%huileaf_patch, &
+   !$acc&   cnstate_vars%idop_patch, cnstate_vars%lgsf_patch, cnstate_vars%offset_counter_patch, &
+   !$acc&   cnstate_vars%offset_flag_patch, cnstate_vars%onset_counter_patch, cnstate_vars%onset_flag_patch, &
+   !$acc&   crop_vars%accfsurv_patch, crop_vars%countfsurv_patch, crop_vars%cphase_patch, &
+   !$acc&   crop_vars%croplive_patch, crop_vars%cropplant_patch, crop_vars%crpyld_patch, crop_vars%cvp_patch, &
+   !$acc&   crop_vars%cvt_patch, crop_vars%dmyield_patch, crop_vars%eto_patch, crop_vars%fsurv_patch, &
+   !$acc&   crop_vars%harvdate_patch, crop_vars%harvday_patch, crop_vars%lt50_patch, crop_vars%p2e_rm_patch, &
+   !$acc&   crop_vars%p2eto_bar_patch, crop_vars%p2eto_patch, crop_vars%plantday_patch, &
+   !$acc&   crop_vars%plantmonth_patch, crop_vars%prev_p2eto_bar_patch, crop_vars%prev_xp_bar_patch, &
+   !$acc&   crop_vars%prev_xt_bar_patch, crop_vars%rated_patch, crop_vars%rateh_patch, crop_vars%rater_patch, &
+   !$acc&   crop_vars%rates_patch, crop_vars%tcrown_patch, crop_vars%vf_patch, crop_vars%wdd_patch, &
+   !$acc&   crop_vars%xp_bar_patch, crop_vars%xp_patch, crop_vars%xt_bar_patch, crop_vars%xt_patch, &
+   !$acc&   veg_cf%core%crop_seed_to_leaf, veg_cf%core%leaf_to_litter, veg_cs%core%leaf_xfer, &
+   !$acc&   veg_nf%core%crop_seed_to_leaf, veg_nf%core%leaf_to_litter, veg_nf%fert_counter, veg_nf%manure, &
+   !$acc&   veg_nf%synthfert, veg_ns%core%leaf_xfer, veg_pf%core%crop_seed_to_leaf, veg_pf%fert_p, &
+   !$acc&   veg_ps%core%leaf_xfer) if_present
 
     if (doalb .and. num_ppercropp > 0 ) then
        call PerennialCropPhenology(num_ppercropp, filter_ppercropp, &
@@ -322,9 +351,18 @@ contains
            num_soilc, filter_soilc, crop_vars, cnstate_vars)
    end if
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(veg_cf%core%hrv_grain_to_prod1, veg_cf%core%hrv_leaf_to_prod1, &
+    !$acc&   veg_cf%core%hrv_livestem_to_prod1, veg_nf%core%hrv_grain_to_prod1, &
+    !$acc&   veg_nf%core%hrv_leaf_to_prod1, veg_nf%core%hrv_livestem_to_prod1, &
+    !$acc&   veg_pf%core%hrv_grain_to_prod1, veg_pf%core%hrv_leaf_to_prod1, &
+    !$acc&   veg_pf%core%hrv_livestem_to_prod1) if_present
     if (num_pcropp > 0 .or. num_ppercropp > 0) then
       call CNCropHarvestPftToColumn(num_soilc, filter_soilc,cnstate_vars)
     end if
+    !$acc update device(col_cf%core%hrv_crop_to_prod1, col_nf%core%hrv_crop_to_prod1, &
+    !$acc&   col_pf%core%hrv_crop_to_prod1, veg_cf%core%hrv_crop_to_prod1, veg_nf%core%hrv_crop_to_prod1, &
+    !$acc&   veg_pf%core%hrv_crop_to_prod1) if_present
 
     call CNOffsetLitterfall(num_soilp, filter_soilp, &
          cnstate_vars)
@@ -3568,8 +3606,9 @@ contains
          phenology_p_to_litr_lig_p           =>    col_pf%core%phenology_to_litr_lig   & ! Output: [real(r8) (:,:) ]  P fluxes associated with phenology (litterfall and crop) to litter lignin pool (gP/m3/s)
          )
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(p, c, wt_col)
+      !$acc parallel loop gang vector default(present) private(fp, p, c, wt_col)
       do j = 1, nlevdecomp
+            !$acc loop seq
             do fp = 1,num_soilp
                p = filter_soilp(fp)
                c = veg_pp%column(p)
