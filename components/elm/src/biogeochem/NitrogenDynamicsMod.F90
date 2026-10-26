@@ -412,6 +412,8 @@ contains
     real(r8) :: manure_col(bounds%begc:bounds%endc)
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(manure_col)
     associate(&
          synthfert     =>    veg_nf%synthfert,      & ! Input:  [real(r8) (:)] nitrogen fertilizer rate (gN/m2/s)
          manure        =>    veg_nf%manure,         & ! Input:  [real(r8) (:)] manure nitrogen rate (gN/m2/s)
@@ -457,6 +459,7 @@ contains
       ! crops. It might also fill in the non-crop columns if enabled.
       call fan_to_sminn(bounds, filter_soilc, num_soilc, totalfert)
     end associate
+    !$acc exit data delete(manure_col)
   end subroutine NitrogenFert
 
   !-----------------------------------------------------------------------

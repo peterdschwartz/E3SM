@@ -160,6 +160,8 @@ contains
     real(r8) :: prev_tau_diff(bounds%begp:bounds%endp) ! Previous difference in iteration tau
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(fm)
     associate(                                                           & 
          snl              =>    col_pp%snl                                , & ! Input:  [integer  (:)   ]  number of snow layers                              
          dz               =>    col_pp%dz                                 , & ! Input:  [real(r8) (:,:) ]  layer thickness for soil or snow (m)            
@@ -392,6 +394,8 @@ contains
          ! Determine friction velocity, and potential temperature and humidity
          ! profiles of the surface boundary layer
 
+         !$acc data copy(displa, fpcopy, fpmap, obu, temp1, temp12m, temp2, temp22m, ugust_total, &
+         !$acc&   um, ur, ustar, z0hg, z0mg, z0qg)
          call FrictionVelocity(begp, endp, fncopy, fpcopy, fpmap, endp-begp+1, &
               displa(begp:endp), z0mg(begp:endp), z0hg(begp:endp), z0qg(begp:endp), &
               obu(begp:endp), iter, ur(begp:endp), um(begp:endp), ugust_total(begp:endp), &
@@ -399,6 +403,7 @@ contains
               temp1(begp:endp), temp2(begp:endp), temp12m(begp:endp), temp22m(begp:endp), &
               fm(begp:endp), frictionvel_vars)
 
+         !$acc end data
          do fp = 1, fncopy
             p = fpcopy(fp)
             c = veg_pp%column(p)
@@ -708,6 +713,7 @@ contains
 
     end associate
 
+    !$acc exit data delete(fm)
   end subroutine LakeFluxes
 
 end module LakeFluxesMod

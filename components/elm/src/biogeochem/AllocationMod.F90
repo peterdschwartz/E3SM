@@ -456,8 +456,12 @@ contains
       !!! Starting resolving N limitation
       !! new subroutines to calculate nuptake_prof & puptake_prof
       if (nu_com .eq. 'RD') then ! 'RD' : relative demand approach
+         !$acc data copy(nuptake_prof)
          call calc_nuptake_prof(num_soilc, filter_soilc, cnstate_vars, nuptake_prof)
+         !$acc end data
+         !$acc data copy(puptake_prof)
          call calc_puptake_prof(num_soilc, filter_soilc, cnstate_vars, puptake_prof)
+         !$acc end data
       end if
 
       ! pflotran will need an input from CN: modified 'sum_ndemand_vr' ('potential_immob' excluded).

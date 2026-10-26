@@ -221,16 +221,20 @@ contains
 
 
     !-----------------------------------------------------------------------
+    !$acc data copy(ice_mass_col, liquid_mass_col)
     call ComputeLiqIceMassNonLake(bounds, num_nolakec, filter_nolakec, &
          soilhydrology_vars,  &
          liquid_mass_col(bounds%begc:bounds%endc), &
          ice_mass_col(bounds%begc:bounds%endc))
 
+    !$acc end data
+    !$acc data copy(ice_mass_col, liquid_mass_col)
     call ComputeLiqIceMassLake(bounds, num_lakec, filter_lakec, &
          lakestate_vars, &
          liquid_mass_col(bounds%begc:bounds%endc), &
          ice_mass_col(bounds%begc:bounds%endc))
 
+    !$acc end data
     call c2g(bounds, &
          carr = liquid_mass_col(bounds%begc:bounds%endc), &
          garr = liquid_mass(bounds%begg:bounds%endg), &
@@ -294,18 +298,22 @@ contains
     heat_liquid_col(bounds%begc:bounds%endc) = spval
     cv_liquid_col(bounds%begc:bounds%endc)   = spval
 
+    !$acc data copy(cv_liquid_col, heat_col, heat_liquid_col)
     call ComputeHeatNonLake(bounds, num_nolakec, filter_nolakec, &
          urbanparams_vars, soilstate_vars, soilhydrology_vars, &
          heat = heat_col(bounds%begc:bounds%endc), &
          heat_liquid = heat_liquid_col(bounds%begc:bounds%endc), &
          cv_liquid = cv_liquid_col(bounds%begc:bounds%endc))
 
+    !$acc end data
+    !$acc data copy(cv_liquid_col, heat_col, heat_liquid_col)
     call ComputeHeatLake(bounds, num_lakec, filter_lakec, &
          soilstate_vars, &
          heat = heat_col(bounds%begc:bounds%endc), &
          heat_liquid = heat_liquid_col(bounds%begc:bounds%endc), &
          cv_liquid = cv_liquid_col(bounds%begc:bounds%endc))
 
+    !$acc end data
     call c2g(bounds, &
          carr = heat_col(bounds%begc:bounds%endc), &
          garr = heat_grc(bounds%begg:bounds%endg), &

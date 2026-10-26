@@ -440,6 +440,8 @@ contains
     integer  :: nc                                     ! clump index
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(dummyfilter)
     associate(                                                                 &
          dz                   =>   col_pp%dz                                    , & ! Input:  [real(r8) (:,:) ]  layer thickness (m)  (-nlevsno+1:nlevsoi)
          zi                   =>   col_pp%zi                                    , & ! Input:  [real(r8) (:,:) ]  interface level below a "z" level (m)
@@ -1017,6 +1019,7 @@ contains
 
     end associate
 
+    !$acc exit data delete(dummyfilter)
   end subroutine CH4
 
   !-----------------------------------------------------------------------
@@ -2481,6 +2484,8 @@ contains
       ! Perform competition for oxygen and methane in each soil layer if demands over the course of the timestep
       ! exceed that available. Assign to each process in proportion to the quantity demanded in the absense of
       ! the limitation.
+      !$acc data copy(ch4_aere_depth, ch4_ebul_depth, ch4_oxid_depth, ch4_prod_depth, ch4stress, &
+      !$acc&   conc_ch4, conc_o2, o2_aere_depth, o2_decomp_depth, o2_oxid_depth, o2stress)
       !$acc parallel loop independent gang vector collapse(2) default(present) private(c, o2demand, ch4demand)
       do j = 1,nlevsoi
          do fc = 1, num_methc
@@ -2540,9 +2545,11 @@ contains
 
          end do !c
       end do !j
+      !$acc end data
 
 
       ! Accumulate ebullition to place in first layer above water table, or directly to atmosphere
+      !$acc data copy(ch4_ebul_depth, ch4_ebul_total)
       !$acc parallel loop independent gang vector default(present) private(c, j)
       do fc = 1, num_methc
          c = filter_methc (fc)
@@ -2552,6 +2559,7 @@ contains
             ch4_ebul_total(c) = ch4_ebul_total(c) + ch4_ebul_depth(c,j) * dz(c,j)
          enddo
       enddo
+      !$acc end data
 
 
       ! Set the Henry's Law coefficients
@@ -2591,6 +2599,8 @@ contains
          jerr(fc) = 0
       end do
       ! competition errors are flagged per column here and reported (endrun) on the host after the loop
+      !$acc data copy(ch4_aere_depth, ch4_ebul_depth, ch4_oxid_depth, ch4_prod_depth, ch4stress, &
+      !$acc&   conc_ch4, conc_o2, o2_aere_depth, o2_decomp_depth, o2_oxid_depth, o2stress)
       !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
       do j = 1,nlevsoi
          do fc = 1, num_methc
@@ -2622,6 +2632,7 @@ contains
             conc_ch4_bef(fc,j) = conc_ch4(c,j) !For Balance Check
          enddo ! fc
       enddo ! j
+      !$acc end data
       !$acc update self(ierr, jerr)
       if (any(ierr(1:num_methc) /= 0)) then
          !$acc update self(source)
@@ -2659,6 +2670,7 @@ contains
       end if
 
       ! Accumulate aerenchyma to add directly to atmospheric flux
+      !$acc data copy(ch4_aere_depth, ch4_surf_aere)
       !$acc parallel loop independent gang vector default(present) private(c, j)
       do fc = 1, num_methc
          c = filter_methc (fc)
@@ -2668,8 +2680,10 @@ contains
             ch4_surf_aere(c) = ch4_surf_aere(c) + ch4_aere_depth(c,j) * dz(c,j)
          enddo
       enddo
+      !$acc end data
 
       ! Add in ebullition to source at depth just above WT
+      !$acc data copy(ch4_ebul_total)
       !$acc parallel loop independent gang vector default(present) private(c)
       do fc = 1, num_methc
          c = filter_methc(fc)
@@ -2677,8 +2691,10 @@ contains
             source(fc,jwt(c),1) = source(fc,jwt(c),1) + ch4_ebul_total(c)/dz(c,jwt(c))
          endif
       enddo ! fc
+      !$acc end data
 
       ! Calculate concentration relative to m^3 of air or water: needed for the diffusion
+      !$acc data copy(conc_ch4, conc_o2)
       !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g, s)
       do j = 0,nlevsoi
          do fc = 1, num_methc
@@ -2713,6 +2729,7 @@ contains
             end if
          end do
       end do
+      !$acc end data
 
 
       ! Parts of the snow and soil diffusivities that do not depend on the species
@@ -3001,6 +3018,7 @@ contains
             end do
 
             ! Calculate net ch4 flux to the atmosphere from the surface (+ to atm)
+            !$acc data copy(ch4_ebul_total, ch4_surf_diff, ch4_surf_ebul)
             !$acc parallel loop independent gang vector default(present) private(c, g)
             do fc = 1, num_methc
                c = filter_methc (fc)
@@ -3018,9 +3036,11 @@ contains
                   ch4_surf_ebul(c) = ch4_ebul_total(c) ! [mol/m2/s]
                endif
             enddo
+            !$acc end data
 
             ! Ensure that concentrations stay above 0
             ! This should be done after the flux, so that the flux calculation is consistent.
+            !$acc data copy(ch4_surf_diff)
             !$acc parallel loop independent gang vector default(present) private(c, j, deficit)
             do fc = 1, num_methc
                c = filter_methc (fc)
@@ -3038,6 +3058,7 @@ contains
                   end if
                enddo
             enddo
+            !$acc end data
             !$acc update self(ierr)
             do fc = 1, num_methc
                if (ierr(fc) /= 0) then
@@ -3129,6 +3150,7 @@ contains
       enddo  ! species
 
       ! Update absolute concentrations per unit volume
+      !$acc data copy(conc_ch4, conc_o2)
       !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
       do j = 1,nlevsoi ! No need to update the atm. level concentrations
          do fc = 1, num_methc
@@ -3137,9 +3159,11 @@ contains
             conc_o2(c,j)  = conc_o2_rel(fc,j) *epsilon_t(fc,j,2)
          end do
       end do
+      !$acc end data
 
       ! Do Balance Check and absorb small
       !    discrepancy into surface flux.
+      !$acc data copy(ch4_oxid_depth, ch4_prod_depth, conc_ch4)
       !$acc parallel loop independent gang vector default(present) private(c, j)
       do fc = 1, num_methc
          c = filter_methc (fc)
@@ -3151,7 +3175,9 @@ contains
             errch4(fc) = errch4(fc) + ch4_oxid_depth(c,j)*dz(c,j)*dtime
          end do
       end do
+      !$acc end data
 
+      !$acc data copy(ch4_surf_aere, ch4_surf_diff, ch4_surf_ebul)
       !$acc parallel loop independent gang vector default(present) private(c)
       do fc = 1, num_methc
          c = filter_methc (fc)
@@ -3166,6 +3192,7 @@ contains
             ierr(fc) = 1
          end if
       end do
+      !$acc end data
       !$acc update self(ierr)
       do fc = 1, num_methc
          if (ierr(fc) /= 0) then
