@@ -980,6 +980,7 @@ contains
      m_veg = 1.0_r8
      if (spinup_state == 1) m_veg = spinup_mortality_factor
 
+     !$acc parallel loop gang vector default(present) private(p, c, itype, f, cc_other_sc)
      do fp = 1,num_soilp
         p = filter_soilp(fp)
         c = veg_pp%column(p)
@@ -1378,6 +1379,7 @@ contains
      ! vertically-resolved decomposing C/N fire loss
      ! column loop
      ! add phosphorus
+     !$acc parallel loop gang vector default(present) private(c, baf_crop_sc, f, j, l)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
 
@@ -1386,8 +1388,10 @@ contains
 
         ! change CC for litter from 0.4_r8 to 0.5_r8 and CC for CWD from 0.2_r8
         ! to 0.25_r8 according to Li et al.(2014)
+        !$acc loop seq
         do j = 1, nlevdecomp
            ! carbon fluxes
+           !$acc loop seq
            do l = 1, ndecomp_pools
               m_decomp_cpools_to_fire_vr(c,j,l) = 0._r8 
               if ( is_litter(l) ) then
@@ -1407,6 +1411,7 @@ contains
            end do
 
            ! nitrogen fluxes
+           !$acc loop seq
            do l = 1, ndecomp_pools
               m_decomp_npools_to_fire_vr(c,j,l) = 0.0_r8 
               if ( is_litter(l) ) then
@@ -1425,6 +1430,7 @@ contains
            end do
 
            ! phosphorus fluxes - loss due to fire
+           !$acc loop seq
            do l = 1, ndecomp_pools
               m_decomp_ppools_to_fire_vr(c,j,l) = 0._r8  
               if ( is_litter(l) ) then
@@ -1442,6 +1448,7 @@ contains
      ! carbon loss due to deforestation fires
 
      if (transient_landcover) then    !true when landuse data is used
+        !$acc parallel loop gang vector default(present) private(c)
         do fc = 1,num_soilc
            c = filter_soilc(fc)
            lfc2(c)=0._r8
@@ -1462,6 +1469,7 @@ contains
      ! somc_fire is not connected to clm45 soil carbon pool, ie does not decrease
      ! soil carbon b/c clm45 soil carbon was very low in several peatland grids
      !
+     !$acc parallel loop gang vector default(present) private(c, g)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         g = col_pp%gridcell(c)

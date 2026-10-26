@@ -694,6 +694,8 @@ contains
     !----- CENTURY T response function
     catanf(t1) = 11.75_r8 +(29.7_r8 / SHR_CONST_PI) * atan( SHR_CONST_PI * 0.031_r8  * ( t1 - 15.4_r8 ))
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(depth_scalar)
     associate(                                             &
          sucsat         => soilstate_vars%sucsat_col     , & ! Input:  [real(r8) (:,:)   ]  minimum soil suction (mm)
          soilpsi        => soilstate_vars%soilpsi_col    , & ! Input:  [real(r8) (:,:)   ]  soil water potential in each soil layer (MPa)
@@ -812,6 +814,8 @@ contains
                frw(c) = frw(c) + col_pp%dz(c,j)
             end do
          end do
+         !$acc data copy(fr, frw)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlev_soildecomp_standard
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -822,6 +826,7 @@ contains
                end if
             end do
          end do
+         !$acc end data
 
          if ( .not. use_century_tfunc ) then
             ! calculate rate constant scalar for soil temperature
@@ -880,6 +885,7 @@ contains
 
          if (use_lch4) then
             if (anoxia_wtsat) then ! Adjust for saturated fraction if unfrozen
+               !$acc parallel loop gang vector default(present) private(c)
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                   if (alt_indx(c) >= nlev_soildecomp_standard .and. t_soisno(c,1) > SHR_CONST_TKFRZ) then
@@ -930,6 +936,7 @@ contains
             ! atmospheric CO2 concentration in global simulations. This does not impact
             ! the base rates at 25 C, which are calibrated from microcosm studies.
 
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1, nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -943,6 +950,7 @@ contains
 
          else
 
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1, nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -961,6 +969,7 @@ contains
          ! and soil moisture. Soil Biol. Biochem., 15(4):447-453.
 
          minpsi = -10.0_r8;
+         !$acc parallel loop gang vector collapse(2) default(present) private(c, maxpsi, psi)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -985,6 +994,7 @@ contains
             ! Check for anoxia w/o LCH4 now done in controlMod.
 
             if (anoxia) then
+               !$acc parallel loop gang vector collapse(2) default(present) private(c)
                do j = 1,nlevdecomp
                   do fc = 1,num_soilc
                      c = filter_soilc(fc)
@@ -1009,6 +1019,7 @@ contains
       if ( normalize_q10_to_century_tfunc ) then
          ! scale all decomposition rates by a constant to compensate for offset between original CENTURY temp func and Q10
          normalization_factor = (catanf(normalization_tref)/catanf_30) / (q10**((normalization_tref-25._r8)/10._r8))
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -1020,6 +1031,7 @@ contains
       if (use_vertsoilc) then
          ! add a term to reduce decomposition rate at depth
          ! for now used a fixed e-folding depth
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -1029,6 +1041,7 @@ contains
       end if
 
       !Calcluate location and depth-specific acceleration factors
+      !$acc parallel loop gang vector default(present) private(c)
       do fc=1,num_soilc
           c = filter_soilc(fc)
           if (year < 20 .and. spinup_state == 1) then
@@ -1045,6 +1058,7 @@ contains
       end do
 
       if (use_vertsoilc) then
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -1056,6 +1070,7 @@ contains
                decomp_k(c,j,i_soil3) = k_s3    * t_scalar(c,j) * w_scalar(c,j) * depth_scalar(c,j) * o_scalar(c,j)
             end do
          end do
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
              do fc = 1,num_soilc
                  c = filter_soilc(fc)
@@ -1063,6 +1078,7 @@ contains
              end do
          end do
      else
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -1074,6 +1090,7 @@ contains
                decomp_k(c,j,i_soil3) = k_s3    * t_scalar(c,j) * w_scalar(c,j) * o_scalar(c,j)
             end do
          end do
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
              do fc = 1,num_soilc
                  c = filter_soilc(fc)
@@ -1084,6 +1101,7 @@ contains
 
       if (spinup_state == 1 .and. year >= 40) then
          !adjust decomposition factors based on scalar factors from first 20 years of simulation
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j=1,nlevdecomp
            do fc = 1, num_soilc
              c = filter_soilc(fc)
@@ -1107,6 +1125,7 @@ contains
 
     end associate
 
+    !$acc exit data delete(depth_scalar)
  end subroutine decomp_rate_constants_bgc
 
 end module DecompCascadeBGCMod

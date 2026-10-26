@@ -157,6 +157,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! patch loop
+    !$acc parallel loop gang vector default(present) private(p)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
        ! gross photosynthesis fluxes
@@ -209,6 +210,7 @@ contains
 
       ! column level fluxes
 
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_soilc
           c = filter_soilc(fc)
           col_cs%decomp_som2c_vr(c,1:nlevdecomp) = col_cs%core%decomp_pools_vr(c,1:nlevdecomp,6)
@@ -218,6 +220,7 @@ contains
 
          ! plant to litter fluxes
          if(.not.use_fates)then
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1,nlevdecomp
                ! column loop
                do fc = 1,num_soilc
@@ -264,6 +267,7 @@ contains
       if (.not.use_fates) then
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

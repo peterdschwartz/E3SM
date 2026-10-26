@@ -3841,6 +3841,7 @@ contains
     integer :: j,k      ! indices
     !------------------------------------------------------------------------
     call column_nutrient_state_setvalues(this%core, num_column, filter_column, value_column)
+    !$acc parallel loop gang vector default(present) private(i)
     do fi = 1,num_column
        i = filter_column(fi)
 
@@ -3852,6 +3853,7 @@ contains
        this%primp(i)       = value_column
     end do
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do j = 1,nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)

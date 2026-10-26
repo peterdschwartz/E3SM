@@ -128,6 +128,7 @@ contains
       ! Set root depth, dynamic for crops, fixed for other vegetation
       !---------------------------------------------------------------
 
+      !$acc parallel loop gang vector default(present) private(p, c)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
@@ -151,9 +152,12 @@ contains
       ! This will be used to weight the temperature and water potential scalars
       ! for decomposition control.
 
+      !$acc data copy(rsmn, rswa, sumrsmn, sumrswa, w_limit)
+      !$acc parallel loop gang vector default(present) private(p, c, j, maxpsi, psi)
       do f = 1,num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
+         !$acc loop seq
          do j = 1,nlevsoi
             maxpsi = sucsat(c,j) * (-9.8e-6_r8)
             psi = min(soilpsi(c,j),maxpsi)
@@ -187,6 +191,7 @@ contains
             end if
          end do
       end do
+      !$acc end data
 
       !------------------------------------------------------------------
       ! Calculate coarse root fraction from standard root distribution
@@ -201,6 +206,9 @@ contains
       ! based on this timesteps growth
       !--------------------------------------------------------------------
 
+      !$acc data copy(frootc_dz, rootfr_coarse, rsmn, rswa, sumfrootc, sumrsmn, sumrswa, w_limit)
+      !$acc parallel loop gang vector default(present) &
+      !$acc   private(p, c, new_growth, new_croot_growth, lev)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
@@ -216,6 +224,7 @@ contains
             new_croot_growth = new_croot_growth + (cpool_to_livecrootc_storage(p) + &
                                                    cpool_to_deadcrootc_storage(p))*dt
          end if
+         !$acc loop seq
          do lev=1,nlevsoi
             if (sumrswa(p) <= 0._r8 .or. sumrsmn(p) <= 0._r8) then
                ! when sumrswa or sumrsmn are less than or equal to 0 rootfr will not be updated
@@ -230,6 +239,7 @@ contains
 
          end do
       end do
+      !$acc end data
 
       !----------------------------------
       !Calculate root fraction
@@ -237,15 +247,19 @@ contains
 
       ! normalize the root fraction for each pft
 
+      !$acc data copy(frootc_dz, sumfrootc)
+      !$acc parallel loop gang vector default(present) private(p, c, lev)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
+         !$acc loop seq
          do lev = 1, nlevgrnd
             if (sumfrootc(p) > 0._r8) then
                rootfr(p,lev) = frootc_dz(p,lev)/sumfrootc(p)
             end if
          end do
       end do
+      !$acc end data
 
 
     end associate

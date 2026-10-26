@@ -196,6 +196,7 @@ contains
       if (do_et_bnf) then
          secspyr = dayspyr * 86400._r8
 
+         !$acc parallel loop gang vector default(present) private(c, t)
          do fc = 1, num_soilc
             c =filter_soilc(fc)
             !use the cleveland equation
@@ -205,6 +206,7 @@ contains
       else
          if(use_fates)then
             ic = bounds%clump_index
+            !$acc parallel loop gang vector default(present) private(c)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
                s = alm_fates%f2hmap(ic)%hsites(c)
@@ -220,6 +222,7 @@ contains
          if ( nfix_timeconst > 0._r8 .and. nfix_timeconst < 500._r8 ) then
             ! use exponential relaxation with time constant nfix_timeconst for NPP - NFIX relation
             ! Loop through columns
+            !$acc parallel loop gang vector default(present) private(c, t)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
 
@@ -233,6 +236,7 @@ contains
             end do
          else
             ! use annual-mean values for NPP-NFIX relation
+            !$acc parallel loop gang vector default(present) private(c, t)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
 
@@ -449,6 +453,7 @@ contains
             p = filter_pcropp(fp)
             totalfert(p) = synthfert(p) + manure(p)
          end do
+         !$acc parallel loop gang vector default(present) private(p)
          do fp = 1, num_ppercropp
             p = filter_ppercropp(fp)
             totalfert(p) = synthfert(p) + manure(p)
@@ -682,6 +687,7 @@ contains
 
     end associate
 
+    !$acc exit data delete(ecosysn_sum, sminn_sum)
   end subroutine NitrogenFixation_balance
 
 end module NitrogenDynamicsMod

@@ -3023,6 +3023,7 @@ contains
     integer :: fi,i     ! loop index
     integer :: j,k      ! indices
     !------------------------------------------------------------------------
+    !$acc parallel loop gang vector default(present) private(i)
     do fi = 1,num_patch
        i = filter_patch(fi)
 
@@ -3054,6 +3055,7 @@ contains
     end do
 
     if ( crop_prog )then
+       !$acc parallel loop gang vector default(present) private(i)
        do fi = 1,num_patch
           i = filter_patch(fi)
           this%core%grain(i)            = value_patch

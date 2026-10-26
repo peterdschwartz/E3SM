@@ -48,6 +48,7 @@ contains
     ! using a discrete-time fractional decay algorithm.
     kprod1 = 7.2e-9
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 
@@ -68,6 +69,7 @@ contains
 
 
    ! update wood product state variables
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 

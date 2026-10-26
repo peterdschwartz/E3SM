@@ -689,6 +689,8 @@ contains
      real(r8) :: mino2lim                    ! minimum anaerobic decomposition rate as a
      !-----------------------------------------------------------------------
 
+     ! spel acc-locals: device storage of the local work arrays
+     !$acc enter data create(depth_scalar)
      associate(                                             &
           dz             => col_pp%dz                        , & ! Input:  [real(r8) (:,:)   ]  soil layer thickness (m)
 
@@ -804,6 +806,8 @@ contains
                 frw(c) = frw(c) + dz(c,j)
              end do
           end do
+          !$acc data copy(fr, frw)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c)
           do j = 1,nlev_soildecomp_standard
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -814,6 +818,7 @@ contains
                 end if
              end do
           end do
+          !$acc end data
 
           ! calculate rate constant scalar for soil temperature
           ! assuming that the base rate constants are assigned for non-moisture
@@ -862,6 +867,7 @@ contains
 
           if (use_lch4) then
              if (anoxia_wtsat) then ! Adjust for saturated fraction if unfrozen.
+                !$acc parallel loop gang vector default(present) private(c)
                 do fc = 1,num_soilc
                    c = filter_soilc(fc)
                    if (alt_indx(c) >= nlev_soildecomp_standard .and. t_soisno(c,1) > SHR_CONST_TKFRZ) then
@@ -911,6 +917,7 @@ contains
           ! atmospheric CO2 concentration in global simulations. This does not impact
           ! the base rates at 25 C, which are calibrated from microcosm studies.
 
+          !$acc parallel loop gang vector collapse(2) default(present) private(c)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -933,6 +940,7 @@ contains
           ! Orchard, V.A., and F.J. Cook, 1983. Relationship between soil respiration
           ! and soil moisture. Soil Biol. Biochem., 15(4):447-453.
 
+          !$acc parallel loop gang vector collapse(2) default(present) private(c, maxpsi, psi)
           do j = 1,nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -959,6 +967,7 @@ contains
           ! Check for anoxia w/o LCH4 now done in controlMod.
 
           if (anoxia) then
+             !$acc parallel loop gang vector collapse(2) default(present) private(c)
              do j = 1,nlevdecomp
                 do fc = 1,num_soilc
                    c = filter_soilc(fc)
@@ -981,6 +990,7 @@ contains
        if (use_vertsoilc) then
           ! add a term to reduce decomposition rate at depth
           ! for now used a fixed e-folding depth
+          !$acc parallel loop gang vector collapse(2) default(present) private(c)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -990,6 +1000,7 @@ contains
        end if
 
        !Calcluate location and depth-specific acceleration factors
+       !$acc parallel loop gang vector default(present) private(c)
        do fc=1,num_soilc
            c = filter_soilc(fc)
            if (year < 20 .and. spinup_state == 1) then
@@ -1006,6 +1017,7 @@ contains
        end do
 
        if (use_vertsoilc) then
+          !$acc parallel loop gang vector collapse(2) default(present) private(c)
           do j = 1,nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -1020,6 +1032,7 @@ contains
 
              end do
           end do
+          !$acc parallel loop gang vector collapse(2) default(present) private(c)
           do j = 1,nlevdecomp
               do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -1027,6 +1040,7 @@ contains
               end do
           end do
        else
+          !$acc parallel loop gang vector collapse(2) default(present) private(c)
           do j = 1,nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -1039,6 +1053,7 @@ contains
                 decomp_k(c,j,i_soil4) = k_s4 * t_scalar(c,j) * w_scalar(c,j) * o_scalar(c,j) / dt
              end do
           end do
+          !$acc parallel loop gang vector collapse(2) default(present) private(c)
           do j = 1,nlevdecomp
               do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -1050,6 +1065,7 @@ contains
 
        if (spinup_state == 1 .and. year >= 40) then
          !adjust decomposition factors based on scalar factors from first 20 years of simulation
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j=1,nlevdecomp
            do fc = 1, num_soilc
              c = filter_soilc(fc)
@@ -1073,6 +1089,7 @@ contains
          end do
        end if
      end associate
+     !$acc exit data delete(depth_scalar)
    end subroutine decomp_rate_constants_cn
 
 end module DecompCascadeCNMod

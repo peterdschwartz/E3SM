@@ -54,6 +54,7 @@ contains
     kprod10 = 7.2e-9
     kprod100 = 7.2e-10
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 
@@ -80,6 +81,7 @@ contains
 
 
     ! update wood product state variables
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 

@@ -58,6 +58,7 @@ contains
       !------------------------------------------------------------------
 
       ! column-level phosporus fluxes from gap-phase mortality
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
       do j = 1, nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -76,6 +77,7 @@ contains
 
       ! patch -level phosporus fluxes from gap-phase mortality
 
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -145,6 +147,7 @@ contains
 
       ! column-level phosporus fluxes from harvest mortality
 
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -163,6 +166,7 @@ contains
 
       ! patch-level phosporus fluxes from harvest mortality
 
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

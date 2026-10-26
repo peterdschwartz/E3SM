@@ -2288,6 +2288,7 @@ contains
          is_soil   =>    decomp_cascade_con%is_soil   , & ! Input:  [logical (:) ]  TRUE => pool is a soil pool
          is_cwd    =>    decomp_cascade_con%is_cwd      &
     )
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%somhr(c)              = 0._r8
@@ -2302,9 +2303,12 @@ contains
 
     if ((.not. (use_pflotran .and. pf_cmode))) then
       ! vertically integrate HR and decomposition cascade fluxes
+      !$acc parallel loop gang vector default(present) private(j, fc, c)
       do k = 1, ndecomp_cascade_transitions
 
+       !$acc loop seq
        do j = 1,nlevdecomp
+          !$acc loop seq
           do fc = 1,num_soilc
              c = filter_soilc(fc)
 
@@ -2319,6 +2323,7 @@ contains
       ! litter heterotrophic respiration (LITHR)
       do k = 1, ndecomp_cascade_transitions
         if ( is_litter(decomp_cascade_con%cascade_donor_pool(k)) .or. is_cwd((decomp_cascade_con%cascade_donor_pool(k)))) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%lithr(c) = &
@@ -2331,6 +2336,7 @@ contains
       ! soil organic matter heterotrophic respiration (SOMHR)
       do k = 1, ndecomp_cascade_transitions
         if ( is_soil(decomp_cascade_con%cascade_donor_pool(k)) ) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%somhr(c) = &
@@ -2388,7 +2394,9 @@ contains
     if (present(zero_erosion)) do_zero_erosion = zero_erosion
     do_zero_transport = .true.
     if (present(zero_transport)) do_zero_transport = zero_transport
+    !$acc parallel loop gang vector default(present) private(fi)
     do j = 1, nlevdecomp_full
+       !$acc loop seq
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -2397,6 +2405,7 @@ contains
           end associate
        end do
     end do
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do j = 1, nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)
@@ -2406,12 +2415,14 @@ contains
   
     ! pflotran
     if(nstep_mod == 0 .or. first_restart_step_mod) then 
+      !$acc parallel loop gang vector default(present) private(i)
       do fi = 1,num_column
          i = filter_column(fi)
          this%f_co2_soil(i) = value_column
       end do
     end if 
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do k = 1, ndecomp_pools
        do fi = 1,num_column
           i = filter_column(fi)
@@ -2419,6 +2430,7 @@ contains
        end do
     end do 
 
+    !$acc parallel loop gang vector default(present)
     do fi = 1,num_column,flux_setvalues_block_size
        associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
        this%er(idx)                        = value_column
@@ -2443,6 +2455,7 @@ contains
     end do
   
     if(use_crop) then 
+      !$acc parallel loop gang vector default(present)
       do fi = 1,num_column,flux_setvalues_block_size
          associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
          this%somc_fire(idx)                 = value_column
@@ -2462,6 +2475,7 @@ contains
       end do
     end if 
     
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do k = 1, ndecomp_pools
       do fi = 1,num_column
         i = filter_column(fi)
@@ -2471,6 +2485,7 @@ contains
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
     if (do_zero_harvest) then
+       !$acc parallel loop gang vector default(present)
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
           this%hrv_xsmrpool_to_atm(idx)       = value_column
@@ -2480,7 +2495,9 @@ contains
 
     ! Erosion fluxes, written only with ero_ccycle.
     if (do_zero_erosion) then
+       !$acc parallel loop gang vector default(present) private(fi)
        do k = 1, ndecomp_pools
+          !$acc loop seq
           do fi = 1,num_column,flux_setvalues_block_size
              associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
              this%core%decomp_pools_erode(idx,k)   = value_column
@@ -2492,6 +2509,7 @@ contains
 
     ! Vertical transport tendencies, rewritten every step by SoilLittVertTransp.
     if (do_zero_transport) then
+       !$acc parallel loop gang vector collapse(3) default(present) private(i)
        do k = 1, ndecomp_pools
           do j = 1, nlevdecomp_full
              do fi = 1,num_column
@@ -2566,6 +2584,7 @@ contains
 
     if(.not.use_fates) return
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%rr(c) = 0._r8   ! This counterpart is
@@ -3821,7 +3840,9 @@ contains
     if (present(zero_fan)) do_zero_fan = zero_fan
     do_zero_erosion = .true.
     if (present(zero_erosion)) do_zero_erosion = zero_erosion
+    !$acc parallel loop gang vector default(present) private(fi)
     do j = 1, nlevdecomp_full
+       !$acc loop seq
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -3835,7 +3856,9 @@ contains
 
     if( use_pflotran .and. pf_cmode) then 
 
+      !$acc parallel loop gang vector default(present) private(fi)
       do j = 1, nlevdecomp_full
+         !$acc loop seq
          do fi = 1,num_column,flux_setvalues_block_size
             associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
             ! pflotran
@@ -3851,6 +3874,7 @@ contains
        end do 
      end if 
 
+    !$acc parallel loop gang vector default(present)
     do fi = 1,num_column,flux_setvalues_block_size
        associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -3896,6 +3920,7 @@ contains
 
        end associate
     end do
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do k = 1, ndecomp_pools
        do fi = 1,num_column
           i = filter_column(fi)
@@ -3907,6 +3932,7 @@ contains
        end do
     end do
 
+       !$acc parallel loop gang vector collapse(2) default(present) private(i)
        do l = 1, ndecomp_cascade_transitions
           do fi = 1,num_column
              i = filter_column(fi)
@@ -3917,6 +3943,7 @@ contains
     ! pflotran
     !------------------------------------------------------------------------
     if(nstep_mod == 0 .or. first_restart_step_mod) then 
+      !$acc parallel loop gang vector collapse(3) default(present) private(i)
       do k = 1, ndecomp_pools
          do j = 1, nlevdecomp_full
             do fi = 1,num_column
@@ -3926,6 +3953,7 @@ contains
          end do
       end do
 
+    !$acc parallel loop gang vector collapse(3) default(present) private(i)
     do k = 1, ndecomp_pools
        do j = 1, nlevdecomp_full
           do fi = 1,num_column
@@ -3934,6 +3962,7 @@ contains
           end do
        end do
     end do
+      !$acc parallel loop gang vector collapse(2) default(present) private(i)
       do j = 1, nlevdecomp_full
          do fi = 1,num_column
             i = filter_column(fi)
@@ -3945,6 +3974,7 @@ contains
    end if
 
    if(use_crop) then 
+     !$acc parallel loop gang vector collapse(2) default(present) private(i)
      do j = 1, nlevdecomp_full
        do fi = 1,num_column
          i = filter_column(fi)
@@ -3956,6 +3986,7 @@ contains
 
     ! FAN fluxes, written only with use_fan or fan_to_bgc_veg/crop.
     if (do_zero_fan) then
+       !$acc parallel loop gang vector default(present)
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
           this%manure_tan_appl(idx)      = value_column
@@ -5165,7 +5196,9 @@ contains
     if (present(zero_erosion)) do_zero_erosion = zero_erosion
     do_zero_transport = .true.
     if (present(zero_transport)) do_zero_transport = zero_transport
+    !$acc parallel loop gang vector default(present) private(fi)
     do j = 1, nlevdecomp_full
+       !$acc loop seq
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -5194,6 +5227,7 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector default(present)
     do fi = 1,num_column,flux_setvalues_block_size
        associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
 
@@ -5230,7 +5264,9 @@ contains
        end associate
     end do
 
+    !$acc parallel loop gang vector default(present) private(fi)
     do k = 1, ndecomp_pools
+       !$acc loop seq
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
           this%core%decomp_pools_leached(idx,k) = value_column
@@ -5240,6 +5276,7 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do l = 1, ndecomp_cascade_transitions
        do fi = 1,num_column
           i = filter_column(fi)
@@ -5247,6 +5284,7 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector collapse(3) default(present) private(i)
     do k = 1, ndecomp_pools
        do j = 1, nlevdecomp_full
           do fi = 1,num_column
@@ -5256,6 +5294,7 @@ contains
        end do
     end do
       
+   !$acc parallel loop gang vector collapse(3) default(present) private(i)
    do k = 1, ndecomp_pools
       do j = 1, nlevdecomp_full
          do fi = 1,num_column
@@ -5268,6 +5307,7 @@ contains
     ! pflotran
     if(nstep_mod == 0 .or. first_restart_step_mod) then 
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do j = 1, nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)
@@ -5275,6 +5315,7 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector default(present) private(i)
     do fi = 1,num_column
        i = filter_column(fi)
        this%sminp_net_transport_delta(i)   = value_column
@@ -5283,6 +5324,7 @@ contains
 
     ! Erosion fluxes, written only with ero_ccycle.
     if (do_zero_erosion) then
+       !$acc parallel loop gang vector default(present)
        do fi = 1,num_column,flux_setvalues_block_size
           associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
           this%labilep_erode(idx)   = value_column
@@ -5295,7 +5337,9 @@ contains
           this%primp_deposit(idx)   = value_column
           end associate
        end do
+       !$acc parallel loop gang vector default(present) private(fi)
        do j = 1, nlevdecomp_full
+          !$acc loop seq
           do fi = 1,num_column,flux_setvalues_block_size
              associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
              this%labilep_yield_vr(idx,j) = value_column
@@ -5305,7 +5349,9 @@ contains
              end associate
           end do
        end do
+       !$acc parallel loop gang vector default(present) private(fi)
        do k = 1, ndecomp_pools
+          !$acc loop seq
           do fi = 1,num_column,flux_setvalues_block_size
              associate (idx => filter_column(fi:min(fi+flux_setvalues_block_size-1,num_column)))
              this%core%decomp_pools_erode(idx,k)   = value_column
@@ -5313,6 +5359,7 @@ contains
              end associate
           end do
        end do
+       !$acc parallel loop gang vector collapse(3) default(present) private(i)
        do k = 1, ndecomp_pools
           do j = 1, nlevdecomp_full
              do fi = 1,num_column
@@ -5325,6 +5372,7 @@ contains
 
     ! Vertical transport tendencies, rewritten every step by SoilLittVertTransp.
     if (do_zero_transport) then
+       !$acc parallel loop gang vector collapse(3) default(present) private(i)
        do k = 1, ndecomp_pools
           do j = 1, nlevdecomp_full
              do fi = 1,num_column

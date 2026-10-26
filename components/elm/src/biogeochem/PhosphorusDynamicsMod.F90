@@ -508,6 +508,8 @@ contains
     integer  :: max_comps
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(sop_profile)
     associate(                                                              &
          ! fine root vertical profile Zeng, X. 2001. Global vegetation root distribution for land modeling. J. Hydrometeor. 2:525-530
          froot_prof           => cnstate_vars%froot_prof_patch            , &
@@ -552,6 +554,7 @@ contains
 
         if(use_fates) then
            s = alm_fates%f2hmap(ci)%hsites(c)
+           !$acc parallel loop gang vector default(present)
            do j = 1,nlevdecomp
 
               do p = 1, alm_fates%fates(ci)%bc_out(s)%num_plant_comps
@@ -577,7 +580,10 @@ contains
            end do
         else
 
+           !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot, biochem_pmin_to_plant_vr_patch)
+           !$acc parallel loop gang vector default(present) private(p, lamda_up, ptase_tmp)
            do j = 1,nlevdecomp
+              !$acc loop seq
               do p = col_pp%pfti(c), col_pp%pftf(c)
                  if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
                     !lamda_up = npimbalance(p) ! partial_vcmax/partial_lpc / partial_vcmax/partial_lnc
@@ -599,6 +605,7 @@ contains
                  end if
               enddo
            enddo
+           !$acc end data
         end if
 
         do j = 1,nlevdecomp
@@ -610,6 +617,7 @@ contains
                 end if
             end do
             ! get profile
+            !$acc parallel loop gang vector default(present)
             do l = 1,ndecomp_pools
                 if (is_soil(l)) then
                     if (sop_tot > 1e-12) then
@@ -620,6 +628,8 @@ contains
                 end if
             end do
             ! cauculation actual biochem_pmin_ppool
+            !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot)
+            !$acc parallel loop gang vector default(present)
             do l = 1,ndecomp_pools
                 if (is_soil(l)) then
                     biochem_pmin_ppools_vr_col(c,j,l) = &
@@ -627,11 +637,14 @@ contains
                           , decomp_ppools_vr_col(c,j,l)/dt),0._r8)
                 end if
             end do
+            !$acc end data
         end do
 
         ! update biochem_pmin_to_ecosysp_vr_col,biochem_pmin_vr,biochem_pmin_to_plant_vr
+        !$acc parallel loop gang vector default(present) private(l)
         do j = 1,nlevdecomp
             biochem_pmin_to_ecosysp_vr_col(c,j)=0._r8
+            !$acc loop seq
             do l = 1, ndecomp_pools
                 if (is_soil(l)) then
                     biochem_pmin_to_ecosysp_vr_col(c,j) = biochem_pmin_to_ecosysp_vr_col(c,j)+ &
@@ -642,6 +655,8 @@ contains
 
         ! rescale biochem_pmin_vr, biochem_pmin_to_plant_vr if necessary
         if(use_fates)then
+            !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot)
+            !$acc parallel loop gang vector default(present)
             do j = 1,nlevdecomp
                 if ( (biochem_pmin_to_ecosysp_vr_col_pot(c,j) > biochem_pmin_to_ecosysp_vr_col(c,j)) ) then
                     if ( biochem_pmin_to_ecosysp_vr_col_pot(c,j) > 0.0_r8 ) then
@@ -670,26 +685,32 @@ contains
                 end do
 
             end do
+            !$acc end data
          else
 
             if (NFIX_PTASE_plant) then
+                !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot, biochem_pmin_to_plant_vr_patch)
+                !$acc parallel loop gang vector default(present) private(p)
                 do j = 1,nlevdecomp
                     if ( (biochem_pmin_to_ecosysp_vr_col_pot(c,j) > biochem_pmin_to_ecosysp_vr_col(c,j)) ) then
                         if ( biochem_pmin_to_ecosysp_vr_col_pot(c,j) > 0.0_r8 ) then
                             biochem_pmin_vr(c,j) = biochem_pmin_vr(c,j) * &
                                   biochem_pmin_to_ecosysp_vr_col(c,j) / biochem_pmin_to_ecosysp_vr_col_pot(c,j)
+                            !$acc loop seq
                             do p = col_pp%pfti(c), col_pp%pftf(c)
                                 biochem_pmin_to_plant_vr_patch(p,j) = biochem_pmin_to_plant_vr_patch(p,j) * &
                                       biochem_pmin_to_ecosysp_vr_col(c,j) / biochem_pmin_to_ecosysp_vr_col_pot(c,j)
                             end do
                         else
                             biochem_pmin_vr(c,j) = 0.0_r8
+                            !$acc loop seq
                             do p = col_pp%pfti(c), col_pp%pftf(c)
                                 biochem_pmin_to_plant_vr_patch(p,j) = 0.0_r8
                             end do
                         end if
                     end if
                 end do
+                !$acc end data
 
                 ! sum up biochem_pmin_to_plant
                 do p = col_pp%pfti(c), col_pp%pftf(c)
@@ -704,6 +725,7 @@ contains
                     end if
                 end do
             else
+                !$acc parallel loop gang vector default(present)
                 do j = 1,nlevdecomp
                     biochem_pmin_vr(c,j) = biochem_pmin_to_ecosysp_vr_col(c,j)
                 enddo
@@ -711,9 +733,11 @@ contains
          end if
     end do
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(c, l)
     do j = 1, nlevdecomp
        do fc = 1,num_soilc
           c = filter_soilc(fc)
+          !$acc loop seq
           do l = 1, ndecomp_pools
              decomp_ppools_vr_col(c,j,l) = decomp_ppools_vr_col(c,j,l)- biochem_pmin_ppools_vr_col(c,j,l)*dt
           end do
@@ -724,6 +748,7 @@ contains
 
    end associate
 
+    !$acc exit data delete(sop_profile)
   end subroutine PhosphorusBiochemMin_balance
 
   !-----------------------------------------------------------------------

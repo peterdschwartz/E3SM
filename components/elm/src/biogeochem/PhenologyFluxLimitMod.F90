@@ -734,11 +734,13 @@ contains
 
     !obtain the limiting factor
 
+    !$acc data copy(rfluxes, ystates)
     call flux_correction(spm_carbon_d%szrow, spm_carbon_d%szcol, spm_carbon_p, &
        spm_carbon_d, dt, ystates, rfluxes)
 
     !correct the fluxes
 
+    !$acc end data
     call fpmax(rfluxes(f_cpool_to_leafc)               , veg_cf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_cpool_to_leafc_storage)       , veg_cf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_cpool_to_frootc)              , veg_cf%core%pool_to_froot(p))
@@ -942,10 +944,12 @@ contains
     rfluxes(f_retransn_to_npool)             = veg_nf%retrans%retrans_to_pool(p)
     rfluxes(f_supplement_to_plantn)          = veg_nf%uptake%supplement_to_plant(p)
 
+    !$acc data copy(rfluxes, ystates)
     call flux_correction(spm_nutrient_d%szrow, spm_nutrient_d%szcol, spm_nutrient_p, &
       spm_nutrient_d, dt, ystates, rfluxes)
 
     !correct the fluxes
+    !$acc end data
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_nf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_nf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_npool_to_frootn)               , veg_nf%core%pool_to_froot(p))
@@ -1128,9 +1132,11 @@ contains
     !assemble stoichiometry matrix
 
     !obtain the limiting factor
+    !$acc data copy(rfluxes, ystates)
     call flux_correction(spm_nutrient_d%szrow, spm_nutrient_d%szcol, spm_nutrient_p, &
       spm_nutrient_d, dt, ystates, rfluxes)
     !correct the fluxes
+    !$acc end data
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_pf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_pf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_npool_to_frootn)               , veg_pf%core%pool_to_froot(p))

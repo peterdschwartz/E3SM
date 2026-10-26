@@ -51,6 +51,7 @@ contains
       
     ! column-level nitrogen fluxes from gap-phase mortality
       if (.not.(use_pflotran .and. pf_cmode)) then
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -70,6 +71,7 @@ contains
 
       ! patch -level nitrogen fluxes from gap-phase mortality
 
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -132,6 +134,7 @@ contains
       if (.not.(use_pflotran .and. pf_cmode)) then
          ! column-level nitrogen fluxes from harvest mortality
 
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -150,6 +153,7 @@ contains
 
       ! patch-level nitrogen fluxes from harvest mortality
 
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

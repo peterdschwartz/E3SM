@@ -149,6 +149,8 @@ contains
       Q10 = ParamsShareInst%Q10_mr
 
       ! column loop to calculate temperature factors in each soil layer
+      !$acc data copy(tcsoi)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
       do j=1,nlevgrnd
          do fc = 1, num_soilc
             c = filter_soilc(fc)
@@ -159,8 +161,10 @@ contains
 
          end do
       end do
+      !$acc end data
 
       ! patch loop for leaves and live wood
+      !$acc parallel loop gang vector default(present) private(p, tc)
       do fp = 1, num_soilp
          p = filter_soilp(fp)
 

@@ -55,6 +55,7 @@ contains
 
       ! column level carbon fluxes from fire
       if (.not.(use_pflotran .and. pf_cmode)) then
+          !$acc parallel loop gang vector collapse(2) default(present) private(c)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -74,6 +75,7 @@ contains
       end if !(.not.(use_pflotran .and. pf_cmode))
 
       ! litter and CWD losses to fire
+      !$acc parallel loop gang vector collapse(3) default(present) private(c)
       do l = 1, ndecomp_pools
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
@@ -85,9 +87,12 @@ contains
 
       ! SOM C losses due to erosion
       if ( ero_ccycle ) then
+         !$acc parallel loop gang vector default(present) private(j, fc, c)
          do l = 1, ndecomp_pools
             if ( decomp_cascade_con%is_soil(l) ) then
+               !$acc loop seq
                do j = 1, nlevdecomp
+                  !$acc loop seq
                   do fc = 1, num_soilc
                      c = filter_soilc(fc)
                      col_cs%core%decomp_pools_vr(c,j,l) = col_cs%core%decomp_pools_vr(c,j,l) - col_cf%core%decomp_pools_yield_vr(c,j,l) * dt
@@ -99,6 +104,7 @@ contains
 
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

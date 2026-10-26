@@ -140,6 +140,7 @@ contains
       !------------------------------------------------------------------
 
          if(.not.use_fates)then
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1, nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -161,6 +162,7 @@ contains
 
         ! P fertilization for crops
       if ( crop_prog )then
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
 
             ! column loop
@@ -214,11 +216,13 @@ contains
       ! forest fertilization
       call get_curr_date(kyr, kmo, kda, mcsec)
       if (forest_fert_exp) then
+         !$acc parallel loop gang vector default(present) private(c, j)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             if ( ((fert_continue(c) == 1 .and. kyr > fert_start(c) .and. kyr <= fert_end(c)) .or.  kyr == fert_start(c)) &
                .and. fert_type(c) == 2 &
                .and. kda == 1  .and. mcsec == 1800) then ! fertilization assumed to occur at the begnining of each month
+               !$acc loop seq
                do j = 1, nlevdecomp
                   col_ps%solutionp_vr(c,j) = col_ps%solutionp_vr(c,j) + fert_dose(c,kmo)*ndep_prof(c,j)
                end do
@@ -230,6 +234,7 @@ contains
 
           ! patch loop (veg)
 
+          !$acc parallel loop gang vector default(present) private(p)
           do fp = 1,num_soilp
               p = filter_soilp(fp)
 

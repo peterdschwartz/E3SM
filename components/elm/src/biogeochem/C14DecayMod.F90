@@ -104,11 +104,13 @@ contains
       decay_const = - log(0.5_r8) / half_life
 
       ! column loop
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          seedc(c) = seedc(c) *  (1._r8 - decay_const * dt)
       end do ! end of columns loop
 
+      !$acc parallel loop gang vector default(present) private(spinup_term, j, fc, c)
       do l = 1, ndecomp_pools
          if ( spinup_state .eq. 1) then
             ! speed up radioactive decay by the same factor as decomposition so tat SOM ages prematurely in all respects
@@ -116,7 +118,9 @@ contains
          else
             spinup_term = 1.
          endif
+         !$acc loop seq
          do j = 1, nlevdecomp
+            !$acc loop seq
             do fc = 1,num_soilc
                c = filter_soilc(fc)
                if (spinup_term > 1._r8 .and. yr .ge. 40) then
@@ -130,6 +134,7 @@ contains
       end do ! end of columns loop
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -221,6 +226,7 @@ contains
         endif
 
         ! change delta units to ratio, put on pft loop
+        !$acc parallel loop gang vector default(present) private(p)
         do fp = 1,num_soilp
            p = filter_soilp(fp)
            cnstate_vars%rc14_atm_patch(p) = (delc14o2_atm * 1.e-3_r8 + 1._r8) * c14ratio
@@ -229,6 +235,7 @@ contains
      else
 
         ! for constant 14c concentration
+        !$acc parallel loop gang vector default(present) private(p)
         do fp = 1,num_soilp
            p = filter_soilp(fp)
            cnstate_vars%rc14_atm_patch(p) = c14ratio

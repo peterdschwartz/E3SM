@@ -380,9 +380,12 @@ contains
 
       ! column-level non-mortality fluxes
 
+      !$acc parallel loop gang vector default(present) private(cc, j, l)
       do fc = 1,num_soilc
          cc = filter_soilc(fc)
+         !$acc loop seq
          do j = 1, nlevdecomp
+            !$acc loop seq
             do l = 1, ndecomp_cascade_transitions
                if ( col_cs%core%decomp_pools_vr(cc,j,cascade_donor_pool(l)) /= 0._r8) then
                   isocol_cf%decomp_cascade_hr_vr(cc,j,l)  =  &
@@ -396,9 +399,12 @@ contains
          end do
       end do
 
+      !$acc parallel loop gang vector default(present) private(cc, j, l)
       do fc = 1,num_soilc
          cc = filter_soilc(fc)
+         !$acc loop seq
          do j = 1, nlevdecomp
+            !$acc loop seq
             do l = 1, ndecomp_cascade_transitions
                if ( col_cs%core%decomp_pools_vr(cc,j,cascade_donor_pool(l)) /= 0._r8) then
                   isocol_cf%core%decomp_cascade_transfer_vr(cc,j,l)  =  &
@@ -876,9 +882,12 @@ contains
       end do
 
 
+      !$acc parallel loop gang vector default(present) private(cc, j, l)
       do fc = 1,num_soilc
          cc = filter_soilc(fc)
+         !$acc loop seq
          do j = 1, nlevdecomp
+            !$acc loop seq
             do l = 1, ndecomp_pools
                if ( col_cs%core%decomp_pools_vr(cc,j,l) /= 0._r8) then
                   isocol_cf%core%m_decomp_pools_to_fire_vr(cc,j,l)  =  &
@@ -933,8 +942,11 @@ contains
          phenology_c_to_litr_lig_c =>    col_cf%core%phenology_to_litr_lig   & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with phenology (litterfall and crop) to litter lignin pool (gC/m3/s)
          )
 
+      !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
       do j = 1, nlevdecomp
+         !$acc loop seq
          do pi = 1,max_patch_per_col
+            !$acc loop seq
             do fc = 1,num_soilc
                c = filter_soilc(fc)
 
@@ -1030,8 +1042,11 @@ contains
           gap_mortality_c_to_cwdc        =>    col_cf%core%gap_mortality_to_cwd            & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with gap mortality to CWD pool (gC/m3/s)
           )
 
+       !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
        do j = 1, nlevdecomp
+          !$acc loop seq
           do pi = 1,maxpatch_pft
+             !$acc loop seq
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
 
@@ -1181,8 +1196,11 @@ contains
           harvest_c_to_cwdc                =>    col_cf%core%harvest_to_cwd                    & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with harvest to CWD pool (gC/m3/s)
           )
 
+       !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
        do j = 1, nlevdecomp
+          !$acc loop seq
           do pi = 1,maxpatch_pft
+             !$acc loop seq
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
 
@@ -1318,6 +1336,7 @@ contains
      end select
 
      ! loop over the supplied filter
+     !$acc parallel loop gang vector default(present) private(i)
      do f = 1,num
         i = filter(f)
         if (ctot_state(i) /= 0._r8) then

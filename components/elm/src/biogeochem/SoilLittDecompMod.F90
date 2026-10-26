@@ -466,12 +466,14 @@ contains
       end if
 
    if (nu_com .ne. 'RD') then
+      !$acc parallel loop gang vector default(present) private(c, j)
       do fc = 1,num_soilc
           c = filter_soilc(fc)
           soil_n_immob_flux(c) =0.0_r8
           soil_p_immob_flux(c) = 0.0_r8
           soil_n_grossmin_flux(c) = 0.0_r8
           soil_p_grossmin_flux(c) = 0.0_r8
+          !$acc loop seq
           do j = 1,nlevdecomp
               soil_n_immob_flux_vr(c,j) = 0.0_r8
               soil_p_immob_flux_vr(c,j) = 0.0_r8
@@ -580,6 +582,8 @@ contains
 
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(hrsum)
     associate(                                                                                      &
          gross_nmin_vr                    =>    col_nf%mineral%gross_min_vr                    , & ! Output: [real(r8) (:,:)   ]
          net_nmin_vr                      =>    col_nf%mineral%net_min_vr                      , & ! Output: [real(r8) (:,:)   ]
@@ -633,13 +637,16 @@ contains
          smin_no3_to_plant_vr_loc(1:num_soilc,:) = 0._r8
 
          ! fpg calculation
+         !$acc parallel loop gang vector default(present) private(c, j)
          do fc=1,num_soilc
             c = filter_soilc(fc)
             sminn_to_plant(c)       = 0._r8
+            !$acc loop seq
             do j = 1, nlevdecomp           ! sum up actual and potential column-level N fluxes to plant
                sminn_to_plant(c)    = sminn_to_plant(c) + sminn_to_plant_vr(c,j) * dzsoi_decomp(j)
             end do
          end do
+         !$acc parallel loop gang vector default(present) private(c)
          do fc=1,num_soilc
             c = filter_soilc(fc)
             ! calculate the fraction of potential growth that can be
@@ -653,10 +660,12 @@ contains
          end do
 
          ! fpi calculation
+         !$acc parallel loop gang vector default(present) private(c, j)
          do fc=1,num_soilc
             c = filter_soilc(fc)
             potential_immob(c) = 0._r8
             actual_immob(c)    = 0._r8
+            !$acc loop seq
             do j = 1, nlevdecomp
                if (potential_immob_vr(c,j) > 0.0_r8) then
                   fpi_vr(c,j) = actual_immob_vr(c,j) / potential_immob_vr(c,j)
@@ -667,6 +676,7 @@ contains
                end if
             end do
          end do
+         !$acc parallel loop gang vector default(present) private(c)
          do fc=1,num_soilc
             c = filter_soilc(fc)
             if (potential_immob(c) > 0.0_r8) then
@@ -683,6 +693,7 @@ contains
             ! potential hr is not available from PFLOTRAN, so here temporarily as actual hr
             ! in the end, this methane module will be moving into PFLOTRAN as well
 
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1,nlevdecomp
                do fc = 1, num_soilc
                   c = filter_soilc(fc)
@@ -691,6 +702,7 @@ contains
             end do
 
             ! Calculate total fraction of potential HR, for methane code
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1,nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -699,6 +711,7 @@ contains
             end do
 
             ! Nitrogen limitation / (low)-moisture limitation
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1,nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -717,13 +730,17 @@ contains
                         num_soilp, filter_soilp)
 
          ! save variables before updating
+         !$acc data copy(smin_nh4_to_plant_vr_loc, smin_no3_to_plant_vr_loc)
+         !$acc parallel loop gang vector default(present) private(c, j)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
+            !$acc loop seq
             do j = 1,nlevdecomp
                 smin_no3_to_plant_vr_loc(fc,j) = smin_no3_to_plant_vr(c,j)
                 smin_nh4_to_plant_vr_loc(fc,j) = smin_nh4_to_plant_vr(c,j)
             end do
          end do
+         !$acc end data
 
       end if !if(use_elm_interface.and.use_pflotran.and.pf_cmode)
       !------------------------------------------------------------------
@@ -748,8 +765,11 @@ contains
     ! in PlantCNPAlloc():
     ! smin_nh4_to_plant_vr(c,j), smin_no3_to_plant_vr(c,j), sminn_to_plant_vr(c,j) may be adjusted
     ! therefore, we need to update smin_no3_vr(c,j) & smin_nh4_vr(c,j)
+      !$acc data copy(smin_nh4_to_plant_vr_loc, smin_no3_to_plant_vr_loc)
+      !$acc parallel loop gang vector default(present) private(c, j)
       do fc = 1,num_soilc
            c = filter_soilc(fc)
+           !$acc loop seq
            do j = 1,nlevdecomp
                smin_no3_vr(c,j) = smin_no3_vr(c,j) - (smin_no3_to_plant_vr(c,j) - smin_no3_to_plant_vr_loc(fc,j))*dt
                smin_nh4_vr(c,j) = smin_nh4_vr(c,j) - (smin_nh4_to_plant_vr(c,j) - smin_nh4_to_plant_vr_loc(fc,j))*dt
@@ -757,6 +777,7 @@ contains
                smin_nh4_vr(c,j) = max(0._r8, smin_nh4_vr(c,j))
             end do
       end do
+      !$acc end data
     end if !(use_pflotran.and.pf_cmode)
     !------------------------------------------------------------------
       ! vertically integrate net and gross mineralization fluxes for diagnostic output
@@ -783,6 +804,7 @@ contains
       !$acc exit data delete(sum1,sum2,sum3,sum4) 
     end associate
 
+    !$acc exit data delete(hrsum)
   end subroutine SoilLittDecompAlloc2
 
   !-------------------------------------------------------------------------------------------------
@@ -816,9 +838,12 @@ contains
    ! set zeros for those variables NOT available from PFLOTRAN
    ! (TODO) will check 'zero' or '-9999' is better.
 
+   !$acc parallel loop gang vector default(present) private(c, j, k)
    do fc = 1,num_soilc
       c = filter_soilc(fc)
+      !$acc loop seq
       do j = 1,nlevdecomp
+         !$acc loop seq
          do k = 1, ndecomp_cascade_transitions
             decomp_cascade_ctransfer_vr(c,j,k) = 0._r8
             decomp_cascade_ntransfer_vr(c,j,k) = 0._r8

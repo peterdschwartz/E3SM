@@ -157,6 +157,8 @@ contains
     !character(len=32) :: subname='nitrif_denitrif' ! subroutine name
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(soil_hr_vr, r_min, ratio_diffusivity_water_gas)
     associate(                                                                                     &
          watsat                        =>    soilstate_vars%watsat_col                           , & ! Input:  [real(r8) (:,:)  ]  volumetric soil water at saturation (porosity) (nlevgrnd)
          bd                            =>    soilstate_vars%bd_col                               , & ! Input:  [real(r8) (:,:)  ]  bulk density of dry soil material [kg/m3]
@@ -230,6 +232,11 @@ contains
       co2diff_con(1) =   0.1325_r8
       co2diff_con(2) =   0.0009_r8
 
+      !$acc data copy(ph)
+      !$acc parallel loop gang vector collapse(2) default(present) &
+      !$acc   private(c, f_a, eps, om_frac, r_max, r_min_sat, r_psi_sat) &
+      !$acc   private(anaerobic_frac_sat, g_per_m3__to__ug_per_gsoil) &
+      !$acc   private(g_per_m3_sec__to__ug_per_gsoil_day)
       do j = 1, nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -386,9 +393,11 @@ contains
          end do
 
       end do
+      !$acc end data
 
     end associate
 
+    !$acc exit data delete(soil_hr_vr, r_min, ratio_diffusivity_water_gas)
  end subroutine nitrif_denitrif
 
 end module NitrifDenitrifMod

@@ -246,6 +246,8 @@ module elm_varcon
   !$acc   zlnd, zsno, csoilc, capr, cnfac, ssi, wimp, pondmx, pondmx_urban, thk_bedrock, c13ratio, c14ratio)
 
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(d_con_g, d_con_w, dzsoi_decomp, zisoi, zsoi)
 contains
 
   !------------------------------------------------------------------------------

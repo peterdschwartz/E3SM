@@ -140,6 +140,7 @@ contains
 
       if (.not.(use_pflotran .and. pf_cmode)) then
 
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -165,6 +166,7 @@ contains
 
          ! repeating N dep and fixation for crops
          if ( crop_prog )then
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1, nlevdecomp
 
                ! column loop
@@ -216,6 +218,7 @@ contains
             end if
          end do
 
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             ! column loop
             do fc = 1,num_soilc
@@ -256,11 +259,13 @@ contains
       ! forest fertilization
       call get_curr_date(kyr, kmo, kda, mcsec)
       if (forest_fert_exp) then
+         !$acc parallel loop gang vector default(present) private(c, j)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             if ( ((fert_continue(c) == 1 .and. kyr > fert_start(c) .and. kyr <= fert_end(c)) .or.  kyr == fert_start(c)) &
                .and. fert_type(c) == 1 &
                .and. kda == 1  .and. mcsec == 1800) then ! fertilization assumed to occur at the begnining of each month
+               !$acc loop seq
                do j = 1, nlevdecomp
                   col_ns%smin_nh4_vr(c,j) = col_ns%smin_nh4_vr(c,j) + fert_dose(c,kmo)/2._r8*ndep_prof(c,j)
                   col_ns%smin_no3_vr(c,j) = col_ns%smin_no3_vr(c,j) + fert_dose(c,kmo)/2._r8*ndep_prof(c,j)
@@ -273,6 +278,7 @@ contains
 
       ! patch loop (veg)
       if(.not.use_fates) then
+          !$acc parallel loop gang vector default(present) private(p)
           do fp = 1,num_soilp
               p = filter_soilp(fp)
 

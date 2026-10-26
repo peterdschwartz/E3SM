@@ -575,6 +575,8 @@ module elm_varctl
    !----------------------------------------------------------
    logical, public :: use_modified_infil = .false.
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(fan_to_bgc_crop, fan_to_bgc_veg)
 contains
 
   !---------------------------------------------------------------------------

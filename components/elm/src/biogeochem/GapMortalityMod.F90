@@ -124,6 +124,7 @@ contains
 
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p, am, m)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -391,8 +392,11 @@ contains
 
          )
 
+      !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
       do j = 1,nlevdecomp
+         !$acc loop seq
          do pi = 1,maxpatch_pft
+            !$acc loop seq
             do fc = 1,num_soilc
                c = filter_soilc(fc)
 
@@ -579,6 +583,7 @@ contains
        r_mort_cal     =>    cnstate_vars%r_mort_cal_patch )
 
        ! loop over the patches
+       !$acc parallel loop gang vector default(present) private(p, c)
        do fp = 1,num_soilp
           p = filter_soilp(fp)
           c = veg_pp%column(p)

@@ -343,6 +343,8 @@ module pftvarcon
   !$acc declare create(noveg, jmax_np1, jmax_np2, jmax_np3, vcmax_np1, vcmax_np2, vcmax_np3, vcmax_np4)
 
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(baset, cc_dstem, cc_leaf, cc_lstem, cc_other, climatezone, crop, evergreen, fm_droot, fm_leaf, fm_lroot, fm_lstem, fm_other, fm_root, gddmin, grperc, grpnow, hybgdd, iscft, lfemerg, min_days_senes, minplanttemp, needleleaf, nsugarcane, nsugarcaneirrig, percrop, planttemp, pprodharv10, root_dmx, rootprof_beta, senestemp, woody)
 contains
 
   !-----------------------------------------------------------------------

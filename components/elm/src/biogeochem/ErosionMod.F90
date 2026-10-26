@@ -66,6 +66,8 @@ contains
     !character(len=32) :: subname = 'ErosionFluxes'       ! subroutine name
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(decomp_cpools_vr_new, decomp_npools_vr_new, decomp_ppools_vr_new)
     associate(                                                        &
          decomp_cpools_vr =>    col_cs%core%decomp_pools_vr       , & ! Input: [real(r8) (:,:,:) ] SOM C pools [gC/m3]
          decomp_npools_vr =>    col_ns%core%decomp_pools_vr       , & ! Input: [real(r8) (:,:,:) ] SOM N pools [gN/m3]
@@ -244,6 +246,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
+                     !$acc parallel loop gang vector default(present)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_cpools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -256,6 +259,7 @@ contains
                         end if
                      end do
                   else
+                     !$acc parallel loop gang vector default(present)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_cpools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -269,6 +273,7 @@ contains
                         end if
                      end do
                   end if
+                  !$acc parallel loop gang vector default(present)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         cpools_yield_vr(c,j,l) = (decomp_cpools_vr(c,j,l)-decomp_cpools_vr_new(l))/dt
@@ -297,6 +302,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
+                     !$acc parallel loop gang vector default(present)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_npools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -309,6 +315,7 @@ contains
                         end if
                      end do
                   else
+                     !$acc parallel loop gang vector default(present)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_npools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -322,6 +329,7 @@ contains
                         end if
                      end do
                   end if
+                  !$acc parallel loop gang vector default(present)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         npools_yield_vr(c,j,l) = (decomp_npools_vr(c,j,l)-decomp_npools_vr_new(l))/dt
@@ -350,6 +358,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
+                     !$acc parallel loop gang vector default(present)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_ppools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -398,6 +407,7 @@ contains
                         primp_vr_new = primp_vr(c,j)
                      end if
                   else
+                     !$acc parallel loop gang vector default(present)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_ppools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -452,6 +462,7 @@ contains
                         primp_vr_new = primp_vr(c,j)
                      end if
                   end if
+                  !$acc parallel loop gang vector default(present)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         ppools_yield_vr(c,j,l) = (decomp_ppools_vr(c,j,l)-decomp_ppools_vr_new(l))/dt
@@ -493,6 +504,7 @@ contains
 
     end associate
 
+    !$acc exit data delete(decomp_cpools_vr_new, decomp_npools_vr_new, decomp_ppools_vr_new)
   end subroutine ErosionFluxes
 
 end module ErosionMod

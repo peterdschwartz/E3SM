@@ -761,6 +761,7 @@ contains
     totalinput = 0.0_r8
     cumflux = 0.0_r8
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1, num_soilc
        ! Zero the manure N spread arrays because the nat veg columns receive N additively (see below)
        c = filter_soilc(fc)
@@ -888,6 +889,8 @@ contains
     integer :: c, l, fc
     real(r8) :: total, fluxout, fluxin, flux_loss    
 
+    !$acc parallel loop gang vector default(present) &
+    !$acc   private(c, l, total, fluxin, flux_loss, fluxout)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        l = col_pp%landunit(c)
@@ -946,6 +949,8 @@ contains
 
     if (.not. (fan_to_bgc_veg .or. fan_to_bgc_crop)) return
 
+    !$acc parallel loop gang vector default(present) &
+    !$acc   private(c, l, flux_manure, flux_fert, manure_prod, included, p)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        l = col_pp%landunit(c)
@@ -960,6 +965,7 @@ contains
           col_nf%fert_to_sminn(c) = flux_fert + flux_manure
           col_nf%manure_n_to_sminn(c) = flux_manure
           col_nf%synthfert_n_to_sminn(c) = flux_fert
+          !$acc loop seq
           do p = col_pp%pfti(c), col_pp%pftf(c)
              ! NFERTILIZATION gets the fertilizer applied + all manure N produced in the column. 
              nfertilization(p) = manure_prod + col_nf%fert_n_appl(c)

@@ -83,6 +83,8 @@ module dynHarvestMod
   logical, public               :: do_cn_harvest ! whether we're in a period when we should do harvest
   !---------------------------------------------------------------------------
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(do_cn_harvest, harvest_rates)
 contains
 
   !-----------------------------------------------------------------------
@@ -368,6 +370,7 @@ contains
    days_per_year = get_days_per_year()
 
    ! patch loop
+   !$acc parallel loop gang vector default(present) private(p, g, t, topi, ti, am, varnum, m)
    do fp = 1,num_soilp
       p = filter_soilp(fp)
       g = pgridcell(p)
@@ -382,6 +385,7 @@ contains
 
          if (do_cn_harvest) then
             am = 0._r8
+            !$acc loop seq
             do varnum = 1, num_harvest_vars
                am = am + harvest_rates(varnum,g)
             end do
@@ -619,8 +623,11 @@ contains
 
         )
 
+     !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
      do j = 1, nlevdecomp
+        !$acc loop seq
         do pi = 1,maxpatch_pft
+           !$acc loop seq
            do fc = 1,num_soilc
               c = filter_soilc(fc)
 

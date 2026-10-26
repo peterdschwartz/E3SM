@@ -128,6 +128,8 @@ module elm_varpar
   !
   !-----------------------------------------------------------------------
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(crop_prog, i_cel_lit, i_cwd, i_lig_lit, i_met_lit, max_patch_per_col, maxpatch_pft, ndecomp_cascade_transitions, ndecomp_pools, nlevdecomp, nlevdecomp_full, nlevgrnd, nlevsoi)
 contains
 
   subroutine update_pft_array_bounds()

@@ -464,6 +464,7 @@ contains
     !-----------------------------------------------------------------------
     !------------------------------------------------------------------------
 
+    !$acc parallel loop gang vector default(present) private(i)
     do fi = 1,num_column
        i = filter_column(fi)
        this%trunc_sink(i)      = value_column
@@ -477,6 +478,7 @@ contains
 
     end do
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do j = 1,nlevdecomp_full
        do fi = 1,num_column
           i = filter_column(fi)
@@ -485,6 +487,7 @@ contains
     end do
 
     ! column and decomp_pools
+    !$acc parallel loop gang vector collapse(2) default(present) private(i)
     do k = 1, ndecomp_pools
        do fi = 1,num_column
           i = filter_column(fi)
@@ -494,6 +497,7 @@ contains
     end do
 
     ! column levdecomp, and decomp_pools
+    !$acc parallel loop gang vector collapse(3) default(present) private(i)
     do j = 1,nlevdecomp_full
        do k = 1, ndecomp_pools
           do fi = 1,num_column

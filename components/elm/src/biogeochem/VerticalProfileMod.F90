@@ -30,6 +30,8 @@ module VerticalProfileMod
   real(r8), public :: surfprof_exp  = 10._r8      
   !-----------------------------------------------------------------------
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(rootprof_exp, surfprof_exp)
 contains
 
   !-----------------------------------------------------------------------
@@ -113,9 +115,12 @@ contains
 
          ! define a single shallow surface profile for surface additions (leaves, stems, and N deposition)
          surface_prof(:) = 0._r8
+         !$acc data copy(surface_prof)
+         !$acc parallel loop gang vector default(present)
          do j = 1, nlevdecomp
             surface_prof(j) = exp(-surfprof_exp * zsoi(j)) / dzsoi_decomp(j)
          end do
+         !$acc end data
 
          ! initialize profiles to zero
          leaf_prof(begp:endp, :)      = 0._r8
@@ -132,20 +137,27 @@ contains
          if ( exponential_rooting_profile ) then
             if ( .not. pftspecific_rootingprofile ) then
                ! define rooting profile from exponential parameters
+               !$acc data copy(cinput_rootfr)
+               !$acc parallel loop gang vector collapse(2) default(present) private(p)
                do j = 1, nlevdecomp
                   do fp = 1,num_soilp
                      p = filter_soilp(fp)
                      cinput_rootfr(p,j) = exp(-rootprof_exp * zsoi(j)) / dzsoi_decomp(j)
                   end do
                end do
+               !$acc end data
             else
                ! use beta distribution parameter from Jackson et al., 1996
+               !$acc data copy(cinput_rootfr)
+               !$acc parallel loop gang vector default(present) &
+               !$acc   private(p, c, nlevbed, rootfr_tot, j)
                do fp = 1,num_soilp
                   p = filter_soilp(fp)
                   c = veg_pp%column(p)
                   nlevbed = nlev2bed(c)
                   rootfr_tot = 0._r8
                   if (veg_pp%itype(p) /= noveg) then
+                     !$acc loop seq
                      do j = 1, nlevdecomp
                         if (j <= nlevbed) then
                            cinput_rootfr(p,j) = ( rootprof_beta(veg_pp%itype(p)) ** (zisoi(j-1)*100._r8) - &
@@ -157,6 +169,7 @@ contains
                         end if
                      end do
                      if (nlevbed < nlevdecomp) then
+                        !$acc loop seq
                         do j = 1, nlevbed
                            cinput_rootfr(p,j) = cinput_rootfr(p,j) / rootfr_tot
                         end do
@@ -165,8 +178,11 @@ contains
                      cinput_rootfr(p,1) = 1._r8 / dzsoi_decomp(1)
                   endif
                end do
+               !$acc end data
             endif
          else
+            !$acc data copy(cinput_rootfr)
+            !$acc parallel loop gang vector collapse(2) default(present) private(p)
             do j = 1, nlevdecomp
                ! use standard CLM root fraction profiles
                do fp = 1,num_soilp
@@ -174,8 +190,12 @@ contains
                   cinput_rootfr(p,j) = rootfr(p,j) / dzsoi_decomp(j)
                end do
             end do
+            !$acc end data
          endif
 
+         !$acc data copy(cinput_rootfr, surface_prof)
+         !$acc parallel loop gang vector default(present) &
+         !$acc   private(p, c, nlevbed, rootfr_tot, surface_prof_tot, j)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
             c = veg_pp%column(p)
@@ -183,6 +203,7 @@ contains
             ! integrate rootfr over active layer of soil column
             rootfr_tot = 0._r8
             surface_prof_tot = 0._r8
+            !$acc loop seq
             do j = 1, min(max(altmax_lastyear_indx(c), 1), nlevdecomp)
                rootfr_tot = rootfr_tot + cinput_rootfr(p,j) * dzsoi_decomp(j)
                if (nlevbed < nlevdecomp) then
@@ -195,6 +216,7 @@ contains
             if ( (altmax_lastyear_indx(c) > 0) .and. (rootfr_tot > smallparameter) .and. (surface_prof_tot > smallparameter) ) then
                ! where there is not permafrost extending to the surface, integrate the profiles over the active layer
                ! this is equivalnet to integrating over all soil layers outside of permafrost regions
+               !$acc loop seq
                do j = 1, min(max(altmax_lastyear_indx(c), 1), nlevdecomp)
                   froot_prof(p,j) = cinput_rootfr(p,j) / rootfr_tot
                   croot_prof(p,j) = cinput_rootfr(p,j) / rootfr_tot
@@ -220,6 +242,7 @@ contains
             endif
 
          end do
+         !$acc end data
 
          !! aggregate root profile to column
          ! call p2c (decomp, nlevdecomp_full, &
@@ -239,6 +262,9 @@ contains
          end do
 
          ! repeat for column-native profiles: Ndep and Nfix
+         !$acc data copy(col_cinput_rootfr, surface_prof)
+         !$acc parallel loop gang vector default(present) &
+         !$acc   private(c, nlevbed, rootfr_tot, surface_prof_tot, alt_ind, j)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             nlevbed = nlev2bed(c)
@@ -246,12 +272,14 @@ contains
             surface_prof_tot = 0._r8
             ! redo column ntegration over active layer for column-native profiles
             alt_ind = min(max(altmax_lastyear_indx(c), 1), nlevdecomp)
+            !$acc loop seq
             do j = 1, min(alt_ind, nlevbed)
                rootfr_tot = rootfr_tot + col_cinput_rootfr(c,j) * dzsoi_decomp(j)
                surface_prof_tot = surface_prof_tot + surface_prof(j) * dzsoi_decomp(j)
             end do
             if(col_pp%is_fates(c))then
                if ( (altmax_lastyear_indx(c) > 0) .and. (surface_prof_tot > smallparameter) ) then
+                  !$acc loop seq
                   do j = 1,min(alt_ind, nlevbed)
                      nfixation_prof(c,j) = surface_prof(j)/ surface_prof_tot
                      ndep_prof(c,j) = surface_prof(j)/ surface_prof_tot
@@ -264,6 +292,7 @@ contains
                endif
             else
                if ( (altmax_lastyear_indx(c) > 0) .and. (rootfr_tot > smallparameter) .and. (surface_prof_tot > smallparameter) ) then
+                  !$acc loop seq
                   do j = 1,  min(max(altmax_lastyear_indx(c), 1), nlevdecomp)
                      nfixation_prof(c,j) = col_cinput_rootfr(c,j) / rootfr_tot
                      if (j <= nlevbed) then
@@ -278,6 +307,7 @@ contains
                endif
             end if
          end do
+         !$acc end data
 
       else
 

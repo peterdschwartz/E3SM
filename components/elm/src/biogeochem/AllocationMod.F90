@@ -418,6 +418,8 @@ contains
     real(r8):: nuptake_prof(num_soilc, 1:nlevdecomp)
     real(r8):: puptake_prof(num_soilc, 1:nlevdecomp)
     !-----------------------------------------------------------------------
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(nuptake_prof, puptake_prof)
     associate(                &
          nfixation_prof               => cnstate_vars%nfixation_prof_col , &
          smin_no3_vr                  => col_ns%smin_no3_vr              , & ! Input: [real(r8) (:,:) ]  (gN/m3) soil mineral NO3
@@ -466,6 +468,7 @@ contains
 
       ! pflotran will need an input from CN: modified 'sum_ndemand_vr' ('potential_immob' excluded).
       if (use_elm_interface.and.use_pflotran .and. pf_cmode) then
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             do fc=1, num_soilc
                c = filter_soilc(fc)
@@ -477,6 +480,7 @@ contains
 
     end associate
 
+    !$acc exit data delete(nuptake_prof, puptake_prof)
  end subroutine Allocation1_PlantNPDemand
 
  subroutine TotalNPDemand(num_soilp,filter_soilp, photosyns_vars, &
@@ -1124,6 +1128,8 @@ contains
 
    !-----------------------------------------------------------------------
 
+   ! spel acc-locals: device storage of the local work arrays
+   !$acc enter data create(excess_immob_nh4_vr, excess_immob_no3_vr, excess_immob_p_vr)
    associate(                                                                                 &
         ivt                          => veg_pp%itype                    , & ! Input:  [integer  (:) ]  pft vegetation type
                                                                             ! new variables due to partition of Allocation to 3 subroutines: BEG
@@ -1256,6 +1262,7 @@ contains
         else
            n_pcomp = bounds%endp-bounds%begp+1   ! max number of plant competitors
            allocate(filter_pcomp(n_pcomp));filter_pcomp(:) = -1
+           !$acc parallel loop gang vector default(present) private(p)
            do fp=1,num_soilp
               p = filter_soilp(fp)
               smin_nh4_to_plant_patch(p) = 0.0_r8
@@ -1277,6 +1284,7 @@ contains
      ! ------------------------------------------------------------------------------
 
      if(use_fates) then
+        !$acc parallel loop gang vector default(present) private(c, l, ci, pci, pcf, j, f)
         do fc=1,num_soilc
 
            c = filter_soilc(fc)
@@ -1297,11 +1305,13 @@ contains
               plant_pdemand_col(c) = 0._r8
 
               ! We fill the vertically resolved array to simplify some jointly used code
+              !$acc loop seq
               do j = 1, nlevdecomp
 
                  col_plant_ndemand_vr(c,j) = 0._r8
                  col_plant_pdemand_vr(c,j) = 0._r8
 
+                 !$acc loop seq
                  do f = 1,n_pcomp
                     ft = elm_fates%fates(ci)%bc_out(s)%ft_index(f)
 
@@ -1476,9 +1486,12 @@ contains
               plant_no3demand_vr_ptr => plant_no3demand_vr_fates
               km_no3_ptr             => elm_fates%fates(ci)%bc_pconst%eca_km_no3
               vmax_no3_ptr           => elm_fates%fates(ci)%bc_pconst%vmax_no3
+              !$acc data copy(filter_pcomp)
+              !$acc parallel loop gang vector default(present)
               do f = 1, n_pcomp
                  filter_pcomp(f) = f
               end do
+              !$acc end data
 
            else
               pci = col_pp%pfti(c)
@@ -1509,6 +1522,9 @@ contains
            ! Estimate actual allocation rates via Capacitance Aquisition
            ! approach (ECA/CA)
 
+            !$acc data copy(cn_scalar_runmean_ptr, decompmicc, filter_pcomp, ft_index_ptr, &
+            !$acc&   km_nh4_ptr, km_no3_ptr, plant_nh4demand_vr_ptr, plant_no3demand_vr_ptr, &
+            !$acc&   veg_rootc_ptr, vmax_nh4_ptr, vmax_no3_ptr)
             call NAllocationECAMIC(pci,dt,                            & ! IN
                                    bd(c,:),                           & ! IN
                                    h2osoi_vol(c,:),                   & ! IN
@@ -1546,11 +1562,13 @@ contains
                                    f_nit_vr(c,:),                     & ! OUT
                                    f_denit_vr(c,:))                     ! OUT
 
+            !$acc end data
             col_plant_ndemand_vr(c,:) = col_plant_nh4demand_vr(c,:)+col_plant_no3demand_vr(c,:)
          end do 
 
       end if
 
+     !$acc parallel loop gang vector collapse(2) default(present) private(c, l)
      do j = 1, nlevdecomp
         do fc=1, num_soilc
 
@@ -1639,9 +1657,12 @@ contains
               plant_pdemand_vr_ptr   => plant_pdemand_vr_fates
               km_p_ptr               => elm_fates%fates(ci)%bc_pconst%eca_km_p
               vmax_p_ptr             => elm_fates%fates(ci)%bc_pconst%vmax_p
+              !$acc data copy(filter_pcomp)
+              !$acc parallel loop gang vector default(present)
               do f = 1, n_pcomp
                  filter_pcomp(f) = f
               end do
+              !$acc end data
            else
               pci = col_pp%pfti(c)
               pcf = col_pp%pftf(c)
@@ -1663,6 +1684,8 @@ contains
 
            end if
 
+           !$acc data copy(cp_scalar_runmean_ptr, decompmicc, filter_pcomp, ft_index_ptr, km_p_ptr, &
+           !$acc&   plant_pdemand_vr_ptr, veg_rootc_ptr, vmax_p_ptr)
            call PAllocationECAMIC(pci,dt,           & ! IN
                 h2osoi_vol(c,:),                    & ! IN
                 t_scalar(c,:),                      & ! IN
@@ -1698,7 +1721,9 @@ contains
            ! This is effectively only relevant with FATES
            ! big-leaf ECA would have 0 demand at this point
            ! and calculates supplement and need later on in allocation3
+           !$acc end data
            if ( carbon_only .or. carbonnitrogen_only) then
+              !$acc parallel loop gang vector default(present)
               do j = 1, nlevdecomp
                  sminp_to_plant_vr(c,j)      = col_plant_pdemand_vr(c,j)
                  supplement_to_sminp_vr(c,j) = col_plant_pdemand_vr(c,j)
@@ -1770,6 +1795,7 @@ contains
         else
            ! ECA mode or MIC outcompete plant mode, be consistent with the idea
            ! apply generic flux limiter based on Tang 2016 doi:10.5194/bg-13-723-2016
+           !$acc parallel loop gang vector collapse(2) default(present) private(c, l, k)
            do j = 1, nlevdecomp
 
               do fc=1, num_soilc
@@ -1781,6 +1807,7 @@ contains
                  excess_immob_no3_vr(fc,j) = 0.0_r8
                  excess_immob_p_vr(fc,j) = 0.0_r8
                  if( fpi_vr(c,j) <=fpi_p_vr(c,j) )then ! more N limited
+                    !$acc loop seq
                     do k = 1, ndecomp_cascade_transitions
                        if (pmnf_decomp_cascade(c,j,k) > 0.0_r8 .and. pmpf_decomp_cascade(c,j,k) > 0.0_r8) then
                           excess_immob_p_vr(fc,j) = excess_immob_p_vr(fc,j) + pmpf_decomp_cascade(c,j,k) *(fpi_p_vr(c,j)&
@@ -1791,6 +1818,7 @@ contains
                     end do
                  else
                     if (fpi_nh4_vr(fc,j) > fpi_p_vr(c,j)) then ! more P limited
+                       !$acc loop seq
                        do k = 1, ndecomp_cascade_transitions
                           if (pmnf_decomp_cascade(c,j,k) > 0.0_r8 .and. pmpf_decomp_cascade(c,j,k) > 0.0_r8) then
                              excess_immob_nh4_vr(fc,j) = excess_immob_nh4_vr(fc,j) + pmnf_decomp_cascade(c,j,k) &
@@ -1802,6 +1830,7 @@ contains
                           end if
                        end do
                     else
+                       !$acc loop seq
                        do k = 1, ndecomp_cascade_transitions
                           if (pmnf_decomp_cascade(c,j,k) > 0.0_r8 .and. pmpf_decomp_cascade(c,j,k) > 0.0_r8) then
                              excess_immob_no3_vr(fc,j) = excess_immob_no3_vr(fc,j) + pmnf_decomp_cascade(c,j,k) &
@@ -1818,6 +1847,7 @@ contains
               end do ! col_loop
             end do
 
+           !$acc parallel loop gang vector collapse(2) default(present) private(c, l)
            do j = 1, nlevdecomp
               do fc=1, num_soilc
                  c = filter_soilc(fc)
@@ -1904,6 +1934,7 @@ contains
                  fpg_p_vr(c,j) = 1.0_r8
               end if
               if(.not.use_fates) then
+                 !$acc parallel loop gang vector default(present)
                  do p = col_pp%pfti(c), col_pp%pftf(c)
                     if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
 
@@ -1931,6 +1962,7 @@ contains
      if ((nu_com .eq. 'ECA' .or. nu_com .eq. 'MIC')) then
         deallocate(filter_pcomp)
         if(.not.use_fates)then
+           !$acc parallel loop gang vector default(present) private(p)
            do fp=1,num_soilp
               p = filter_soilp(fp)
               sminn_to_plant_patch(p) = smin_nh4_to_plant_patch(p) + smin_no3_to_plant_patch(p)
@@ -2005,9 +2037,11 @@ contains
      if (nu_com .ne. 'RD' .and. .not.use_fates) then
         do fc=1,num_soilc
            c = filter_soilc(fc)
+           !$acc parallel loop gang vector default(present) private(j)
            do p = col_pp%pfti(c), col_pp%pftf(c)
               pnup_pfrootc(p) =  0.0_r8
               if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
+                 !$acc loop seq
                  do j = 1, nlevdecomp
                     pnup_pfrootc(p) =  pnup_pfrootc(p) + &
                          plant_nh4demand_vr_patch(p,j) / max(frootc(p) * froot_prof(p,j)&
@@ -2028,6 +2062,7 @@ contains
      ! Set the FATES N and P uptake fluxes
 
      if(use_fates)then
+        !$acc parallel loop gang vector default(present) private(c, ci, f, ndemand, j, pdemand)
         do fc=1,num_soilc
            c = filter_soilc(fc)
            ci      = bounds%clump_index
@@ -2037,18 +2072,21 @@ contains
            if (nu_com .eq. 'RD') then
 
               if( plant_ndemand_col(c)>tiny(plant_ndemand_col(c)) ) then
+                 !$acc loop seq
                  do f = 1,n_pcomp
 
                     ft = elm_fates%fates(ci)%bc_out(s)%ft_index(f)
 
                     ! [gN/m2/s]
                     ndemand=0._r8
+                    !$acc loop seq
                     do j = 1,nlevdecomp
                        ndemand = ndemand + elm_fates%fates(ci)%bc_out(s)%veg_rootc(f,j) * &
                             (elm_fates%fates(ci)%bc_pconst%vmax_nh4(ft)+elm_fates%fates(ci)%bc_pconst%vmax_no3(ft)) * &
                             dzsoi_decomp(j)
                     end do
 
+                    !$acc loop seq
                     do j = 1,nlevdecomp
 
                        elm_fates%fates(ci)%bc_in(s)%plant_nh4_uptake_flux(f,1) = &
@@ -2066,11 +2104,13 @@ contains
               end if
 
             if( plant_pdemand_col(c)>tiny(plant_pdemand_col(c)) ) then
+               !$acc loop seq
                do f = 1,n_pcomp
 
                   ft = elm_fates%fates(ci)%bc_out(s)%ft_index(f)
 
                   pdemand=0._r8
+                  !$acc loop seq
                   do j = 1,nlevdecomp
                      ! [gP/m2/s]
                      pdemand = pdemand+elm_fates%fates(ci)%bc_out(s)%veg_rootc(f,j) * &
@@ -2078,6 +2118,7 @@ contains
                           dzsoi_decomp(j)
                   end do
 
+                  !$acc loop seq
                   do j = 1,nlevdecomp
                      ! [gP/m2/step]
                      elm_fates%fates(ci)%bc_in(s)%plant_p_uptake_flux(f,1) = &
@@ -2091,7 +2132,9 @@ contains
 
          else ! ECA or MIC mode
 
+            !$acc loop seq
             do f = 1,n_pcomp
+               !$acc loop seq
                do j = 1,nlevdecomp
 
                   elm_fates%fates(ci)%bc_in(s)%plant_nh4_uptake_flux(f,1) = &
@@ -2121,6 +2164,9 @@ contains
     end if  ! if(use_fates)
 
     end associate
+   !$acc exit data delete(excess_immob_nh4_vr, excess_immob_no3_vr, excess_immob_p_vr)
+   !$acc exit data delete(fpi_nh4_vr, fpi_no3_vr, nuptake_prof, puptake_prof, sum1, sum2, &
+   !$acc&   sum_immob_nh4, sum_immob_no3, sum_immob_p, sum_pot_immob_p)
  end subroutine Allocation2_ResolveNPLimit
 
  subroutine PlantCNPAlloc_ECAMIC(bounds,  &
@@ -2528,12 +2574,15 @@ contains
 
        e_km = e_km + e_decomp_scalar*decompmicc(j)*(1._r8/km_decomp_nh4 + 1._r8/km_nit)
 
+       !$acc data copy(compet_plant)
+       !$acc parallel loop gang vector default(present) private(ip, ft)
        do i = 1, n_pcomp
           ip = filter_pcomp(i)
           ft = ft_index(ip)
           compet_plant(i) = solution_conc / &
                ( km_nh4_plant(ft) * (1._r8 + solution_conc/km_nh4_plant(ft) + e_km))
        end do
+       !$acc end data
 
        compet_decomp = solution_conc / (km_decomp_nh4 * (1._r8 + solution_conc/km_decomp_nh4 + e_km))
 
@@ -2634,12 +2683,15 @@ contains
        ! Note we do NOT need to re-compute decompmicc_layer (aready calculated)
        e_km = e_km + e_decomp_scalar*decompmicc(j)*(1._r8/km_decomp_no3 + 1._r8/km_den)
 
+       !$acc data copy(compet_plant)
+       !$acc parallel loop gang vector default(present) private(ip, ft)
        do i = 1, n_pcomp
           ip = filter_pcomp(i)
           ft = ft_index(ip)
           compet_plant(i) = solution_conc / &
                ( km_no3_plant(ft) * (1._r8 + solution_conc/km_no3_plant(ft) + e_km))
        end do
+       !$acc end data
 
        compet_decomp = solution_conc / (km_decomp_no3 * (1._r8 + solution_conc/km_decomp_no3 + e_km))
        compet_denit = solution_conc / (km_den * (1._r8 + solution_conc/km_den + e_km))
@@ -2825,12 +2877,15 @@ contains
        e_km_p = e_km_p + e_decomp_scalar*decompmicc(j)/km_decomp_p + &
             max(0._r8,vmax_minsurf_p_vr(j)-labilep_vr(j))/km_minsurf_p_vr(j)
 
+       !$acc data copy(compet_plant)
+       !$acc parallel loop gang vector default(present) private(ip, ft)
        do i = 1,n_pcomp
           ip = filter_pcomp(i)
           ft = ft_index(ip)
           compet_plant(i) = solution_pconc / &
                (km_plant_p(ft)*(1._r8 + solution_pconc/km_plant_p(ft) + e_km_p))
        end do
+       !$acc end data
 
        compet_decomp_p = solution_pconc / &
             (km_decomp_p * (1._r8 + solution_pconc/km_decomp_p + e_km_p))
@@ -3217,9 +3272,11 @@ contains
 
           end if
           if(use_pflotran .and. pf_cmode) then
+            !$acc parallel loop gang vector default(present) private(sum1, c, j, sminn_vr_loc)
             do fc=1,num_soilc
                sum1 = 0._r8
                c = filter_soilc(fc)
+               !$acc loop seq
                do j = 1, nlevdecomp
                   sminn_vr_loc = smin_no3_vr(c,j) + smin_nh4_vr(c,j)
                   sum1 = sum1 + sminn_vr_loc * dzsoi_decomp(j) &
@@ -3228,6 +3285,7 @@ contains
                sminn_tot(fc) = sum1
              end do
             !
+             !$acc parallel loop gang vector collapse(2) default(present) private(c, sminn_vr_loc)
              do j = 1, nlevdecomp
               do fc=1,num_soilc
                  c = filter_soilc(fc)

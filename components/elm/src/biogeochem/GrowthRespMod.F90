@@ -98,6 +98,7 @@ contains
 
       ! Loop through patches
       ! start pft loop
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
 
         p = filter_soilp(fp)

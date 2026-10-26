@@ -468,6 +468,7 @@ contains
       kmo = mon_curr
       mcsec = secs_curr
 
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          tempavg_t2m(p) = tempavg_t2m(p) + t_ref2m(p) * (fracday/dayspyr)
@@ -481,6 +482,7 @@ contains
       ! gdd SUMMATIONS ARE RELATIVE TO THE PLANTING DATE (see subr. updateAccFlds)
 
 
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_pcropp
          p = filter_pcropp(fp)
          if (kmo == 1 .and. kda == 1 .and. nyrs_crop_active(p) == 0) then ! YR 1:
@@ -539,6 +541,7 @@ contains
 
       dayspyr = dayspyr_mod
 
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          if (evergreen(ivt(p)) == 1._r8) then
@@ -689,6 +692,8 @@ contains
          )
          dt = dtime_mod
       ! start pft loop
+      !$acc parallel loop gang vector default(present) &
+      !$acc   private(p, c, g, crit_onset_gdd, ws_flag, soilt)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          c = veg_pp%column(p)
@@ -1045,6 +1050,8 @@ contains
       dayspyr = dayspyr_mod
 
 
+      !$acc parallel loop gang vector default(present) &
+      !$acc   private(p, c, t, g, soilt, psi, crit_onset_gdd)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          c = veg_pp%column(p)
@@ -2060,6 +2067,7 @@ contains
 
       ndays_on = 20._r8 ! number of days to fertilize
 
+      !$acc parallel loop gang vector default(present) private(p, c, g, t, h, soilt)
       do fp = 1, num_ppercropp     ! prognostic perennial crops loop
          p = filter_ppercropp(fp)
          c = veg_pp%column(p)
@@ -2776,6 +2784,7 @@ contains
 
       ! patch loop
       dt = dtime_mod
+      !$acc parallel loop gang vector default(present) private(p, t1)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -2916,6 +2925,7 @@ contains
 
    dt = dtime_mod
    cgrain = 0.50_r8
+   !$acc parallel loop gang vector default(present) private(p, t1)
    do fp = 1,num_pcropp
       p = filter_pcropp(fp)
       ! only calculate during the offset period
@@ -3028,6 +3038,7 @@ contains
 
    dt = dtime_mod
    cgrain = 0.447_r8 ! Source: Zeri et al., 2013
+   !$acc parallel loop gang vector default(present) private(p, t1)
    do fp = 1, num_ppercropp
       p = filter_ppercropp(fp)
       ! only calculate during the offset period
@@ -3173,6 +3184,7 @@ contains
       ! The litterfall transfer rate starts at 0.0 and increases linearly
       ! over time, with displayed growth going to 0.0 on the last day of litterfall
       dt = dtime_mod
+      !$acc parallel loop gang vector default(present) private(p, t1)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -3330,6 +3342,7 @@ contains
 
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -3428,6 +3441,7 @@ contains
          )
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p, ctovr, ntovr, ptovr)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -3554,6 +3568,7 @@ contains
          phenology_p_to_litr_lig_p           =>    col_pf%core%phenology_to_litr_lig   & ! Output: [real(r8) (:,:) ]  P fluxes associated with phenology (litterfall and crop) to litter lignin pool (gP/m3/s)
          )
 
+      !$acc parallel loop gang vector collapse(2) default(present) private(p, c, wt_col)
       do j = 1, nlevdecomp
             do fp = 1,num_soilp
                p = filter_soilp(fp)

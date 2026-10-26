@@ -60,6 +60,8 @@ module soilorder_varcon
   ! Created by X.YANG 01/12/2015
   !-----------------------------------------------------------------------
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(r_mort_soilorder)
 contains
 
   !-----------------------------------------------------------------------

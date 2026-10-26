@@ -185,6 +185,8 @@ module CNStateType
   end type cnstate_type
   !------------------------------------------------------------------------
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(fert_continue, fert_dose, fert_end, fert_start, fert_type)
 contains
 
   !------------------------------------------------------------------------

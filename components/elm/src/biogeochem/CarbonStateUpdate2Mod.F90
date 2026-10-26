@@ -58,6 +58,7 @@ contains
 
      if ((.not.(use_pflotran .and. pf_cmode))) then
          ! column level carbon fluxes from gap-phase mortality
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1,nlevdecomp
             ! column loop
             do fc = 1,num_soilc
@@ -79,6 +80,7 @@ contains
 
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -145,6 +147,7 @@ contains
 
       if (.not.(use_pflotran .and. pf_cmode)) then
          ! column level carbon fluxes from harvest mortality
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             ! column loop
             do fc = 1,num_soilc
@@ -167,6 +170,7 @@ contains
       endif
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

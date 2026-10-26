@@ -159,8 +159,10 @@ contains
     return
   endif
 
+  !$acc parallel loop gang vector default(present) private(dy, jj, id)
   do ii = 1, spm%szrow
     dy = 0._r8
+    !$acc loop seq
     do jj = 1, spm%ncol(ii)
       id = spm%pB(ii)+jj-1
       dy=dy+spm%val(id)*x(spm%icol(id))
@@ -368,6 +370,7 @@ contains
     ! !LOCAL VARIABLES:
     integer :: j
 
+    !$acc parallel loop gang vector default(present)
     do j = 1, nr
        reaction_rates(j) = reaction_rates(j)*rscal(j)
     enddo
@@ -405,15 +408,19 @@ contains
   do
     !obtain the destruction fluxes
     d_dt(:)=0._r8
+    !$acc data copy(d_dt)
     call spm_axpy(spm_d%szrow, spm_d%szcol, 1._r8, rfluxes, spm_d, d_dt, errinfo)
 
+    !$acc end data
     if(errinfo<0)then
       call endrun(msg='ERROR:: in spm_axpy'//errMsg(__FILE__, __LINE__))
     endif
     !obtain the production fluxes
     p_dt(:)=0._r8
+    !$acc data copy(p_dt)
     call spm_axpy(spm_p%szrow, spm_d%szcol, 1._r8, rfluxes, spm_p, p_dt, errinfo)
 
+    !$acc end data
     if(errinfo<0)then
       call endrun(msg='ERROR:: in spm_axpy '//errMsg(__FILE__, __LINE__))
     endif
@@ -429,7 +436,9 @@ contains
       call lom%calc_reaction_rscal(spm_d%szrow, spm_d%szcol,  pscal, &
         spm_d,rscal)
 
+      !$acc data copy(rscal)
       call lom%apply_reaction_rscal(spm_d%szcol, rscal, rfluxes)
+      !$acc end data
     else
       !terminate the loop and write a warning if maximum iteration is reached.
       if(it==itmax)write(iulog,*)'maximum iterations reached in flux_correction in LSparseMatMod'
