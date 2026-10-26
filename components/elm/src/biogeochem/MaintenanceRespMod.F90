@@ -101,6 +101,8 @@ contains
     real(r8):: tcsoi(bounds%begc:bounds%endc,nlevgrnd) ! temperature correction by soil layer (unitless)
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(tcsoi)
     associate(                                                        &
          ivt            =>    veg_pp%itype                             , & ! Input:  [integer  (:)   ]  patch vegetation type
          woody          =>    veg_vp%woody                      , & ! Input:  [real(r8) (:)   ]  woody lifeform flag (0 = non-woody, 1 = tree, 2 = shrub)
@@ -149,7 +151,6 @@ contains
       Q10 = ParamsShareInst%Q10_mr
 
       ! column loop to calculate temperature factors in each soil layer
-      !$acc data copy(tcsoi)
       !$acc parallel loop gang vector collapse(2) default(present) private(c)
       do j=1,nlevgrnd
          do fc = 1, num_soilc
@@ -161,7 +162,6 @@ contains
 
          end do
       end do
-      !$acc end data
 
       ! patch loop for leaves and live wood
       !$acc parallel loop gang vector default(present) private(p, tc)
@@ -203,10 +203,10 @@ contains
 
       ! soil and patch loop for fine root
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(soilstate_vars%rootfr_patch, veg_ns%core%froot) if_present
-      do j = 1,nlevgrnd
-         do fp = 1,num_soilp
+      !$acc parallel loop gang vector default(present) private(fp, p, c)
+      do fp = 1,num_soilp
+         !$acc loop seq
+         do j = 1,nlevgrnd
             p = filter_soilp(fp)
             c = veg_pp%column(p)
 
@@ -219,10 +219,10 @@ contains
             froot_mr(p) = froot_mr(p) + frootn(p)*br_mr*tcsoi(c,j)*rootfr(p,j)
          end do
       end do
-      !$acc update device(veg_cf%froot_mr) if_present
 
     end associate
 
+    !$acc exit data delete(tcsoi)
   end subroutine MaintenanceResp
 
 end module MaintenanceRespMod

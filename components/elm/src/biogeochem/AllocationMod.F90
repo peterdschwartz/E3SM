@@ -1283,10 +1283,8 @@ contains
      ! conditions.
      ! ------------------------------------------------------------------------------
 
-     ! spel acc-sync: device data this host code uses
-     !$acc update self(col_nf%uptake%col_plant_demand_vr, col_nf%uptake%plant_demand, &
-     !$acc&   col_pf%uptake%col_plant_demand_vr, col_pf%uptake%plant_demand) if_present
      if(use_fates) then
+        !$acc parallel loop gang vector default(present) private(c, l, ci, pci, pcf, j, f)
         do fc=1,num_soilc
 
            c = filter_soilc(fc)
@@ -1307,11 +1305,13 @@ contains
               plant_pdemand_col(c) = 0._r8
 
               ! We fill the vertically resolved array to simplify some jointly used code
+              !$acc loop seq
               do j = 1, nlevdecomp
 
                  col_plant_ndemand_vr(c,j) = 0._r8
                  col_plant_pdemand_vr(c,j) = 0._r8
 
+                 !$acc loop seq
                  do f = 1,n_pcomp
                     ft = elm_fates%fates(ci)%bc_out(s)%ft_index(f)
 
@@ -1339,8 +1339,6 @@ contains
          end do 
 
      else   ! USE ELM Native vegetation (i.e. use_cn), not FATES
-     !$acc update device(col_nf%uptake%col_plant_demand_vr, col_nf%uptake%plant_demand, &
-     !$acc&   col_pf%uptake%col_plant_demand_vr, col_pf%uptake%plant_demand) if_present
 
         if (nu_com .eq. 'RD') then 
             !$acc parallel loop independent gang vector collapse(2) &
@@ -1355,6 +1353,12 @@ contains
             end do
          else
 
+           ! spel acc-sync: device data this host code uses
+           !$acc update self(carbon_only, cnstate_vars%froot_prof_patch, veg_cs%core%froot, veg_cs%core%leaf, &
+           !$acc&   veg_cs%core%leaf_storage, veg_cs%core%leaf_xfer, veg_nf%plant_nh4demand_vr, &
+           !$acc&   veg_nf%plant_no3demand_vr, veg_ns%core%leaf, veg_ns%core%leaf_storage, &
+           !$acc&   veg_ns%core%leaf_xfer, veg_pf%uptake%plant_demand_vr, veg_ps%core%leaf, &
+           !$acc&   veg_ps%core%leaf_storage, veg_ps%core%leaf_xfer) if_present
            do fc=1,num_soilc
 
               c = filter_soilc(fc)
@@ -1428,6 +1432,9 @@ contains
               vmax_p_ptr    => vmax_plant_p
 
            end do 
+           !$acc update device(cnstate_vars%cn_scalar, cnstate_vars%cp_scalar, ft_index_bigleaf, &
+           !$acc&   veg_nf%plant_nh4demand_vr, veg_nf%plant_no3demand_vr, veg_pf%uptake%plant_demand_vr, &
+           !$acc&   veg_rootc_bigleaf) if_present
          end if ! nu_com
      end if
 
@@ -1947,10 +1954,10 @@ contains
               if (col_plant_pdemand_vr(c,j) > 0._r8) then
                  fpg_p_vr(c,j) = sminp_to_plant_vr(c,j)/col_plant_pdemand_vr(c,j)
               else
-              !$acc update device(cnstate_vars%fpg_nh4_vr_col, cnstate_vars%fpg_no3_vr_col, &
-              !$acc&   cnstate_vars%fpg_p_vr_col) if_present
                  fpg_p_vr(c,j) = 1.0_r8
               end if
+              !$acc update device(cnstate_vars%fpg_nh4_vr_col, cnstate_vars%fpg_no3_vr_col, &
+              !$acc&   cnstate_vars%fpg_p_vr_col) if_present
               if(.not.use_fates) then
                  !$acc parallel loop gang vector default(present)
                  do p = col_pp%pfti(c), col_pp%pftf(c)
@@ -2277,13 +2284,13 @@ contains
       !$acc&   veg_cf%core%pool_to_grain_storage, veg_cf%core%pool_to_leaf, veg_cf%core%pool_to_leaf_storage, &
       !$acc&   veg_cf%core%pool_to_livecroot, veg_cf%core%pool_to_livecroot_storage, &
       !$acc&   veg_cf%core%pool_to_livestem, veg_cf%core%pool_to_livestem_storage, &
-      !$acc&   veg_cf%cpool_to_gresp_storage, veg_cf%cpool_to_xsmrpool, veg_cf%froot_curmr, &
+      !$acc&   veg_cf%cpool_to_gresp_storage, veg_cf%cpool_to_xsmrpool, veg_cf%froot_curmr, veg_cf%froot_mr, &
       !$acc&   veg_cf%froot_xsmr, veg_cf%gpp_before_downreg, veg_cf%grain_curmr, veg_cf%grain_mr, &
       !$acc&   veg_cf%grain_xsmr, veg_cf%leaf_curmr, veg_cf%leaf_mr, veg_cf%leaf_xsmr, &
       !$acc&   veg_cf%livecroot_curmr, veg_cf%livecroot_mr, veg_cf%livecroot_xsmr, veg_cf%livestem_curmr, &
-      !$acc&   veg_cf%livestem_mr, veg_cf%livestem_xsmr, veg_cf%xsmrpool_recover, veg_cs%core%leaf, &
-      !$acc&   veg_cs%core%leaf_storage, veg_cs%core%leaf_xfer, veg_cs%xsmrpool, veg_nf%core%plant_alloc, &
-      !$acc&   veg_nf%core%pool_to_deadcroot, veg_nf%core%pool_to_deadcroot_storage, &
+      !$acc&   veg_cf%livestem_mr, veg_cf%livestem_xsmr, veg_cf%xsmrpool_recover, veg_cf%xsmrpool_turnover, &
+      !$acc&   veg_cs%core%leaf, veg_cs%core%leaf_storage, veg_cs%core%leaf_xfer, veg_cs%xsmrpool, &
+      !$acc&   veg_nf%core%plant_alloc, veg_nf%core%pool_to_deadcroot, veg_nf%core%pool_to_deadcroot_storage, &
       !$acc&   veg_nf%core%pool_to_deadstem, veg_nf%core%pool_to_deadstem_storage, veg_nf%core%pool_to_froot, &
       !$acc&   veg_nf%core%pool_to_froot_storage, veg_nf%core%pool_to_grain, &
       !$acc&   veg_nf%core%pool_to_grain_storage, veg_nf%core%pool_to_leaf, veg_nf%core%pool_to_leaf_storage, &
@@ -2291,9 +2298,10 @@ contains
       !$acc&   veg_nf%core%pool_to_livestem, veg_nf%core%pool_to_livestem_storage, veg_nf%nfix_to_plantn, &
       !$acc&   veg_nf%retrans%avail_retrans, veg_nf%retrans%retrans_to_pool, veg_nf%uptake%smin_to_plant, &
       !$acc&   veg_nf%uptake%smin_to_pool, veg_nf%uptake%supplement_to_plant, veg_ns%core%leaf, &
-      !$acc&   veg_ns%core%leaf_storage, veg_ns%core%leaf_xfer, veg_ns%retrans%pool, veg_pf%core%plant_alloc, &
-      !$acc&   veg_pf%core%pool_to_deadcroot, veg_pf%core%pool_to_deadcroot_storage, &
-      !$acc&   veg_pf%core%pool_to_deadstem, veg_pf%core%pool_to_deadstem_storage, veg_pf%core%pool_to_froot, &
+      !$acc&   veg_ns%core%leaf_storage, veg_ns%core%leaf_xfer, veg_ns%retrans%pool, &
+      !$acc&   veg_pf%biochem_pmin_to_plant, veg_pf%core%plant_alloc, veg_pf%core%pool_to_deadcroot, &
+      !$acc&   veg_pf%core%pool_to_deadcroot_storage, veg_pf%core%pool_to_deadstem, &
+      !$acc&   veg_pf%core%pool_to_deadstem_storage, veg_pf%core%pool_to_froot, &
       !$acc&   veg_pf%core%pool_to_froot_storage, veg_pf%core%pool_to_grain, &
       !$acc&   veg_pf%core%pool_to_grain_storage, veg_pf%core%pool_to_leaf, veg_pf%core%pool_to_leaf_storage, &
       !$acc&   veg_pf%core%pool_to_livecroot, veg_pf%core%pool_to_livecroot_storage, &
@@ -2832,8 +2840,6 @@ contains
           f_denit_vr(j) = pot_f_denit_vr(j)
 
        else
-       !$acc update device(actual_immob_no3_vr, col_plant_no3demand_vr, f_denit_vr, fpi_no3_vr, &
-       !$acc&   plant_no3demand_vr, smin_no3_to_plant_vr) if_present
 
           ! NO3 availability can not satisfy the sum of immobilization, denitrification, and
           ! plant growth demands, so these three demands compete for available
@@ -2862,6 +2868,8 @@ contains
           if (nu_com .eq. 'MIC') smin_no3_to_plant_vr(j) = min( max( 0._r8, &
                (smin_no3_vr(j)/dt) - actual_immob_no3_vr(j) - f_denit_vr(j) ), col_plant_no3demand_vr(j))
        end if
+       !$acc update device(actual_immob_no3_vr, col_plant_no3demand_vr, f_denit_vr, fpi_no3_vr, &
+       !$acc&   plant_no3demand_vr, smin_no3_to_plant_vr) if_present
 
     end do
 
@@ -2988,9 +2996,10 @@ contains
        !$acc end data
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(actual_immob_p_vr, biochem_pmin_vr_col, carbon_only, col_plant_pdemand_vr, fpi_p_vr, &
-       !$acc&   gross_pmin_vr, labilep_vr, pdep_prof, plant_pdemand_vr_patch, potential_immob_p_vr, &
-       !$acc&   primp_to_labilep_vr_col, sminp_to_plant_vr, solutionp_vr, t_scalar) if_present
+       !$acc update self(actual_immob_p_vr, adsorb_to_labilep_vr, biochem_pmin_vr_col, carbon_only, &
+       !$acc&   col_plant_pdemand_vr, desorb_to_solutionp_vr, fpi_p_vr, gross_pmin_vr, labilep_vr, pdep_prof, &
+       !$acc&   plant_pdemand_vr_patch, potential_immob_p_vr, primp_to_labilep_vr_col, sminp_to_plant_vr, &
+       !$acc&   solutionp_vr, supplement_to_sminp_vr, t_scalar) if_present
        compet_decomp_p = solution_pconc / &
             (km_decomp_p * (1._r8 + solution_pconc/km_decomp_p + e_km_p))
 
@@ -3045,8 +3054,6 @@ contains
           sminp_to_plant_vr(j) = col_plant_pdemand_vr(j)
           adsorb_to_labilep_vr(j) = adsorb_to_labilep_vr(j)
        elseif ( carbon_only .or. carbonnitrogen_only ) then !.or. &
-       !$acc update device(actual_immob_p_vr, adsorb_to_labilep_vr, col_plant_pdemand_vr, &
-       !$acc&   desorb_to_solutionp_vr, fpi_p_vr, plant_pdemand_vr_patch, sminp_to_plant_vr) if_present
           fpi_p_vr(j) = 1.0_r8
           actual_immob_p_vr(j) = potential_immob_p_vr(j)
           sminp_to_plant_vr(j) =  col_plant_pdemand_vr(j)
@@ -3078,6 +3085,9 @@ contains
                (solutionp_vr(j)/dt) - actual_immob_p_vr(j) - adsorb_to_labilep_vr(j) ), &
                col_plant_pdemand_vr(j))
        end if
+       !$acc update device(actual_immob_p_vr, adsorb_to_labilep_vr, col_plant_pdemand_vr, &
+       !$acc&   desorb_to_solutionp_vr, fpi_p_vr, plant_pdemand_vr_patch, sminp_to_plant_vr, &
+       !$acc&   supplement_to_sminp_vr) if_present
 
     end do
     return

@@ -858,16 +858,15 @@ contains
 
       ! calculate the column-level flux of deadstem and deadcrootc to cwdc as the result of fire mortality.
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%leaf_prof_patch, &
-      !$acc&   cnstate_vars%stem_prof_patch, isoveg_cf%core%m_deadcroot_to_litter_fire, &
-      !$acc&   isoveg_cf%core%m_deadstem_to_litter_fire, isoveg_cf%core%m_pool_to_litter_fire) if_present
-      do pi = 1,max_patch_per_col
-         do fc = 1,num_soilc
+      !$acc parallel loop gang vector default(present) private(fc, cc, pp, j)
+      do fc = 1,num_soilc
+         !$acc loop seq
+         do pi = 1,max_patch_per_col
             cc = filter_soilc(fc)
             if ( pi <=  col_pp%npfts(cc) ) then
                pp = col_pp%pfti(cc) + pi - 1
                if (veg_pp%active(pp)) then
+                  !$acc loop seq
                   do j = 1, nlevdecomp
                      isocol_cf%core%fire_mortality_to_cwd(cc,j) = &
                           isocol_cf%core%fire_mortality_to_cwd(cc,j) + &
@@ -884,7 +883,6 @@ contains
             end if
          end do
       end do
-      !$acc update device(isocol_cf%core%fire_mortality_to_cwd) if_present
 
 
       !$acc parallel loop gang vector default(present) private(cc, j, l)
@@ -1280,10 +1278,10 @@ contains
           end do
        end do
 
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(veg_cf%core%hrv_deadstem_to_prod10, veg_cf%core%hrv_deadstem_to_prod100) if_present
-       do pi = 1,maxpatch_pft
-          do fc = 1,num_soilc
+       !$acc parallel loop gang vector default(present) private(fc, c, p)
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do pi = 1,maxpatch_pft
              c = filter_soilc(fc)
              if (pi <=  col_pp%npfts(c)) then
                 p = col_pp%pfti(c) + pi - 1
@@ -1297,7 +1295,6 @@ contains
              end if
           end do
        end do
-       !$acc update device(col_cf%core%hrv_deadstem_to_prod10, col_cf%core%hrv_deadstem_to_prod100) if_present
 
      end associate
 

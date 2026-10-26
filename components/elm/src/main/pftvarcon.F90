@@ -344,7 +344,7 @@ module pftvarcon
 
 
   ! spel acc-apply: module data read in device code (updated by the device data layer)
-  !$acc declare create(baset, cc_dstem, cc_leaf, cc_lstem, cc_other, climatezone, crop, evergreen, fm_droot, fm_leaf, fm_lroot, fm_lstem, fm_other, fm_root, gddmin, grperc, grpnow, hybgdd, iscft, lfemerg, min_days_senes, minplanttemp, needleleaf, nsugarcane, nsugarcaneirrig, percrop, planttemp, pprodharv10, root_dmx, rootprof_beta, senestemp, woody)
+  !$acc declare create(baset, cc_dstem, cc_leaf, cc_lstem, cc_other, climatezone, crop, evergreen, fd_pft, fm_droot, fm_leaf, fm_lroot, fm_lstem, fm_other, fm_root, fsr_pft, gddmin, graminoid, grnfill, grperc, grpnow, hybgdd, iscft, lfemerg, min_days_senes, minplanttemp, mxmat, ncorn, ncornirrig, needleleaf, nscereal, nscerealirrig, nsoybean, nsoybeanirrig, nsugarcane, nsugarcaneirrig, nwcereal, nwcerealirrig, percrop, planttemp, pprodharv10, root_dmx, rootprof_beta, senestemp, woody)
 contains
 
   !-----------------------------------------------------------------------

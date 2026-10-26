@@ -532,7 +532,7 @@ contains
 
     ! set initial values for potential C and N fluxes
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_pf%biochem_pmin_ppools_vr) if_present
+    !$acc update self(col_pf%biochem_pmin_ppools_vr, veg_pf%biochem_pmin_to_plant) if_present
     biochem_pmin_ppools_vr_col(bounds%begc : bounds%endc, :, :) = 0._r8
 
     if(use_fates) then
@@ -549,7 +549,7 @@ contains
 
     do fc = 1,num_soilc
         ! spel acc-sync: device data this host code uses
-        !$acc update self(col_pf%biochem_pmin_vr) if_present
+        !$acc update self(col_pf%biochem_pmin_to_plant, col_pf%biochem_pmin_vr) if_present
         c = filter_soilc(fc)
 
 
@@ -721,6 +721,8 @@ contains
                 !$acc end data
 
                 ! sum up biochem_pmin_to_plant
+                ! spel acc-sync: device data this host code uses
+                !$acc update self(col_pf%biochem_pmin_to_plant, veg_pf%biochem_pmin_to_plant) if_present
                 do p = col_pp%pfti(c), col_pp%pftf(c)
                     if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
                         !biochem_pmin_to_plant_patch(p) = 0._r8

@@ -52,18 +52,19 @@ contains
 
     ! !Local Variables:
     real(r8) :: t_c, rn_c, g_c, p_c, delta, ea, gamma1, es_c
-    real(r8) :: c1 = 0.408_r8       ! constant in ETo eqn
+    real(r8), parameter :: c1 = 0.408_r8       ! constant in ETo eqn
     real(r8) :: c2                  ! from ETo eqn
-    real(r8) :: c3 = 0.34_r8        ! constant in ETo eqn
-    real(r8) :: c4 = 900._r8        ! constant in ETo eqn
-    real(r8) :: c5 = 237.3_r8       ! constant in ETo eqn
-    real(r8) :: conv1 = 1000000._r8 ! convert from W m-2 to MJ m-2
-    real(r8) :: conv2 = 1000._r8    ! convert to kPa
-    real(r8) :: esc1 = 0.6108_r8    ! constant in es eqn
-    real(r8) :: esc2 = 17.27_r8     ! constant in es eqn
-    real(r8) :: dc1 = 4098._r8      ! constant in delta eqn
-    real(r8) :: gc1 = 0.000665_r8   ! constant in phychrometric eqn
+    real(r8), parameter :: c3 = 0.34_r8        ! constant in ETo eqn
+    real(r8), parameter :: c4 = 900._r8        ! constant in ETo eqn
+    real(r8), parameter :: c5 = 237.3_r8       ! constant in ETo eqn
+    real(r8), parameter :: conv1 = 1000000._r8 ! convert from W m-2 to MJ m-2
+    real(r8), parameter :: conv2 = 1000._r8    ! convert to kPa
+    real(r8), parameter :: esc1 = 0.6108_r8    ! constant in es eqn
+    real(r8), parameter :: esc2 = 17.27_r8     ! constant in es eqn
+    real(r8), parameter :: dc1 = 4098._r8      ! constant in delta eqn
+    real(r8), parameter :: gc1 = 0.000665_r8   ! constant in phychrometric eqn
 
+    !$acc routine seq  ! spel acc-apply
     c2 = c4/(86400._r8/dt)  ! convert to /timestep
     t_c   = T - tfrz      ! convert to degrees C
     rn_c  = rn*dt/conv1   ! convert from W m-2 to MJ m-2
@@ -113,10 +114,11 @@ contains
     integer :: imax
     real(r8) :: tmin
     real(r8) :: r, t_m
-    integer,  dimension(12) ::  month = (/10,11,12,1,2,3,4,5,6,7,8,9/)
-    integer,  dimension(12) ::  jday  = (/1,32,60,91,121,152,182,213,244,274,305,335/)
-    real(r8), dimension(12) ::  indx  = (/1,2,3,4,5,6,7,8,9,10,11,12/)
+    integer,  dimension(12), parameter ::  month = (/10,11,12,1,2,3,4,5,6,7,8,9/)
+    integer,  dimension(12), parameter ::  jday  = (/1,32,60,91,121,152,182,213,244,274,305,335/)
+    real(r8), dimension(12), parameter ::  indx  = (/1,2,3,4,5,6,7,8,9,10,11,12/)
     !-----------------------------------------------------------------------
+    !$acc routine seq  ! spel acc-apply
     associate(                                    &
          ivt        => veg_pp%itype                  & ! Input:  [integer  (:) ] pft vegetation type
          )

@@ -2583,93 +2583,90 @@ contains
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
 
     if(.not.use_fates) then
-       do fi = 1,num_patch,flux_setvalues_block_size
-          associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-          this%leaf_mr(idx)                             = value_patch
-          this%froot_mr(idx)                            = value_patch
-          this%livestem_mr(idx)                         = value_patch
-          this%livecroot_mr(idx)                        = value_patch
-          this%grain_mr(idx)                            = value_patch
-          this%leaf_curmr(idx)                          = value_patch
-          this%froot_curmr(idx)                         = value_patch
-          this%livestem_curmr(idx)                      = value_patch
-          this%livecroot_curmr(idx)                     = value_patch
-          this%grain_curmr(idx)                         = value_patch
-          this%leaf_xsmr(idx)                           = value_patch
-          this%froot_xsmr(idx)                          = value_patch
-          this%livestem_xsmr(idx)                       = value_patch
-          this%livecroot_xsmr(idx)                      = value_patch
-          this%grain_xsmr(idx)                          = value_patch
-          this%xr(idx)                                  = value_patch
-          this%psnsun_to_cpool(idx)                     = value_patch
-          this%psnshade_to_cpool(idx)                   = value_patch
-          this%cpool_to_xsmrpool(idx)                   = value_patch
-          this%cpool_to_gresp_storage(idx)              = value_patch
+       !$acc parallel loop gang vector default(present)
+       do fi = 1, num_patch  ! spel unblock
+          this%leaf_mr(filter_patch(fi))                             = value_patch
+          this%froot_mr(filter_patch(fi))                            = value_patch
+          this%livestem_mr(filter_patch(fi))                         = value_patch
+          this%livecroot_mr(filter_patch(fi))                        = value_patch
+          this%grain_mr(filter_patch(fi))                            = value_patch
+          this%leaf_curmr(filter_patch(fi))                          = value_patch
+          this%froot_curmr(filter_patch(fi))                         = value_patch
+          this%livestem_curmr(filter_patch(fi))                      = value_patch
+          this%livecroot_curmr(filter_patch(fi))                     = value_patch
+          this%grain_curmr(filter_patch(fi))                         = value_patch
+          this%leaf_xsmr(filter_patch(fi))                           = value_patch
+          this%froot_xsmr(filter_patch(fi))                          = value_patch
+          this%livestem_xsmr(filter_patch(fi))                       = value_patch
+          this%livecroot_xsmr(filter_patch(fi))                      = value_patch
+          this%grain_xsmr(filter_patch(fi))                          = value_patch
+          this%xr(filter_patch(fi))                                  = value_patch
+          this%psnsun_to_cpool(filter_patch(fi))                     = value_patch
+          this%psnshade_to_cpool(filter_patch(fi))                   = value_patch
+          this%cpool_to_xsmrpool(filter_patch(fi))                   = value_patch
+          this%cpool_to_gresp_storage(filter_patch(fi))              = value_patch
           
-          this%cpool_livestem_gr(idx)                   = value_patch
-          this%cpool_livestem_storage_gr(idx)           = value_patch
-          this%transfer_livestem_gr(idx)                = value_patch
-          this%cpool_deadstem_gr(idx)                   = value_patch
-          this%cpool_deadstem_storage_gr(idx)           = value_patch
-          this%transfer_deadstem_gr(idx)                = value_patch
-          this%cpool_livecroot_gr(idx)                  = value_patch
-          this%cpool_livecroot_storage_gr(idx)          = value_patch
-          this%transfer_livecroot_gr(idx)               = value_patch
-          this%cpool_deadcroot_gr(idx)                  = value_patch
-          this%cpool_deadcroot_storage_gr(idx)          = value_patch
-          this%transfer_deadcroot_gr(idx)               = value_patch
-          this%gresp_storage_to_xfer(idx)               = value_patch
-          this%gpp(idx)                                 = value_patch
-          this%gpp_before_downreg(idx)                  = value_patch
-          this%mr(idx)                                  = value_patch
-          this%current_gr(idx)                          = value_patch
-          this%transfer_gr(idx)                         = value_patch
-          this%storage_gr(idx)                          = value_patch
-          this%gr(idx)                                  = value_patch
-          this%ar(idx)                                  = value_patch
-          this%rr(idx)                                  = value_patch
-          this%npp(idx)                                 = value_patch
-          this%agnpp(idx)                               = value_patch
-          this%bgnpp(idx)                               = value_patch
-          this%agwdnpp(idx)                             = value_patch
-          this%litfall(idx)                             = value_patch
-          this%vegfire(idx)                             = value_patch
-          this%cinputs(idx)                             = value_patch
-          this%coutputs(idx)                            = value_patch
-          this%frootc_alloc(idx)                        = value_patch
-          this%frootc_loss(idx)                         = value_patch
-          this%leafc_alloc(idx)                         = value_patch
-          this%leafc_loss(idx)                          = value_patch
-          this%woodc_alloc(idx)                         = value_patch
-          this%woodc_loss(idx)                          = value_patch
-          this%xsmrpool_turnover(idx)                   = value_patch
+          this%cpool_livestem_gr(filter_patch(fi))                   = value_patch
+          this%cpool_livestem_storage_gr(filter_patch(fi))           = value_patch
+          this%transfer_livestem_gr(filter_patch(fi))                = value_patch
+          this%cpool_deadstem_gr(filter_patch(fi))                   = value_patch
+          this%cpool_deadstem_storage_gr(filter_patch(fi))           = value_patch
+          this%transfer_deadstem_gr(filter_patch(fi))                = value_patch
+          this%cpool_livecroot_gr(filter_patch(fi))                  = value_patch
+          this%cpool_livecroot_storage_gr(filter_patch(fi))          = value_patch
+          this%transfer_livecroot_gr(filter_patch(fi))               = value_patch
+          this%cpool_deadcroot_gr(filter_patch(fi))                  = value_patch
+          this%cpool_deadcroot_storage_gr(filter_patch(fi))          = value_patch
+          this%transfer_deadcroot_gr(filter_patch(fi))               = value_patch
+          this%gresp_storage_to_xfer(filter_patch(fi))               = value_patch
+          this%gpp(filter_patch(fi))                                 = value_patch
+          this%gpp_before_downreg(filter_patch(fi))                  = value_patch
+          this%mr(filter_patch(fi))                                  = value_patch
+          this%current_gr(filter_patch(fi))                          = value_patch
+          this%transfer_gr(filter_patch(fi))                         = value_patch
+          this%storage_gr(filter_patch(fi))                          = value_patch
+          this%gr(filter_patch(fi))                                  = value_patch
+          this%ar(filter_patch(fi))                                  = value_patch
+          this%rr(filter_patch(fi))                                  = value_patch
+          this%npp(filter_patch(fi))                                 = value_patch
+          this%agnpp(filter_patch(fi))                               = value_patch
+          this%bgnpp(filter_patch(fi))                               = value_patch
+          this%agwdnpp(filter_patch(fi))                             = value_patch
+          this%litfall(filter_patch(fi))                             = value_patch
+          this%vegfire(filter_patch(fi))                             = value_patch
+          this%cinputs(filter_patch(fi))                             = value_patch
+          this%coutputs(filter_patch(fi))                            = value_patch
+          this%frootc_alloc(filter_patch(fi))                        = value_patch
+          this%frootc_loss(filter_patch(fi))                         = value_patch
+          this%leafc_alloc(filter_patch(fi))                         = value_patch
+          this%leafc_loss(filter_patch(fi))                          = value_patch
+          this%woodc_alloc(filter_patch(fi))                         = value_patch
+          this%woodc_loss(filter_patch(fi))                          = value_patch
+          this%xsmrpool_turnover(filter_patch(fi))                   = value_patch
 
-          end associate
        end do
     end if !(.not.use_fates)
 
     if ( crop_prog )then
-       do fi = 1,num_patch,flux_setvalues_block_size
-          associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-          this%xsmrpool_to_atm(idx)         = value_patch
-          this%core%livestem_to_litter(idx)     = value_patch
-          this%cpool_grain_gr(idx)          = value_patch
-          this%cpool_grain_storage_gr(idx)  = value_patch
-          this%transfer_grain_gr(idx)       = value_patch
-          this%core%crop_seed_to_leaf(idx)      = value_patch
+       !$acc parallel loop gang vector default(present)
+       do fi = 1, num_patch  ! spel unblock
+          this%xsmrpool_to_atm(filter_patch(fi))         = value_patch
+          this%core%livestem_to_litter(filter_patch(fi))     = value_patch
+          this%cpool_grain_gr(filter_patch(fi))          = value_patch
+          this%cpool_grain_storage_gr(filter_patch(fi))  = value_patch
+          this%transfer_grain_gr(filter_patch(fi))       = value_patch
+          this%core%crop_seed_to_leaf(filter_patch(fi))      = value_patch
 
-          end associate
        end do
     end if
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
     if (do_zero_harvest) then
-       do fi = 1,num_patch,flux_setvalues_block_size
-          associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-          this%hrv_gresp_storage_to_litter(idx)      = value_patch
-          this%hrv_gresp_xfer_to_litter(idx)         = value_patch
-          this%hrv_xsmrpool_to_atm(idx)              = value_patch
-          end associate
+       !$acc parallel loop gang vector default(present)
+       do fi = 1, num_patch  ! spel unblock
+          this%hrv_gresp_storage_to_litter(filter_patch(fi))      = value_patch
+          this%hrv_gresp_xfer_to_litter(filter_patch(fi))         = value_patch
+          this%hrv_xsmrpool_to_atm(filter_patch(fi))              = value_patch
        end do
     end if
 
@@ -2991,41 +2988,38 @@ contains
     do_zero_harvest = .true.
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
 
-    do fi = 1,num_patch,flux_setvalues_block_size
-       associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-       this%retrans%leaf_to_retrans(idx)                   = value_patch
-       this%retrans%retrans_to_pool(idx)                   = value_patch
-       this%uptake%smin_to_pool(idx)                      = value_patch
-       this%retrans%livestem_to_retrans(idx)               = value_patch
-       this%retrans%livecroot_to_retrans(idx)              = value_patch
-       this%uptake%pool_deploy(idx)                             = value_patch
-       this%nfix_to_plantn(idx)                      = value_patch
-       this%gap_nloss_litter(idx)                    = value_patch
-       this%fire_nloss_litter(idx)                   = value_patch
-       this%hrv_nloss_litter(idx)                    = value_patch
-       this%sen_nloss_litter(idx)                    = value_patch
-       this%core%crop_seed_to_leaf(idx)                  = value_patch
-       this%core%livestem_to_litter(idx)                 = value_patch
+    !$acc parallel loop gang vector default(present)
+    do fi = 1, num_patch  ! spel unblock
+       this%retrans%leaf_to_retrans(filter_patch(fi))                   = value_patch
+       this%retrans%retrans_to_pool(filter_patch(fi))                   = value_patch
+       this%uptake%smin_to_pool(filter_patch(fi))                      = value_patch
+       this%retrans%livestem_to_retrans(filter_patch(fi))               = value_patch
+       this%retrans%livecroot_to_retrans(filter_patch(fi))              = value_patch
+       this%uptake%pool_deploy(filter_patch(fi))                             = value_patch
+       this%nfix_to_plantn(filter_patch(fi))                      = value_patch
+       this%gap_nloss_litter(filter_patch(fi))                    = value_patch
+       this%fire_nloss_litter(filter_patch(fi))                   = value_patch
+       this%hrv_nloss_litter(filter_patch(fi))                    = value_patch
+       this%sen_nloss_litter(filter_patch(fi))                    = value_patch
+       this%core%crop_seed_to_leaf(filter_patch(fi))                  = value_patch
+       this%core%livestem_to_litter(filter_patch(fi))                 = value_patch
 
-       end associate
     end do
 
     if ( crop_prog )then
-       do fi = 1,num_patch,flux_setvalues_block_size
-          associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-          this%soyfixn(idx)                          = value_patch
-          this%retrans%froot_to_retrans(idx)               = value_patch
+       !$acc parallel loop gang vector default(present)
+       do fi = 1, num_patch  ! spel unblock
+          this%soyfixn(filter_patch(fi))                          = value_patch
+          this%retrans%froot_to_retrans(filter_patch(fi))               = value_patch
 
-          end associate
        end do
     end if
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
     if (do_zero_harvest) then
-       do fi = 1,num_patch,flux_setvalues_block_size
-          associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-          this%retrans%hrv_retrans_to_litter(idx)           = value_patch
-          end associate
+       !$acc parallel loop gang vector default(present)
+       do fi = 1, num_patch  ! spel unblock
+          this%retrans%hrv_retrans_to_litter(filter_patch(fi))           = value_patch
        end do
     end if
 
@@ -3475,40 +3469,37 @@ contains
     call vegetation_nutrient_flux_setvalues(this%core, num_patch, filter_patch, value_patch)
     do_zero_harvest = .true.
     if (present(zero_harvest)) do_zero_harvest = zero_harvest
-    do fi = 1,num_patch,flux_setvalues_block_size
-       associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-       this%retrans%leaf_to_retrans(idx)                   = value_patch
-       this%retrans%retrans_to_pool(idx)                   = value_patch
-       this%uptake%smin_to_pool(idx)                      = value_patch
-       this%retrans%livestem_to_retrans(idx)               = value_patch
-       this%retrans%livecroot_to_retrans(idx)              = value_patch
-       this%uptake%pool_deploy(idx)                             = value_patch
-       this%biochem_pmin_to_plant(idx)               = value_patch
-       this%gap_ploss_litter(idx)                    = value_patch
-       this%fire_ploss_litter(idx)                   = value_patch
-       this%hrv_ploss_litter(idx)                    = value_patch
-       this%sen_ploss_litter(idx)                    = value_patch
-       this%core%livestem_to_litter(idx)                 = value_patch
+    !$acc parallel loop gang vector default(present)
+    do fi = 1, num_patch  ! spel unblock
+       this%retrans%leaf_to_retrans(filter_patch(fi))                   = value_patch
+       this%retrans%retrans_to_pool(filter_patch(fi))                   = value_patch
+       this%uptake%smin_to_pool(filter_patch(fi))                      = value_patch
+       this%retrans%livestem_to_retrans(filter_patch(fi))               = value_patch
+       this%retrans%livecroot_to_retrans(filter_patch(fi))              = value_patch
+       this%uptake%pool_deploy(filter_patch(fi))                             = value_patch
+       this%biochem_pmin_to_plant(filter_patch(fi))               = value_patch
+       this%gap_ploss_litter(filter_patch(fi))                    = value_patch
+       this%fire_ploss_litter(filter_patch(fi))                   = value_patch
+       this%hrv_ploss_litter(filter_patch(fi))                    = value_patch
+       this%sen_ploss_litter(filter_patch(fi))                    = value_patch
+       this%core%livestem_to_litter(filter_patch(fi))                 = value_patch
 
-       end associate
     end do
 
     if ( crop_prog )then
-       do fi = 1,num_patch,flux_setvalues_block_size
-          associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-          this%retrans%froot_to_retrans(idx)               = value_patch
-          this%core%crop_seed_to_leaf(idx)               = value_patch
+       !$acc parallel loop gang vector default(present)
+       do fi = 1, num_patch  ! spel unblock
+          this%retrans%froot_to_retrans(filter_patch(fi))               = value_patch
+          this%core%crop_seed_to_leaf(filter_patch(fi))               = value_patch
 
-          end associate
        end do
     end if
 
     ! Harvest fluxes, written only by CNHarvest (do_harvest or IAC) or FATES.
     if (do_zero_harvest) then
-       do fi = 1,num_patch,flux_setvalues_block_size
-          associate (idx => filter_patch(fi:min(fi+flux_setvalues_block_size-1,num_patch)))
-          this%retrans%hrv_retrans_to_litter(idx)           = value_patch
-          end associate
+       !$acc parallel loop gang vector default(present)
+       do fi = 1, num_patch  ! spel unblock
+          this%retrans%hrv_retrans_to_litter(filter_patch(fi))           = value_patch
        end do
     end if
 

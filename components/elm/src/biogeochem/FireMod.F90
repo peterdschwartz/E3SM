@@ -14,7 +14,6 @@ module FireMod
   ! !USES:
   use shr_kind_mod           , only : r8 => shr_kind_r8, CL => shr_kind_CL
   use shr_const_mod          , only : SHR_CONST_PI,SHR_CONST_TKFRZ
-  use shr_infnan_mod         , only : shr_infnan_isnan
   use shr_strdata_mod        , only : shr_strdata_type, shr_strdata_create, shr_strdata_print
   use shr_strdata_mod        , only : shr_strdata_advance
   use shr_log_mod            , only : errMsg => shr_log_errMsg
@@ -182,6 +181,8 @@ contains
     logical  :: transient_landcover  ! whether this run has any prescribed transient landcover
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(btran_col)
     associate(                                                                &
          is_cwd             =>    decomp_cascade_con%is_cwd                 , & ! Input:  [logical  (:)     ]  TRUE => pool is a cwd pool
 
@@ -269,13 +270,6 @@ contains
            deadstemc(bounds%begp:bounds%endp), &
            deadstemc_col(bounds%begc:bounds%endc))
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(cnstate_vars%lfc_col, col_cs%core%decomp_pools_vr, col_cs%core%totlit, &
-      !$acc&   col_cs%core%totveg, col_cs%deadstemc, col_cs%leafc, veg_cs%core%deadcroot, &
-      !$acc&   veg_cs%core%deadcroot_storage, veg_cs%core%deadcroot_xfer, veg_cs%core%froot, &
-      !$acc&   veg_cs%core%froot_storage, veg_cs%core%froot_xfer, veg_cs%core%leaf, veg_cs%core%leaf_storage, &
-      !$acc&   veg_cs%core%leaf_xfer, veg_cs%core%livecroot, veg_cs%core%livecroot_storage, &
-      !$acc&   veg_cs%core%livecroot_xfer) if_present
       dt = dtime_mod        ! time step variable (s)
       dayspyr = dayspyr_mod ! days per year
       kyr = year_curr   ; kmo   = mon_curr;
@@ -286,6 +280,7 @@ contains
      ! On first time-step, just set area burned to zero and exit
      !
      if ( nstep == 0 )then
+        !$acc parallel loop gang vector default(present) private(c)
         do fc = 1,num_soilc
            c = filter_soilc(fc)
            farea_burned(c) = 0._r8
@@ -295,26 +290,23 @@ contains
            fbac1(c)        = 0._r8
            cropf_col(c)    = 0._r8
         end do
-        !$acc update device(cnstate_vars%baf_crop_col, cnstate_vars%baf_peatf_col, &
-        !$acc&   cnstate_vars%burndate_patch, cnstate_vars%cropf_col, cnstate_vars%dtrotr_col, &
-        !$acc&   cnstate_vars%farea_burned_col, cnstate_vars%fbac1_col, cnstate_vars%fbac_col, &
-        !$acc&   cnstate_vars%fd_col, cnstate_vars%fsr_col, cnstate_vars%lfc_col, cnstate_vars%lfwt_col, &
-        !$acc&   cnstate_vars%lgdp1_col, cnstate_vars%lgdp_col, cnstate_vars%lpop_col, &
-        !$acc&   cnstate_vars%nfire_col, cnstate_vars%trotr1_col, cnstate_vars%trotr2_col, &
-        !$acc&   cnstate_vars%wtlf_col, col_cs%fuelc, col_cs%fuelc_crop, col_cs%rootc) if_present
+        !$acc exit data delete(btran_col)
         return
      end if
      !
      ! Calculate fraction of crop (cropf_col) and non-crop and non-bare-soil
      ! vegetation (lfwt) in vegetated column
      !
+     !$acc parallel loop gang vector default(present) private(c)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         cropf_col(c) = 0._r8
         lfwt(c)      = 0._r8
      end do
-     do pi = 1,max_patch_per_col
-        do fc = 1,num_soilc
+     !$acc parallel loop gang vector default(present) private(fc, c, p)
+     do fc = 1,num_soilc
+        !$acc loop seq
+        do pi = 1,max_patch_per_col
            c = filter_soilc(fc)
            if (pi <=  col_pp%npfts(c)) then
               p = col_pp%pfti(c) + pi - 1
@@ -333,12 +325,15 @@ contains
      !
      ! Calculate crop fuel
      !
+     !$acc parallel loop gang vector default(present) private(c)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         fuelc_crop(c)=0._r8
      end do
-     do pi = 1,max_patch_per_col
-        do fc = 1,num_soilc
+     !$acc parallel loop gang vector default(present) private(fc, c, p)
+     do fc = 1,num_soilc
+        !$acc loop seq
+        do pi = 1,max_patch_per_col
            c = filter_soilc(fc)
            if (pi <=  col_pp%npfts(c)) then
               p = col_pp%pfti(c) + pi - 1
@@ -360,6 +355,7 @@ contains
      ! 5/22/2018, PET: switched the use of column-weight-on-gridcell, to column-weight-on-topounit
      ! in the calculation of summed weight for tropical trees
      !
+     !$acc parallel loop gang vector default(present) private(c)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         fsr_col(c)   = 0._r8
@@ -376,8 +372,10 @@ contains
            dtrotr_col(c)=0._r8
         end if
      end do
-     do pi = 1,max_patch_per_col
-        do fc = 1,num_soilc
+     !$acc parallel loop gang vector default(present) private(fc, c, g, p, hdmlf)
+     do fc = 1,num_soilc
+        !$acc loop seq
+        do pi = 1,max_patch_per_col
            c = filter_soilc(fc)
            g = col_pp%gridcell(c)
            if (pi <=  col_pp%npfts(c)) then
@@ -386,9 +384,6 @@ contains
               ! For non-crop -- natural vegetation and bare-soil
               if( (crop(veg_pp%itype(p)) == 0 .and. .not. iscft(veg_pp%itype(p))) .and. &
                   cropf_col(c)  <  1.0_r8 ) then
-
-                 !Exit if btrans2(p) is NaN or Inf
-                 if (shr_infnan_isnan(btran2(p))) call endrun(msg='ERROR: Invalid value detected in btran2(p), NaN or Inf: '//errMsg(__FILE__, __LINE__))
 
                  if(btran2(p) .ne. spval) then
                     if (btran2(p)  <=  1._r8 ) then
@@ -488,6 +483,7 @@ contains
      ! land cover conversion in CLM4.5 is the same for each timestep except for the beginning
 
      if (transient_landcover) then    !true when landuse data is used
+        !$acc parallel loop gang vector default(present) private(c)
         do fc = 1,num_soilc
            c = filter_soilc(fc)
            if( dtrotr_col(c)  >  0._r8 )then
@@ -505,11 +501,13 @@ contains
      !
      ! calculate burned area fraction in cropland
      !
+     !$acc parallel loop gang vector default(present) private(c)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         baf_crop(c)=0._r8
      end do
 
+     !$acc parallel loop gang vector default(present) private(p)
      do fp = 1,num_soilp
         p = filter_soilp(fp)
         if( kmo == 1 .and. kda == 1 .and. mcsec == 0 )then
@@ -517,6 +515,8 @@ contains
         end if
      end do
 
+     ! spel acc-sync: device data this host code uses
+     !$acc update self(cnstate_vars%baf_crop_col, cnstate_vars%burndate_patch, col_cs%fuelc_crop) if_present
      do pi = 1,max_patch_per_col
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -550,9 +550,11 @@ contains
            end if
         end do
      end do
+     !$acc update device(cnstate_vars%baf_crop_col, cnstate_vars%burndate_patch) if_present
      !
      ! calculate peatland fire
      !
+     !$acc parallel loop gang vector default(present) private(c, t, g)
      do fc = 1, num_soilc
         c = filter_soilc(fc)
         t = col_pp%topounit(c)
@@ -586,6 +588,9 @@ contains
      !
      ! begin column loop to calculate fractional area affected by fire
      !
+     !$acc parallel loop gang vector default(present) &
+     !$acc   private(c, g, t, hdmlf, j, fb, m, fire_m, lh, fs, ig, lb_lf) &
+     !$acc   private(spread_m, cri, cli)
      do fc = 1, num_soilc
         c = filter_soilc(fc)
         g = col_pp%gridcell(c)
@@ -597,6 +602,7 @@ contains
            else
               fuelc(c) = totlitc(c)+totvegc_col(c)-rootc_col(c)-fuelc_crop(c)*cropf_col(c)
               if (spinup_state == 1) fuelc(c) = fuelc(c) + ((spinup_mortality_factor - 1._r8)*deadstemc_col(c))
+              !$acc loop seq
               do j = 1, nlevdecomp
                 if (spinup_state == 1 .and. kyr < 40) then
                   fuelc(c) = fuelc(c)+decomp_cpools_vr(c,j,i_cwd) *dzsoi_decomp(j) * &
@@ -675,16 +681,10 @@ contains
         end if
 
      end do  ! end of column loop
-      !$acc update device(cnstate_vars%baf_crop_col, cnstate_vars%baf_peatf_col, cnstate_vars%burndate_patch, &
-      !$acc&   cnstate_vars%cropf_col, cnstate_vars%dtrotr_col, cnstate_vars%farea_burned_col, &
-      !$acc&   cnstate_vars%fbac1_col, cnstate_vars%fbac_col, cnstate_vars%fd_col, cnstate_vars%fsr_col, &
-      !$acc&   cnstate_vars%lfc_col, cnstate_vars%lfwt_col, cnstate_vars%lgdp1_col, cnstate_vars%lgdp_col, &
-      !$acc&   cnstate_vars%lpop_col, cnstate_vars%nfire_col, cnstate_vars%trotr1_col, &
-      !$acc&   cnstate_vars%trotr2_col, cnstate_vars%wtlf_col, col_cs%fuelc, col_cs%fuelc_crop, &
-      !$acc&   col_cs%rootc) if_present
 
    end associate
 
+    !$acc exit data delete(btran_col)
  end subroutine FireArea
 
  !-----------------------------------------------------------------------
@@ -1280,47 +1280,19 @@ contains
 
      ! fire-induced transfer of carbon and nitrogen pools to litter and cwd
      ! add phosphorus transfer fluxes -X.YANG
-     ! spel acc-sync: device data this host code uses
-     !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
-     !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%stem_prof_patch, &
-     !$acc&   veg_cf%core%m_deadcroot_storage_to_litter_fire, veg_cf%core%m_deadcroot_to_litter_fire, &
-     !$acc&   veg_cf%core%m_deadcroot_xfer_to_litter_fire, veg_cf%core%m_deadstem_storage_to_litter_fire, &
-     !$acc&   veg_cf%core%m_deadstem_to_litter_fire, veg_cf%core%m_deadstem_xfer_to_litter_fire, &
-     !$acc&   veg_cf%core%m_froot_storage_to_litter_fire, veg_cf%core%m_froot_to_litter_fire, &
-     !$acc&   veg_cf%core%m_froot_xfer_to_litter_fire, veg_cf%core%m_leaf_storage_to_litter_fire, &
-     !$acc&   veg_cf%core%m_leaf_to_litter_fire, veg_cf%core%m_leaf_xfer_to_litter_fire, &
-     !$acc&   veg_cf%core%m_livecroot_storage_to_litter_fire, veg_cf%core%m_livecroot_to_litter_fire, &
-     !$acc&   veg_cf%core%m_livecroot_xfer_to_litter_fire, veg_cf%core%m_livestem_storage_to_litter_fire, &
-     !$acc&   veg_cf%core%m_livestem_to_litter_fire, veg_cf%core%m_livestem_xfer_to_litter_fire, &
-     !$acc&   veg_cf%core%m_pool_to_litter_fire, veg_cf%m_gresp_storage_to_litter_fire, &
-     !$acc&   veg_cf%m_gresp_xfer_to_litter_fire, veg_nf%core%m_deadcroot_storage_to_litter_fire, &
-     !$acc&   veg_nf%core%m_deadcroot_to_litter_fire, veg_nf%core%m_deadcroot_xfer_to_litter_fire, &
-     !$acc&   veg_nf%core%m_deadstem_storage_to_litter_fire, veg_nf%core%m_deadstem_to_litter_fire, &
-     !$acc&   veg_nf%core%m_deadstem_xfer_to_litter_fire, veg_nf%core%m_froot_storage_to_litter_fire, &
-     !$acc&   veg_nf%core%m_froot_to_litter_fire, veg_nf%core%m_froot_xfer_to_litter_fire, &
-     !$acc&   veg_nf%core%m_leaf_storage_to_litter_fire, veg_nf%core%m_leaf_to_litter_fire, &
-     !$acc&   veg_nf%core%m_leaf_xfer_to_litter_fire, veg_nf%core%m_livecroot_storage_to_litter_fire, &
-     !$acc&   veg_nf%core%m_livecroot_to_litter_fire, veg_nf%core%m_livecroot_xfer_to_litter_fire, &
-     !$acc&   veg_nf%core%m_livestem_storage_to_litter_fire, veg_nf%core%m_livestem_to_litter_fire, &
-     !$acc&   veg_nf%core%m_livestem_xfer_to_litter_fire, veg_nf%core%m_pool_to_litter_fire, &
-     !$acc&   veg_nf%retrans%m_retrans_to_litter_fire, veg_pf%core%m_deadcroot_storage_to_litter_fire, &
-     !$acc&   veg_pf%core%m_deadcroot_to_litter_fire, veg_pf%core%m_deadcroot_xfer_to_litter_fire, &
-     !$acc&   veg_pf%core%m_deadstem_storage_to_litter_fire, veg_pf%core%m_deadstem_to_litter_fire, &
-     !$acc&   veg_pf%core%m_deadstem_xfer_to_litter_fire, veg_pf%core%m_froot_storage_to_litter_fire, &
-     !$acc&   veg_pf%core%m_froot_to_litter_fire, veg_pf%core%m_froot_xfer_to_litter_fire, &
-     !$acc&   veg_pf%core%m_leaf_storage_to_litter_fire, veg_pf%core%m_leaf_to_litter_fire, &
-     !$acc&   veg_pf%core%m_leaf_xfer_to_litter_fire, veg_pf%core%m_livecroot_storage_to_litter_fire, &
-     !$acc&   veg_pf%core%m_livecroot_to_litter_fire, veg_pf%core%m_livecroot_xfer_to_litter_fire, &
-     !$acc&   veg_pf%core%m_livestem_storage_to_litter_fire, veg_pf%core%m_livestem_to_litter_fire, &
-     !$acc&   veg_pf%core%m_livestem_xfer_to_litter_fire, veg_pf%core%m_pool_to_litter_fire, &
-     !$acc&   veg_pf%retrans%m_retrans_to_litter_fire) if_present
-     do fp = 1,num_soilp
-       p = filter_soilp(fp)
-       c = veg_pp%column(p)
-       wt_col = veg_pp%wtcol(p)
-       itype = veg_pp%itype(p)
-
-       do j = 1,nlevdecomp
+     ! One thread per level and soil column, the column's patches in filter order inside: the
+     ! patches of filter_soilp in a column of filter_soilc are its active patches (filterMod,
+     ! both filters ascending), so each column sum adds the same terms in the same order.
+     !$acc parallel loop gang vector collapse(2) default(present) &
+     !$acc&   private(c, p, wt_col, itype, lprof_pj, fr_prof_pj, cr_prof_pj, st_prof_pj)
+     do j = 1,nlevdecomp
+       do fc = 1,num_soilc
+         c = filter_soilc(fc)
+         !$acc loop seq
+         do p = col_pp%pfti(c), col_pp%pftf(c)
+         if (.not. veg_pp%active(p)) cycle
+         wt_col = veg_pp%wtcol(p)
+         itype = veg_pp%itype(p)
          lprof_pj   = leaf_prof(p,j)
          fr_prof_pj = froot_prof(p,j)
          cr_prof_pj = croot_prof(p,j)
@@ -1428,14 +1400,9 @@ contains
               (m_leafp_to_litter_fire(p)*lf_flig(itype)*lprof_pj + &
               m_frootp_to_litter_fire(p)*fr_flig(itype)*fr_prof_pj)* wt_col
 
+         end do
         end do
      end do
-     !$acc update device(col_cf%core%fire_mortality_to_cwd, col_cf%core%m_to_litr_cel_fire, &
-     !$acc&   col_cf%core%m_to_litr_lig_fire, col_cf%core%m_to_litr_met_fire, &
-     !$acc&   col_nf%core%fire_mortality_to_cwd, col_nf%core%m_to_litr_cel_fire, &
-     !$acc&   col_nf%core%m_to_litr_lig_fire, col_nf%core%m_to_litr_met_fire, &
-     !$acc&   col_pf%core%fire_mortality_to_cwd, col_pf%core%m_to_litr_cel_fire, &
-     !$acc&   col_pf%core%m_to_litr_lig_fire, col_pf%core%m_to_litr_met_fire) if_present
      !
      ! vertically-resolved decomposing C/N fire loss
      ! column loop

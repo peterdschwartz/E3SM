@@ -289,17 +289,6 @@ contains
          soilstate_vars, atm2lnd_vars, cnstate_vars &
          )
 
-   ! spel acc-sync: device data this host code uses
-   !$acc update self(cnstate_vars%bglfr_froot_patch, cnstate_vars%bglfr_leaf_patch, cnstate_vars%bgtr_patch, &
-   !$acc&   cnstate_vars%gddmaturity_patch, cnstate_vars%huileaf_patch, cnstate_vars%lgsf_patch, &
-   !$acc&   cnstate_vars%offset_counter_patch, cnstate_vars%offset_flag_patch, &
-   !$acc&   cnstate_vars%onset_counter_patch, cnstate_vars%onset_flag_patch, crop_vars%croplive_patch, &
-   !$acc&   crop_vars%crpyld_patch, crop_vars%dmyield_patch, crop_vars%harvdate_patch, &
-   !$acc&   crop_vars%harvday_patch, veg_cf%core%crop_seed_to_leaf, veg_cf%core%leaf_to_litter, &
-   !$acc&   veg_cs%core%leaf, veg_cs%core%leaf_xfer, veg_es%gdd020, veg_es%gdd1020, veg_es%gdd820, &
-   !$acc&   veg_nf%core%crop_seed_to_leaf, veg_nf%core%leaf_to_litter, veg_nf%fert_counter, veg_nf%manure, &
-   !$acc&   veg_nf%synthfert, veg_ns%core%leaf_xfer, veg_pf%core%crop_seed_to_leaf, veg_pf%fert_p, &
-   !$acc&   veg_ps%core%leaf_xfer) if_present
    if (num_pcropp > 0 ) then
        call CropPlantDate(num_soilp, filter_soilp, num_pcropp, filter_pcropp,&
             cnstate_vars, crop_vars, solarabs_vars)
@@ -310,24 +299,6 @@ contains
             crop_vars, canopystate_vars, cnstate_vars &
             )
     end if
-   !$acc update device(cnstate_vars%bglfr_froot_patch, cnstate_vars%bglfr_leaf_patch, &
-   !$acc&   cnstate_vars%bgtr_patch, cnstate_vars%cumvd_patch, cnstate_vars%gddmaturity_patch, &
-   !$acc&   cnstate_vars%hdidx_patch, cnstate_vars%huigrain_patch, cnstate_vars%huileaf_patch, &
-   !$acc&   cnstate_vars%idop_patch, cnstate_vars%lgsf_patch, cnstate_vars%offset_counter_patch, &
-   !$acc&   cnstate_vars%offset_flag_patch, cnstate_vars%onset_counter_patch, cnstate_vars%onset_flag_patch, &
-   !$acc&   crop_vars%accfsurv_patch, crop_vars%countfsurv_patch, crop_vars%cphase_patch, &
-   !$acc&   crop_vars%croplive_patch, crop_vars%cropplant_patch, crop_vars%crpyld_patch, crop_vars%cvp_patch, &
-   !$acc&   crop_vars%cvt_patch, crop_vars%dmyield_patch, crop_vars%eto_patch, crop_vars%fsurv_patch, &
-   !$acc&   crop_vars%harvdate_patch, crop_vars%harvday_patch, crop_vars%lt50_patch, crop_vars%p2e_rm_patch, &
-   !$acc&   crop_vars%p2eto_bar_patch, crop_vars%p2eto_patch, crop_vars%plantday_patch, &
-   !$acc&   crop_vars%plantmonth_patch, crop_vars%prev_p2eto_bar_patch, crop_vars%prev_xp_bar_patch, &
-   !$acc&   crop_vars%prev_xt_bar_patch, crop_vars%rated_patch, crop_vars%rateh_patch, crop_vars%rater_patch, &
-   !$acc&   crop_vars%rates_patch, crop_vars%tcrown_patch, crop_vars%vf_patch, crop_vars%wdd_patch, &
-   !$acc&   crop_vars%xp_bar_patch, crop_vars%xp_patch, crop_vars%xt_bar_patch, crop_vars%xt_patch, &
-   !$acc&   veg_cf%core%crop_seed_to_leaf, veg_cf%core%leaf_to_litter, veg_cs%core%leaf_xfer, &
-   !$acc&   veg_nf%core%crop_seed_to_leaf, veg_nf%core%leaf_to_litter, veg_nf%fert_counter, veg_nf%manure, &
-   !$acc&   veg_nf%synthfert, veg_ns%core%leaf_xfer, veg_pf%core%crop_seed_to_leaf, veg_pf%fert_p, &
-   !$acc&   veg_ps%core%leaf_xfer) if_present
 
     if (doalb .and. num_ppercropp > 0 ) then
        call PerennialCropPhenology(num_ppercropp, filter_ppercropp, &
@@ -352,9 +323,11 @@ contains
    end if
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(veg_cf%core%hrv_grain_to_prod1, veg_cf%core%hrv_leaf_to_prod1, &
-    !$acc&   veg_cf%core%hrv_livestem_to_prod1, veg_nf%core%hrv_grain_to_prod1, &
-    !$acc&   veg_nf%core%hrv_leaf_to_prod1, veg_nf%core%hrv_livestem_to_prod1, &
+    !$acc update self(col_cf%core%hrv_crop_to_prod1, col_nf%core%hrv_crop_to_prod1, &
+    !$acc&   col_pf%core%hrv_crop_to_prod1, veg_cf%core%hrv_crop_to_prod1, veg_cf%core%hrv_grain_to_prod1, &
+    !$acc&   veg_cf%core%hrv_leaf_to_prod1, veg_cf%core%hrv_livestem_to_prod1, veg_nf%core%hrv_crop_to_prod1, &
+    !$acc&   veg_nf%core%hrv_grain_to_prod1, veg_nf%core%hrv_leaf_to_prod1, &
+    !$acc&   veg_nf%core%hrv_livestem_to_prod1, veg_pf%core%hrv_crop_to_prod1, &
     !$acc&   veg_pf%core%hrv_grain_to_prod1, veg_pf%core%hrv_leaf_to_prod1, &
     !$acc&   veg_pf%core%hrv_livestem_to_prod1) if_present
     if (num_pcropp > 0 .or. num_ppercropp > 0) then
@@ -1554,6 +1527,8 @@ contains
 
       ndays_on = 20._r8 ! number of days to fertilize
 
+      !$acc parallel loop gang vector default(present) &
+      !$acc   private(p, c, g, t, h, t_season, p_season, no_season, crmcorn, idpp)
       do fp = 1, num_pcropp
          p = filter_pcropp(fp)
          c = veg_pp%column(p)
@@ -2358,6 +2333,7 @@ contains
     real(r8) dt_hr                      ! convert dt from sec to hour
     !------------------------------------------------------------------------
 
+    !$acc routine seq  ! spel acc-apply
     associate(                                               &
          tcrown      => crop_vars%tcrown_patch             , & ! Output: [integer  (:) ]  crown temperature
          t_ref2m     => veg_es%t_ref2m                     , & ! Input:  [real(r8) (:) ]  2 m height surface air temperature (K)
@@ -2373,10 +2349,10 @@ contains
       ! snow depth in centimeters
 
       if (t_ref2m(p) < tfrz) then !slevis: t_ref2m inst of td=daily avg (K)
-         tcrown = 2._r8 + (t_ref2m(p) - tfrz) * (0.4_r8 + 0.0018_r8 * &
+         tcrown(p) = 2._r8 + (t_ref2m(p) - tfrz) * (0.4_r8 + 0.0018_r8 * &
               (min(snow_depth(c)*100._r8, 15._r8) - 15._r8)**2)
       else !slevis: snow_depth inst of adsnod=daily average (m)
-         tcrown = t_ref2m(p) - tfrz
+         tcrown(p) = t_ref2m(p) - tfrz
       end if
 
       ! vernalization factor calculation
@@ -2455,6 +2431,7 @@ contains
 
     !------------------------------------------------------------------------
 
+    !$acc routine seq  ! spel acc-apply
     associate(                                                &
          ivt             => veg_pp%itype                    , & ! Input:  [integer  (:) ]  pft vegetation type
          rateh           => crop_vars%rateh_patch           , & ! Output: [integer  (:) ]  increase of tolerance caused by cold hardening index
@@ -2487,10 +2464,10 @@ contains
       ! snow depth in centimeters
 
       if (t_ref2m(p) < tfrz) then !slevis: t_ref2m inst of td=daily avg (K)
-         tcrown = 2._r8 + (t_ref2m(p) - tfrz) * (0.4_r8 + 0.0018_r8 * &
+         tcrown(p) = 2._r8 + (t_ref2m(p) - tfrz) * (0.4_r8 + 0.0018_r8 * &
               (min(snow_depth(c)*100._r8, 15._r8) - 15._r8)**2)
       else !slevis: snow_depth inst of adsnod=daily average (m)
-         tcrown = t_ref2m(p) - tfrz
+         tcrown(p) = t_ref2m(p) - tfrz
       end if
 
       ! frost tolerance and survival rate calculation
@@ -2575,9 +2552,10 @@ contains
     real(r8), parameter :: mon = 12._r8     ! used for some calculations (number of days in month)
     real(r8) :: mu_p, mu_t, sigmasum_t, sigmasum_p, sigma_t, sigma_p
     real(r8) :: ETout, netrad
-    integer, dimension(12) :: ndaypm= &
+    integer, dimension(12), parameter :: ndaypm= &
          (/31,28,31,30,31,30,31,31,30,31,30,31/) !days per month
     real(r8) :: dt
+    real(r8) :: xt_bar_p(nmon), p2e_rm_p(nmon)  ! row p as contiguous arrays (device code passes no strided actuals)
     !-----------------------------------------------------------------------
 
     associate(                                                &
@@ -2632,7 +2610,11 @@ contains
          kda = day_curr
          mcsec = secs_curr
       end if
+      !$acc update device(fracday) if_present
 
+      !$acc parallel loop gang vector default(present) &
+      !$acc   private(p, c, t, h, mu_t, mu_p, m, sigmasum_t, sigmasum_p, sigma_t) &
+      !$acc   private(sigma_p, n, netrad, etout) private(xt_bar_p, p2e_rm_p)
       do fp = 1,num_pcropp
          p = filter_pcropp(fp)
          c = veg_pp%column(p)
@@ -2658,6 +2640,7 @@ contains
                ! calculate the annual mean temperature and precipitation
                mu_t = 0._r8
                mu_p = 0._r8
+               !$acc loop seq
                do m=1,nmon
                   mu_t = mu_t + (xt_bar(p,m))
                   mu_p = mu_p + (xp_bar(p,m))
@@ -2668,6 +2651,7 @@ contains
                ! precipitation
                sigmasum_t = 0._r8
                sigmasum_p = 0._r8
+               !$acc loop seq
                do m = 1,nmon
                   sigmasum_t = sigmasum_t + (xt_bar(p,m) - mu_t)**2
                   sigmasum_p = sigmasum_p + (xp_bar(p,m) - mu_p)**2
@@ -2683,6 +2667,7 @@ contains
                P2E_rm(p,1) = P2E_rm(p,1) + p2ETo_bar(p,1)
                P2E_rm(p,2) = P2E_rm(p,2) + p2ETo_bar(p,1) + p2ETo_bar(p,2)
                P2E_rm(p,3) = P2E_rm(p,3) + p2ETo_bar(p,1) + p2ETo_bar(p,2) + p2ETo_bar(p,3)
+               !$acc loop seq
                do m=4,nmon
                   n = m-3
                   P2E_rm(p,m) = P2E_rm(p,m) + sum(p2ETo_bar(p,n:m))
@@ -2692,7 +2677,9 @@ contains
                cvp(p) = 0._r8
             end if
             ! the next call will determine next years plant month
-            call plant_month(p, cvt(p), cvp(p), xt_bar(p,:), P2E_rm(p,:), minplantjday(ivt(p),h), plantmonth(p))
+            xt_bar_p(:) = xt_bar(p,:)
+            p2e_rm_p(:) = P2E_rm(p,:)
+            call plant_month(p, cvt(p), cvp(p), xt_bar_p, p2e_rm_p, minplantjday(ivt(p),h), plantmonth(p))
             prev_xt_bar(p,:) = xt_bar(p,:)   ! save last years values
             prev_xp_bar(p,:) = xp_bar(p,:)
             prev_p2ETo_bar(p,:) = p2ETo_bar(p,:)

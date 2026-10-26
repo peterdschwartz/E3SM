@@ -85,11 +85,14 @@ contains
     real(r8) :: ndep_prof_sum
     real(r8) :: nfixation_prof_sum
     real(r8) :: pdep_prof_sum
-    real(r8) :: delta = 1.e-10_r8
+    real(r8), parameter :: delta = 1.e-10_r8
+    integer  :: nbad              ! columns or patches whose profiles do not integrate to 1
     real(r8), parameter :: smallparameter = tiny(1._r8)
     character(len=32) :: subname = 'decomp_vertprofiles'
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(cinput_rootfr, col_cinput_rootfr)
     associate(                                                               & 
          nlev2bed             => col_pp%nlevbed                            , & ! Input: [integer (:)     ]  number of layers to bedrock
          rootfr               => soilstate_vars%rootfr_patch               , & ! Input:  [real(r8)  (:,:) ]  fraction of roots in each soil layer  (nlevgrnd)
@@ -123,28 +126,29 @@ contains
          !$acc end data
 
          ! initialize profiles to zero
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
-         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
-         !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
-         leaf_prof(begp:endp, :)      = 0._r8
-         froot_prof(begp:endp, :)     = 0._r8
-         croot_prof(begp:endp, :)     = 0._r8
-         stem_prof(begp:endp, :)      = 0._r8
-         nfixation_prof(begc:endc, :) = 0._r8
-         ndep_prof(begc:endc, :)      = 0._r8
-         pdep_prof(begc:endc, :)      = 0._r8
-
-         cinput_rootfr(begp:endp, :)     = 0._r8
-         col_cinput_rootfr(begc:endc, :) = 0._r8
-         !$acc update device(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
-         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
-         !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
+         !$acc parallel loop gang vector collapse(2) default(present)
+         do j = 1, nlevdecomp_full
+            do p = begp, endp
+               leaf_prof(p,j) = 0._r8
+               froot_prof(p,j) = 0._r8
+               croot_prof(p,j) = 0._r8
+               stem_prof(p,j) = 0._r8
+               cinput_rootfr(p,j) = 0._r8
+            end do
+         end do
+         !$acc parallel loop gang vector collapse(2) default(present)
+         do j = 1, nlevdecomp_full
+            do c = begc, endc
+               nfixation_prof(c,j) = 0._r8
+               ndep_prof(c,j) = 0._r8
+               pdep_prof(c,j) = 0._r8
+               col_cinput_rootfr(c,j) = 0._r8
+            end do
+         end do
 
          if ( exponential_rooting_profile ) then
             if ( .not. pftspecific_rootingprofile ) then
                ! define rooting profile from exponential parameters
-               !$acc data copy(cinput_rootfr)
                !$acc parallel loop gang vector collapse(2) default(present) private(p)
                do j = 1, nlevdecomp
                   do fp = 1,num_soilp
@@ -152,10 +156,8 @@ contains
                      cinput_rootfr(p,j) = exp(-rootprof_exp * zsoi(j)) / dzsoi_decomp(j)
                   end do
                end do
-               !$acc end data
             else
                ! use beta distribution parameter from Jackson et al., 1996
-               !$acc data copy(cinput_rootfr)
                !$acc parallel loop gang vector default(present) &
                !$acc   private(p, c, nlevbed, rootfr_tot, j)
                do fp = 1,num_soilp
@@ -185,10 +187,8 @@ contains
                      cinput_rootfr(p,1) = 1._r8 / dzsoi_decomp(1)
                   endif
                end do
-               !$acc end data
             endif
          else
-            !$acc data copy(cinput_rootfr)
             !$acc parallel loop gang vector collapse(2) default(present) private(p)
             do j = 1, nlevdecomp
                ! use standard CLM root fraction profiles
@@ -197,10 +197,9 @@ contains
                   cinput_rootfr(p,j) = rootfr(p,j) / dzsoi_decomp(j)
                end do
             end do
-            !$acc end data
          endif
 
-         !$acc data copy(cinput_rootfr, surface_prof)
+         !$acc data copy(surface_prof)
          !$acc parallel loop gang vector default(present) &
          !$acc   private(p, c, nlevbed, rootfr_tot, surface_prof_tot, j)
          do fp = 1,num_soilp
@@ -256,11 +255,14 @@ contains
          !      cinput_rootfr(bounds%begp:bounds%endp, :), &
          !      col_cinput_rootfr(bounds%begc:bounds%endc, :), &
          !      'unity')
-         do pi = 1,maxpatch_pft
-            do fc = 1,num_soilc
+         !$acc parallel loop gang vector default(present) private(fc, c, p, j)
+         do fc = 1,num_soilc
+            !$acc loop seq
+            do pi = 1,maxpatch_pft
                c = filter_soilc(fc)
                if (pi <=  col_pp%npfts(c)) then
                   p = col_pp%pfti(c) + pi - 1
+                  !$acc loop seq
                   do j = 1,nlevdecomp
                      col_cinput_rootfr(c,j) = col_cinput_rootfr(c,j) + cinput_rootfr(p,j) * veg_pp%wtcol(p)
                   end do
@@ -269,7 +271,7 @@ contains
          end do
 
          ! repeat for column-native profiles: Ndep and Nfix
-         !$acc data copy(col_cinput_rootfr, surface_prof)
+         !$acc data copy(surface_prof)
          !$acc parallel loop gang vector default(present) &
          !$acc   private(c, nlevbed, rootfr_tot, surface_prof_tot, alt_ind, j)
          do fc = 1,num_soilc
@@ -319,64 +321,91 @@ contains
       else
 
          ! for one layer decomposition model, set profiles to unity
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
-         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
-         !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
-         leaf_prof(begp:endp, :) = 1._r8
-         froot_prof(begp:endp, :) = 1._r8
-         croot_prof(begp:endp, :) = 1._r8
-         stem_prof(begp:endp, :) = 1._r8
-         nfixation_prof(begc:endc, :) = 1._r8
-         ndep_prof(begc:endc, :) = 1._r8
-         pdep_prof(begc:endc, :) = 1._r8
-         !$acc update device(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
-         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
-         !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
+         !$acc parallel loop gang vector collapse(2) default(present)
+         do j = 1, nlevdecomp_full
+            do p = begp, endp
+               leaf_prof(p,j) = 1._r8
+               froot_prof(p,j) = 1._r8
+               croot_prof(p,j) = 1._r8
+               stem_prof(p,j) = 1._r8
+            end do
+         end do
+         !$acc parallel loop gang vector collapse(2) default(present)
+         do j = 1, nlevdecomp_full
+            do c = begc, endc
+               nfixation_prof(c,j) = 1._r8
+               ndep_prof(c,j) = 1._r8
+               pdep_prof(c,j) = 1._r8
+            end do
+         end do
 
       end if
 
-      ! check to make sure integral of all profiles = 1.
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
-      !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
-      !$acc&   cnstate_vars%pdep_prof_col, cnstate_vars%stem_prof_patch) if_present
+      ! check to make sure integral of all profiles = 1: count the failures on the device and
+      ! report them on the host (the original checks) only when there are any
+      nbad = 0
+      !$acc parallel loop gang vector default(present) reduction(+:nbad) &
+      !$acc&   private(c, ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          ndep_prof_sum = 0._r8
          nfixation_prof_sum = 0._r8
          pdep_prof_sum = 0._r8
+         !$acc loop seq
          do j = 1, nlevdecomp
             ndep_prof_sum = ndep_prof_sum + ndep_prof(c,j) *  dzsoi_decomp(j)
             nfixation_prof_sum = nfixation_prof_sum + nfixation_prof(c,j) *  dzsoi_decomp(j)
             pdep_prof_sum = pdep_prof_sum + pdep_prof(c,j) *  dzsoi_decomp(j)
          end do
          if ( ( abs(ndep_prof_sum - 1._r8) > delta ) .or.  ( abs(nfixation_prof_sum - 1._r8) > delta ) .or. &
-              ( abs(pdep_prof_sum - 1._r8) > delta )  ) then
-            write(iulog, *) 'profile sums: ', ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum
-            write(iulog, *) 'c: ', c
-            write(iulog, *) 'altmax_lastyear_indx: ', altmax_lastyear_indx(c)
-            write(iulog, *) 'nfixation_prof: ', nfixation_prof(c,:)
-            write(iulog, *) 'ndep_prof: ', ndep_prof(c,:)
-            write(iulog, *) 'pdep_prof: ', pdep_prof(c,:)
-            write(iulog, *) 'cinput_rootfr: ', col_cinput_rootfr(c,:)
-            write(iulog, *) 'dzsoi_decomp: ', dzsoi_decomp(:)
-            write(iulog, *) 'surface_prof: ', surface_prof(:)
-            write(iulog, *) 'npfts(c): ', col_pp%npfts(c)
-            do p = col_pp%pfti(c), col_pp%pfti(c) + col_pp%npfts(c) -1
-               write(iulog, *) 'p, itype(p), wtcol(p): ', p, veg_pp%itype(p), veg_pp%wtcol(p)
-               write(iulog, *) 'cinput_rootfr(p,:): ', cinput_rootfr(p,:)
-            end do
-            call endrun(msg=" ERROR: _prof_sum-1>delta"//errMsg(__FILE__, __LINE__))
-         endif
+              ( abs(pdep_prof_sum - 1._r8) > delta )  ) nbad = nbad + 1
       end do
+      if (nbad > 0) then  ! report on the host
+         !$acc update self(cinput_rootfr, col_cinput_rootfr)
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
+         !$acc&   cnstate_vars%pdep_prof_col) if_present
+         do fc = 1,num_soilc
+            c = filter_soilc(fc)
+            ndep_prof_sum = 0._r8
+            nfixation_prof_sum = 0._r8
+            pdep_prof_sum = 0._r8
+            do j = 1, nlevdecomp
+               ndep_prof_sum = ndep_prof_sum + ndep_prof(c,j) *  dzsoi_decomp(j)
+               nfixation_prof_sum = nfixation_prof_sum + nfixation_prof(c,j) *  dzsoi_decomp(j)
+               pdep_prof_sum = pdep_prof_sum + pdep_prof(c,j) *  dzsoi_decomp(j)
+            end do
+            if ( ( abs(ndep_prof_sum - 1._r8) > delta ) .or.  ( abs(nfixation_prof_sum - 1._r8) > delta ) .or. &
+                 ( abs(pdep_prof_sum - 1._r8) > delta )  ) then
+               write(iulog, *) 'profile sums: ', ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum
+               write(iulog, *) 'c: ', c
+               write(iulog, *) 'altmax_lastyear_indx: ', altmax_lastyear_indx(c)
+               write(iulog, *) 'nfixation_prof: ', nfixation_prof(c,:)
+               write(iulog, *) 'ndep_prof: ', ndep_prof(c,:)
+               write(iulog, *) 'pdep_prof: ', pdep_prof(c,:)
+               write(iulog, *) 'cinput_rootfr: ', col_cinput_rootfr(c,:)
+               write(iulog, *) 'dzsoi_decomp: ', dzsoi_decomp(:)
+               write(iulog, *) 'surface_prof: ', surface_prof(:)
+               write(iulog, *) 'npfts(c): ', col_pp%npfts(c)
+               do p = col_pp%pfti(c), col_pp%pfti(c) + col_pp%npfts(c) -1
+                  write(iulog, *) 'p, itype(p), wtcol(p): ', p, veg_pp%itype(p), veg_pp%wtcol(p)
+                  write(iulog, *) 'cinput_rootfr(p,:): ', cinput_rootfr(p,:)
+               end do
+               call endrun(msg=" ERROR: _prof_sum-1>delta"//errMsg(__FILE__, __LINE__))
+            endif
+         end do
+      end if
 
+      nbad = 0
+      !$acc parallel loop gang vector default(present) reduction(+:nbad) &
+      !$acc&   private(p, froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          froot_prof_sum = 0._r8
          croot_prof_sum = 0._r8
          leaf_prof_sum = 0._r8
          stem_prof_sum = 0._r8
+         !$acc loop seq
          do j = 1, nlevdecomp
             froot_prof_sum = froot_prof_sum + froot_prof(p,j) *  dzsoi_decomp(j)
             croot_prof_sum = croot_prof_sum + croot_prof(p,j) *  dzsoi_decomp(j)
@@ -384,26 +413,48 @@ contains
             stem_prof_sum = stem_prof_sum + stem_prof(p,j) *  dzsoi_decomp(j)
          end do
          if ( ( abs(froot_prof_sum - 1._r8) > delta ) .or.  ( abs(croot_prof_sum - 1._r8) > delta ) .or. &
-              ( abs(stem_prof_sum - 1._r8) > delta ) .or.  ( abs(leaf_prof_sum - 1._r8) > delta ) ) then
-            c = veg_pp%column(p)
-            write(iulog, *) 'profile sums: ', froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum
-            write(iulog, *) 'c: ',c
-            write(iulog, *) 'altmax_lastyear_indx: ', altmax_lastyear_indx(c)
-            write(iulog, *) 'cinput_rootfr: ', col_cinput_rootfr(c,:)
-            write(iulog, *) 'dzsoi_decomp: ', dzsoi_decomp(:)
-            write(iulog, *) 'surface_prof: ', surface_prof(:)
-            write(iulog, *) 'p, itype(p), wtcol(p): ', p, veg_pp%itype(p), veg_pp%wtcol(p)
-            write(iulog, *) 'cinput_rootfr(p,:): ', cinput_rootfr(p,:)
-            write(iulog,*)  'croot_prof(p,:): ',croot_prof(p,:)
-            write(iulog,*)  'froot_prof(p,:): ',froot_prof(p,:)
-            write(iulog,*)  'leaf_prof(p,:): ',leaf_prof(p,:)
-            write(iulog,*)  'stem_prof(p,:): ',stem_prof(p,:)
-            call endrun(msg=' ERROR: sum-1 > delta'//errMsg(__FILE__, __LINE__))
-         endif
+              ( abs(stem_prof_sum - 1._r8) > delta ) .or.  ( abs(leaf_prof_sum - 1._r8) > delta ) ) nbad = nbad + 1
       end do
+      if (nbad > 0) then  ! report on the host
+         !$acc update self(cinput_rootfr, col_cinput_rootfr)
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
+         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%stem_prof_patch) if_present
+         do fp = 1,num_soilp
+            p = filter_soilp(fp)
+            froot_prof_sum = 0._r8
+            croot_prof_sum = 0._r8
+            leaf_prof_sum = 0._r8
+            stem_prof_sum = 0._r8
+            do j = 1, nlevdecomp
+               froot_prof_sum = froot_prof_sum + froot_prof(p,j) *  dzsoi_decomp(j)
+               croot_prof_sum = croot_prof_sum + croot_prof(p,j) *  dzsoi_decomp(j)
+               leaf_prof_sum = leaf_prof_sum + leaf_prof(p,j) *  dzsoi_decomp(j)
+               stem_prof_sum = stem_prof_sum + stem_prof(p,j) *  dzsoi_decomp(j)
+            end do
+            if ( ( abs(froot_prof_sum - 1._r8) > delta ) .or.  ( abs(croot_prof_sum - 1._r8) > delta ) .or. &
+                 ( abs(stem_prof_sum - 1._r8) > delta ) .or.  ( abs(leaf_prof_sum - 1._r8) > delta ) ) then
+               c = veg_pp%column(p)
+               write(iulog, *) 'profile sums: ', froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum
+               write(iulog, *) 'c: ',c
+               write(iulog, *) 'altmax_lastyear_indx: ', altmax_lastyear_indx(c)
+               write(iulog, *) 'cinput_rootfr: ', col_cinput_rootfr(c,:)
+               write(iulog, *) 'dzsoi_decomp: ', dzsoi_decomp(:)
+               write(iulog, *) 'surface_prof: ', surface_prof(:)
+               write(iulog, *) 'p, itype(p), wtcol(p): ', p, veg_pp%itype(p), veg_pp%wtcol(p)
+               write(iulog, *) 'cinput_rootfr(p,:): ', cinput_rootfr(p,:)
+               write(iulog,*)  'croot_prof(p,:): ',croot_prof(p,:)
+               write(iulog,*)  'froot_prof(p,:): ',froot_prof(p,:)
+               write(iulog,*)  'leaf_prof(p,:): ',leaf_prof(p,:)
+               write(iulog,*)  'stem_prof(p,:): ',stem_prof(p,:)
+               call endrun(msg=' ERROR: sum-1 > delta'//errMsg(__FILE__, __LINE__))
+            endif
+         end do
+      end if
 
     end associate 
 
+    !$acc exit data delete(cinput_rootfr, col_cinput_rootfr)
   end subroutine decomp_vertprofiles
   
 end module VerticalProfileMod

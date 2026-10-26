@@ -210,13 +210,13 @@ contains
 
       ! column level fluxes
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(col_cs%core%decomp_pools_vr) if_present
-      do fc = 1,num_soilc
-          c = filter_soilc(fc)
-          col_cs%decomp_som2c_vr(c,1:nlevdecomp) = col_cs%core%decomp_pools_vr(c,1:nlevdecomp,6)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      do j = 1,nlevdecomp
+         do fc = 1,num_soilc
+            c = filter_soilc(fc)
+            col_cs%decomp_som2c_vr(c,j) = col_cs%core%decomp_pools_vr(c,j,6)
+         end do
       end do
-      !$acc update device(col_cs%decomp_som2c_vr) if_present
 
       if (.not.(use_pflotran .and. pf_cmode)) then
 
@@ -239,34 +239,28 @@ contains
          end if
 
          ! litter and SOM HR fluxes
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(col_cf%core%decomp_cascade_transfer_vr, col_cf%core%decomp_pools_sourcesink, &
-         !$acc&   col_cf%decomp_cascade_hr_vr) if_present
-         do k = 1, ndecomp_cascade_transitions
-            do j = 1,nlevdecomp
-               ! column loop
-               do fc = 1,num_soilc
-                  c = filter_soilc(fc)
+         ! one thread per level and column; the transitions in order (as in the loops over
+         ! transitions outside): bit-for-bit
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         do j = 1,nlevdecomp
+            do fc = 1,num_soilc
+               c = filter_soilc(fc)
+               !$acc loop seq
+               do k = 1, ndecomp_cascade_transitions
                   col_cf%core%decomp_pools_sourcesink(c,j,cascade_donor_pool(k)) = &
                        col_cf%core%decomp_pools_sourcesink(c,j,cascade_donor_pool(k)) &
                        - ( col_cf%decomp_cascade_hr_vr(c,j,k) + col_cf%core%decomp_cascade_transfer_vr(c,j,k)) *dt
                end do
-            end do
-         end do
-         do k = 1, ndecomp_cascade_transitions
-            if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
-               do j = 1,nlevdecomp
-                  ! column loop
-                  do fc = 1,num_soilc
-                     c = filter_soilc(fc)
+               !$acc loop seq
+               do k = 1, ndecomp_cascade_transitions
+                  if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
                      col_cf%core%decomp_pools_sourcesink(c,j,cascade_receiver_pool(k)) = &
                           col_cf%core%decomp_pools_sourcesink(c,j,cascade_receiver_pool(k)) &
                           + col_cf%core%decomp_cascade_transfer_vr(c,j,k)*dt
-                  end do
+                  end if
                end do
-            end if
+            end do
          end do
-         !$acc update device(col_cf%core%decomp_pools_sourcesink) if_present
 
       endif   
 

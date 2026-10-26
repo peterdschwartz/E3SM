@@ -175,50 +175,36 @@ contains
       end if
 
       ! decomposition fluxes
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(col_pf%core%decomp_cascade_transfer_vr, col_pf%core%decomp_pools_sourcesink, &
-      !$acc&   col_pf%mineral%decomp_cascade_smin_flux_vr) if_present
-      do k = 1, ndecomp_cascade_transitions
-         do j = 1, nlevdecomp
-            ! column loop
-            do fc = 1,num_soilc
-               c = filter_soilc(fc)
-
+      ! one thread per level and column; the transitions in order (as in the loops over
+      ! transitions outside): bit-for-bit
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      do j = 1, nlevdecomp
+         do fc = 1,num_soilc
+            c = filter_soilc(fc)
+            !$acc loop seq
+            do k = 1, ndecomp_cascade_transitions
                col_pf%core%decomp_pools_sourcesink(c,j,cascade_donor_pool(k)) = &
                     col_pf%core%decomp_pools_sourcesink(c,j,cascade_donor_pool(k)) - &
                     col_pf%core%decomp_cascade_transfer_vr(c,j,k) * dt
             end do
-         end do
-      end do
-      do k = 1, ndecomp_cascade_transitions
-         if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
-            do j = 1, nlevdecomp
-               ! column loop
-               do fc = 1,num_soilc
-                  c = filter_soilc(fc)
-
+            !$acc loop seq
+            do k = 1, ndecomp_cascade_transitions
+               if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
                   col_pf%core%decomp_pools_sourcesink(c,j,cascade_receiver_pool(k)) = &
                        col_pf%core%decomp_pools_sourcesink(c,j,cascade_receiver_pool(k)) + &
                        (col_pf%core%decomp_cascade_transfer_vr(c,j,k) + col_pf%mineral%decomp_cascade_smin_flux_vr(c,j,k)) * dt
-               end do
-            end do
-         else  ! terminal transitions
-            do j = 1, nlevdecomp
-               ! column loop
-               do fc = 1,num_soilc
-                  c = filter_soilc(fc)
+               else  ! terminal transitions
                   col_pf%core%decomp_pools_sourcesink(c,j,cascade_donor_pool(k)) = &
                        col_pf%core%decomp_pools_sourcesink(c,j,cascade_donor_pool(k)) - &
                        col_pf%mineral%decomp_cascade_smin_flux_vr(c,j,k) * dt
-               end do
+               end if
             end do
-         end if
+         end do
       end do
       !------------------------------------------------------------------
 
       ! forest fertilization
       call get_curr_date(kyr, kmo, kda, mcsec)
-      !$acc update device(col_pf%core%decomp_pools_sourcesink) if_present
       if (forest_fert_exp) then
          !$acc parallel loop gang vector default(present) private(c, j)
          do fc = 1,num_soilc

@@ -117,8 +117,12 @@ contains
             !$acc&   col_nf%core%decomp_pools_deposit, col_nf%core%decomp_pools_erode, &
             !$acc&   col_nf%core%decomp_pools_yield_vr, col_ns%core%decomp_pools_vr, &
             !$acc&   col_pf%core%decomp_pools_deposit, col_pf%core%decomp_pools_erode, &
-            !$acc&   col_pf%core%decomp_pools_yield_vr, col_ps%core%decomp_pools_vr, col_ps%labilep_vr, &
-            !$acc&   col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present
+            !$acc&   col_pf%core%decomp_pools_yield_vr, col_pf%labilep_deposit, col_pf%labilep_erode, &
+            !$acc&   col_pf%labilep_yield_vr, col_pf%occlp_deposit, col_pf%occlp_erode, &
+            !$acc&   col_pf%occlp_yield_vr, col_pf%primp_deposit, col_pf%primp_erode, col_pf%primp_yield_vr, &
+            !$acc&   col_pf%secondp_deposit, col_pf%secondp_erode, col_pf%secondp_yield_vr, &
+            !$acc&   col_ps%core%decomp_pools_vr, col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, &
+            !$acc&   col_ps%secondp_vr) if_present
             c = filter_soilc(fc)
 
             ! initialization
@@ -495,8 +499,11 @@ contains
                      end if
                   end do
                   ! spel acc-sync: device data this host code uses
-                  !$acc update self(col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, &
-                  !$acc&   col_ps%secondp_vr) if_present
+                  !$acc update self(col_pf%labilep_deposit, col_pf%labilep_erode, col_pf%labilep_yield_vr, &
+                  !$acc&   col_pf%occlp_deposit, col_pf%occlp_erode, col_pf%occlp_yield_vr, &
+                  !$acc&   col_pf%primp_deposit, col_pf%primp_erode, col_pf%primp_yield_vr, &
+                  !$acc&   col_pf%secondp_deposit, col_pf%secondp_erode, col_pf%secondp_yield_vr, &
+                  !$acc&   col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present
                   labilep_yield_vr(c,j) = (labilep_vr(c,j)-labilep_vr_new)/dt
                   labilep_erode(c) = labilep_erode(c) + labilep_yield_vr(c,j)* &
                      dzsoi_decomp(j)*dm_ero/dm_yld

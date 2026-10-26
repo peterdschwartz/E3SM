@@ -481,15 +481,11 @@ contains
               gross_pmin_vr(c,j) = 0.0_r8
           end do
       end do
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(col_nf%mineral%gross_min_vr, col_nf%mineral%pmf_decomp_cascade, &
-      !$acc&   col_nf%mineral%soil_grossmin_flux, col_nf%mineral%soil_immob_flux, &
-      !$acc&   col_nf%mineral%soil_immob_flux_vr, col_pf%mineral%gross_min_vr, &
-      !$acc&   col_pf%mineral%pmf_decomp_cascade, col_pf%mineral%soil_grossmin_flux, &
-      !$acc&   col_pf%mineral%soil_immob_flux, col_pf%mineral%soil_immob_flux_vr) if_present
       do k = 1, ndecomp_cascade_transitions
-         do j = 1,nlevdecomp
-            do fc = 1,num_soilc
+         !$acc parallel loop gang vector default(present) private(fc, c)
+         do fc = 1,num_soilc
+            !$acc loop seq
+            do j = 1,nlevdecomp
                c = filter_soilc(fc)
                    if (pmnf_decomp_cascade(c,j,k) > 0._r8) then
                    soil_n_immob_flux(c) = soil_n_immob_flux(c) + pmnf_decomp_cascade(c,j,k)*dzsoi_decomp(j)
@@ -508,10 +504,6 @@ contains
              end do
           end do
       end do
-      !$acc update device(col_nf%mineral%gross_min_vr, col_nf%mineral%soil_grossmin_flux, &
-      !$acc&   col_nf%mineral%soil_immob_flux, col_nf%mineral%soil_immob_flux_vr, &
-      !$acc&   col_pf%mineral%gross_min_vr, col_pf%mineral%soil_grossmin_flux, &
-      !$acc&   col_pf%mineral%soil_immob_flux, col_pf%mineral%soil_immob_flux_vr) if_present
    end if
 
       if (use_lch4) then
@@ -870,72 +862,7 @@ contains
       call veg_ps%SetValues(num_patch=num_soilp,  filter_patch=filter_soilp,  value_patch=0._r8)
       call col_ps%SetValues(num_column=num_soilc, filter_column=filter_soilc, value_column=0._r8)
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(veg_pf%core%crop_seed_to_leaf, veg_pf%core%deadcroot_storage_to_xfer, &
-      !$acc&   veg_pf%core%deadcroot_xfer_to_deadcroot, veg_pf%core%deadstem_storage_to_xfer, &
-      !$acc&   veg_pf%core%deadstem_xfer_to_deadstem, veg_pf%core%froot_storage_to_xfer, &
-      !$acc&   veg_pf%core%froot_to_litter, veg_pf%core%froot_xfer_to_froot, &
-      !$acc&   veg_pf%core%grain_storage_to_xfer, veg_pf%core%grain_to_food, veg_pf%core%grain_xfer_to_grain, &
-      !$acc&   veg_pf%core%hrv_deadcroot_storage_to_litter, veg_pf%core%hrv_deadcroot_to_litter, &
-      !$acc&   veg_pf%core%hrv_deadcroot_xfer_to_litter, veg_pf%core%hrv_deadstem_storage_to_litter, &
-      !$acc&   veg_pf%core%hrv_deadstem_to_prod10, veg_pf%core%hrv_deadstem_to_prod100, &
-      !$acc&   veg_pf%core%hrv_deadstem_xfer_to_litter, veg_pf%core%hrv_froot_storage_to_litter, &
-      !$acc&   veg_pf%core%hrv_froot_to_litter, veg_pf%core%hrv_froot_xfer_to_litter, &
-      !$acc&   veg_pf%core%hrv_grain_to_prod1, veg_pf%core%hrv_leaf_storage_to_litter, &
-      !$acc&   veg_pf%core%hrv_leaf_to_litter, veg_pf%core%hrv_leaf_to_prod1, &
-      !$acc&   veg_pf%core%hrv_leaf_xfer_to_litter, veg_pf%core%hrv_livecroot_storage_to_litter, &
-      !$acc&   veg_pf%core%hrv_livecroot_to_litter, veg_pf%core%hrv_livecroot_xfer_to_litter, &
-      !$acc&   veg_pf%core%hrv_livestem_storage_to_litter, veg_pf%core%hrv_livestem_to_litter, &
-      !$acc&   veg_pf%core%hrv_livestem_to_prod1, veg_pf%core%hrv_livestem_xfer_to_litter, &
-      !$acc&   veg_pf%core%hrv_pool_to_litter, veg_pf%core%leaf_storage_to_xfer, veg_pf%core%leaf_to_litter, &
-      !$acc&   veg_pf%core%leaf_xfer_to_leaf, veg_pf%core%livecroot_storage_to_xfer, &
-      !$acc&   veg_pf%core%livecroot_to_deadcroot, veg_pf%core%livecroot_xfer_to_livecroot, &
-      !$acc&   veg_pf%core%livestem_storage_to_xfer, veg_pf%core%livestem_to_deadstem, &
-      !$acc&   veg_pf%core%livestem_to_litter, veg_pf%core%livestem_xfer_to_livestem, &
-      !$acc&   veg_pf%core%pool_to_deadcroot, veg_pf%core%pool_to_deadcroot_storage, &
-      !$acc&   veg_pf%core%pool_to_deadstem, veg_pf%core%pool_to_deadstem_storage, veg_pf%core%pool_to_froot, &
-      !$acc&   veg_pf%core%pool_to_froot_storage, veg_pf%core%pool_to_grain, &
-      !$acc&   veg_pf%core%pool_to_grain_storage, veg_pf%core%pool_to_leaf, veg_pf%core%pool_to_leaf_storage, &
-      !$acc&   veg_pf%core%pool_to_livecroot, veg_pf%core%pool_to_livecroot_storage, &
-      !$acc&   veg_pf%core%pool_to_livestem, veg_pf%core%pool_to_livestem_storage, &
-      !$acc&   veg_pf%retrans%froot_to_retrans, veg_pf%retrans%hrv_retrans_to_litter, &
-      !$acc&   veg_pf%retrans%leaf_to_retrans, veg_pf%retrans%livecroot_to_retrans, &
-      !$acc&   veg_pf%retrans%livestem_to_retrans, veg_pf%retrans%retrans_to_pool, &
-      !$acc&   veg_pf%uptake%smin_to_pool) if_present
       call veg_pf%setvalues(num_patch=num_soilp,  filter_patch=filter_soilp,  value_patch=0._r8)
-      !$acc update device(veg_pf%biochem_pmin_to_plant, veg_pf%core%crop_seed_to_leaf, &
-      !$acc&   veg_pf%core%deadcroot_storage_to_xfer, veg_pf%core%deadcroot_xfer_to_deadcroot, &
-      !$acc&   veg_pf%core%deadstem_storage_to_xfer, veg_pf%core%deadstem_xfer_to_deadstem, &
-      !$acc&   veg_pf%core%fire_loss, veg_pf%core%froot_storage_to_xfer, veg_pf%core%froot_to_litter, &
-      !$acc&   veg_pf%core%froot_xfer_to_froot, veg_pf%core%grain_storage_to_xfer, veg_pf%core%grain_to_food, &
-      !$acc&   veg_pf%core%grain_xfer_to_grain, veg_pf%core%hrv_crop_to_prod1, &
-      !$acc&   veg_pf%core%hrv_deadcroot_storage_to_litter, veg_pf%core%hrv_deadcroot_to_litter, &
-      !$acc&   veg_pf%core%hrv_deadcroot_xfer_to_litter, veg_pf%core%hrv_deadstem_storage_to_litter, &
-      !$acc&   veg_pf%core%hrv_deadstem_to_prod10, veg_pf%core%hrv_deadstem_to_prod100, &
-      !$acc&   veg_pf%core%hrv_deadstem_xfer_to_litter, veg_pf%core%hrv_froot_storage_to_litter, &
-      !$acc&   veg_pf%core%hrv_froot_to_litter, veg_pf%core%hrv_froot_xfer_to_litter, &
-      !$acc&   veg_pf%core%hrv_grain_to_prod1, veg_pf%core%hrv_leaf_storage_to_litter, &
-      !$acc&   veg_pf%core%hrv_leaf_to_litter, veg_pf%core%hrv_leaf_to_prod1, &
-      !$acc&   veg_pf%core%hrv_leaf_xfer_to_litter, veg_pf%core%hrv_livecroot_storage_to_litter, &
-      !$acc&   veg_pf%core%hrv_livecroot_to_litter, veg_pf%core%hrv_livecroot_xfer_to_litter, &
-      !$acc&   veg_pf%core%hrv_livestem_storage_to_litter, veg_pf%core%hrv_livestem_to_litter, &
-      !$acc&   veg_pf%core%hrv_livestem_to_prod1, veg_pf%core%hrv_livestem_xfer_to_litter, &
-      !$acc&   veg_pf%core%hrv_pool_to_litter, veg_pf%core%leaf_storage_to_xfer, veg_pf%core%leaf_to_litter, &
-      !$acc&   veg_pf%core%leaf_xfer_to_leaf, veg_pf%core%livecroot_storage_to_xfer, &
-      !$acc&   veg_pf%core%livecroot_to_deadcroot, veg_pf%core%livecroot_xfer_to_livecroot, &
-      !$acc&   veg_pf%core%livestem_storage_to_xfer, veg_pf%core%livestem_to_deadstem, &
-      !$acc&   veg_pf%core%livestem_to_litter, veg_pf%core%livestem_xfer_to_livestem, &
-      !$acc&   veg_pf%core%pool_to_deadcroot, veg_pf%core%pool_to_deadcroot_storage, &
-      !$acc&   veg_pf%core%pool_to_deadstem, veg_pf%core%pool_to_deadstem_storage, veg_pf%core%pool_to_froot, &
-      !$acc&   veg_pf%core%pool_to_froot_storage, veg_pf%core%pool_to_grain, &
-      !$acc&   veg_pf%core%pool_to_grain_storage, veg_pf%core%pool_to_leaf, veg_pf%core%pool_to_leaf_storage, &
-      !$acc&   veg_pf%core%pool_to_livecroot, veg_pf%core%pool_to_livecroot_storage, &
-      !$acc&   veg_pf%core%pool_to_livestem, veg_pf%core%pool_to_livestem_storage, veg_pf%core%wood_harvest, &
-      !$acc&   veg_pf%fire_ploss_litter, veg_pf%gap_ploss_litter, veg_pf%hrv_ploss_litter, &
-      !$acc&   veg_pf%retrans%froot_to_retrans, veg_pf%retrans%hrv_retrans_to_litter, &
-      !$acc&   veg_pf%retrans%leaf_to_retrans, veg_pf%retrans%livecroot_to_retrans, &
-      !$acc&   veg_pf%retrans%livestem_to_retrans, veg_pf%retrans%retrans_to_pool, veg_pf%sen_ploss_litter, &
-      !$acc&   veg_pf%uptake%pool_deploy, veg_pf%uptake%smin_to_pool) if_present
       call col_pf%setvalues(num_column=num_soilc, filter_column=filter_soilc, value_column=0._r8)
    end if
 

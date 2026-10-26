@@ -180,6 +180,7 @@ contains
      implicit none
      real(r8) :: res
      real(r8) :: pe
+     !$acc routine seq
      res =  max (0._r8, (1._r8 - 0.1_r8 * abs(pe))**5)
   end function
 
@@ -313,8 +314,6 @@ contains
             ncoef = 1
             icoef(:) = 1
          end if
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(cnstate_vars%som_adv_coef_col, cnstate_vars%som_diffus_coef_col) if_present
          s_rep = 0
          do s = 1, ndecomp_pools
             if ( .not. is_cwd(s) ) then
@@ -327,6 +326,8 @@ contains
          allocate(bet_coef(num_soilc,0:nlevdecomp+1,ncoef))
          allocate(gam_coef(num_soilc,0:nlevdecomp+1,ncoef))
          allocate(r_coef  (num_soilc,1:nlevdecomp  ,ncoef))
+         ! the coefficients and the concentration work array live on the device only
+         !$acc enter data create(a_coef, c_coef, bet_coef, gam_coef, r_coef, conc_trcr)
 
          do s = 1, ndecomp_pools
             if ( is_cwd(s) ) cycle
@@ -341,6 +342,7 @@ contains
                spinup_term = 1.
             endif
 
+            !$acc parallel loop gang vector default(present)
             do fc = 1, num_soilc
                a_coef(fc,0,l) = 0._r8
                bet_coef(fc,0,l) = 1._r8   ! b at j = 0
@@ -351,6 +353,9 @@ contains
                c_coef(fc,nlevdecomp+1,l) = 0._r8
             end do
 
+            !$acc parallel loop gang vector collapse(2) default(present) &
+            !$acc&   private(c, adv_flux_j, diffus_j, adv_flux_jp1, diffus_jp1, adv_flux_jm1, diffus_jm1, &
+            !$acc&   dz_node, dz_nodep1, w_m1, w_p1, d_m1, d_p1, d_m1_zm1, d_p1_zp1, pe_m1, pe_p1, a_p_0)
             do j = 1,nlevdecomp
                do fc = 1, num_soilc
                   c = filter_soilc (fc)
@@ -424,8 +429,10 @@ contains
 
             ! Forward elimination factors, which depend only on the matrix:
             ! gam(j) = c(j-1) / bet(j-1) and bet(j) = b(j) - a(j) * gam(j), with bet(0) = b(0)
-            do j = 1, nlevdecomp+1
-               do fc = 1, num_soilc
+            !$acc parallel loop gang vector default(present)
+            do fc = 1, num_soilc
+               !$acc loop seq
+               do j = 1, nlevdecomp+1
                   gam_coef(fc,j,l) = c_coef(fc,j-1,l) / bet_coef(fc,j-1,l)
                   bet_coef(fc,j,l) = bet_coef(fc,j,l) - a_coef(fc,j,l) * gam_coef(fc,j,l)
                end do
@@ -457,25 +464,15 @@ contains
                ! Build the right-hand side, store the initial concentration and
                ! source terms for the tendency calculation, and eliminate forward.
                ! The top boundary row has r = 0 and b = 1.
-               !$acc data copy(bet_coef, conc_trcr)
                !$acc parallel loop gang vector default(present)
                do fc = 1, num_soilc
                   conc_trcr(fc,0) = 0._r8 / bet_coef(fc,0,l)
                end do
-               !$acc end data
-               ! spel acc-sync: device data this host code uses
-               !$acc update self(c13_col_cf%core%decomp_pools_sourcesink, &
-               !$acc&   c13_col_cf%core%decomp_pools_transport_tendency, c13_col_cs%core%decomp_pools_vr, &
-               !$acc&   c14_col_cf%core%decomp_pools_sourcesink, &
-               !$acc&   c14_col_cf%core%decomp_pools_transport_tendency, c14_col_cs%core%decomp_pools_vr, &
-               !$acc&   col_cf%core%decomp_pools_sourcesink, col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_cs%core%decomp_pools_vr, col_nf%core%decomp_pools_sourcesink, &
-               !$acc&   col_nf%core%decomp_pools_transport_tendency, col_ns%core%decomp_pools_vr, &
-               !$acc&   col_pf%core%decomp_pools_sourcesink, col_pf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_ps%core%decomp_pools_vr) if_present
-               do j = 1, nlevdecomp
-                  do fc = 1, num_soilc
-                     c = filter_soilc (fc)
+               !$acc parallel loop gang vector default(present) private(c, conc_old, r_tri)
+               do fc = 1, num_soilc
+                  c = filter_soilc (fc)
+                  !$acc loop seq
+                  do j = 1, nlevdecomp
                      conc_old = transport_ptr_list(i_type)%conc_ptr(c,j,s)
                      r_tri = transport_ptr_list(i_type)%src_ptr(c,j,s) * dzsoi_decomp(j) /dtime_mod + r_coef(fc,j,l) * conc_old
                      ! subtract initial concentration and source terms for tendency calculation
@@ -483,44 +480,26 @@ contains
                      conc_trcr(fc,j) = (r_tri - a_coef(fc,j,l)*conc_trcr(fc,j-1)) / bet_coef(fc,j,l)
                   end do
                end do
-               !$acc update device(c13_col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   c14_col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_nf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_pf%core%decomp_pools_transport_tendency) if_present
                ! The bottom boundary row has r = 0.
-               !$acc data copy(a_coef, bet_coef, conc_trcr)
                !$acc parallel loop gang vector default(present)
                do fc = 1, num_soilc
                   conc_trcr(fc,nlevdecomp+1) = (0._r8 - a_coef(fc,nlevdecomp+1,l)*conc_trcr(fc,nlevdecomp)) &
                                                / bet_coef(fc,nlevdecomp+1,l)
                end do
-               !$acc end data
 
                ! Back substitution. Level j is final once it is reached, so add the
                ! post-transport concentration to the tendency term and store it.
-               ! spel acc-sync: device data this host code uses
-               !$acc update self(c13_col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   c13_col_cs%core%decomp_pools_vr, c14_col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   c14_col_cs%core%decomp_pools_vr, col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_cs%core%decomp_pools_vr, col_nf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_ns%core%decomp_pools_vr, col_pf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_ps%core%decomp_pools_vr) if_present
-               do j = nlevdecomp,1,-1
-                  do fc = 1, num_soilc
-                     c = filter_soilc (fc)
+               !$acc parallel loop gang vector default(present) private(c)
+               do fc = 1, num_soilc
+                  c = filter_soilc (fc)
+                  !$acc loop seq
+                  do j = nlevdecomp,1,-1
                      conc_trcr(fc,j) = conc_trcr(fc,j) - gam_coef(fc,j+1,l) * conc_trcr(fc,j+1)
                      transport_ptr_list(i_type)%trcr_tend_ptr(c,j,s) = (transport_ptr_list(i_type)%trcr_tend_ptr(c,j,s) &
                                                                         + conc_trcr(fc,j))/dtime_mod
                      transport_ptr_list(i_type)%conc_ptr(c,j,s) = conc_trcr(fc,j)
                   end do
                end do
-               !$acc update device(c13_col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   c13_col_cs%core%decomp_pools_vr, c14_col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   c14_col_cs%core%decomp_pools_vr, col_cf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_cs%core%decomp_pools_vr, col_nf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_ns%core%decomp_pools_vr, col_pf%core%decomp_pools_transport_tendency, &
-               !$acc&   col_ps%core%decomp_pools_vr) if_present
             end do ! s (pool loop)
 
          else !use_vertsoilc?
@@ -543,6 +522,7 @@ contains
       end do  ! i_type
 
       if (use_vertsoilc) then
+         !$acc exit data delete(a_coef, c_coef, bet_coef, gam_coef, r_coef, conc_trcr)
          deallocate(a_coef, c_coef, bet_coef, gam_coef, r_coef)
       end if
    
@@ -559,6 +539,7 @@ contains
 
     real(r8), parameter :: eps = 1d-30
     logical :: use_scaling
+    !$acc routine seq
 
     ! Determine if we should scale by cnscalaravg_col
     use_scaling = (spinup_term > 1 .and. year >= 40 .and. spinup_state .eq. 1)
