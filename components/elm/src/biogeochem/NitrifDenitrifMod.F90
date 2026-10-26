@@ -26,13 +26,13 @@ module NitrifDenitrifMod
   public :: readNitrifDenitrifParams
   !
   type, public :: NitrifDenitrifParamsType
-   real(r8), pointer :: k_nitr_max             => null()   !  maximum nitrification rate constant (1/s)
-   real(r8), pointer :: surface_tension_water  => null()   !  surface tension of water(J/m^2), Arah an and Vinten 1995
-   real(r8), pointer :: rij_kro_a              => null()   !  Arah and Vinten 1995)
-   real(r8), pointer :: rij_kro_alpha          => null()   !  parameter to calculate anoxic fraction of soil  (Arah and Vinten 1995)
-   real(r8), pointer :: rij_kro_beta           => null()   !  (Arah and Vinten 1995)
-   real(r8), pointer :: rij_kro_gamma          => null()   !  (Arah and Vinten 1995)
-   real(r8), pointer :: rij_kro_delta          => null()   !  (Arah and Vinten 1995)
+   real(r8) :: k_nitr_max                !  maximum nitrification rate constant (1/s)
+   real(r8) :: surface_tension_water     !  surface tension of water(J/m^2), Arah an and Vinten 1995
+   real(r8) :: rij_kro_a                 !  Arah and Vinten 1995)
+   real(r8) :: rij_kro_alpha             !  parameter to calculate anoxic fraction of soil  (Arah and Vinten 1995)
+   real(r8) :: rij_kro_beta              !  (Arah and Vinten 1995)
+   real(r8) :: rij_kro_gamma             !  (Arah and Vinten 1995)
+   real(r8) :: rij_kro_delta             !  (Arah and Vinten 1995)
   end type NitrifDenitrifParamsType
 
   type(NitrifDenitrifParamsType) , public ::  NitrifDenitrifParamsInst
@@ -62,14 +62,6 @@ contains
     !
     ! read in constants
     !
-
-    allocate(NitrifDenitrifParamsInst%k_nitr_max           )
-    allocate(NitrifDenitrifParamsInst%surface_tension_water)
-    allocate(NitrifDenitrifParamsInst%rij_kro_a            )
-    allocate(NitrifDenitrifParamsInst%rij_kro_alpha        )
-    allocate(NitrifDenitrifParamsInst%rij_kro_beta         )
-    allocate(NitrifDenitrifParamsInst%rij_kro_gamma        )
-    allocate(NitrifDenitrifParamsInst%rij_kro_delta        )
 
     tString='k_nitr_max'
     call ncd_io(trim(tString),tempr, 'read', ncid, readvar=readv)
@@ -128,15 +120,13 @@ contains
     ! !LOCAL VARIABLES:
     integer  :: c, fc, reflev, j
     ! Work arrays are indexed by position in the soil column filter
-    real(r8) :: soil_hr_vr(num_soilc,1:nlevdecomp) ! total soil respiration rate (g C / m3 / s)
+    real(r8) :: soil_hr_vr ! total soil respiration rate (g C / m3 / s)
     real(r8) :: g_per_m3__to__ug_per_gsoil
     real(r8) :: g_per_m3_sec__to__ug_per_gsoil_day
     real(r8) :: k_nitr_max                          ! maximum nitrification rate constant (1/s)
     real(r8) :: mu, sigma
     real(r8) :: t
-    real(r8) :: pH(num_soilc)
-    !debug-- put these type structure for outing to hist files
-    real(r8) :: co2diff_con(2)                      ! diffusion constants for CO2
+    real(r8), parameter :: pH = 6.5_r8
     real(r8) :: eps
     real(r8) :: f_a
     real(r8) :: surface_tension_water ! (J/m^2), Arah and Vinten 1995
@@ -145,11 +135,11 @@ contains
     real(r8) :: rij_kro_beta          !  Arah and Vinten 1995
     real(r8) :: rij_kro_gamma         !  Arah and Vinten 1995
     real(r8) :: rij_kro_delta         !  Arah and Vinten 1995
-    real(r8) :: rho_w  = 1.e3_r8                   ! (kg/m3)
+    real(r8), parameter :: rho_w  = 1.e3_r8                   ! (kg/m3)
     real(r8), parameter :: smallparameter = 1.E-20_r8
     real(r8) :: r_max
-    real(r8) :: r_min(num_soilc,1:nlevdecomp)
-    real(r8) :: ratio_diffusivity_water_gas(num_soilc,1:nlevdecomp)
+    real(r8) :: r_min
+    real(r8) :: ratio_diffusivity_water_gas
     real(r8) :: om_frac
     real(r8) :: anaerobic_frac_sat, r_psi_sat, r_min_sat ! scalar values in sat portion for averaging
     real(r8) :: organic_max              ! organic matter content (kg/m3) where
@@ -158,7 +148,6 @@ contains
     !-----------------------------------------------------------------------
 
     ! spel acc-locals: device storage of the local work arrays
-    !$acc enter data create(soil_hr_vr, r_min, ratio_diffusivity_water_gas)
     associate(                                                                                     &
          watsat                        =>    soilstate_vars%watsat_col                           , & ! Input:  [real(r8) (:,:)  ]  volumetric soil water at saturation (porosity) (nlevgrnd)
          bd                            =>    soilstate_vars%bd_col                               , & ! Input:  [real(r8) (:,:)  ]  bulk density of dry soil material [kg/m3]
@@ -228,11 +217,6 @@ contains
 
       organic_max = ParamsShareInst%organic_max
 
-      pH(:) = 6.5  !!! set all soils with the same pH as placeholder here
-      co2diff_con(1) =   0.1325_r8
-      co2diff_con(2) =   0.0009_r8
-
-      !$acc data copy(ph)
       !$acc parallel loop gang vector collapse(2) default(present) &
       !$acc   private(c, f_a, eps, om_frac, r_max, r_min_sat, r_psi_sat) &
       !$acc   private(anaerobic_frac_sat, g_per_m3__to__ug_per_gsoil) &
@@ -264,17 +248,17 @@ contains
                ! use rijtema and kroess model after Riley et al., 2000
                ! caclulated r_psi as a function of psi
 
-               r_min(fc,j) = 2 * surface_tension_water / (rho_w * grav * abs(soilpsi(c,j)))
+               r_min = 2 * surface_tension_water / (rho_w * grav * abs(soilpsi(c,j)))
                r_max = 2 * surface_tension_water / (rho_w * grav * 0.1_r8)
-               r_psi(c,j) = sqrt(r_min(fc,j) * r_max)
-               ratio_diffusivity_water_gas(fc,j) = (d_con_g(2,1) + d_con_g(2,2)*t_soisno(c,j) ) * 1.e-4_r8 / &
+               r_psi(c,j) = sqrt(r_min * r_max)
+               ratio_diffusivity_water_gas = (d_con_g(2,1) + d_con_g(2,2)*t_soisno(c,j) ) * 1.e-4_r8 / &
                     ((d_con_w(2,1) + d_con_w(2,2)*t_soisno(c,j) + d_con_w(2,3)*t_soisno(c,j)**2) * 1.e-9_r8)
 
                if (o2_decomp_depth_unsat(c,j) /= spval .and. conc_o2_unsat(c,j) /= spval .and.  &
                     o2_decomp_depth_unsat(c,j) > smallparameter) then
                   anaerobic_frac(c,j) = exp(-rij_kro_a * r_psi(c,j)**(-rij_kro_alpha) * &
                        o2_decomp_depth_unsat(c,j)**(-rij_kro_beta) * &
-                       conc_o2_unsat(c,j)**rij_kro_gamma * (h2osoi_vol(c,j) + ratio_diffusivity_water_gas(fc,j) * &
+                       conc_o2_unsat(c,j)**rij_kro_gamma * (h2osoi_vol(c,j) + ratio_diffusivity_water_gas * &
                        watsat(c,j))**rij_kro_delta)
                else
                   anaerobic_frac(c,j) = 0._r8
@@ -287,7 +271,7 @@ contains
                        o2_decomp_depth_sat(c,j) > smallparameter) then
                      anaerobic_frac_sat = exp(-rij_kro_a * r_psi_sat**(-rij_kro_alpha) * &
                           o2_decomp_depth_sat(c,j)**(-rij_kro_beta) * &
-                          conc_o2_sat(c,j)**rij_kro_gamma * (watsat(c,j) + ratio_diffusivity_water_gas(fc,j) * &
+                          conc_o2_sat(c,j)**rij_kro_gamma * (watsat(c,j) + ratio_diffusivity_water_gas * &
                           watsat(c,j))**rij_kro_delta)
                   else
                      anaerobic_frac_sat = 0._r8
@@ -311,7 +295,7 @@ contains
             k_nitr_t_vr(c,j) = min(t_scalar(c,j), 1._r8)
 
             ! ph function from Parton et al., (2001, 1996)
-            k_nitr_ph_vr(c,j) = 0.56 + atan(rpi * 0.45 * (-5.+ pH(fc)))/rpi
+            k_nitr_ph_vr(c,j) = 0.56 + atan(rpi * 0.45 * (-5.+ pH))/rpi
 
             ! moisture function-- assume the same moisture function as limits heterotrophic respiration
             ! Parton et al. base their nitrification- soil moisture rate constants based on heterotrophic rates-- can we do the same?
@@ -334,7 +318,7 @@ contains
 
             !---------------- denitrification
             ! first some input variables an unit conversions
-            soil_hr_vr(fc,j) = phr_vr(c,j)
+            soil_hr_vr = phr_vr(c,j)
 
             ! CENTURY papers give denitrification in units of per gram soil; need to convert from volumetric to mass-based units here
             soil_bulkdensity(c,j) = bd(c,j) + h2osoi_liq(c,j)/col_pp%dz(c,j)
@@ -345,7 +329,7 @@ contains
 
             smin_no3_massdens_vr(c,j) = max(smin_no3_vr(c,j), 0._r8) * g_per_m3__to__ug_per_gsoil
 
-            soil_co2_prod(c,j) = (soil_hr_vr(fc,j) * (g_per_m3_sec__to__ug_per_gsoil_day))
+            soil_co2_prod(c,j) = (soil_hr_vr * (g_per_m3_sec__to__ug_per_gsoil_day))
 
             !! maximum potential denitrification rates based on heterotrophic respiration rates or nitrate concentrations,
             !! from (del Grosso et al., 2000)
@@ -393,11 +377,9 @@ contains
          end do
 
       end do
-      !$acc end data
 
     end associate
 
-    !$acc exit data delete(soil_hr_vr, r_min, ratio_diffusivity_water_gas)
  end subroutine nitrif_denitrif
 
 end module NitrifDenitrifMod
