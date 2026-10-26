@@ -515,10 +515,10 @@ contains
         end if
      end do
 
-     ! spel acc-sync: device data this host code uses
-     !$acc update self(cnstate_vars%baf_crop_col, cnstate_vars%burndate_patch, col_cs%fuelc_crop) if_present
-     do pi = 1,max_patch_per_col
-        do fc = 1,num_soilc
+     !$acc parallel loop gang vector default(present) private(fc, c, g, t, hdmlf, p, fhd, fgdp, fb)
+     do fc = 1,num_soilc
+        !$acc loop seq
+        do pi = 1,max_patch_per_col
            c = filter_soilc(fc)
            g = col_pp%gridcell(c)
            t = col_pp%topounit(c)
@@ -550,7 +550,6 @@ contains
            end if
         end do
      end do
-     !$acc update device(cnstate_vars%baf_crop_col, cnstate_vars%burndate_patch) if_present
      !
      ! calculate peatland fire
      !

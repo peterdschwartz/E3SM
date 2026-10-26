@@ -322,20 +322,9 @@ contains
            num_soilc, filter_soilc, crop_vars, cnstate_vars)
    end if
 
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(col_cf%core%hrv_crop_to_prod1, col_nf%core%hrv_crop_to_prod1, &
-    !$acc&   col_pf%core%hrv_crop_to_prod1, veg_cf%core%hrv_crop_to_prod1, veg_cf%core%hrv_grain_to_prod1, &
-    !$acc&   veg_cf%core%hrv_leaf_to_prod1, veg_cf%core%hrv_livestem_to_prod1, veg_nf%core%hrv_crop_to_prod1, &
-    !$acc&   veg_nf%core%hrv_grain_to_prod1, veg_nf%core%hrv_leaf_to_prod1, &
-    !$acc&   veg_nf%core%hrv_livestem_to_prod1, veg_pf%core%hrv_crop_to_prod1, &
-    !$acc&   veg_pf%core%hrv_grain_to_prod1, veg_pf%core%hrv_leaf_to_prod1, &
-    !$acc&   veg_pf%core%hrv_livestem_to_prod1) if_present
     if (num_pcropp > 0 .or. num_ppercropp > 0) then
       call CNCropHarvestPftToColumn(num_soilc, filter_soilc,cnstate_vars)
     end if
-    !$acc update device(col_cf%core%hrv_crop_to_prod1, col_nf%core%hrv_crop_to_prod1, &
-    !$acc&   col_pf%core%hrv_crop_to_prod1, veg_cf%core%hrv_crop_to_prod1, veg_nf%core%hrv_crop_to_prod1, &
-    !$acc&   veg_pf%core%hrv_crop_to_prod1) if_present
 
     call CNOffsetLitterfall(num_soilp, filter_soilp, &
          cnstate_vars)
@@ -3727,8 +3716,10 @@ contains
    chrv_cropp_to_prod1p                =>   col_pf%core%hrv_crop_to_prod1      & ! InOut:  [real(r8) (:)] column level crop phosphorus harvested
    )
 
-   do pi = 1,maxpatch_pft
-      do fc = 1,num_soilc
+   !$acc parallel loop gang vector default(present) private(fc, c, p)
+   do fc = 1,num_soilc
+      !$acc loop seq
+      do pi = 1,maxpatch_pft
          c = filter_soilc(fc)
 
          if (pi <=  col_pp%npfts(c)) then
