@@ -945,12 +945,11 @@ contains
          phenology_c_to_litr_lig_c =>    col_cf%core%phenology_to_litr_lig   & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with phenology (litterfall and crop) to litter lignin pool (gC/m3/s)
          )
 
-      !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
+      !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
       do j = 1, nlevdecomp
-         !$acc loop seq
-         do pi = 1,max_patch_per_col
+         do fc = 1,num_soilc
             !$acc loop seq
-            do fc = 1,num_soilc
+            do pi = 1,max_patch_per_col
                c = filter_soilc(fc)
 
                if ( pi <=  col_pp%npfts(c) ) then
@@ -1045,12 +1044,11 @@ contains
           gap_mortality_c_to_cwdc        =>    col_cf%core%gap_mortality_to_cwd            & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with gap mortality to CWD pool (gC/m3/s)
           )
 
-       !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
+       !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
        do j = 1, nlevdecomp
-          !$acc loop seq
-          do pi = 1,maxpatch_pft
+          do fc = 1,num_soilc
              !$acc loop seq
-             do fc = 1,num_soilc
+             do pi = 1,maxpatch_pft
                 c = filter_soilc(fc)
 
                 if (pi <=  col_pp%npfts(c)) then
@@ -1199,12 +1197,11 @@ contains
           harvest_c_to_cwdc                =>    col_cf%core%harvest_to_cwd                    & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with harvest to CWD pool (gC/m3/s)
           )
 
-       !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
+       !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
        do j = 1, nlevdecomp
-          !$acc loop seq
-          do pi = 1,maxpatch_pft
+          do fc = 1,num_soilc
              !$acc loop seq
-             do fc = 1,num_soilc
+             do pi = 1,maxpatch_pft
                 c = filter_soilc(fc)
 
                 if (pi <=  col_pp%npfts(c)) then

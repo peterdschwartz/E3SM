@@ -2303,13 +2303,12 @@ contains
 
     if ((.not. (use_pflotran .and. pf_cmode))) then
       ! vertically integrate HR and decomposition cascade fluxes
-      !$acc parallel loop gang vector default(present) private(j, fc, c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
       do k = 1, ndecomp_cascade_transitions
 
-       !$acc loop seq
-       do j = 1,nlevdecomp
+       do fc = 1,num_soilc
           !$acc loop seq
-          do fc = 1,num_soilc
+          do j = 1,nlevdecomp
              c = filter_soilc(fc)
 
              this%decomp_cascade_hr(c,k) = &
@@ -2348,12 +2347,11 @@ contains
 
       ! total heterotrophic respiration, vertically resolved (HR)
 
-      !$acc parallel loop gang vector default(present) private(j, fc, c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
       do j = 1,nlevdecomp
-        !$acc loop seq
-        do k = 1, ndecomp_cascade_transitions
+        do fc = 1,num_soilc
           !$acc loop seq
-          do fc = 1,num_soilc
+          do k = 1, ndecomp_cascade_transitions
             c = filter_soilc(fc)
             this%hr_vr(c,j) = &
                 this%hr_vr(c,j) + &

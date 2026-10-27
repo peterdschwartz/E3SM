@@ -366,10 +366,9 @@ contains
       ! of mineralization flux.
       call t_startf('SLDA-actual')
 
-      !$acc parallel loop independent gang worker collapse(2) default(present)
+      !$acc parallel loop gang vector collapse(3) default(present) private(k_donor_pool, c)
       do k = 1, ndecomp_cascade_transitions
          do j = 1,nlevdecomp
-            !$acc loop vector private(c,k_donor_pool)
             do fc = 1,num_soilc
                k_donor_pool = cascade_donor_pool(k)
                c = filter_soilc(fc)

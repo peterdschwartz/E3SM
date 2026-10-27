@@ -699,7 +699,7 @@ contains
           call t_stopf('phenology_flux_limiter')
         endif
         call t_startf('CNLitterToColumn')
-        call CNLitterToColumn(num_soilp, filter_soilp, cnstate_vars )
+        call CNLitterToColumn(num_soilc, filter_soilc, cnstate_vars )
         call t_stopf('CNLitterToColumn')
 
         !--------------------------------------------

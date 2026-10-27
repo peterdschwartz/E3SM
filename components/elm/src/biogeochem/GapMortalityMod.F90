@@ -392,12 +392,11 @@ contains
 
          )
 
-      !$acc parallel loop gang vector default(present) private(pi, fc, c, p)
+      !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
       do j = 1,nlevdecomp
-         !$acc loop seq
-         do pi = 1,maxpatch_pft
+         do fc = 1,num_soilc
             !$acc loop seq
-            do fc = 1,num_soilc
+            do pi = 1,maxpatch_pft
                c = filter_soilc(fc)
 
                if (pi <=  col_pp%npfts(c)) then

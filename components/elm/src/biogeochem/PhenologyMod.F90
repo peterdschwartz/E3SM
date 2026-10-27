@@ -3522,7 +3522,7 @@ contains
   end subroutine CNLivewoodTurnover
 
   !-----------------------------------------------------------------------
-  subroutine CNLitterToColumn (num_soilp, filter_soilp, &
+  subroutine CNLitterToColumn (num_soilc, filter_soilc, &
        cnstate_vars)
     !
     ! !DESCRIPTION:
@@ -3534,12 +3534,12 @@ contains
     use pftvarcon  , only : iscft
     !
     ! !ARGUMENTS:
-    integer                 , intent(in)    :: num_soilp       ! number of soil columns in filter
-    integer                 , intent(in)    :: filter_soilp(:) ! filter for soil columns
+    integer                 , intent(in)    :: num_soilc       ! number of soil columns in filter
+    integer                 , intent(in)    :: filter_soilc(:) ! filter for soil columns
     type(cnstate_type)      , intent(in)    :: cnstate_vars
 
     ! !LOCAL VARIABLES:
-    integer :: fp,c,p,j       ! indices
+    integer :: fc,c,p,j       ! indices
     real(r8):: wt_col
     !-----------------------------------------------------------------------
 
@@ -3582,12 +3582,16 @@ contains
          phenology_p_to_litr_lig_p           =>    col_pf%core%phenology_to_litr_lig   & ! Output: [real(r8) (:,:) ]  P fluxes associated with phenology (litterfall and crop) to litter lignin pool (gP/m3/s)
          )
 
-      !$acc parallel loop gang vector default(present) private(fp, p, c, wt_col)
+      ! One element per level and soil column, the column's active patches in order inside: they
+      ! are the soil-filter patches of the column (filterMod; the filters are ascending), so each
+      ! column sum adds the same terms in the same order as the loop over the patch filter did.
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, p, wt_col)
       do j = 1, nlevdecomp
+         do fc = 1, num_soilc
+            c = filter_soilc(fc)
             !$acc loop seq
-            do fp = 1,num_soilp
-               p = filter_soilp(fp)
-               c = veg_pp%column(p)
+            do p = col_pp%pfti(c), col_pp%pftf(c)
+               if (.not. veg_pp%active(p)) cycle
                wt_col = wtcol(p)
                ! leaf litter carbon fluxes
                phenology_c_to_litr_met_c(c,j) = phenology_c_to_litr_met_c(c,j) &
@@ -3670,6 +3674,7 @@ contains
 
                      end if
 
+            end do
          end do
       end do
 
