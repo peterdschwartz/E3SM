@@ -49,6 +49,7 @@ contains
     integer :: c,p,j,l,k        ! indices
     integer :: fp,fc      ! lake filter indices
     !-----------------------------------------------------------------------
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
       do j = 1, nlevdecomp
          ! column loop
          do fc = 1,num_soilc
@@ -81,6 +82,7 @@ contains
       end do
 
       ! litter and CWD losses to fire
+      !$acc parallel loop gang vector collapse(3) default(present) private(c)
       do l = 1, ndecomp_pools
          do j = 1, nlevdecomp
             ! column loop
@@ -94,9 +96,12 @@ contains
 
       ! SOM N losses due to erosion
       if ( ero_ccycle ) then
+         !$acc parallel loop gang vector default(present) private(j, fc, c)
          do l = 1, ndecomp_pools
             if ( decomp_cascade_con%is_soil(l) ) then
+               !$acc loop seq
                do j = 1, nlevdecomp
+                  !$acc loop seq
                   do fc = 1, num_soilc
                      c = filter_soilc(fc)
                      col_ns%core%decomp_pools_vr(c,j,l) = col_ns%core%decomp_pools_vr(c,j,l) - col_nf%core%decomp_pools_yield_vr(c,j,l) * dt
@@ -109,6 +114,7 @@ contains
       ! patch-level nitrogen fluxes
       if(.not.use_fates) then
 
+         !$acc parallel loop gang vector default(present) private(p)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
 

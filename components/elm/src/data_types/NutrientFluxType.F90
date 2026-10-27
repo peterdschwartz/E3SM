@@ -576,6 +576,7 @@ contains
 
     nlev = nlevdecomp
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%som_leached(c)       = 0._r8
@@ -588,9 +589,11 @@ contains
        ! PFLOTRAN's pf_cmode is false
        ! vertically integrate decomposing N cascade fluxes and
        !soil mineral N fluxes associated with decomposition cascade
+       !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
        do k = 1, ndecomp_cascade_transitions
-          do j = 1,nlev
-             do fc = 1,num_soilc
+          do fc = 1,num_soilc
+             !$acc loop seq
+             do j = 1,nlev
                 c = filter_soilc(fc)
                 this%decomp_cascade_transfer(c,k) = &
                      this%decomp_cascade_transfer(c,k) + &

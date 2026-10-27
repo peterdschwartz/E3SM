@@ -1924,6 +1924,7 @@ contains
            dtime = get_step_size()
           nfixlags = nfix_timeconst * secspday
 
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              if ( this%lag_npp(c) /= spval ) then
@@ -1941,6 +1942,7 @@ contains
     if (use_pflotran .and. pf_cmode) nlev = nlevdecomp_full
 
     ! some zeroing
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%cwdc_loss(c)          = 0._r8
@@ -1949,6 +1951,7 @@ contains
     if ((.not. (use_pflotran .and. pf_cmode))) then
 
        ! total heterotrophic respiration (HR)
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%hr(c) = &
@@ -1959,6 +1962,7 @@ contains
     endif
 
     ! some zeroing
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%somhr(c)              = 0._r8
@@ -1972,10 +1976,12 @@ contains
     enddo
 
     ! vertically integrate HR and decomposition cascade fluxes
+    !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
     do k = 1, ndecomp_cascade_transitions
 
-       do j = 1,nlevdecomp
-          do fc = 1,num_soilc
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1,nlevdecomp
              c = filter_soilc(fc)
 
              this%decomp_cascade_hr(c,k) = &
@@ -1989,6 +1995,7 @@ contains
     ! litter heterotrophic respiration (LITHR)
     do k = 1, ndecomp_cascade_transitions
        if ( is_litter(decomp_cascade_con%cascade_donor_pool(k)) .or. is_cwd((decomp_cascade_con%cascade_donor_pool(k)))) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%lithr(c) = &
@@ -2001,6 +2008,7 @@ contains
     ! soil organic matter heterotrophic respiration (SOMHR)
     do k = 1, ndecomp_cascade_transitions
        if ( is_soil(decomp_cascade_con%cascade_donor_pool(k)) ) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
             c = filter_soilc(fc)
             this%somhr(c) = &
@@ -2012,9 +2020,11 @@ contains
 
     ! total heterotrophic respiration, vertically resolved (HR)
 
-    do k = 1, ndecomp_cascade_transitions
-       do j = 1,nlevdecomp
-          do fc = 1,num_soilc
+    !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
+    do j = 1,nlevdecomp
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do k = 1, ndecomp_cascade_transitions
             c = filter_soilc(fc)
             this%hr_vr(c,j) = &
                 this%hr_vr(c,j) + &
@@ -2031,6 +2041,7 @@ contains
     end if
     !----------------------------------------------------------------
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        ! total soil respiration, heterotrophic + root respiration (SR)
@@ -2063,9 +2074,11 @@ contains
     end do
 
     ! vertically integrate column-level carbon fire losses
+    !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
     do l = 1, ndecomp_pools
-       do j = 1,nlev
-          do fc = 1,num_soilc
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1,nlev
              c = filter_soilc(fc)
              this%core%m_decomp_pools_to_fire(c,l) = &
                   this%core%m_decomp_pools_to_fire(c,l) + &
@@ -2076,9 +2089,11 @@ contains
 
     ! vertically integrate column-level carbon erosion flux
     if (ero_ccycle) then
+       !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
        do l = 1, ndecomp_pools
-          do j = 1, nlev
-             do fc = 1, num_soilc
+          do fc = 1, num_soilc
+             !$acc loop seq
+             do j = 1, nlev
                 c = filter_soilc(fc)
                 this%core%decomp_pools_yield(c,l) = &
                      this%core%decomp_pools_yield(c,l) + &
@@ -2089,10 +2104,12 @@ contains
     end if
 
     ! column-level carbon losses to fire, including pft losses
+    !$acc parallel loop gang vector default(present) private(c, l)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 
        this%core%fire_loss(c) = this%core%fire_loss_p2c(c)
+       !$acc loop seq
        do l = 1, ndecomp_pools
           this%core%fire_loss(c) = &
                this%core%fire_loss(c) + &
@@ -2139,6 +2156,7 @@ contains
     if ( ero_ccycle ) then
        do l = 1, ndecomp_pools
           if ( is_soil(l) ) then
+             !$acc parallel loop gang vector default(present) private(c)
              do fc = 1, num_soilc
                 c = filter_soilc(fc)
                 this%core%som_erode(c) = this%core%som_erode(c) + &
@@ -2153,6 +2171,7 @@ contains
     end if
 
     ! (cWDC_HR) - coarse woody debris heterotrophic respiration
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%cwdc_hr(c) = 0._r8
@@ -2161,6 +2180,7 @@ contains
     ! (cWDC_LOSS) - coarse woody debris C loss
     do l = 1, ndecomp_pools
        if ( is_cwd(l) ) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              this%cwdc_loss(c) = &
@@ -2172,6 +2192,7 @@ contains
 
     do k = 1, ndecomp_cascade_transitions
        if ( is_cwd(decomp_cascade_con%cascade_donor_pool(k)) ) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              this%cwdc_loss(c) = &
@@ -2183,6 +2204,7 @@ contains
 
     if (.not.(use_pflotran .and. pf_cmode)) then
        ! (LITTERC_LOSS) - litter C loss
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%litterc_loss(c) = this%lithr(c)
@@ -2191,6 +2213,7 @@ contains
 
     do l = 1, ndecomp_pools
        if ( is_litter(l) ) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
               c = filter_soilc(fc)
               this%litterc_loss(c) = &
@@ -2202,6 +2225,7 @@ contains
 
     do k = 1, ndecomp_cascade_transitions
       if ( is_litter(decomp_cascade_con%cascade_donor_pool(k)) ) then
+        !$acc parallel loop gang vector default(present) private(c)
         do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%litterc_loss(c) = &
@@ -2215,13 +2239,16 @@ contains
        ! note: the follwoing should be useful to non-pflotran-coupled, but seems cause 1 BFB test unmatching.
        ! add up all vertical transport tendency terms and calculate total som leaching loss as the sum of these
        do l = 1, ndecomp_pools
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              this%core%decomp_pools_leached(c,l) = 0._r8
           end do
           if(l /= i_cwd)then
-            do j = 1, nlev
-              do fc = 1,num_soilc
+            !$acc parallel loop gang vector default(present) private(fc, c)
+            do fc = 1,num_soilc
+              !$acc loop seq
+              do j = 1, nlev
                 c = filter_soilc(fc)
                 this%core%decomp_pools_leached(c,l) = &
                   this%core%decomp_pools_leached(c,l) + &
@@ -2229,6 +2256,7 @@ contains
               end do
             end do
           endif
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              this%core%som_leached(c) = &
@@ -2238,10 +2266,12 @@ contains
        end do
     end if
 
+    !$acc parallel loop gang vector default(present) private(c, j)
     do fc = 1,num_soilc
         c = filter_soilc(fc)
         this%core%plant_to_litter_flux(c) = 0._r8
         this%core%plant_to_cwd_flux(c) = 0._r8
+        !$acc loop seq
         do j = 1, nlev
             this%core%plant_to_litter_flux(c) = &
                 this%core%plant_to_litter_flux(c)  + &
@@ -2530,6 +2560,7 @@ contains
 
     if(.not.use_fates) return
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%gpp(c) = 0._r8
@@ -2543,6 +2574,7 @@ contains
 
     end do
     
+    !$acc parallel loop gang vector collapse(3) default(present) private(c)
     do k = 1, ndecomp_pools
       do j = 1, nlevdecomp_full
         do fc = 1,num_soilc
@@ -2628,9 +2660,11 @@ contains
 
      dtime = get_step_size()
     ! total heterotrophic respiration (HR)
+    !$acc parallel loop gang vector default(present) private(c, j)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%hr(c) = 0._r8
+       !$acc loop seq
        do j = 1,nlevdecomp_full
           this%hr(c) = this%hr(c) + &
              this%hr_vr(c,j) * dzsoi_decomp(j)
@@ -2638,18 +2672,22 @@ contains
     end do
 
     ! new variable to account for co2 exchange (not all HR goes to atm at current time-step)
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%f_co2_soil(c) = 0._r8
     end do
-    do j = 1,nlevdecomp_full
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1,nlevdecomp_full
           c = filter_soilc(fc)
           this%f_co2_soil(c) = this%f_co2_soil(c) + &
              this%f_co2_soil_vr(c,j) * dzsoi_decomp(j)
        end do
     end do
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%cwdc_hr(c)      = 0._r8
@@ -2659,8 +2697,10 @@ contains
 
     do l = 1, ndecomp_pools
        if ( is_cwd(l) ) then
+          !$acc parallel loop gang vector default(present) private(c, j)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
+             !$acc loop seq
              do j = 1, nlevdecomp_full
                 this%cwdc_loss(c) = &
                    this%cwdc_loss(c) + &
@@ -2670,8 +2710,10 @@ contains
        end if
 
        if ( is_litter(l) ) then
+          !$acc parallel loop gang vector default(present) private(c, j)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
+             !$acc loop seq
              do j = 1, nlevdecomp_full
                 this%litterc_loss(c) = &
                    this%litterc_loss(c) + &
@@ -2687,10 +2729,13 @@ contains
     ! first, need to save the total plant C adding/removing to decomposing pools at previous time-step
     ! for calculating the net changes, which are used to do balance check
 
+    !$acc parallel loop gang vector default(present) private(c, l, j)
     do fc = 1, num_soilc
         c = filter_soilc(fc)
         this%core%external_to_decomp_delta(c) = 0._r8
+        !$acc loop seq
         do l = 1, ndecomp_pools
+          !$acc loop seq
           do j = 1, nlevdecomp_full
             this%core%external_to_decomp_delta(c) = this%core%external_to_decomp_delta(c) + &
                                 this%core%external_to_decomp_pools(c,j,l)*dzsoi_decomp(j)
@@ -2701,14 +2746,18 @@ contains
     ! do the initialization for the following variable here.
     ! DON'T do so in the beginning of CLM-CN time-step (otherwise the above saved will not work)
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
         c = filter_soilc(fc)
         this%core%external_to_decomp_pools(c, 1:nlevdecomp_full, 1:ndecomp_pools) = 0._r8
     end do
 
+    !$acc parallel loop gang vector default(present) private(c, l, j)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
+       !$acc loop seq
        do l = 1, ndecomp_pools
+          !$acc loop seq
           do j = 1, nlevdecomp_full
              ! for litter C pools
              if (l==i_met_lit) then
@@ -2766,6 +2815,7 @@ contains
     end do
 
     ! change the sign so that it is the increments from the previous time-step (unit: from g/m2/s)
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        this%core%external_to_decomp_delta(c) = -this%core%external_to_decomp_delta(c)
@@ -4034,6 +4084,7 @@ contains
 
     if(.not.use_fates) return
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%core%fire_loss_p2c(c) = 0._r8
@@ -4063,6 +4114,7 @@ contains
     nlev = nlevdecomp
     if (use_pflotran .and. pf_cmode) nlev = nlevdecomp_full
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%denit(c) = 0._r8
@@ -4073,9 +4125,11 @@ contains
        ! PFLOTRAN's pf_cmode is false
        ! vertically integrate decomposing N cascade fluxes and
        !soil mineral N fluxes associated with decomposition cascade
+       !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
        do k = 1, ndecomp_cascade_transitions
-          do j = 1,nlev
-             do fc = 1,num_soilc
+          do fc = 1,num_soilc
+             !$acc loop seq
+             do j = 1,nlev
                 c = filter_soilc(fc)
 
                 this%mineral%decomp_cascade_smin_flux(c,k) = &
@@ -4086,8 +4140,10 @@ contains
        end do
 
        ! vertically integrate NO3 NH4 N2O fluxes and pools
-       do j = 1, nlev
-          do fc = 1,num_soilc
+       !$acc parallel loop gang vector default(present) private(fc, c)
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1, nlev
              c = filter_soilc(fc)
 
              ! nitrification and denitrification fluxes
@@ -4125,6 +4181,7 @@ contains
                   this%smin_no3_runoff_vr(c,j) * dzsoi_decomp(j)
           end do
        end do
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%denit(c) = this%f_denit(c)
@@ -4132,9 +4189,11 @@ contains
 
     end if
     ! vertically integrate column-level fire N losses
+    !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
     do k = 1, ndecomp_pools
-       do j = 1, nlev
-          do fc = 1,num_soilc
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1, nlev
              c = filter_soilc(fc)
              this%core%m_decomp_pools_to_fire(c,k) = &
                   this%core%m_decomp_pools_to_fire(c,k) + &
@@ -4145,9 +4204,11 @@ contains
 
     ! vertically integrate column-level N erosion flux
     if ( ero_ccycle ) then
+       !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
        do l = 1, ndecomp_pools
-          do j = 1, nlev
-             do fc = 1, num_soilc
+          do fc = 1, num_soilc
+             !$acc loop seq
+             do j = 1, nlev
                 c = filter_soilc(fc)
                 this%core%decomp_pools_yield(c,l) = &
                      this%core%decomp_pools_yield(c,l) + &
@@ -4158,12 +4219,15 @@ contains
     end if
 
     ! total column-level fire N losses
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%core%fire_loss(c) = this%core%fire_loss_p2c(c)
     end do
-    do k = 1, ndecomp_pools
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do k = 1, ndecomp_pools
           c = filter_soilc(fc)
           this%core%fire_loss(c) = &
                this%core%fire_loss(c) + &
@@ -4175,6 +4239,7 @@ contains
     if ( ero_ccycle ) then
        do k = 1, ndecomp_pools
           if ( decomp_cascade_con%is_soil(k) ) then
+             !$acc parallel loop gang vector default(present) private(c)
              do fc = 1, num_soilc
                 c = filter_soilc(fc)
                 this%core%som_erode(c) = this%core%som_erode(c) + &
@@ -4189,8 +4254,10 @@ contains
     end if
 
     ! supplementary N supplement_to_sminn
-    do j = 1, nlev
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlev
           c = filter_soilc(fc)
           this%mineral%supplement_to_smin(c) = &
                this%mineral%supplement_to_smin(c) + &
@@ -4210,6 +4277,7 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        ! column-level N losses due to landcover change
@@ -4224,13 +4292,16 @@ contains
 
     ! add up all vertical transport tendency terms and calculate total som leaching loss as the sum of these
     do l = 1, ndecomp_pools
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%core%decomp_pools_leached(c,l) = 0._r8
        end do
        if(l /= i_cwd)then
-         do j = 1, nlev
-           do fc = 1,num_soilc
+         !$acc parallel loop gang vector default(present) private(fc, c)
+         do fc = 1,num_soilc
+           !$acc loop seq
+           do j = 1, nlev
              c = filter_soilc(fc)
              this%core%decomp_pools_leached(c,l) = &
                   this%core%decomp_pools_leached(c,l) + &
@@ -4241,6 +4312,7 @@ contains
            end do
          end do
        endif
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%core%som_leached(c) = &
@@ -4251,11 +4323,13 @@ contains
 
     ! FATES uses the plant_to_litter_nflux variable for mass accounting, so bypass here
     if(.not.use_fates)then
+       !$acc parallel loop gang vector default(present) private(c, j)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
 
           this%core%plant_to_litter_flux(c) = 0._r8
           this%core%plant_to_cwd_flux(c) = 0._r8
+          !$acc loop seq
           do j = 1, nlev
              this%core%plant_to_litter_flux(c) = &
                   this%core%plant_to_litter_flux(c)  + &
@@ -4276,10 +4350,12 @@ contains
        end do
     end if
 
+    !$acc parallel loop gang vector default(present) private(c, j)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%smin_no3_to_plant(c) = 0._r8
        this%smin_nh4_to_plant(c) = 0._r8
+       !$acc loop seq
        do j = 1, nlev
           this%smin_no3_to_plant(c)= this%smin_no3_to_plant(c) + &
                this%smin_no3_to_plant_vr(c,j) * dzsoi_decomp(j)
@@ -4316,10 +4392,12 @@ contains
 
      dtime = real( get_step_size(), r8 )
     ! nitrification-denitrification rates (not yet passing out from PF, but will)
+    !$acc parallel loop gang vector default(present) private(c, j)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%f_nit(c)   = 0._r8
        this%f_denit(c) = 0._r8
+       !$acc loop seq
        do j = 1, nlevdecomp_full
           this%f_nit_vr(c,j) = 0._r8
           this%f_nit(c)  = this%f_nit(c) + &
@@ -4334,6 +4412,7 @@ contains
     end do
 
     ! the following are from pflotran bgc, and vertically down to 'nlevdecomp_full'
+    !$acc parallel loop gang vector default(present) private(c, j)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%f_n2_soil(c)    = 0._r8
@@ -4344,6 +4423,7 @@ contains
        this%smin_no3_leached(c) = 0._r8
        this%smin_no3_runoff(c)  = 0._r8
        this%mineral%smin_leached(c)    = 0._r8
+       !$acc loop seq
        do j = 1, nlevdecomp_full
           ! all N2/N2O gas exchange between atm. and soil (i.e., dissolving - degassing)
           this%f_n2_soil(c)  = this%f_n2_soil(c) + &
@@ -4389,10 +4469,13 @@ contains
     ! first it needs to save the total column-level N rate btw plant pool and decomposible pools at previous time step
     ! for adjusting difference when doing balance check
 
+    !$acc parallel loop gang vector default(present) private(c, j, l)
     do fc = 1,num_soilc
       c = filter_soilc(fc)
       this%core%external_to_decomp_delta(c) = 0._r8
+      !$acc loop seq
       do j = 1, nlevdecomp_full
+         !$acc loop seq
          do l = 1, ndecomp_pools
             this%core%external_to_decomp_delta(c) =    &
                this%core%external_to_decomp_delta(c) + &
@@ -4404,15 +4487,19 @@ contains
 
     ! do the initialization for the following variable here.
     ! DON'T do so in the beginning of CLM-CN time-step (otherwise the above saved will not work)
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
          c = filter_soilc(fc)
          this%core%external_to_decomp_pools(c, 1:nlevdecomp_full, 1:ndecomp_pools) = 0._r8
     end do
 
     ! add up all vertically-resolved addition/removal rates (gC/m3/s) of decomp_pools
+    !$acc parallel loop gang vector default(present) private(c, j, l)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
+       !$acc loop seq
        do j = 1, nlevdecomp_full
+          !$acc loop seq
           do l = 1, ndecomp_pools
              ! for litter C pools
              if (l==i_met_lit) then
@@ -4473,6 +4560,7 @@ contains
     ! saving for (next time-step) possible including of RT mass-transfer in PFLOTRAN bgc coupling.
     ! (NOT USED anymore - 04/26/2017)
     if (.not. pf_hmode) then
+       !$acc parallel loop gang vector collapse(2) default(present) private(c)
        do j = 1, nlevdecomp_full
           do fc = 1,num_soilc
              c = filter_soilc(fc)
@@ -4481,6 +4569,7 @@ contains
           end do
        end do
     else
+       !$acc parallel loop gang vector collapse(2) default(present) private(c)
        do j = 1, nlevdecomp_full
           do fc = 1,num_soilc
              c = filter_soilc(fc)
@@ -4490,6 +4579,7 @@ contains
     end if
 
     ! change the sign so that it is the increments from the previous time-step (unit: g/m2/s)
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        this%core%external_to_decomp_delta(c) = -this%core%external_to_decomp_delta(c)
@@ -5383,6 +5473,7 @@ contains
 
     if(.not.use_fates) return
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%core%fire_loss_p2c(c) = 0._r8
@@ -5406,6 +5497,7 @@ contains
     real(r8) :: maxdepth    ! depth to integrate soil variables
     !-----------------------------------------------------------------------
     call column_nutrient_flux_summary(this%core, num_soilc, filter_soilc)
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%mineral%supplement_to_smin(c) = 0._r8
@@ -5418,9 +5510,11 @@ contains
     ! pflotran
     if (.not.(use_pflotran .and. pf_cmode)) then
     ! vertically integrate decomposing P cascade fluxes and soil mineral P fluxes associated with decomposition cascade
+    !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
     do k = 1, ndecomp_cascade_transitions
-       do j = 1,nlevdecomp
-          do fc = 1,num_soilc
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1,nlevdecomp
              c = filter_soilc(fc)
 
              this%mineral%decomp_cascade_smin_flux(c,k) = &
@@ -5432,8 +5526,10 @@ contains
     end if !if (.not.(use_pflotran .and. pf_cmode))
 
     ! vertically integrate inorganic P flux
-    do j = 1, nlevdecomp
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlevdecomp
           c = filter_soilc(fc)
           this%primp_to_labilep(c) = &
                this%primp_to_labilep(c) + &
@@ -5441,8 +5537,10 @@ contains
        end do
     end do
 
-    do j = 1, nlevdecomp
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlevdecomp
           c = filter_soilc(fc)
           this%labilep_to_secondp(c) = &
                this%labilep_to_secondp(c) + &
@@ -5450,8 +5548,10 @@ contains
        end do
     end do
 
-    do j = 1, nlevdecomp
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlevdecomp
           c = filter_soilc(fc)
           this%secondp_to_labilep(c) = &
                this%secondp_to_labilep(c) + &
@@ -5459,8 +5559,10 @@ contains
        end do
     end do
 
-    do j = 1, nlevdecomp
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlevdecomp
           c = filter_soilc(fc)
           this%secondp_to_occlp(c) = &
                this%secondp_to_occlp(c) + &
@@ -5469,8 +5571,10 @@ contains
     end do
 
     ! vertically integrate leaching flux
-    do j = 1, nlevdecomp
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlevdecomp
           c = filter_soilc(fc)
           this%mineral%smin_leached(c) = &
                this%mineral%smin_leached(c) + &
@@ -5480,8 +5584,10 @@ contains
 
     ! vertically integrate erosional flux
     if (ero_ccycle) then
-       do j = 1, nlevdecomp
-          do fc = 1,num_soilc
+       !$acc parallel loop gang vector default(present) private(fc, c)
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1, nlevdecomp
              c = filter_soilc(fc)
              this%labilep_yield(c) = &
                    this%labilep_yield(c) + &
@@ -5501,9 +5607,11 @@ contains
 
     ! vertically integrate column-level fire P losses
     if(.not. use_fates) then 
+    !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
     do k = 1, ndecomp_pools
-       do j = 1, nlevdecomp
-          do fc = 1,num_soilc
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1, nlevdecomp
              c = filter_soilc(fc)
              this%core%m_decomp_pools_to_fire(c,k) = &
                   this%core%m_decomp_pools_to_fire(c,k) + &
@@ -5515,9 +5623,11 @@ contains
 
     ! vertically integrate column-level P erosion flux
     if (ero_ccycle) then
+       !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
        do l = 1, ndecomp_pools
-          do j = 1, nlevdecomp
-             do fc = 1, num_soilc
+          do fc = 1, num_soilc
+             !$acc loop seq
+             do j = 1, nlevdecomp
                 c = filter_soilc(fc)
                 this%core%decomp_pools_yield(c,l) = &
                      this%core%decomp_pools_yield(c,l) + &
@@ -5528,12 +5638,15 @@ contains
     end if
 
     ! total column-level fire P losses
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%core%fire_loss(c) = this%core%fire_loss_p2c(c)
     end do
-    do k = 1, ndecomp_pools
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do k = 1, ndecomp_pools
           c = filter_soilc(fc)
           this%core%fire_loss(c) = &
                this%core%fire_loss(c) + &
@@ -5545,6 +5658,7 @@ contains
     if ( ero_ccycle ) then
        do k = 1, ndecomp_pools
           if ( decomp_cascade_con%is_soil(k) ) then
+             !$acc parallel loop gang vector default(present) private(c)
              do fc = 1, num_soilc
                 c = filter_soilc(fc)
                 this%core%som_erode(c) = this%core%som_erode(c) + &
@@ -5559,8 +5673,10 @@ contains
     end if
 
     ! supplementary P supplement_to_sminp
-    do j = 1, nlevdecomp
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlevdecomp
           c = filter_soilc(fc)
           this%mineral%supplement_to_smin(c) = &
                this%mineral%supplement_to_smin(c) + &
@@ -5568,6 +5684,7 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 
@@ -5584,13 +5701,16 @@ contains
 
     ! add up all vertical transport tendency terms and calculate total som leaching loss as the sum of these
     do l = 1, ndecomp_pools
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%core%decomp_pools_leached(c,l) = 0._r8
        end do
        if(l /= i_cwd)then
-         do j = 1, nlevdecomp
-           do fc = 1,num_soilc
+         !$acc parallel loop gang vector default(present) private(fc, c)
+         do fc = 1,num_soilc
+           !$acc loop seq
+           do j = 1, nlevdecomp
              c = filter_soilc(fc)
              this%core%decomp_pools_leached(c,l) = &
                   this%core%decomp_pools_leached(c,l) + &
@@ -5598,6 +5718,7 @@ contains
            end do
          end do
        endif
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%core%som_leached(c) = &
@@ -5606,27 +5727,33 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%biochem_pmin(c) = 0.0_r8
     end do
 
-    do j = 1, nlevdecomp
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlevdecomp
           c = filter_soilc(fc)
           this%biochem_pmin(c) = this%biochem_pmin(c) + &
                this%biochem_pmin_vr(c,j)* dzsoi_decomp(j)
        end do
     end do
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%adsorb_to_labilep(c) = 0._r8
        this%desorb_to_solutionp(c) = 0._r8
     end do
 
-    do j = 1, nlevdecomp
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlevdecomp
           c = filter_soilc(fc)
           this%adsorb_to_labilep(c) = this%adsorb_to_labilep(c) + &
                this%adsorb_to_labilep_vr(c,j)* dzsoi_decomp(j)
@@ -5635,11 +5762,13 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector default(present) private(c, j)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%actual_immob_p(c) = 0._r8
        this%smin_p_to_plant(c) = 0._r8
 
+       !$acc loop seq
        do j = 1, nlevdecomp
           this%actual_immob_p(c)= this%actual_immob_p(c) + &
                this%actual_immob_p_vr(c,j) * dzsoi_decomp(j)
@@ -5650,10 +5779,12 @@ contains
 
     if(.not.use_fates)then
 
+       !$acc parallel loop gang vector default(present) private(c, j)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%core%plant_to_litter_flux(c) = 0._r8
           this%core%plant_to_cwd_flux(c) = 0._r8
+          !$acc loop seq
           do j = 1, nlevdecomp
              this%core%plant_to_litter_flux(c) = &
                   this%core%plant_to_litter_flux(c)  + &
@@ -5709,11 +5840,14 @@ contains
     ! first it needs to save the total column-level N rate btw plant pool and decomposible pools at previous time step
     ! for adjusting difference when doing balance check
 
+    !$acc parallel loop gang vector default(present) private(c, j, l)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%core%external_to_decomp_delta(c) = 0._r8
        this%sminp_net_transport_delta(c)   = 0._r8
+       !$acc loop seq
        do j = 1, nlevdecomp
+          !$acc loop seq
           do l = 1, ndecomp_pools
              this%core%external_to_decomp_delta(c) =    &
                 this%core%external_to_decomp_delta(c) + &
@@ -5728,13 +5862,18 @@ contains
        end do
     end do
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%external_to_decomp_pools, this%sminp_net_transport_vr) if_present
     this%core%external_to_decomp_pools(:,:,:) = 0._r8
     this%sminp_net_transport_vr(:,:) = 0._r8
+    !$acc update device(this%core%external_to_decomp_pools, this%sminp_net_transport_vr) if_present
 
     ! add up all vertically-resolved addition/removal rates (gC/m3/s) of decomp_pools
     do l = 1, ndecomp_pools
-       do j = 1, nlevdecomp
-          do fc = 1,num_soilc
+       !$acc parallel loop gang vector default(present) private(fc, c)
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1, nlevdecomp
              c = filter_soilc(fc)
 
              ! for litter C pools
@@ -5784,14 +5923,16 @@ contains
              if (abs(this%core%external_to_decomp_pools(c,j,l))<=1.e-21_r8) then
                  this%core%external_to_decomp_pools(c,j,l) = 0._r8
              end if
-          end do ! num_soilc
-       end do ! nlevdecomp
+          end do ! nlevdecomp
+       end do ! num_soilc
     end do ! ndecomp_pools
 
     ! if pflotran hydrology NOT coupled, need to adjust for sminp leaching, for balance check
     if (.not. pf_hmode) then
-       do j = 1, nlevdecomp
-          do fc = 1,num_soilc
+       !$acc parallel loop gang vector default(present) private(fc, c)
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1, nlevdecomp
              c = filter_soilc(fc)
              this%sminp_net_transport_vr(c,j) = 0._r8
 
@@ -5803,6 +5944,7 @@ contains
     end if
 
     ! change the sign so that it is the increments from the previous time-step (unit: g/m2/s)
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        this%core%external_to_decomp_delta(c)     = -this%core%external_to_decomp_delta(c)

@@ -307,6 +307,7 @@ contains
     nlev = nlevdecomp
 
     ! vertically integrate each of the decomposing C pools
+    !$acc parallel loop gang vector collapse(2) default(present) private(c)
     do l = 1, ndecomp_pools
        do fc = 1,num_soilc
           c = filter_soilc(fc)
@@ -314,9 +315,11 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(j, fc, c)
     do l = 1, ndecomp_pools
-       do j = 1, nlev
-          do fc = 1,num_soilc
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do j = 1, nlev
              c = filter_soilc(fc)
              this%decomp_pools(c,l) = &
                   this%decomp_pools(c,l) + &
@@ -328,39 +331,42 @@ contains
     if ( nlevdecomp > 1) then
        ! vertically integrate each of the decomposing C pools to 1 meter
        maxdepth = 1._r8
+       !$acc parallel loop gang vector collapse(2) default(present) private(c)
        do l = 1, ndecomp_pools
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              this%decomp_pools_1m(c,l) = 0._r8
           end do
        end do
+       ! one thread per (pool, column), depth sequential: each element sums over j in the original order
+       !$acc parallel loop gang vector collapse(2) default(present) private(c, j)
        do l = 1, ndecomp_pools
-          do j = 1, nlevdecomp
-             if ( zisoi(j) <= maxdepth ) then
-                do fc = 1,num_soilc
-                   c = filter_soilc(fc)
+          do fc = 1,num_soilc
+             c = filter_soilc(fc)
+             !$acc loop seq
+             do j = 1, nlevdecomp
+                if ( zisoi(j) <= maxdepth ) then
                    this%decomp_pools_1m(c,l) = &
                         this%decomp_pools_1m(c,l) + &
                         this%decomp_pools_vr(c,j,l) * dzsoi_decomp(j)
-                end do
-             elseif ( zisoi(j-1) < maxdepth ) then
-                do fc = 1,num_soilc
-                   c = filter_soilc(fc)
+                elseif ( zisoi(j-1) < maxdepth ) then
                    this%decomp_pools_1m(c,l) = &
                         this%decomp_pools_1m(c,l) + &
                         this%decomp_pools_vr(c,j,l) * (maxdepth - zisoi(j-1))
-                end do
-             endif
+                endif
+             end do
           end do
        end do
 
        ! total litter carbon in the top meter (TOTLITC_1m)
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%totlit_1m(c)         = 0._r8
        end do
        do l = 1, ndecomp_pools
           if ( decomp_cascade_con%is_litter(l) ) then
+             !$acc parallel loop gang vector default(present) private(c)
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
                 this%totlit_1m(c) = &
@@ -371,12 +377,14 @@ contains
        end do
 
        ! total soil organic matter carbon in the top meter (TOTSOMC_1m)
+       !$acc parallel loop gang vector default(present) private(c)
        do fc = 1,num_soilc
           c = filter_soilc(fc)
           this%totsom_1m(c) = 0._r8
        end do
        do l = 1, ndecomp_pools
           if ( decomp_cascade_con%is_soil(l) ) then
+             !$acc parallel loop gang vector default(present) private(c)
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
                 this%totsom_1m(c) = &
@@ -389,12 +397,14 @@ contains
     end if ! nlevdecomp>1
 
     ! total litter carbon (TOTLITC)
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%totlit(c) = 0._r8
     end do
     do l = 1, ndecomp_pools
        if ( decomp_cascade_con%is_litter(l) ) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              this%totlit(c) = &
@@ -405,12 +415,14 @@ contains
     end do
 
     ! total soil organic matter carbon (TOTSOMC)
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%totsom(c) = 0._r8
     end do
     do l = 1, ndecomp_pools
        if ( decomp_cascade_con%is_soil(l) ) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              this%totsom(c) = &
@@ -421,12 +433,14 @@ contains
     end do
 
     ! coarse woody debris carbon
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%cwd(c) = 0._r8
     end do
     do l = 1, ndecomp_pools
        if ( decomp_cascade_con%is_cwd(l) ) then
+          !$acc parallel loop gang vector default(present) private(c)
           do fc = 1,num_soilc
              c = filter_soilc(fc)
              this%cwd(c) = &
@@ -437,12 +451,15 @@ contains
     end do
 
     ! truncation carbon
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%trunc_sink(c) = 0._r8
     end do
-    do j = 1, nlev
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlev
           c = filter_soilc(fc)
           this%trunc_sink(c) = &
                this%trunc_sink(c) + &

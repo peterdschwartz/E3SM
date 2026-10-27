@@ -688,8 +688,8 @@ contains
     !
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
-    real(r8), intent(in), contiguous :: parr( bounds%begp: )  ! input pft array
-    real(r8), intent(out), contiguous :: garr( bounds%begg: )  ! output gridcell array
+    real(r8), intent(in) :: parr( bounds%begp: )  ! input pft array
+    real(r8), intent(out) :: garr( bounds%begg: )  ! output gridcell array
     integer , intent(in)  :: p2c_scale_type        ! scale factor type for averaging
     integer , intent(in)  :: c2l_scale_type        ! scale factor type for averaging
     integer , intent(in)  :: l2g_scale_type        ! scale factor type for averaging
@@ -725,8 +725,8 @@ contains
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
     integer , intent(in)  :: num2d                     ! size of second dimension
-    real(r8), intent(in), contiguous :: parr( bounds%begp: , 1: ) ! input pft array
-    real(r8), intent(out), contiguous :: garr( bounds%begg: , 1: ) ! output gridcell array
+    real(r8), intent(in) :: parr( bounds%begp: , 1: ) ! input pft array
+    real(r8), intent(out) :: garr( bounds%begg: , 1: ) ! output gridcell array
     integer , intent(in)  :: p2c_scale_type            ! scale factor type for averaging
     integer , intent(in)  :: c2l_scale_type            ! scale factor type for averaging
     integer , intent(in)  :: l2g_scale_type            ! scale factor type for averaging
@@ -859,8 +859,8 @@ contains
     !
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
-    real(r8), intent(in), contiguous :: carr( bounds%begc: )  ! input column array
-    real(r8), intent(out), contiguous :: garr( bounds%begg: )  ! output gridcell array
+    real(r8), intent(in) :: carr( bounds%begc: )  ! input column array
+    real(r8), intent(out) :: garr( bounds%begg: )  ! output gridcell array
     integer , intent(in)  :: c2l_scale_type        ! scale factor type for averaging
     integer , intent(in)  :: l2g_scale_type        ! scale factor type for averaging
     !
@@ -895,8 +895,8 @@ contains
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
     integer , intent(in)  :: num2d                     ! size of second dimension
-    real(r8), intent(in), contiguous :: carr( bounds%begc: , 1: ) ! input column array
-    real(r8), intent(out), contiguous :: garr( bounds%begg: , 1: ) ! output gridcell array
+    real(r8), intent(in) :: carr( bounds%begc: , 1: ) ! input column array
+    real(r8), intent(out) :: garr( bounds%begg: , 1: ) ! output gridcell array
     integer , intent(in)  :: c2l_scale_type            ! scale factor type for averaging
     integer , intent(in)  :: l2g_scale_type            ! scale factor type for averaging
     !
@@ -934,8 +934,8 @@ contains
     !
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
-    real(r8), intent(in), contiguous :: larr( bounds%begl: )  ! input landunit array
-    real(r8), intent(out), contiguous :: garr( bounds%begg: )  ! output gridcell array
+    real(r8), intent(in) :: larr( bounds%begl: )  ! input landunit array
+    real(r8), intent(out) :: garr( bounds%begg: )  ! output gridcell array
     integer , intent(in)  :: l2g_scale_type        ! scale factor type for averaging
     !
     ! !LOCAL VARIABLES:
@@ -966,8 +966,8 @@ contains
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
     integer , intent(in)  :: num2d                     ! size of second dimension
-    real(r8), intent(in), contiguous :: larr( bounds%begl: , 1: ) ! input landunit array
-    real(r8), intent(out), contiguous :: garr( bounds%begg: , 1: ) ! output gridcell array
+    real(r8), intent(in) :: larr( bounds%begl: , 1: ) ! input landunit array
+    real(r8), intent(out) :: garr( bounds%begg: , 1: ) ! output gridcell array
     integer , intent(in)  :: l2g_scale_type            ! scale factor type for averaging
     !
     ! !LOCAL VARIABLES:
@@ -1307,8 +1307,8 @@ contains
     !
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
-    real(r8), intent(in), contiguous :: tarr( bounds%begt: )  ! input topounit array
-    real(r8), intent(out), contiguous :: garr( bounds%begg: )  ! output gridcell array
+    real(r8), intent(in) :: tarr( bounds%begt: )  ! input topounit array
+    real(r8), intent(out) :: garr( bounds%begg: )  ! output gridcell array
     character(len=*), intent(in) :: t2g_scale_type ! scale factor type for averaging (only 'unity')
     !
     ! !LOCAL VARIABLES:
@@ -1342,8 +1342,8 @@ contains
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds
     integer , intent(in)  :: num2d                     ! size of second dimension
-    real(r8), intent(in), contiguous :: tarr( bounds%begt: , 1: ) ! input topounit array
-    real(r8), intent(out), contiguous :: garr( bounds%begg: , 1: ) ! output gridcell array
+    real(r8), intent(in) :: tarr( bounds%begt: , 1: ) ! input topounit array
+    real(r8), intent(out) :: garr( bounds%begg: , 1: ) ! output gridcell array
     character(len=*), intent(in) :: t2g_scale_type     ! scale factor type for averaging (only 'unity')
     !
     ! !LOCAL VARIABLES:

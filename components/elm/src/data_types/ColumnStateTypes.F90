@@ -2104,6 +2104,7 @@ contains
     nlev = nlevdecomp
     if (use_pflotran .and. pf_cmode) nlev = nlevdecomp_full
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 
@@ -2166,6 +2167,7 @@ contains
 
     if(.not.use_fates) return
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%core%totpft(c) = 0._r8
@@ -3083,6 +3085,7 @@ contains
     nlev = nlevdecomp
     if (use_pflotran .and. pf_cmode) nlev = nlevdecomp_full
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%smin_no3(c) = 0._r8
@@ -3091,8 +3094,10 @@ contains
           this%smin_nh4sorb(c) = 0._r8
        end if
     end do
-    do j = 1, nlev
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlev
           c = filter_soilc(fc)
           this%smin_no3(c) = &
                this%smin_no3(c) + &
@@ -3110,12 +3115,15 @@ contains
     end do
 
     ! total sminn
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%mineral%smin(c)      = 0._r8
     end do
-    do j = 1, nlev
-       do fc = 1,num_soilc
+    !$acc parallel loop gang vector default(present) private(fc, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do j = 1, nlev
           c = filter_soilc(fc)
           this%mineral%smin(c) = &
                this%mineral%smin(c) + &
@@ -3123,6 +3131,7 @@ contains
        end do
     end do
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 
@@ -3194,6 +3203,7 @@ contains
 
     if(.not.use_fates) return
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%plant_n_buffer(c) = 0._r8
@@ -3883,6 +3893,7 @@ contains
     real(r8) :: maxdepth    ! depth to integrate soil variables
     !-----------------------------------------------------------------------
    call column_nutrient_state_summary(this%core, num_soilc, filter_soilc)
+   !$acc parallel loop gang vector default(present) private(c)
    do fc = 1,num_soilc
       c = filter_soilc(fc)
       this%solutionp(c) =0._r8
@@ -3892,8 +3903,10 @@ contains
       this%primp(c)     =0._r8
    end do
 
-   do j = 1, nlevdecomp
-      do fc = 1,num_soilc
+   !$acc parallel loop gang vector default(present) private(fc, c)
+   do fc = 1,num_soilc
+      !$acc loop seq
+      do j = 1, nlevdecomp
          c = filter_soilc(fc)
          this%solutionp(c) = &
               this%solutionp(c) + &
@@ -3914,10 +3927,12 @@ contains
    end do
 
    ! total sminp
+   !$acc parallel loop gang vector default(present) private(c)
    do fc = 1,num_soilc
       c = filter_soilc(fc)
       this%mineral%smin(c)      = 0._r8
    end do
+   !$acc parallel loop gang vector collapse(2) default(present) private(c)
    do j = 1, nlevdecomp
       do fc = 1,num_soilc
          c = filter_soilc(fc)
@@ -3926,14 +3941,17 @@ contains
                                   this%secondp_vr(c,j)
       end do
    end do
-   do j = 1, nlevdecomp
-      do fc = 1,num_soilc
+   !$acc parallel loop gang vector default(present) private(fc, c)
+   do fc = 1,num_soilc
+      !$acc loop seq
+      do j = 1, nlevdecomp
          c = filter_soilc(fc)
          this%mineral%smin(c) =  this%mineral%smin(c) + &
          this%mineral%smin_vr(c,j) * dzsoi_decomp(j)
       end do
    end do
 
+   !$acc parallel loop gang vector default(present) private(c)
    do fc = 1,num_soilc
       c = filter_soilc(fc)
 
@@ -3994,6 +4012,7 @@ contains
 
     if(.not.use_fates) return
 
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        this%core%totpft(c) = 0._r8

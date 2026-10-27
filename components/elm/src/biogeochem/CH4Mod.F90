@@ -682,11 +682,13 @@ contains
          end do
 
          
+         !$acc data copy(rootfraction)
          call p2c (bounds, nlevgrnd, &
               rootfraction(bounds%begp:bounds%endp, :), &
               rootfr_col(bounds%begc:bounds%endc, :), &
               unity)
 
+         !$acc end data
          do j=1, nlevsoi
             do fc = 1, num_soilc
                c = filter_soilc(fc)

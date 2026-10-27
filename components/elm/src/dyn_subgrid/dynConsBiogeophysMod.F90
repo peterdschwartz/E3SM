@@ -221,6 +221,8 @@ contains
 
 
     !-----------------------------------------------------------------------
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(liquid_mass_col, ice_mass_col)
     !$acc data copy(ice_mass_col, liquid_mass_col)
     call ComputeLiqIceMassNonLake(bounds, num_nolakec, filter_nolakec, &
          soilhydrology_vars,  &
@@ -247,6 +249,7 @@ contains
          c2l_scale_type = unity, &
          l2g_scale_type = unity)
 
+    !$acc exit data delete(liquid_mass_col, ice_mass_col)
   end subroutine dyn_water_content
 
 
@@ -314,24 +317,30 @@ contains
          cv_liquid = cv_liquid_col(bounds%begc:bounds%endc))
 
     !$acc end data
+    !$acc data copy(heat_col)
     call c2g(bounds, &
          carr = heat_col(bounds%begc:bounds%endc), &
          garr = heat_grc(bounds%begg:bounds%endg), &
          c2l_scale_type = unity, &
          l2g_scale_type = unity)
 
+    !$acc end data
+    !$acc data copy(heat_liquid_col, heat_liquid_grc)
     call c2g(bounds, &
          carr = heat_liquid_col(bounds%begc:bounds%endc), &
          garr = heat_liquid_grc(bounds%begg:bounds%endg), &
          c2l_scale_type = unity, &
          l2g_scale_type = unity)
 
+    !$acc end data
+    !$acc data copy(cv_liquid_col, cv_liquid_grc)
     call c2g(bounds, &
          carr = cv_liquid_col(bounds%begc:bounds%endc), &
          garr = cv_liquid_grc(bounds%begg:bounds%endg), &
          c2l_scale_type = unity, &
          l2g_scale_type = unity)
 
+    !$acc end data
     do g = bounds%begg, bounds%endg
        if (cv_liquid_grc(g) > 0._r8) then
           liquid_water_temp_grc(g) = &

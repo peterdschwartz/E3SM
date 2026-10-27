@@ -99,6 +99,7 @@ contains
          )
 
       ! calculate beginning column-level carbon balance, for mass conservation check
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begcb(c) = totcolc(c)
@@ -133,6 +134,7 @@ contains
          )
 
       ! calculate beginning column-level nitrogen balance, for mass conservation check
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begnb(c) = totcoln(c)
@@ -172,6 +174,7 @@ contains
          )
 
       ! calculate beginning column-level phosphorus balance, for mass conservation check
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begpb(c) = totcolp(c)
@@ -204,6 +207,13 @@ contains
     integer  :: nstep
     !-----------------------------------------------------------------------
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_cf%core%external_to_decomp_delta, col_cf%core%fire_loss, &
+    !$acc&   col_cf%core%hrv_deadstem_to_prod10, col_cf%core%hrv_deadstem_to_prod100, &
+    !$acc&   col_cf%core%prod100_loss, col_cf%core%prod10_loss, col_cf%core%prod1_loss, &
+    !$acc&   col_cf%core%som_leached, col_cf%core%som_yield, col_cf%er, col_cf%gpp, col_cf%hr, &
+    !$acc&   col_cf%hrv_xsmrpool_to_atm, col_cf%litfall, col_cs%core%balance_beg, col_cs%core%totcol, &
+    !$acc&   col_cs%core%totsom) if_present
     associate(                                                                           &
          totcolc                   =>    col_cs%core%totcol                  , & ! Input:  [real(r8) (:) ]  (gC/m2)   total column carbon, incl veg and cpool
          gpp                       =>    col_cf%gpp                       , & ! Input:  [real(r8) (:) ]  (gC/m2/s) gross primary production
@@ -329,6 +339,8 @@ contains
 #endif
 
     end associate
+    !$acc update device(col_cf%core%inputs, col_cf%core%outputs, col_cs%core%balance_end, &
+    !$acc&   col_cs%core%balance_err) if_present
 
   end subroutine ColCBalanceCheck
 
@@ -361,6 +373,13 @@ contains
     integer :: nstep
     !-----------------------------------------------------------------------
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_nf%core%external_to_decomp_delta, col_nf%core%fire_loss, &
+    !$acc&   col_nf%core%plant_to_litter_flux, col_nf%core%prod100_loss, col_nf%core%prod10_loss, &
+    !$acc&   col_nf%core%prod1_loss, col_nf%core%som_leached, col_nf%core%som_yield, col_nf%denit, &
+    !$acc&   col_nf%f_n2o_nit, col_nf%mineral%smin_leached, col_nf%mineral%supplement_to_smin, &
+    !$acc&   col_nf%smin_no3_leached, col_nf%smin_no3_runoff, col_ns%core%balance_beg, &
+    !$acc&   col_ns%core%totcol) if_present
     associate(                                                                             &
          totcoln                   =>    col_ns%core%totcol                  , & ! Input:  [real(r8) (:)]  (gN/m2) total column nitrogen, incl veg
          ndep_to_sminn             =>    col_nf%mineral%dep_to_smin             , & ! Input:  [real(r8) (:)]  atmospheric N deposition to soil mineral N (gN/m2/s)
@@ -543,6 +562,8 @@ contains
       end if
 
     end associate
+    !$acc update device(col_nf%core%inputs, col_nf%core%outputs, col_ns%core%balance_end, &
+    !$acc&   col_ns%core%balance_err) if_present
 
   end subroutine ColNBalanceCheck
 
@@ -580,6 +601,10 @@ contains
     integer :: nstep
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(leafp_to_litter_col, frootp_to_litter_col)
+    !$acc enter data create(flux_mineralization_col)
     associate(                                                                            &
          totcolp                   => col_ps%core%totcol                  , & ! Input:  [real(r8) (:)]  (gP/m2) total column phosphorus, incl veg
          supplement_to_sminp       => col_pf%mineral%supplement_to_smin       , & ! Input:  [real(r8) (:)]  supplemental P supply (gP/m2/s)
@@ -634,6 +659,7 @@ contains
 
       !! immobilization/mineralization in litter-to-SOM and SOM-to-SOM fluxes
       ! column loop
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          flux_mineralization_col(c) = 0._r8
@@ -642,6 +668,7 @@ contains
       do k = 1, ndecomp_cascade_transitions
          if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
                ! column loop
+               !$acc parallel loop gang vector default(present) private(c)
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                   flux_mineralization_col(c) = flux_mineralization_col(c) - &
@@ -649,6 +676,7 @@ contains
                end do
          else
                ! column loop
+               !$acc parallel loop gang vector default(present) private(c)
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                     flux_mineralization_col(c) = flux_mineralization_col(c) + &
@@ -659,6 +687,7 @@ contains
       end do
 
       ! column loop
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          flux_mineralization_col(c) = flux_mineralization_col(c) + &
@@ -667,6 +696,13 @@ contains
 
 
       ! column loop
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(col_pf%core%fire_loss, col_pf%core%plant_to_litter_flux, col_pf%core%prod100_loss, &
+      !$acc&   col_pf%core%prod10_loss, col_pf%core%prod1_loss, col_pf%core%som_yield, col_pf%labilep_yield, &
+      !$acc&   col_pf%mineral%smin_leached, col_pf%mineral%supplement_to_smin, col_pf%primp_to_labilep, &
+      !$acc&   col_pf%secondp_to_occlp, col_pf%secondp_yield, col_ps%core%balance_beg, col_ps%core%totcol, &
+      !$acc&   col_ps%labilep_vr_cur, col_ps%labilep_vr_prev, col_ps%secondp_vr_cur, col_ps%secondp_vr_prev, &
+      !$acc&   col_ps%solutionp_vr_cur, col_ps%solutionp_vr_prev) if_present
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -736,10 +772,17 @@ contains
             err_index = c
          end if
       end do ! end of columns loop
+      !$acc update device(col_pf%core%inputs, col_pf%core%outputs, col_ps%core%balance_end, &
+      !$acc&   col_ps%core%balance_err) if_present
 
 
       if (err_found .and. nstep>1) then
 #ifndef _OPENACC
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_pf%core%plant_to_litter_flux, col_pf%core%som_yield, col_pf%labilep_yield, &
+         !$acc&   col_pf%mineral%smin_leached, col_pf%mineral%supplement_to_smin, col_pf%occlp_yield, &
+         !$acc&   col_pf%primp_to_labilep, col_pf%primp_yield, col_pf%secondp_to_occlp, col_pf%secondp_yield, &
+         !$acc&   col_ps%core%balance_beg) if_present
          c = err_index
          write(iulog,*)'column pbalance error = ', col_errpb(c), c
          write(iulog,*)'Latdeg,Londeg=',grc_pp%latdeg(col_pp%gridcell(c)),grc_pp%londeg(col_pp%gridcell(c))
@@ -772,6 +815,8 @@ contains
 
     end associate
 
+    !$acc exit data delete(flux_mineralization_col)
+    !$acc exit data delete(leafp_to_litter_col, frootp_to_litter_col)
   end subroutine ColPBalanceCheck
 
   !-----------------------------------------------------------------------
@@ -963,6 +1008,13 @@ contains
              c2l_scale_type = 'unity', l2g_scale_type = 'unity')
       end if 
          
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(grc_cf%core%inputs, grc_cf%er, grc_cf%fire_closs, grc_cf%gpp, &
+      !$acc&   grc_cf%hrv_deadstemc_to_prod100c, grc_cf%hrv_deadstemc_to_prod10c, grc_cf%hrv_xsmrpool_to_atm, &
+      !$acc&   grc_cf%prod100_loss, grc_cf%prod10_loss, grc_cf%prod1_loss, grc_cf%som_c_leached, &
+      !$acc&   grc_cf%somc_yield, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, grc_cs%end_cwdc, &
+      !$acc&   grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
+      !$acc&   grc_cs%end_totsomc) if_present
       dt = real( get_step_size(), r8 )
       nstep = get_nstep()
 
@@ -1018,6 +1070,7 @@ contains
             call endrun(msg=errMsg(__FILE__, __LINE__))
          end if
       end do
+      !$acc update device(grc_cf%core%inputs, grc_cf%core%outputs, grc_cs%core%balance_err) if_present
 
     end associate
 

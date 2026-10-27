@@ -1738,6 +1738,7 @@ contains
          qflx_snow_grnd_col  (bounds%begc:bounds%endc))
 
     if (.not. use_firn_percolation_and_compaction) then
+       !$acc data copy(filter_allc)
        call p2c (bounds, num_allc, filter_allc, &
             veg_wf%qflx_snwcp_liq(bounds%begp:bounds%endp), &
             col_wf%qflx_snwcp_liq(bounds%begc:bounds%endc))
@@ -1752,15 +1753,20 @@ contains
             ! overwritten in LakeHydrologyMod, both on the patch and the column
             ! level.
 
+       !$acc end data
+       !$acc data copy(filter_allc)
        call p2c (bounds, num_allc, filter_allc, &
             veg_wf%qflx_snwcp_ice(bounds%begp:bounds%endp), &
             col_wf%qflx_snwcp_ice(bounds%begc:bounds%endc))
+       !$acc end data
     end if
 
+    !$acc data copy(filter_allc)
     call p2c (bounds, num_allc, filter_allc, &
          qflx_snwcp_liq_patch(bounds%begp:bounds%endp), &
          qflx_snwcp_liq_col  (bounds%begc:bounds%endc))
 
+    !$acc end data
     call p2c (bounds, num_nolakec, filter_nolakec, &
          qflx_tran_veg_patch(bounds%begp:bounds%endp), &
          qflx_tran_veg_col  (bounds%begc:bounds%endc))
@@ -1769,10 +1775,12 @@ contains
          qflx_evap_grnd_patch(bounds%begp:bounds%endp), &
          qflx_evap_grnd_col  (bounds%begc:bounds%endc))
 
+    !$acc data copy(filter_allc)
     call p2c (bounds, num_allc, filter_allc, &
          qflx_evap_soi_patch(bounds%begp:bounds%endp), &
          qflx_evap_soi_col  (bounds%begc:bounds%endc))
 
+    !$acc end data
     call p2c (bounds, num_nolakec, filter_nolakec, &
          qflx_prec_grnd_patch(bounds%begp:bounds%endp), &
          qflx_prec_grnd_col  (bounds%begc:bounds%endc))

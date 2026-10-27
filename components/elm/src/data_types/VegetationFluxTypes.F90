@@ -2093,8 +2093,14 @@ contains
     ! !LOCAL VARIABLES:
     integer  :: p,j,k,l       ! indices
     integer  :: fp            ! lake filter indices
+    logical  :: is_bulk       ! isotope == 'bulk'
     !-----------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%wood_harvest) if_present
     call vegetation_nutrient_flux_summary(this%core, num_soilp, filter_soilp)
+    !$acc update device(this%core%wood_harvest) if_present
+    is_bulk = (trim(isotope) == 'bulk')  ! string test on the host: no trim in kernels
+    !$acc update device(this%core%wood_harvest) if_present
     associate( &
       gpp_patch => this%gpp , &
       gpp_col   => col_cf_input%gpp , &
@@ -2117,6 +2123,7 @@ contains
     if (use_fates) return
 
     ! patch loop
+    !$acc parallel loop gang vector default(present) private(p)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -2219,7 +2226,7 @@ contains
             this%ar(p)
 
        ! update the annual NPP accumulator, for use in allocation code
-       if (trim(isotope) == 'bulk') then
+       if (is_bulk) then
           this%tempsum_npp(p) = &
                this%tempsum_npp(p) + &
                this%npp(p)
@@ -3045,7 +3052,10 @@ contains
     integer  :: c,p             ! indices
     integer  :: fp              ! filter indices
     !-----------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%wood_harvest) if_present
     call vegetation_nutrient_flux_summary(this%core, num_soilp, filter_soilp)
+    !$acc update device(this%core%wood_harvest) if_present
     associate(&
       fire_nloss_patch => this%core%fire_loss ,&
       fire_nloss_col   => col_nf%core%fire_loss_p2c ,&
@@ -3053,6 +3063,8 @@ contains
       wood_harvestn_col   => col_nf%core%wood_harvest &
       )
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%fire_loss, this%core%froot_to_litter, this%core%leaf_to_litter) if_present
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -3173,6 +3185,8 @@ contains
       end if
 
     end do
+    !$acc update device(this%core%fire_loss, this%fire_nloss_litter, this%gap_nloss_litter, &
+    !$acc&   this%hrv_nloss_litter, this%sen_nloss_litter, this%uptake%pool_deploy) if_present
 
     call p2c(bounds, num_soilc, filter_soilc, &
          fire_nloss_patch(bounds%begp:bounds%endp)    , &
@@ -3520,13 +3534,18 @@ contains
     ! !LOCAL VARIABLES:
     integer  :: p, fp   ! indices
     !-----------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%wood_harvest) if_present
     call vegetation_nutrient_flux_summary(this%core, num_soilp, filter_soilp)
+    !$acc update device(this%core%wood_harvest) if_present
     associate( &
       fire_ploss_patch => this%core%fire_loss      ,&
       fire_ploss_col   => col_pf%core%fire_loss_p2c ,&
       wood_harvestp_patch  => this%core%wood_harvest ,&
       wood_harvestp_col => col_pf%core%wood_harvest &
       )
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%fire_loss, this%core%froot_to_litter, this%core%leaf_to_litter) if_present
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -3649,6 +3668,8 @@ contains
       end if
 
     end do
+    !$acc update device(this%core%fire_loss, this%fire_ploss_litter, this%gap_ploss_litter, &
+    !$acc&   this%hrv_ploss_litter, this%sen_ploss_litter, this%uptake%pool_deploy) if_present
 
     call p2c(bounds, num_soilc, filter_soilc, &
          fire_ploss_patch(bounds%begp:bounds%endp)     , &

@@ -66,6 +66,8 @@ contains
 
     !-----------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(flux_mineralization, temp_solutionp)
     associate(&
          isoilorder     => cnstate_vars%isoilorder ,&
          pdep_prof      => cnstate_vars%pdep_prof_col ,&
@@ -77,6 +79,7 @@ contains
       ! set time steps
       !! immobilization/mineralization in litter-to-SOM and SOM-to-SOM fluxes
       !! - X.YANG
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
       do j = 1, nlevdecomp
          ! column loop
          do fc = 1,num_soilc
@@ -86,6 +89,7 @@ contains
       enddo
         do k = 1, ndecomp_cascade_transitions
           if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1, nlevdecomp
                ! column loop
                do fc = 1,num_soilc
@@ -95,6 +99,7 @@ contains
                end do
              end do
            else
+             !$acc parallel loop gang vector collapse(2) default(present) private(c)
              do j = 1, nlevdecomp
                ! column loop
                do fc = 1,num_soilc
@@ -107,6 +112,7 @@ contains
         end do
 
 
+        !$acc parallel loop gang vector collapse(2) default(present) private(c)
         do j = 1, nlevdecomp
               ! column loop
            do fc = 1,num_soilc
@@ -117,6 +123,8 @@ contains
         end do
 
       if (nu_com .eq. 'RD') then
+        !$acc parallel loop gang vector collapse(2) default(present) &
+        !$acc   private(c, smax_c, ks_sorption_c)
         do j = 1, nlevdecomp
           do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -154,6 +162,8 @@ contains
              end do
            end do
         else ! ECA
+          !$acc parallel loop gang vector collapse(2) default(present) &
+          !$acc   private(c, smax_c, ks_sorption_c, aa, bb, cc)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -215,9 +225,11 @@ contains
          end if
 
          if (nu_com .eq. 'RD') then
+          !$acc parallel loop gang vector collapse(2) default(present) private(c, l)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
+                !$acc loop seq
                 do l = 1, ndecomp_pools
 
                    col_ps%core%decomp_pools_vr(c,j,l) = col_ps%core%decomp_pools_vr(c,j,l)- col_pf%biochem_pmin_ppools_vr(c,j,l)*dt
@@ -227,6 +239,7 @@ contains
           end do
          end if
 
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -253,6 +266,7 @@ contains
          ! If we use observed P to initialize regular spinup, soil P pools will dramatically deplete during the spinup
          ! Then, the transient simulation will start with a much lower soil phosphorus availability that is inconsistent with obs
          if ((nu_com .ne. 'RD') .and. ECA_Pconst_RGspin ) then
+            !$acc parallel loop gang vector collapse(2) default(present) private(c)
             do j = 1, nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -265,6 +279,7 @@ contains
             end do
          end if
 
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
       do j = 1, nlevdecomp
          ! column loop
          do fc = 1,num_soilc
@@ -282,6 +297,7 @@ contains
       end do
 
       ! litter and CWD losses to fire
+      !$acc parallel loop gang vector collapse(3) default(present) private(c)
       do l = 1, ndecomp_pools
          do j = 1, nlevdecomp
             ! column loop
@@ -296,10 +312,13 @@ contains
     ! soil P loss due to soil erosion
     if ( ero_ccycle ) then
       ! column loop
+      !$acc parallel loop gang vector default(present) private(c, j, l)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
+         !$acc loop seq
          do j = 1, nlevdecomp
             ! pool loop
+            !$acc loop seq
             do l = 1, ndecomp_pools
                if ( decomp_cascade_con%is_soil(l) ) then
                   col_ps%core%decomp_pools_vr(c,j,l) = col_ps%core%decomp_pools_vr(c,j,l) - col_pf%core%decomp_pools_yield_vr(c,j,l) * dt
@@ -316,6 +335,7 @@ contains
     ! patch-level phosphorus fluxes
 
     if(.not.use_fates) then
+       !$acc parallel loop gang vector default(present) private(p)
        do fp = 1,num_soilp
           p = filter_soilp(fp)
 
@@ -375,6 +395,7 @@ contains
 
     end associate
 
+    !$acc exit data delete(flux_mineralization, temp_solutionp)
   end subroutine PhosphorusStateUpdate3
 
 end module PhosphorusStateUpdate3Mod

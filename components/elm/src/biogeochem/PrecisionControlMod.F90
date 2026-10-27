@@ -81,6 +81,7 @@ contains
 
       ! patch loop
       if (.not.use_fates) then
+         !$acc parallel loop gang vector default(present) private(p, pc, pn, pp, pc13, pc14)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
 
@@ -559,9 +560,11 @@ contains
 
 
          ! column loop
+         !$acc parallel loop gang vector default(present) private(c, j, cc, cc13, cc14, cn, k)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
 
+            !$acc loop seq
             do j = 1,nlevdecomp_full
                ! initialize the column-level C and N truncation terms
                cc = 0._r8
@@ -575,6 +578,7 @@ contains
 
 
                ! all decomposing pools C and N
+               !$acc loop seq
                do k = 1, ndecomp_pools
 
                   if (abs(col_cs%core%decomp_pools_vr(c,j,k)) < ccrit) then
@@ -611,6 +615,8 @@ contains
 
          ! remove small negative perturbations for stability purposes, if any should arise.
          
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_ns%smin_no3_vr) if_present
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             do j = 1,nlevdecomp_full
@@ -634,6 +640,7 @@ contains
                end if
             end do
          end do
+         !$acc update device(col_ns%smin_nh4_vr, col_ns%smin_no3_vr) if_present
 
 
         if (nu_com .eq. 'ECA') then
@@ -655,10 +662,13 @@ contains
             !end do
 
             ! fix soil CN ratio drift (normally < 0.01% drift)
+            !$acc parallel loop gang vector default(present) private(c, j, cn_eca, l)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
+               !$acc loop seq
                do j = 1,nlevdecomp_full
                   cn_eca = 0.0_r8
+                  !$acc loop seq
                   do l = 1,ndecomp_pools
                      if ( col_cs%core%decomp_pools_vr(c,j,l) > 0.0_r8 ) then
                           if(abs(col_cs%core%decomp_pools_vr(c,j,l) / col_ns%core%decomp_pools_vr(c,j,l) - initial_cn_ratio(l) ) > 1.0e-3_r8 &
@@ -675,6 +685,9 @@ contains
 
             ! remove small negative perturbations for stability purposes, if any should arise in N,P pools
             ! for floating CN, CP ratio pools
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_ns%core%decomp_pools_vr, col_ns%core%trunc_sink_vr, &
+            !$acc&   col_ps%core%decomp_pools_vr, col_ps%core%trunc_sink_vr) if_present
             do fc = 1,num_soilc
                c = filter_soilc(fc)
                do j = 1,nlevdecomp_full
@@ -712,8 +725,13 @@ contains
 
                end do
             end do
+            !$acc update device(col_ns%core%decomp_pools_vr, col_ns%core%trunc_sink_vr, &
+            !$acc&   col_ps%core%decomp_pools_vr, col_ps%core%trunc_sink_vr) if_present
 
           if(.not.use_fates) then
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(veg_ns%core%pool, veg_ns%retrans%pool, veg_ps%core%pool, &
+            !$acc&   veg_ps%retrans%pool) if_present
             do fp = 1,num_soilp
                p = filter_soilp(fp)
 #ifndef _OPENACC

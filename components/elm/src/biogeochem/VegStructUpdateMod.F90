@@ -116,6 +116,8 @@ contains
       dt = real( get_rad_step_size(), r8 )
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) &
+      !$acc   private(p, c, g, tlai_old, tsai_old, tsai_alpha, tsai_min, ol, fb)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          c = veg_pp%column(p)

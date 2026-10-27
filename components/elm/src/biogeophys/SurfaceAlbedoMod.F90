@@ -16,7 +16,7 @@ module SurfaceAlbedoMod
   use elm_varpar        , only : numrad, nlevcan, nlevsno, nlevcan
   use elm_varctl        , only : fsurdat, iulog, subgridflag, use_snicar_frc, use_fates, use_snicar_ad, use_top_solar_rad, use_finetop_rad
   use VegetationPropertiesType    , only : veg_vp
-  use SnowSnicarMod     , only : sno_nbr_aer, SNICAR_RT, SNICAR_AD_RT, DO_SNO_AER, DO_SNO_OC
+  use SnowSnicarMod     , only : sno_nbr_aer, SNICAR_AD_RT, DO_SNO_AER, DO_SNO_OC
   use AerosolType       , only : aerosol_type
   use CanopyStateType   , only : canopystate_type
   use LakeStateType     , only : lakestate_type
@@ -127,6 +127,7 @@ contains
     integer  :: flg_slr                                                                   ! flag for SNICAR (=1 if direct, =2 if diffuse)
     integer  :: flg_snw_ice                                                               ! flag for SNICAR (=1 when called from ELM, =2 when called from sea-ice)
     integer  :: num_vegsol                                                                ! number of vegetated patches where coszen>0
+    integer  :: ip                                                                        ! position in a solar filter
     integer  :: num_novegsol                                                              ! number of vegetated patches where coszen>0
     integer  :: filter_vegsol   (bounds%endp-bounds%begp+1)                               ! patch filter where vegetated and coszen>0
     integer  :: filter_novegsol (bounds%endp-bounds%begp+1)                               ! patch filter where vegetated and coszen>0
@@ -142,32 +143,26 @@ contains
     real(r8) :: cosinc_patch    (bounds%begp:bounds%endp)                                 ! cosine solar incidence angle to local surface for next time step (pft)
     real(r8) :: rho(bounds%begp:bounds%endp,numrad)        ! leaf/stem refl weighted by fraction LAI and SAI
     real(r8) :: tau(bounds%begp:bounds%endp,numrad)        ! leaf/stem tran weighted by fraction LAI and SAI
-    real(r8) :: albsfc          (bounds%begc:bounds%endc,numrad)                          ! albedo of surface underneath snow (col,bnd)
-    real(r8) :: albsnd(bounds%begc:bounds%endc,numrad)     ! snow albedo (direct)
-    real(r8) :: albsni(bounds%begc:bounds%endc,numrad)     ! snow albedo (diffuse)
-    real(r8) :: albsnd_pur      (bounds%begc:bounds%endc,numrad)                          ! direct pure snow albedo (radiative forcing)
-    real(r8) :: albsni_pur      (bounds%begc:bounds%endc,numrad)                          ! diffuse pure snow albedo (radiative forcing)
-    real(r8) :: albsnd_bc       (bounds%begc:bounds%endc,numrad)                          ! direct snow albedo without BC (radiative forcing)
-    real(r8) :: albsni_bc       (bounds%begc:bounds%endc,numrad)                          ! diffuse snow albedo without BC (radiative forcing)
-    real(r8) :: albsnd_oc       (bounds%begc:bounds%endc,numrad)                          ! direct snow albedo without OC (radiative forcing)
-    real(r8) :: albsni_oc       (bounds%begc:bounds%endc,numrad)                          ! diffuse snow albedo without OC (radiative forcing)
-    real(r8) :: albsnd_dst      (bounds%begc:bounds%endc,numrad)                          ! direct snow albedo without dust (radiative forcing)
-    real(r8) :: albsni_dst      (bounds%begc:bounds%endc,numrad)                          ! diffuse snow albedo without dust (radiative forcing)
-    real(r8) :: flx_absd_snw    (bounds%begc:bounds%endc,-nlevsno+1:1,numrad)             ! flux absorption factor for just snow (direct) [frc]
-    real(r8) :: flx_absi_snw    (bounds%begc:bounds%endc,-nlevsno+1:1,numrad)             ! flux absorption factor for just snow (diffuse) [frc]
-    real(r8) :: foo_snw         (bounds%begc:bounds%endc,-nlevsno+1:1,numrad)             ! dummy array for forcing calls
-    real(r8) :: h2osno_liq      (bounds%begc:bounds%endc,-nlevsno+1:0)                    ! liquid snow content (col,lyr) [kg m-2]
-    real(r8) :: h2osno_ice      (bounds%begc:bounds%endc,-nlevsno+1:0)                    ! ice content in snow (col,lyr) [kg m-2]
-    integer  :: snw_rds_in      (bounds%begc:bounds%endc,-nlevsno+1:0)                    ! snow grain size sent to SNICAR (col,lyr) [microns]
-    real(r8) :: mss_cnc_aer_in_frc_pur (bounds%begc:bounds%endc,-nlevsno+1:0,sno_nbr_aer) ! mass concentration of aerosol species for forcing calculation (zero) (col,lyr,aer) [kg kg-1]
-    real(r8) :: mss_cnc_aer_in_frc_bc  (bounds%begc:bounds%endc,-nlevsno+1:0,sno_nbr_aer) ! mass concentration of aerosol species for BC forcing (col,lyr,aer) [kg kg-1]
-    real(r8) :: mss_cnc_aer_in_frc_oc  (bounds%begc:bounds%endc,-nlevsno+1:0,sno_nbr_aer) ! mass concentration of aerosol species for OC forcing (col,lyr,aer) [kg kg-1]
-    real(r8) :: mss_cnc_aer_in_frc_dst (bounds%begc:bounds%endc,-nlevsno+1:0,sno_nbr_aer) ! mass concentration of aerosol species for dust forcing (col,lyr,aer) [kg kg-1]
-    real(r8) :: mss_cnc_aer_in_fdb     (bounds%begc:bounds%endc,-nlevsno+1:0,sno_nbr_aer) ! mass concentration of all aerosol species for feedback calculation (col,lyr,aer) [kg kg-1]
+    ! SNICAR cases (radiative forcing variants and the feedback case): incident flux, aerosol
+    ! species included, absorbed-flux slot; results by position in the non-urban column filter
+    integer , parameter :: ncase_max = 10
+    integer  :: ncase                                                  ! number of SNICAR cases this step
+    integer  :: case_slr(ncase_max)                                    ! 1 = direct, 2 = diffuse
+    logical  :: case_aer(sno_nbr_aer,ncase_max)                        ! aerosol species included
+    integer  :: kd, ki, kd_bc, ki_bc, kd_oc, ki_oc, kd_dst, ki_dst, kd_pur, ki_pur ! cases of each albedo
+    logical  :: aer_bc(sno_nbr_aer), aer_oc(sno_nbr_aer), aer_dst(sno_nbr_aer), aer_all(sno_nbr_aer), aer_none(sno_nbr_aer)
+    real(r8) :: alb_snw(num_nourbanc,numrad,ncase_max)                ! snow albedo (fc,bnd,case) [frc]
+    real(r8) :: abs_snw(num_nourbanc,-nlevsno+1:1,numrad,2)           ! snow flux absorption factor of cases 1-2: direct, diffuse [frc]
+    integer  :: err_can(num_nourbanp)                                  ! canopy layering error (fp): 1 above snow, 2 buried
+    integer  :: nbad                                                   ! patches with an error
     real(r8), parameter :: mpe = 1.e-06_r8                                                ! prevents overflow for division by zero
     integer , parameter :: nband =numrad                                                  ! number of solar radiation waveband classes
   !-----------------------------------------------------------------------
 
+   ! spel acc-locals: device storage of the local work arrays
+   !$acc enter data create(filter_vegsol, filter_novegsol, coszen_patch)
+   !$acc enter data create(wl, ws, blai, bsai, coszen_gcell, cosinc_gcell, cosinc_patch, rho, tau, &
+   !$acc&   case_slr, case_aer, alb_snw, abs_snw, err_can)
    associate(&
           rhol          =>    veg_vp%rhol                     , & ! Input:  [real(r8)  (:,:) ]  leaf reflectance: 1=vis, 2=nir
           rhos          =>    veg_vp%rhos                     , & ! Input:  [real(r8)  (:,:) ]  stem reflectance: 1=vis, 2=nir
@@ -241,11 +236,13 @@ contains
     ! Cosine solar zenith angle for next time step
 
     if (.not. use_finetop_rad) then
+       !$acc parallel loop gang vector default(present)
        do g = bounds%begg,bounds%endg
           coszen_gcell(g) = shr_orb_cosz (nextsw_cday, grc_pp%lat(g), grc_pp%lon(g), declinp1)
           cosinc_gcell(g) = coszen_gcell(g)
        end do
     else
+       !$acc parallel loop gang vector default(present) private(sza, saa, slope_rad, aspect_rad)
        do g = bounds%begg,bounds%endg
           coszen_gcell(g) = shr_orb_cosz (nextsw_cday, grc_pp%lat(g), grc_pp%lon(g), declinp1)
           sza = acos(coszen_gcell(g)) ! solar zenith angle
@@ -261,11 +258,13 @@ contains
        end do
     endif
 
+    !$acc parallel loop gang vector default(present) private(g)
     do c = bounds%begc,bounds%endc
        g = col_pp%gridcell(c)
        coszen_col(c) = coszen_gcell(g)
        cosinc_col(c) = cosinc_gcell(g)
     end do
+    !$acc parallel loop gang vector default(present) private(p, g)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
        g = veg_pp%gridcell(p)
@@ -275,6 +274,7 @@ contains
 
     ! Initialize output because solar radiation only done if coszen > 0
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(c)
     do ib = 1, numrad
        do fc = 1,num_nourbanc
           c = filter_nourbanc(fc)
@@ -290,14 +290,22 @@ contains
           albgri_oc(c,ib)  = 0._r8
           albgrd_dst(c,ib) = 0._r8
           albgri_dst(c,ib) = 0._r8
-          do i=-nlevsno+1,1,1
-             flx_absdv(c,i) = 0._r8
-             flx_absdn(c,i) = 0._r8
-             flx_absiv(c,i) = 0._r8
-             flx_absin(c,i) = 0._r8
-          enddo
        end do
+    end do
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(c)
+    do fc = 1,num_nourbanc
+       do i=-nlevsno+1,1,1
+          c = filter_nourbanc(fc)
+          flx_absdv(c,i) = 0._r8
+          flx_absdn(c,i) = 0._r8
+          flx_absiv(c,i) = 0._r8
+          flx_absin(c,i) = 0._r8
+       enddo
+    end do
+
+    !$acc parallel loop gang vector collapse(2) default(present) private(p)
+    do ib = 1, numrad
        do fp = 1,num_nourbanp
           p = filter_nourbanp(fp)
           albd(p,ib) = 1._r8
@@ -311,10 +319,8 @@ contains
           ftdd(p,ib) = 0._r8
           ftid(p,ib) = 0._r8
           ftii(p,ib) = 0._r8
-
        end do
-
-    end do  ! end of numrad loop
+    end do
 
     ! SoilAlbedo called before SNICAR_RT/SNICAR_AD_RT
     ! so that reflectance of soil beneath snow column is known
@@ -331,273 +337,94 @@ contains
        call SoilAlbedo(bounds, &
             num_nourbanc, filter_nourbanc, &
             cosinc_col(bounds%begc:bounds%endc), &
-            albsnd(bounds%begc:bounds%endc, :), &
-            albsni(bounds%begc:bounds%endc, :), &
             lakestate_vars, surfalb_vars)
 
-    ! set variables to pass to SNICAR.
-
-    flg_snw_ice = 1   ! calling from ELM, not CSIM
-    do c=bounds%begc,bounds%endc
-       albsfc(c,:)     = albsoi(c,:)
-       h2osno_liq(c,:) = h2osoi_liq(c,-nlevsno+1:0)
-       h2osno_ice(c,:) = h2osoi_ice(c,-nlevsno+1:0)
-       snw_rds_in(c,:) = nint(snw_rds(c,:))
-    end do
-
-    ! zero aerosol input arrays
-    do aer = 1, sno_nbr_aer
-       do i = -nlevsno+1, 0
-          do c = bounds%begc, bounds%endc
-             mss_cnc_aer_in_frc_pur(c,i,aer) = 0._r8
-             mss_cnc_aer_in_frc_bc(c,i,aer)  = 0._r8
-             mss_cnc_aer_in_frc_oc(c,i,aer)  = 0._r8
-             mss_cnc_aer_in_frc_dst(c,i,aer) = 0._r8
-             mss_cnc_aer_in_fdb(c,i,aer)     = 0._r8
-          end do
-       end do
-    end do
-
-    ! Set aerosol input arrays
-    ! feedback input arrays have been zeroed
-    ! set soot and dust aerosol concentrations:
+    ! SNICAR cases. Aerosol species: 1-2 BC, 3-4 OC, 5-8 dust.
+    aer_none(:) = .false.
+    aer_all(:) = .false.
     if (DO_SNO_AER) then
-       mss_cnc_aer_in_fdb(bounds%begc:bounds%endc,:,1) = mss_cnc_bcphi(bounds%begc:bounds%endc,:)
-       mss_cnc_aer_in_fdb(bounds%begc:bounds%endc,:,2) = mss_cnc_bcpho(bounds%begc:bounds%endc,:)
-
-       ! DO_SNO_OC is set in SNICAR_varpar. Default case is to ignore OC concentrations because:
-       !  1) Knowledge of their optical properties is primitive
-       !  2) When 'water-soluble' OPAC optical properties are applied to OC in snow,
-       !     it has a negligible darkening effect.
-       if (DO_SNO_OC) then
-          mss_cnc_aer_in_fdb(bounds%begc:bounds%endc,:,3) = mss_cnc_ocphi(bounds%begc:bounds%endc,:)
-          mss_cnc_aer_in_fdb(bounds%begc:bounds%endc,:,4) = mss_cnc_ocpho(bounds%begc:bounds%endc,:)
-       endif
-
-       mss_cnc_aer_in_fdb(bounds%begc:bounds%endc,:,5) = mss_cnc_dst1(bounds%begc:bounds%endc,:)
-       mss_cnc_aer_in_fdb(bounds%begc:bounds%endc,:,6) = mss_cnc_dst2(bounds%begc:bounds%endc,:)
-       mss_cnc_aer_in_fdb(bounds%begc:bounds%endc,:,7) = mss_cnc_dst3(bounds%begc:bounds%endc,:)
-       mss_cnc_aer_in_fdb(bounds%begc:bounds%endc,:,8) = mss_cnc_dst4(bounds%begc:bounds%endc,:)
+       aer_all(1:2) = .true.
+       aer_all(3:4) = DO_SNO_OC
+       aer_all(5:8) = .true.
     endif
-
-    ! If radiative forcing is being calculated, first estimate clean-snow albedo
-
+    aer_bc(:)  = (/ .false., .false., DO_SNO_OC, DO_SNO_OC, .true., .true., .true., .true. /)  ! BC_FRC=[(BC+OC+dust)-(OC+dust)]
+    aer_oc(:)  = (/ .true., .true., .false., .false., .true., .true., .true., .true. /)          ! OC_FRC=[(BC+OC+dust)-(BC+dust)]
+    aer_dst(:) = (/ .true., .true., DO_SNO_OC, DO_SNO_OC, .false., .false., .false., .false. /) ! DST_FRC=[(BC+OC+dust)-(BC+OC)]
+    ncase = 0
+    kd_bc = 0; ki_bc = 0; kd_oc = 0; ki_oc = 0; kd_dst = 0; ki_dst = 0; kd_pur = 0; ki_pur = 0
+    ! climate feedback, all aerosols: cases 1 and 2, which also return the absorbed-flux profiles
+    call add_case(1, aer_all, kd);  call add_case(2, aer_all, ki)
     if (use_snicar_frc) then
-       ! 1. BC input array:
-       !  set dust and (optionally) OC concentrations, so BC_FRC=[(BC+OC+dust)-(OC+dust)]
-       mss_cnc_aer_in_frc_bc(bounds%begc:bounds%endc,:,5) = mss_cnc_dst1(bounds%begc:bounds%endc,:)
-       mss_cnc_aer_in_frc_bc(bounds%begc:bounds%endc,:,6) = mss_cnc_dst2(bounds%begc:bounds%endc,:)
-       mss_cnc_aer_in_frc_bc(bounds%begc:bounds%endc,:,7) = mss_cnc_dst3(bounds%begc:bounds%endc,:)
-       mss_cnc_aer_in_frc_bc(bounds%begc:bounds%endc,:,8) = mss_cnc_dst4(bounds%begc:bounds%endc,:)
+       call add_case(1, aer_bc, kd_bc);  call add_case(2, aer_bc, ki_bc)
        if (DO_SNO_OC) then
-          mss_cnc_aer_in_frc_bc(bounds%begc:bounds%endc,:,3) = mss_cnc_ocphi(bounds%begc:bounds%endc,:)
-          mss_cnc_aer_in_frc_bc(bounds%begc:bounds%endc,:,4) = mss_cnc_ocpho(bounds%begc:bounds%endc,:)
+          call add_case(1, aer_oc, kd_oc);  call add_case(2, aer_oc, ki_oc)
        endif
+       call add_case(1, aer_dst, kd_dst);  call add_case(2, aer_dst, ki_dst)
+       call add_case(1, aer_none, kd_pur);  call add_case(2, aer_none, ki_pur)   ! pure snow
+    end if
 
-       ! BC FORCING CALCULATIONS
-          flg_slr = 1; ! direct-beam
-          call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                                cosinc_col(bounds%begc:bounds%endc), &
-                                flg_slr, &
-                                h2osno_liq(bounds%begc:bounds%endc, :), &
-                                h2osno_ice(bounds%begc:bounds%endc, :), &
-                                snw_rds_in(bounds%begc:bounds%endc, :), &
-                                mss_cnc_aer_in_frc_bc(bounds%begc:bounds%endc, :, :), &
-                                albsfc(bounds%begc:bounds%endc, :), &
-                                albsnd_bc(bounds%begc:bounds%endc, :), &
-                                foo_snw(bounds%begc:bounds%endc, :, :) )
-
-
-          flg_slr = 2; ! diffuse
-          call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                                cosinc_col(bounds%begc:bounds%endc), &
-                                flg_slr, &
-                                h2osno_liq(bounds%begc:bounds%endc, :), &
-                                h2osno_ice(bounds%begc:bounds%endc, :), &
-                                snw_rds_in(bounds%begc:bounds%endc, :), &
-                                mss_cnc_aer_in_frc_bc(bounds%begc:bounds%endc, :, :), &
-                                albsfc(bounds%begc:bounds%endc, :), &
-                                albsni_bc(bounds%begc:bounds%endc, :), &
-                                foo_snw(bounds%begc:bounds%endc, :, :) )
-
-       ! 2. OC input array:
-       !  set BC and dust concentrations, so OC_FRC=[(BC+OC+dust)-(BC+dust)]
-       if (DO_SNO_OC) then
-          mss_cnc_aer_in_frc_oc(bounds%begc:bounds%endc,:,1) = mss_cnc_bcphi(bounds%begc:bounds%endc,:)
-          mss_cnc_aer_in_frc_oc(bounds%begc:bounds%endc,:,2) = mss_cnc_bcpho(bounds%begc:bounds%endc,:)
-          mss_cnc_aer_in_frc_oc(bounds%begc:bounds%endc,:,5) = mss_cnc_dst1(bounds%begc:bounds%endc,:)
-          mss_cnc_aer_in_frc_oc(bounds%begc:bounds%endc,:,6) = mss_cnc_dst2(bounds%begc:bounds%endc,:)
-          mss_cnc_aer_in_frc_oc(bounds%begc:bounds%endc,:,7) = mss_cnc_dst3(bounds%begc:bounds%endc,:)
-          mss_cnc_aer_in_frc_oc(bounds%begc:bounds%endc,:,8) = mss_cnc_dst4(bounds%begc:bounds%endc,:)
-
-       ! OC FORCING CALCULATIONS
-          flg_slr = 1; ! direct-beam
-          call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                                cosinc_col(bounds%begc:bounds%endc), &
-                                flg_slr, &
-                                h2osno_liq(bounds%begc:bounds%endc, :), &
-                                h2osno_ice(bounds%begc:bounds%endc, :), &
-                                snw_rds_in(bounds%begc:bounds%endc, :), &
-                                mss_cnc_aer_in_frc_oc(bounds%begc:bounds%endc, :, :), &
-                                albsfc(bounds%begc:bounds%endc, :), &
-                                albsnd_oc(bounds%begc:bounds%endc, :), &
-                                foo_snw(bounds%begc:bounds%endc, :, :) )
-
-          flg_slr = 2; ! diffuse
-          call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                                cosinc_col(bounds%begc:bounds%endc), &
-                                flg_slr, &
-                                h2osno_liq(bounds%begc:bounds%endc, :), &
-                                h2osno_ice(bounds%begc:bounds%endc, :), &
-                                snw_rds_in(bounds%begc:bounds%endc, :), &
-                                mss_cnc_aer_in_frc_oc(bounds%begc:bounds%endc, :, :), &
-                                albsfc(bounds%begc:bounds%endc, :), &
-                                albsni_oc(bounds%begc:bounds%endc, :), &
-                                foo_snw(bounds%begc:bounds%endc, :, :) )
-       endif
-
-       ! 3. DUST input array:
-       ! set BC and OC concentrations, so DST_FRC=[(BC+OC+dust)-(BC+OC)]
-       mss_cnc_aer_in_frc_dst(bounds%begc:bounds%endc,:,1) = mss_cnc_bcphi(bounds%begc:bounds%endc,:)
-       mss_cnc_aer_in_frc_dst(bounds%begc:bounds%endc,:,2) = mss_cnc_bcpho(bounds%begc:bounds%endc,:)
-       if (DO_SNO_OC) then
-          mss_cnc_aer_in_frc_dst(bounds%begc:bounds%endc,:,3) = mss_cnc_ocphi(bounds%begc:bounds%endc,:)
-          mss_cnc_aer_in_frc_dst(bounds%begc:bounds%endc,:,4) = mss_cnc_ocpho(bounds%begc:bounds%endc,:)
-       endif
-
-       ! DUST FORCING CALCULATIONS
-          flg_slr = 1; ! direct-beam
-          call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                                cosinc_col(bounds%begc:bounds%endc), &
-                                flg_slr, &
-                                h2osno_liq(bounds%begc:bounds%endc, :), &
-                                h2osno_ice(bounds%begc:bounds%endc, :), &
-                                snw_rds_in(bounds%begc:bounds%endc, :), &
-                                mss_cnc_aer_in_frc_dst(bounds%begc:bounds%endc, :, :), &
-                                albsfc(bounds%begc:bounds%endc, :), &
-                                albsnd_dst(bounds%begc:bounds%endc, :), &
-                                foo_snw(bounds%begc:bounds%endc, :, :) )
-
-          flg_slr = 2; ! diffuse
-          call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                                cosinc_col(bounds%begc:bounds%endc), &
-                                flg_slr, &
-                                h2osno_liq(bounds%begc:bounds%endc, :), &
-                                h2osno_ice(bounds%begc:bounds%endc, :), &
-                                snw_rds_in(bounds%begc:bounds%endc, :), &
-                                mss_cnc_aer_in_frc_dst(bounds%begc:bounds%endc, :, :), &
-                                albsfc(bounds%begc:bounds%endc, :), &
-                                albsni_dst(bounds%begc:bounds%endc, :), &
-                                foo_snw(bounds%begc:bounds%endc, :, :) )
-
-       ! 4. ALL AEROSOL FORCING CALCULATION
-       ! (pure snow albedo)
-          flg_slr = 1; ! direct-beam
-          call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                                cosinc_col(bounds%begc:bounds%endc), &
-                                flg_slr, &
-                                h2osno_liq(bounds%begc:bounds%endc, :), &
-                                h2osno_ice(bounds%begc:bounds%endc, :), &
-                                snw_rds_in(bounds%begc:bounds%endc, :), &
-                                mss_cnc_aer_in_frc_pur(bounds%begc:bounds%endc, :, :), &
-                                albsfc(bounds%begc:bounds%endc, :), &
-                                albsnd_pur(bounds%begc:bounds%endc, :), &
-                                foo_snw(bounds%begc:bounds%endc, :, :) )
-
-          flg_slr = 2; ! diffuse
-          call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                                cosinc_col(bounds%begc:bounds%endc), &
-                                flg_slr, &
-                                h2osno_liq(bounds%begc:bounds%endc, :), &
-                                h2osno_ice(bounds%begc:bounds%endc, :), &
-                                snw_rds_in(bounds%begc:bounds%endc, :), &
-                                mss_cnc_aer_in_frc_pur(bounds%begc:bounds%endc, :, :), &
-                                albsfc(bounds%begc:bounds%endc, :), &
-                                albsni_pur(bounds%begc:bounds%endc, :), &
-                                foo_snw(bounds%begc:bounds%endc, :, :) )
-    end if !end if use_snicar_frc
-
-
-    ! CLIMATE FEEDBACK CALCULATIONS, ALL AEROSOLS:
-       flg_slr = 1; ! direct-beam
-       call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                             cosinc_col(bounds%begc:bounds%endc), &
-                             flg_slr, &
-                             h2osno_liq(bounds%begc:bounds%endc, :), &
-                             h2osno_ice(bounds%begc:bounds%endc, :), &
-                             snw_rds_in(bounds%begc:bounds%endc, :), &
-                             mss_cnc_aer_in_fdb(bounds%begc:bounds%endc, :, :), &
-                             albsfc(bounds%begc:bounds%endc, :), &
-                             albsnd(bounds%begc:bounds%endc, :), &
-                             flx_absd_snw(bounds%begc:bounds%endc, :, :) )
-
-       flg_slr = 2; ! diffuse
-       call SNICAR_AD_RT(flg_snw_ice, bounds, num_nourbanc, filter_nourbanc,    &
-                             cosinc_col(bounds%begc:bounds%endc), &
-                             flg_slr, &
-                             h2osno_liq(bounds%begc:bounds%endc, :), &
-                             h2osno_ice(bounds%begc:bounds%endc, :), &
-                             snw_rds_in(bounds%begc:bounds%endc, :), &
-                             mss_cnc_aer_in_fdb(bounds%begc:bounds%endc, :, :), &
-                             albsfc(bounds%begc:bounds%endc, :), &
-                             albsni(bounds%begc:bounds%endc, :), &
-                             flx_absi_snw(bounds%begc:bounds%endc, :, :) )
+    !$acc update device(case_slr, case_aer)   ! set on the host by add_case
+    call SNICAR_AD_RT(bounds, num_nourbanc, filter_nourbanc, cosinc_col(bounds%begc:bounds%endc), &
+         ncase, case_slr, case_aer, 2, aerosol_vars, albsoi(bounds%begc:bounds%endc, :), alb_snw, abs_snw)
 
     ! ground albedos and snow-fraction weighting of snow absorption factors
-    do ib = 1, nband
-       do fc = 1,num_nourbanc
+    !$acc parallel loop gang vector default(present) private(fc, c, l, i)
+    do fc = 1,num_nourbanc
+       !$acc loop seq
+       do ib = 1, nband
           c = filter_nourbanc(fc)
           l = col_pp%landunit(c)
              if (coszen_col(c) > 0._r8) then
              ! ground albedo was originally computed in SoilAlbedo, but is now computed here
              ! because the order of SoilAlbedo and SNICAR_RT/SNICAR_AD_RT was switched for SNICAR/SNICAR_AD_RT.
-             albgrd(c,ib) = albsod(c,ib)*(1._r8-frac_sno(c)) + albsnd(c,ib)*frac_sno(c)
-             albgri(c,ib) = albsoi(c,ib)*(1._r8-frac_sno(c)) + albsni(c,ib)*frac_sno(c)
+             albgrd(c,ib) = albsod(c,ib)*(1._r8-frac_sno(c)) + alb_snw(fc,ib,kd)*frac_sno(c)
+             albgri(c,ib) = albsoi(c,ib)*(1._r8-frac_sno(c)) + alb_snw(fc,ib,ki)*frac_sno(c)
 
              ! albedos for radiative forcing calculations:
              if (use_snicar_frc) then
                 ! BC forcing albedo
-                albgrd_bc(c,ib) = albsod(c,ib)*(1.-frac_sno(c)) + albsnd_bc(c,ib)*frac_sno(c)
-                albgri_bc(c,ib) = albsoi(c,ib)*(1.-frac_sno(c)) + albsni_bc(c,ib)*frac_sno(c)
+                albgrd_bc(c,ib) = albsod(c,ib)*(1.-frac_sno(c)) + alb_snw(fc,ib,kd_bc)*frac_sno(c)
+                albgri_bc(c,ib) = albsoi(c,ib)*(1.-frac_sno(c)) + alb_snw(fc,ib,ki_bc)*frac_sno(c)
 
                 if (DO_SNO_OC) then
                    ! OC forcing albedo
-                   albgrd_oc(c,ib) = albsod(c,ib)*(1.-frac_sno(c)) + albsnd_oc(c,ib)*frac_sno(c)
-                   albgri_oc(c,ib) = albsoi(c,ib)*(1.-frac_sno(c)) + albsni_oc(c,ib)*frac_sno(c)
+                   albgrd_oc(c,ib) = albsod(c,ib)*(1.-frac_sno(c)) + alb_snw(fc,ib,kd_oc)*frac_sno(c)
+                   albgri_oc(c,ib) = albsoi(c,ib)*(1.-frac_sno(c)) + alb_snw(fc,ib,ki_oc)*frac_sno(c)
                 endif
 
                 ! dust forcing albedo
-                albgrd_dst(c,ib) = albsod(c,ib)*(1.-frac_sno(c)) + albsnd_dst(c,ib)*frac_sno(c)
-                albgri_dst(c,ib) = albsoi(c,ib)*(1.-frac_sno(c)) + albsni_dst(c,ib)*frac_sno(c)
+                albgrd_dst(c,ib) = albsod(c,ib)*(1.-frac_sno(c)) + alb_snw(fc,ib,kd_dst)*frac_sno(c)
+                albgri_dst(c,ib) = albsoi(c,ib)*(1.-frac_sno(c)) + alb_snw(fc,ib,ki_dst)*frac_sno(c)
 
                 ! pure snow albedo for all-aerosol radiative forcing
-                albgrd_pur(c,ib) = albsod(c,ib)*(1.-frac_sno(c)) + albsnd_pur(c,ib)*frac_sno(c)
-                albgri_pur(c,ib) = albsoi(c,ib)*(1.-frac_sno(c)) + albsni_pur(c,ib)*frac_sno(c)
+                albgrd_pur(c,ib) = albsod(c,ib)*(1.-frac_sno(c)) + alb_snw(fc,ib,kd_pur)*frac_sno(c)
+                albgri_pur(c,ib) = albsoi(c,ib)*(1.-frac_sno(c)) + alb_snw(fc,ib,ki_pur)*frac_sno(c)
              end if
 
              ! also in this loop (but optionally in a different loop for vectorized code)
              !  weight snow layer radiative absorption factors based on snow fraction and soil albedo
              !  (NEEDED FOR ENERGY CONSERVATION)
+             !$acc loop seq
              do i = -nlevsno+1,1,1
               if (subgridflag == 0 .or. col_pp%is_lake(c)) then
                 if (ib == 1) then
-                   flx_absdv(c,i) = flx_absd_snw(c,i,ib)*frac_sno(c) + &
-                        ((1.-frac_sno(c))*(1-albsod(c,ib))*(flx_absd_snw(c,i,ib)/(1.-albsnd(c,ib))))
-                   flx_absiv(c,i) = flx_absi_snw(c,i,ib)*frac_sno(c) + &
-                        ((1.-frac_sno(c))*(1-albsoi(c,ib))*(flx_absi_snw(c,i,ib)/(1.-albsni(c,ib))))
+                   flx_absdv(c,i) = abs_snw(fc,i,ib,1)*frac_sno(c) + &
+                        ((1.-frac_sno(c))*(1-albsod(c,ib))*(abs_snw(fc,i,ib,1)/(1.-alb_snw(fc,ib,kd))))
+                   flx_absiv(c,i) = abs_snw(fc,i,ib,2)*frac_sno(c) + &
+                        ((1.-frac_sno(c))*(1-albsoi(c,ib))*(abs_snw(fc,i,ib,2)/(1.-alb_snw(fc,ib,ki))))
                 elseif (ib == 2) then
-                   flx_absdn(c,i) = flx_absd_snw(c,i,ib)*frac_sno(c) + &
-                        ((1.-frac_sno(c))*(1-albsod(c,ib))*(flx_absd_snw(c,i,ib)/(1.-albsnd(c,ib))))
-                   flx_absin(c,i) = flx_absi_snw(c,i,ib)*frac_sno(c) + &
-                        ((1.-frac_sno(c))*(1-albsoi(c,ib))*(flx_absi_snw(c,i,ib)/(1.-albsni(c,ib))))
+                   flx_absdn(c,i) = abs_snw(fc,i,ib,1)*frac_sno(c) + &
+                        ((1.-frac_sno(c))*(1-albsod(c,ib))*(abs_snw(fc,i,ib,1)/(1.-alb_snw(fc,ib,kd))))
+                   flx_absin(c,i) = abs_snw(fc,i,ib,2)*frac_sno(c) + &
+                        ((1.-frac_sno(c))*(1-albsoi(c,ib))*(abs_snw(fc,i,ib,2)/(1.-alb_snw(fc,ib,ki))))
                 endif
              else
                 if (ib == 1) then
-                   flx_absdv(c,i) = flx_absd_snw(c,i,ib)*(1.-albsnd(c,ib))
-                   flx_absiv(c,i) = flx_absi_snw(c,i,ib)*(1.-albsni(c,ib))
+                   flx_absdv(c,i) = abs_snw(fc,i,ib,1)*(1.-alb_snw(fc,ib,kd))
+                   flx_absiv(c,i) = abs_snw(fc,i,ib,2)*(1.-alb_snw(fc,ib,ki))
                 elseif (ib == 2) then
-                   flx_absdn(c,i) = flx_absd_snw(c,i,ib)*(1.-albsnd(c,ib))
-                   flx_absin(c,i) = flx_absi_snw(c,i,ib)*(1.-albsni(c,ib))
+                   flx_absdn(c,i) = abs_snw(fc,i,ib,1)*(1.-alb_snw(fc,ib,kd))
+                   flx_absin(c,i) = abs_snw(fc,i,ib,2)*(1.-alb_snw(fc,ib,ki))
                 endif
              endif
              enddo
@@ -609,12 +436,13 @@ contains
        ! so that it is not averaged in history buffer (OPTIONAL)
        ! TODO - this is set to 0 not spval - seems wrong since it will be averaged in
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(c)
     do ib = 1, nband
        do fc = 1,num_nourbanc
           c = filter_nourbanc(fc)
              if ((coszen_col(c) > 0._r8) .and. (h2osno(c) > 0._r8)) then
-             albsnd_hst(c,ib) = albsnd(c,ib)
-             albsni_hst(c,ib) = albsni(c,ib)
+             albsnd_hst(c,ib) = alb_snw(fc,ib,kd)
+             albsni_hst(c,ib) = alb_snw(fc,ib,ki)
           else
              albsnd_hst(c,ib) = 0._r8
              albsni_hst(c,ib) = 0._r8
@@ -624,19 +452,27 @@ contains
 
     ! Create solar-vegetated filter for the following calculations
 
+    ! (built on the device; their order is arbitrary, which the per-patch loops below allow)
     num_vegsol = 0
     num_novegsol = 0
+    !$acc parallel loop gang vector default(present) copy(num_vegsol, num_novegsol) private(p, ip)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
           if (coszen_patch(p) > 0._r8) then
              if ((veg_pp%is_on_soil_col(p) .or.  &
                   veg_pp%is_on_crop_col(p)     ) &
                  .and. (elai(p) + esai(p)) > 0._r8) then
-                    num_vegsol = num_vegsol + 1
-                    filter_vegsol(num_vegsol) = p
+                !$acc atomic capture
+                num_vegsol = num_vegsol + 1
+                ip = num_vegsol
+                !$acc end atomic
+                filter_vegsol(ip) = p
              else
+                !$acc atomic capture
                 num_novegsol = num_novegsol + 1
-                filter_novegsol(num_novegsol) = p
+                ip = num_novegsol
+                !$acc end atomic
+                filter_novegsol(ip) = p
              end if
           end if
     end do
@@ -644,6 +480,7 @@ contains
     ! Weight reflectance/transmittance by lai and sai
        ! Only perform on vegetated patches where coszen > 0
 
+    !$acc parallel loop gang vector default(present) private(p)
     do fp = 1,num_vegsol
        p = filter_vegsol(fp)
        wl(p) = elai(p) / max( elai(p)+esai(p), mpe )
@@ -652,6 +489,7 @@ contains
 
     ! rho and tau are not needed if fates is on 
     if (.not. use_fates) then
+       !$acc parallel loop gang vector collapse(2) default(present) private(p)
        do ib = 1, numrad
           do fp = 1,num_vegsol
              p = filter_vegsol(fp)
@@ -686,8 +524,11 @@ contains
     ! nlevcan = 1
 
     dincmax = 0.25_r8
+    !$acc parallel loop gang vector default(present) &
+    !$acc   private(p, dincmax_sum, iv, dinc, laisum, saisum)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
+       err_can(fp) = 0
 
        if (nlevcan == 1) then
           nrad(p) = 1
@@ -699,6 +540,7 @@ contains
              nrad(p) = 0
           else
              dincmax_sum = 0._r8
+             !$acc loop seq
              do iv = 1, nlevcan
                 dincmax_sum = dincmax_sum + dincmax
                 if (((elai(p)+esai(p))-dincmax_sum) > 1.e-06_r8) then
@@ -719,6 +561,7 @@ contains
 
              if (nrad(p) < 4) then
                 nrad(p) = 4
+                !$acc loop seq
                 do iv = 1, nrad(p)
                    tlai_z(p,iv) = elai(p) / nrad(p)
                    tsai_z(p,iv) = esai(p) / nrad(p)
@@ -731,16 +574,13 @@ contains
 
        laisum = 0._r8
        saisum = 0._r8
+       !$acc loop seq
        do iv = 1, nrad(p)
           laisum = laisum + tlai_z(p,iv)
           saisum = saisum + tsai_z(p,iv)
        end do
        if (abs(laisum-elai(p)) > 1.e-06_r8 .or. abs(saisum-esai(p)) > 1.e-06_r8) then
-#ifndef _OPENACC
-          write (iulog,*) 'multi-layer canopy error 01 in SurfaceAlbedo: ',&
-               nrad(p),elai(p),laisum,esai(p),saisum
-          call endrun(decomp_index=p, elmlevel=namep, msg=errmsg(__FILE__, __LINE__))
-#endif
+          err_can(fp) = 1   ! reported after the loop
        end if
 
        ! Repeat to find canopy layers buried by snow
@@ -752,6 +592,7 @@ contains
              ncan(p) = nrad(p)
           else
              dincmax_sum = 0._r8
+             !$acc loop seq
              do iv = nrad(p)+1, nlevcan
                 dincmax_sum = dincmax_sum + dincmax
                 if (((blai(p)+bsai(p))-dincmax_sum) > 1.e-06_r8) then
@@ -773,25 +614,45 @@ contains
 
           laisum = 0._r8
           saisum = 0._r8
+          !$acc loop seq
           do iv = 1, ncan(p)
              laisum = laisum + tlai_z(p,iv)
              saisum = saisum + tsai_z(p,iv)
           end do
           if (abs(laisum-tlai(p)) > 1.e-06_r8 .or. abs(saisum-tsai(p)) > 1.e-06_r8) then
-#ifndef _OPENACC
-             write (iulog,*) 'multi-layer canopy error 02 in SurfaceAlbedo: ',nrad(p),ncan(p)
-             write (iulog,*) tlai(p),elai(p),blai(p),laisum,tsai(p),esai(p),bsai(p),saisum
-             call endrun(decomp_index=p, elmlevel=namep, msg=errmsg(__FILE__, __LINE__))
-#endif
+             if (err_can(fp) == 0) err_can(fp) = 2
           end if
        end if
 
     end do
 
+    ! Canopy layer errors found above: the first in filter order, then abort
+    nbad = 0
+    !$acc parallel loop gang vector default(present) reduction(+:nbad)
+    do fp = 1,num_nourbanp
+       if (err_can(fp) /= 0) nbad = nbad + 1
+    end do
+    if (nbad > 0) then
+       !$acc update self(err_can)
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(surfalb_vars%ncan_patch, surfalb_vars%nrad_patch) if_present
+       do fp = 1,num_nourbanp
+          if (err_can(fp) /= 0) then
+             p = filter_nourbanp(fp)
+             write (iulog,*) 'multi-layer canopy error ', err_can(fp), ' in SurfaceAlbedo (', nbad, ' patches): ', &
+                  nrad(p), ncan(p), tlai(p), elai(p), tsai(p), esai(p)
+             exit
+          end if
+       end do
+       call endrun(decomp_index=p, elmlevel=namep, msg=errmsg(__FILE__, __LINE__))
+    end if
+
     ! Zero fluxes for active canopy layers
 
+    !$acc parallel loop gang vector default(present) private(p, iv)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
+       !$acc loop seq
        do iv = 1, nrad(p)
           fabd_sun_z(p,iv) = 0._r8
           fabd_sha_z(p,iv) = 0._r8
@@ -808,6 +669,7 @@ contains
     ! TwoStream for coszen > 0. So kn must be set here and in TwoStream.
 
     extkn = 0.30_r8
+    !$acc parallel loop gang vector default(present) private(p)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
        if (nlevcan == 1) then
@@ -848,6 +710,7 @@ contains
 
        ! Determine values for non-vegetated patches where coszen > 0
 
+    !$acc parallel loop gang vector collapse(2) default(present) private(p, c)
     do ib = 1,numrad
        do fp = 1,num_novegsol
           p = filter_novegsol(fp)
@@ -873,12 +736,28 @@ contains
 
     end associate
 
+   !$acc exit data delete(filter_vegsol, filter_novegsol, coszen_patch)
+   !$acc exit data delete(wl, ws, blai, bsai, coszen_gcell, cosinc_gcell, cosinc_patch, rho, tau, &
+   !$acc&   case_slr, case_aer, alb_snw, abs_snw, err_can)
+   contains
+
+     subroutine add_case(slr, aer, k)
+       ! append a SNICAR case; k is its index
+       integer , intent(in)  :: slr
+       logical , intent(in)  :: aer(:)
+       integer , intent(out) :: k
+       ncase = ncase + 1
+       k = ncase
+       case_slr(k) = slr
+       case_aer(:,k) = aer(:)
+     end subroutine add_case
+
    end subroutine SurfaceAlbedo
 
    !-----------------------------------------------------------------------
    subroutine SoilAlbedo (bounds, &
         num_nourbanc, filter_nourbanc, &
-        coszen, albsnd, albsni, &
+        coszen, &
         lakestate_vars, surfalb_vars)
      !
      ! !DESCRIPTION:
@@ -896,8 +775,6 @@ contains
      integer , intent(in) :: num_nourbanc               ! number of columns in non-urban points in column filter
      integer , intent(in) :: filter_nourbanc(:)          ! column filter for non-urban points
      real(r8), intent(in) :: coszen( bounds%begc: )      ! cos solar zenith angle next time step [col]
-     real(r8), intent(in) :: albsnd( bounds%begc: , 1: ) ! snow albedo (direct) [col, numrad]
-     real(r8), intent(in) :: albsni( bounds%begc: , 1: ) ! snow albedo (diffuse) [col, numrad]
      type(lakestate_type)   , intent(in)    :: lakestate_vars
      type(surfalb_type)     , intent(inout) :: surfalb_vars
      !
@@ -931,6 +808,8 @@ contains
 
     ! Compute soil albedos
 
+    !$acc parallel loop gang vector collapse(2) default(present) &
+    !$acc   private(c, g, t, gi, mi, pi, l, inc, soilcol, sicefr)
     do ib = 1, nband
        do fc = 1,num_nourbanc
           c = filter_nourbanc(fc)
@@ -1084,6 +963,8 @@ contains
 
      ! Enforce expected array sizes
 
+     ! spel acc-locals: device storage of the local work arrays
+     !$acc enter data create(chil, gdir, twostext, avmu, omega, temp0, temp2, elaislope, esaislope)
      associate(&
           xl            =>    veg_vp%xl                           , & ! Input:  [real(r8) (:)   ]  ecophys const - leaf/stem orientation index
 
@@ -1131,6 +1012,8 @@ contains
     ! Calculate two-stream parameters that are independent of waveband:
     ! chil, gdir, twostext, avmu, and temp0 and temp2 (used for asu)
 
+    !$acc parallel loop gang vector default(present) &
+    !$acc   private(p, g, slope_rad, cosz, phi1, phi2, temp1)
     do fp = 1,num_vegsol
        p = filter_vegsol(fp)
        g = veg_pp%gridcell(p)
@@ -1190,8 +1073,18 @@ contains
    ! fabi_sun_z - absorbed sunlit leaf diffuse PAR (per unit sunlit lai+sai) for each canopy layer
    ! fabi_sha_z - absorbed shaded leaf diffuse PAR (per unit shaded lai+sai) for each canopy layer
 
-    do ib = 1, numrad
-       do fp = 1,num_vegsol
+    !$acc parallel loop gang vector default(present) &
+    !$acc   private(fp, p, c, cosz, omegal, asu, betadl, betail, tmp0, tmp1) &
+    !$acc   private(tmp2, betad, betai, b, c1, d, f, h, sigma, p1, p2, p3, p4) &
+    !$acc   private(t1, s1, s2, u1, u2, u3, tmp3, d1, tmp4, tmp5, d2, h1, tmp6) &
+    !$acc   private(tmp7, h2, h3, h4, tmp8, tmp9, h5, h6, fd_prime, albd_adjust) &
+    !$acc   private(a1, a2, h7, h8, h9, h10, fi_prime, albi_adjust, laisum) &
+    !$acc   private(extkn, extkb, iv, v, dv, u, du, dh2, dh3, dh5, dh6, da1, da2) &
+    !$acc   private(d_ftid, d_fabd, d_fabd_sun, d_fabd_sha, dh7, dh8, dh9, dh10) &
+    !$acc   private(d_ftii, d_fabi, d_fabi_sun, d_fabi_sha)
+    do fp = 1,num_vegsol
+       !$acc loop seq
+       do ib = 1, numrad
           p = filter_vegsol(fp)
           c = veg_pp%column(p)
 
@@ -1393,6 +1286,7 @@ contains
                 end if
 
              else if (nlevcan > 1) then
+                !$acc loop seq
                 do iv = 1, nrad(p)
 
                 ! Cumulative lai+sai at center of layer
@@ -1571,11 +1465,12 @@ contains
              end if
           end if
 
-       end do   ! end of pft loop
-     end do   ! end of radiation band loop
+       end do   ! end of radiation band loop
+     end do   ! end of pft loop
 
      end associate
 
+     !$acc exit data delete(chil, gdir, twostext, avmu, omega, temp0, temp2, elaislope, esaislope)
     end subroutine TwoStream
     
 !----------------------------------------------------------------------
@@ -1702,6 +1597,11 @@ contains
 
      next_tod = 86400._r8 * (nextsw_cday - int(nextsw_cday))
 
+     !$acc data copy(coeff_dif, coeff_dir, coeff_rdif, coeff_rdir)
+     !$acc parallel loop gang vector default(present) &
+     !$acc   private(p, g, cosz, lon_180, local_timeofday, azi_angle, sinz) &
+     !$acc   private(solar_inc, izen, dzen1, dzen2, ftemp1, ftemp2, ib, fd_prime) &
+     !$acc   private(fi_prime, albd_adjust, albi_adjust)
      do fp = 1,num_pft
         p = filter_pft(fp)
         g = pgridcell(p)
@@ -1775,6 +1675,7 @@ contains
             f_rdif(p,1:numrad) = ftemp2 * dzen1 + ftemp1 * dzen2
             
             if(.not. is_veg) then
+               !$acc loop seq
                do ib = 1, numrad
                  f_rdir(p,ib) = f_rdir(p,ib) * (albd(p,ib) / 0.1_r8)
                  f_rdif(p,ib) = f_rdif(p,ib) * (albi(p,ib) / 0.1_r8)
@@ -1810,6 +1711,7 @@ contains
             
          endif
       enddo
+     !$acc end data
 	
      end associate
 

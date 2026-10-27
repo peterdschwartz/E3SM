@@ -2195,7 +2195,11 @@ contains
     integer  :: fp              ! filter indices
     real(r8) :: maxdepth        ! depth to integrate soil variables
     !-----------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%deadcroot, this%core%deadstem, this%core%froot, this%core%grain, &
+    !$acc&   this%core%leaf, this%core%livecroot, this%core%livestem) if_present
     call vegetation_nutrient_state_summary(this%core, num_soilp, filter_soilp)
+    !$acc update device(this%core%dispveg) if_present
     associate(&
       totpftc_patch  => this%core%totpft         , &
       totpftc_col    => col_cs%core%totpft, &
@@ -2209,6 +2213,7 @@ contains
 
     if (use_fates) return
 
+    !$acc parallel loop gang vector default(present) private(p)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -2611,7 +2616,11 @@ contains
     integer  :: c,p             ! indices
     integer  :: fp              ! filter indices
     !-----------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%deadcroot, this%core%deadstem, this%core%froot, this%core%grain, &
+    !$acc&   this%core%leaf, this%core%livecroot, this%core%livestem) if_present
     call vegetation_nutrient_state_summary(this%core, num_soilp, filter_soilp)
+    !$acc update device(this%core%dispveg) if_present
     associate( &
      plant_n_buffer_patch  => this%plant_n_buffer  , &
      plant_n_buffer_col    => col_ns%plant_n_buffer , &
@@ -2623,6 +2632,7 @@ contains
      cropseedn_deficit_col    => col_ns%core%cropseed_deficit &
       )
 
+    !$acc parallel loop gang vector default(present) private(p)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -3104,7 +3114,11 @@ contains
     integer  :: p        ! indices
     integer  :: fp       ! lake filter indices
     !-----------------------------------------------------------------------
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(this%core%deadcroot, this%core%deadstem, this%core%froot, this%core%grain, &
+    !$acc&   this%core%leaf, this%core%livecroot, this%core%livestem) if_present
     call vegetation_nutrient_state_summary(this%core, num_soilp, filter_soilp)
+    !$acc update device(this%core%dispveg) if_present
     associate( &
      totvegp_patch  => this%core%totveg   , &
      totvegp_col    => col_ps%core%totveg, &
@@ -3113,6 +3127,7 @@ contains
      cropseedp_deficit_patch  => this%core%cropseed_deficit , &
      cropseedp_deficit_col    => col_ps%core%cropseed_deficit &
       )
+    !$acc parallel loop gang vector default(present) private(p)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 

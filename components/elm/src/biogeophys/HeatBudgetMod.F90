@@ -477,6 +477,7 @@ contains
 
     end associate
 
+    !$acc data copy(phase_col)
     call c2g(bounds, phase_col(bounds%begc:bounds%endc), &
          grc_ef%heat_phase_corr(bounds%begg:bounds%endg), &
          c2l_scale_type='unity', l2g_scale_type='unity')
@@ -484,6 +485,7 @@ contains
     ! Diagnose all non-temperature state changes after subgrid aggregation.
     ! Doing this at gridcell level gives every term identical spatial
     ! support and also handles snow layers that appear or disappear.
+    !$acc end data
     do c = bounds%begg, bounds%endg
        if (grc_es%beg_hc(c) /= spval .and. grc_es%end_hc(c) /= spval &
             .and. grc_ef%heat_into_grnd(c) /= spval .and. grc_ef%heat_phase_corr(c) /= spval) then

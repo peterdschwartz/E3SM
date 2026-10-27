@@ -577,6 +577,8 @@ module elm_varctl
 
   ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(fan_to_bgc_crop, fan_to_bgc_veg)
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(use_finetop_rad, use_top_solar_rad)
 contains
 
   !---------------------------------------------------------------------------
