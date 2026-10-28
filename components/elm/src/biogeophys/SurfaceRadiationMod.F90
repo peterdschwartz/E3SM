@@ -487,10 +487,13 @@ contains
          !$acc sum4)
 
 
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(top_af%solad, top_af%solad_pp, top_af%solai, top_af%solai_pp) if_present
        if (.not. use_finetop_rad) then
           forc_solad_pp(:,:) = forc_solad(:,:)
           forc_solai_pp(:,:) = forc_solai(:,:)
        end if
+       !$acc update device(top_af%solad_pp, top_af%solai_pp) if_present
 
        ! Initialize fluxes
        !$acc parallel loop independent gang vector default(present) private(p)

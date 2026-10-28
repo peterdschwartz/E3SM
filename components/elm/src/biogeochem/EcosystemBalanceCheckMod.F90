@@ -72,6 +72,8 @@ module EcosystemBalanceCheckMod
   public :: EndGridPBalanceAfterDynSubgridDriver
   !-----------------------------------------------------------------------
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(balance_check_tolerance)
 contains
 
   !-----------------------------------------------------------------------
@@ -207,13 +209,7 @@ contains
     integer  :: nstep
     !-----------------------------------------------------------------------
 
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(col_cf%core%external_to_decomp_delta, col_cf%core%fire_loss, &
-    !$acc&   col_cf%core%hrv_deadstem_to_prod10, col_cf%core%hrv_deadstem_to_prod100, &
-    !$acc&   col_cf%core%prod100_loss, col_cf%core%prod10_loss, col_cf%core%prod1_loss, &
-    !$acc&   col_cf%core%som_leached, col_cf%core%som_yield, col_cf%er, col_cf%gpp, col_cf%hr, &
-    !$acc&   col_cf%hrv_xsmrpool_to_atm, col_cf%litfall, col_cs%core%balance_beg, col_cs%core%totcol, &
-    !$acc&   col_cs%core%totsom) if_present
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     associate(                                                                           &
          totcolc                   =>    col_cs%core%totcol                  , & ! Input:  [real(r8) (:) ]  (gC/m2)   total column carbon, incl veg and cpool
          gpp                       =>    col_cf%gpp                       , & ! Input:  [real(r8) (:) ]  (gC/m2/s) gross primary production
@@ -242,6 +238,8 @@ contains
 
       err_found = .false.
       ! column loop
+      spel_dc_1 = 0  ! spel defer-checks
+      !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_1)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
 
@@ -255,9 +253,9 @@ contains
          ! fragmented litter) and wood product pools, match the fluxes in and out of fates
          if(use_fates) then
 
-            col_cinputs  = litfall(c) + hrv_deadstemc_to_prod10c(c) + hrv_deadstemc_to_prod100c(c)
+            col_cinputs(c) = litfall(c) + hrv_deadstemc_to_prod10c(c) + hrv_deadstemc_to_prod100c(c)
 
-            col_coutputs = er(c)
+            col_coutputs(c) = er(c)
 
          else
 
@@ -295,15 +293,23 @@ contains
          end if
 
          ! check for significant errors
-         if (abs(col_errcb(c)) > balance_check_tolerance) then
+         if (abs(col_errcb(c)) > balance_check_tolerance) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
+      end do ! end of columns loop
+      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+         fc = 1 + spel_dc_1 - 1
+         c = filter_soilc(fc)
             err_found = .true.
             err_index = c
-         end if
-      end do ! end of columns loop
+      end if
       
       ! Consider adapting this check to be fates compliant (rgk 04-2017)
 #ifndef _OPENACC
        if (err_found .and. nstep > 1) then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(col_cf%core%external_to_decomp_delta, col_cf%core%fire_loss, col_cf%core%inputs, &
+          !$acc&   col_cf%core%outputs, col_cf%core%som_leached, col_cf%core%som_yield, col_cf%er, col_cf%hr, &
+          !$acc&   col_cf%hrv_xsmrpool_to_atm, col_cs%core%balance_beg, col_cs%core%balance_end, &
+          !$acc&   col_cs%core%balance_err, col_cs%core%totsom) if_present
           c = err_index
           write(iulog,*)'column cbalance error = ', col_errcb(c), c
           write(iulog,*)'Latdeg,Londeg         = ',grc_pp%latdeg(col_pp%gridcell(c)),grc_pp%londeg(col_pp%gridcell(c))
@@ -339,8 +345,6 @@ contains
 #endif
 
     end associate
-    !$acc update device(col_cf%core%inputs, col_cf%core%outputs, col_cs%core%balance_end, &
-    !$acc&   col_cs%core%balance_err) if_present
 
   end subroutine ColCBalanceCheck
 
@@ -373,13 +377,7 @@ contains
     integer :: nstep
     !-----------------------------------------------------------------------
 
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(col_nf%core%external_to_decomp_delta, col_nf%core%fire_loss, &
-    !$acc&   col_nf%core%plant_to_litter_flux, col_nf%core%prod100_loss, col_nf%core%prod10_loss, &
-    !$acc&   col_nf%core%prod1_loss, col_nf%core%som_leached, col_nf%core%som_yield, col_nf%denit, &
-    !$acc&   col_nf%f_n2o_nit, col_nf%mineral%smin_leached, col_nf%mineral%supplement_to_smin, &
-    !$acc&   col_nf%smin_no3_leached, col_nf%smin_no3_runoff, col_ns%core%balance_beg, &
-    !$acc&   col_ns%core%totcol) if_present
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     associate(                                                                             &
          totcoln                   =>    col_ns%core%totcol                  , & ! Input:  [real(r8) (:)]  (gN/m2) total column nitrogen, incl veg
          ndep_to_sminn             =>    col_nf%mineral%dep_to_smin             , & ! Input:  [real(r8) (:)]  atmospheric N deposition to soil mineral N (gN/m2/s)
@@ -421,6 +419,8 @@ contains
 
       err_found = .false.
       ! column loop
+      spel_dc_1 = 0  ! spel defer-checks
+      !$acc parallel loop gang vector default(present) private(c, p) reduction(max:spel_dc_1)
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -461,6 +461,7 @@ contains
 
             if (use_fan) col_ninputs(c) = col_ninputs(c) + fan_totnin(c)
 
+            !$acc loop seq
             do p = col_pp%pfti(c), col_pp%pftf(c)
                if (veg_pp%active(p) .and. (veg_pp%itype(p) .ne. noveg)) then
                   col_ninputs(c) = col_ninputs(c) + supplement_to_plantn(p) * veg_pp%wtcol(p)
@@ -517,14 +518,24 @@ contains
             ! here is '-' adjustment. It says that the adding to PF decomp n pools was less.
          end if
 
-         if (abs(col_errnb(c)) > balance_check_tolerance) then
+         if (abs(col_errnb(c)) > balance_check_tolerance) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
+      end do ! end of columns loop
+      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+         fc = 1 + spel_dc_1 - 1
+         c=filter_soilc(fc)
             err_found = .true.
             err_index = c
-         end if
-      end do ! end of columns loop
+      end if
 
       if (err_found .and. nstep > 1) then
 #ifndef _OPENACC
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_nf%core%external_to_decomp_delta, col_nf%core%fire_loss, col_nf%core%inputs, &
+         !$acc&   col_nf%core%outputs, col_nf%core%plant_to_litter_flux, col_nf%core%som_yield, col_nf%denit, &
+         !$acc&   col_nf%f_n2o_nit, col_nf%fert_to_sminn, col_nf%mineral%dep_to_smin, &
+         !$acc&   col_nf%mineral%supplement_to_smin, col_nf%nfix_to_sminn, col_nf%smin_no3_leached, &
+         !$acc&   col_nf%smin_no3_runoff, col_nf%soyfixn_to_sminn, col_nf%uptake%smin_to_plant, &
+         !$acc&   col_ns%core%balance_beg, col_ns%core%balance_end, col_ns%core%balance_err) if_present
          c = err_index
          write(iulog,*)'column nbalance error = ',col_errnb(c), c, get_nstep()
          write(iulog,*)'Latdeg,Londeg         = ',grc_pp%latdeg(col_pp%gridcell(c)),grc_pp%londeg(col_pp%gridcell(c))
@@ -562,8 +573,6 @@ contains
       end if
 
     end associate
-    !$acc update device(col_nf%core%inputs, col_nf%core%outputs, col_ns%core%balance_end, &
-    !$acc&   col_ns%core%balance_err) if_present
 
   end subroutine ColNBalanceCheck
 
@@ -603,6 +612,7 @@ contains
 
     ! spel acc-locals: device storage of the local work arrays
     ! spel acc-locals: device storage of the local work arrays
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     !$acc enter data create(leafp_to_litter_col, frootp_to_litter_col)
     !$acc enter data create(flux_mineralization_col)
     associate(                                                                            &
@@ -696,13 +706,8 @@ contains
 
 
       ! column loop
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(col_pf%core%fire_loss, col_pf%core%plant_to_litter_flux, col_pf%core%prod100_loss, &
-      !$acc&   col_pf%core%prod10_loss, col_pf%core%prod1_loss, col_pf%core%som_yield, col_pf%labilep_yield, &
-      !$acc&   col_pf%mineral%smin_leached, col_pf%mineral%supplement_to_smin, col_pf%primp_to_labilep, &
-      !$acc&   col_pf%secondp_to_occlp, col_pf%secondp_yield, col_ps%core%balance_beg, col_ps%core%totcol, &
-      !$acc&   col_ps%labilep_vr_cur, col_ps%labilep_vr_prev, col_ps%secondp_vr_cur, col_ps%secondp_vr_prev, &
-      !$acc&   col_ps%solutionp_vr_cur, col_ps%solutionp_vr_prev) if_present
+      spel_dc_1 = 0  ! spel defer-checks
+      !$acc parallel loop gang vector default(present) private(c, p, j) reduction(max:spel_dc_1)
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -726,6 +731,7 @@ contains
             col_pinputs(c) = col_pinputs(c) + plant_to_litter_pflux(c)
 
          else
+            !$acc loop seq
             do p = col_pp%pfti(c), col_pp%pftf(c)
                if (veg_pp%active(p) .and. (veg_pp%itype(p) .ne. noveg)) then
                   col_pinputs(c) = col_pinputs(c) + supplement_to_plantp(p) * veg_pp%wtcol(p)
@@ -746,6 +752,7 @@ contains
          end if
 
          if ((nu_com .ne. 'RD') .and. ECA_Pconst_RGspin) then
+            !$acc loop seq
             do j = 1, nlevdecomp
                col_poutputs(c) = col_poutputs(c) + &
                   (col_ps%solutionp_vr_cur(c,j) -  col_ps%solutionp_vr_prev(c,j)  + &
@@ -767,22 +774,25 @@ contains
          col_errpb(c) = (col_pinputs(c) - col_poutputs(c))*dt - &
               (col_endpb(c) - col_begpb(c))
 
-         if (abs(col_errpb(c)) > balance_check_tolerance) then
+         if (abs(col_errpb(c)) > balance_check_tolerance) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
+      end do ! end of columns loop
+      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+         fc = 1 + spel_dc_1 - 1
+         c=filter_soilc(fc)
             err_found = .true.
             err_index = c
-         end if
-      end do ! end of columns loop
-      !$acc update device(col_pf%core%inputs, col_pf%core%outputs, col_ps%core%balance_end, &
-      !$acc&   col_ps%core%balance_err) if_present
+      end if
 
 
       if (err_found .and. nstep>1) then
 #ifndef _OPENACC
          ! spel acc-sync: device data this host code uses
-         !$acc update self(col_pf%core%plant_to_litter_flux, col_pf%core%som_yield, col_pf%labilep_yield, &
-         !$acc&   col_pf%mineral%smin_leached, col_pf%mineral%supplement_to_smin, col_pf%occlp_yield, &
-         !$acc&   col_pf%primp_to_labilep, col_pf%primp_yield, col_pf%secondp_to_occlp, col_pf%secondp_yield, &
-         !$acc&   col_ps%core%balance_beg) if_present
+         !$acc update self(col_pf%biochem_pmin_to_plant, col_pf%core%inputs, col_pf%core%outputs, &
+         !$acc&   col_pf%core%plant_to_litter_flux, col_pf%core%som_yield, col_pf%fert_p_to_sminp, &
+         !$acc&   col_pf%labilep_yield, col_pf%mineral%smin_leached, col_pf%mineral%supplement_to_smin, &
+         !$acc&   col_pf%occlp_yield, col_pf%primp_to_labilep, col_pf%primp_yield, col_pf%secondp_to_occlp, &
+         !$acc&   col_pf%secondp_yield, col_pf%uptake%smin_to_plant, col_ps%core%balance_beg, &
+         !$acc&   col_ps%core%balance_end, col_ps%core%balance_err) if_present
          c = err_index
          write(iulog,*)'column pbalance error = ', col_errpb(c), c
          write(iulog,*)'Latdeg,Londeg=',grc_pp%latdeg(col_pp%gridcell(c)),grc_pp%londeg(col_pp%gridcell(c))
@@ -904,6 +914,7 @@ contains
     real(r8)            :: dt
     !-----------------------------------------------------------------------
 
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     associate(                                                       &
          col_totc                  => col_cs%core%totcol               , & ! Input:  [real(r8) (:) ] (gC/m2) total column carbon, incl veg and cpool
          col_totpftc               => col_cs%core%totpft               , & ! Input:  [real(r8) (:) ] (gC/m2) patch-level carbon aggregated to column level, incl veg and cpool
@@ -1008,16 +1019,11 @@ contains
              c2l_scale_type = 'unity', l2g_scale_type = 'unity')
       end if 
          
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(grc_cf%core%inputs, grc_cf%er, grc_cf%fire_closs, grc_cf%gpp, &
-      !$acc&   grc_cf%hrv_deadstemc_to_prod100c, grc_cf%hrv_deadstemc_to_prod10c, grc_cf%hrv_xsmrpool_to_atm, &
-      !$acc&   grc_cf%prod100_loss, grc_cf%prod10_loss, grc_cf%prod1_loss, grc_cf%som_c_leached, &
-      !$acc&   grc_cf%somc_yield, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, grc_cs%end_cwdc, &
-      !$acc&   grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
-      !$acc&   grc_cs%end_totsomc) if_present
       dt = real( get_step_size(), r8 )
       nstep = get_nstep()
 
+      spel_dc_1 = 0  ! spel defer-checks
+      !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
       do g = bounds%begg, bounds%endg
 
          if (.not. use_fates) then 
@@ -1036,7 +1042,18 @@ contains
 
          grc_errcb(g) = (grc_cinputs(g) - grc_coutputs(g))*dt - (end_totc(g) - beg_totc(g))
 
-         if (abs(grc_errcb(g)) > balance_check_tolerance .and. nstep > 1) then
+         if (abs(grc_errcb(g)) > balance_check_tolerance .and. nstep > 1) spel_dc_1 = max(spel_dc_1, g - (bounds%begg) + 1)  ! spel defer-checks
+      end do
+      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(grc_cf%core%inputs, grc_cf%core%outputs, grc_cf%er, grc_cf%fire_closs, &
+         !$acc&   grc_cf%hrv_xsmrpool_to_atm, grc_cf%prod100_loss, grc_cf%prod10_loss, grc_cf%prod1_loss, &
+         !$acc&   grc_cf%som_c_leached, grc_cf%somc_yield, grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, &
+         !$acc&   grc_cs%beg_cwdc, grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, &
+         !$acc&   grc_cs%beg_totprodc, grc_cs%beg_totsomc, grc_cs%core%balance_err, &
+         !$acc&   grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, grc_cs%end_cwdc, grc_cs%end_totc, &
+         !$acc&   grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, grc_cs%end_totsomc) if_present
+         g = bounds%begg + spel_dc_1 - 1
             write(iulog,*)'grid cbalance error = ', grc_errcb(g), g
             write(iulog,*)'Latdeg,Londeg       = ', grc_pp%latdeg(g), grc_pp%londeg(g)
             write(iulog,*)'input               = ', grc_cinputs(g)*dt
@@ -1068,9 +1085,7 @@ contains
             write(iulog,*)'Delta crop deficit  = ', end_cropseedc_deficit(g) - beg_cropseedc_deficit(g)
 
             call endrun(msg=errMsg(__FILE__, __LINE__))
-         end if
-      end do
-      !$acc update device(grc_cf%core%inputs, grc_cf%core%outputs, grc_cs%core%balance_err) if_present
+      end if
 
     end associate
 

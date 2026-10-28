@@ -722,7 +722,8 @@ contains
 
                 ! sum up biochem_pmin_to_plant
                 ! spel acc-sync: device data this host code uses
-                !$acc update self(col_pf%biochem_pmin_to_plant, veg_pf%biochem_pmin_to_plant) if_present
+                !$acc update self(col_pf%biochem_pmin_to_plant, col_pp%dz, &
+                !$acc&   veg_pf%biochem_pmin_to_plant) if_present
                 do p = col_pp%pfti(c), col_pp%pftf(c)
                     if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
                         !biochem_pmin_to_plant_patch(p) = 0._r8

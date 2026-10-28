@@ -244,11 +244,14 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
 
       transA = transpose(A)
 
+      !$acc data copy(transa)
+      !$acc parallel loop gang vector default(present)
       DO COL = START, END_
 
         RES(COL) = DOT_PRODUCT(transA(start:end_,col),X(start:end_))
 
       END DO
+      !$acc end data
 
     end subroutine matvec_acc
 

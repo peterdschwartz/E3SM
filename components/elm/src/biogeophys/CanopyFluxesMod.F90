@@ -137,6 +137,8 @@ contains
     use SoilWaterRetentionCurveMod, only : soil_water_retention_curve_type
     use SurfaceResistanceMod, only : getlblcef
     use PhotosynthesisType, only : photosyns_vars_TimeStepInit
+    use elm_varctl, only : carbon_only  ! spel acc-sync
+    use vegetationdatatype, only : veg_ns, veg_ps  ! spel acc-sync
     !
     ! !ARGUMENTS:
     type(bounds_type)         , intent(in)    :: bounds
@@ -286,9 +288,15 @@ contains
     ! iter_filterp/iter_filter_map are compacted (fn shrinks) but the local arrays are not
     ! moved, so iter_filter_map must be used to address them.
     integer :: iter_filterp(num_nolu_vegp), iter_filter_map(num_nolu_vegp)  ! filter for iteration loop
+    integer :: next_filterp(num_nolu_vegp), next_filter_map(num_nolu_vegp)  ! the compacted filter, built in parallel
+    integer :: k                                                            ! entry in the compacted filter
+    integer :: fn_next                                                      ! count of the compacted filter
+    logical :: compact                                                      ! this iteration tests convergence
     integer :: active_index                                                ! position within the compacted iteration filter
     !------------------------------------------------------------------------------
 
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(filterc_tmp)
     associate(                                                               &
          snl                  => col_pp%snl                                   , & ! Input:  [integer  (:)   ]  number of snow layers
          dayl                 => grc_pp%dayl                                  , & ! Input:  [real(r8) (:)   ]  daylength (s)
@@ -470,10 +478,11 @@ contains
       call photosyns_vars_TimeStepInit(photosyns_vars,bounds)
 
       deg2rad = SHR_CONST_PI/180._r8
+      !$acc exit data delete(filterc_tmp)
       if(num_nolu_vegp == 0) return
       !$acc enter data create(del(:), efeb(:), wtlq0(:),wtalq(:), &
       !$acc    wtgq(:), wtaq0(:), obuold(:),dayl_factor(:),zldis(:) ) 
-      !$acc enter data create(iter_filterp(:), iter_filter_map(:))
+      !$acc enter data create(iter_filterp(:), iter_filter_map(:), next_filterp(:), next_filter_map(:))
 
       ! Initialize
       !$acc parallel loop independent gang vector private(p) default(present) present(btran(:), btran2(:))
@@ -540,6 +549,7 @@ contains
 
       ! set up perchroot options
       call set_perchroot_opt(perchroot, perchroot_alt)
+      !$acc update device(perchroot, perchroot_alt) if_present
       ! --------------------------------------------------------------------------
       ! if this is a FATES simulation
       ! ask fates to calculate btran functions and distribution of uptake
@@ -552,6 +562,7 @@ contains
       ! values require knowledge of the belowground root structure.
       ! --------------------------------------------------------------------------
       if(use_fates)then
+         !$acc parallel loop gang vector default(present)
          do fp = 1, fn
             filterc_tmp(fp) = veg_pp%column(filter_nolu_vegp(fp))
          end do
@@ -672,7 +683,7 @@ contains
 
       ! Set counter for leaf temperature iteration (itlef)
       itlef = 1
-      !$acc enter data copyin(itlef) create(temp1(:), temp2(:),temp12m(:),&
+      !$acc enter data create(temp1(:), temp2(:),temp12m(:),&
       !$acc    temp22m(:),ustar(:),rah(:,:),raw(:,:), uaf(:),rb(:), &
       !$acc     tlbef(:), del(:),del2(:),svpts(:),eah(:), dt_veg(:),wtg(:), &
       !$acc     wtl0(:), wtal(:), efe(:), dele(:),fm(:))
@@ -680,7 +691,6 @@ contains
       ! Begin stability iteration
       call t_startf('can_iter')
       ITERATION : do while (itlef <= itmax .and. fn > 0)
-        !$acc update device(itlef)  
          call FrictionVelocity (begp, endp, fn, iter_filterp, iter_filter_map, num_nolu_vegp, &
               displa(begp:endp), z0mv(begp:endp), z0hv(begp:endp), z0qv(begp:endp), &
               obu(1:num_nolu_vegp), itlef, ur(1:num_nolu_vegp), um(1:num_nolu_vegp), ugust_total(1:num_nolu_vegp), ustar(1:num_nolu_vegp), &
@@ -798,12 +808,14 @@ contains
          else ! not use_fates
 
             if ( use_hydrstress ) then
+               !$acc data copy(bsha, bsun)
                call PhotosynthesisHydraulicStress (bounds, fn, iter_filterp, &
                     svpts(begp:endp), eah(begp:endp), o2(begp:endp), co2(begp:endp), rb(begp:endp), bsun(begp:endp), &
                     bsha(begp:endp), btran(begp:endp), dayl_factor(begp:endp), &
                     qsatl(begp:endp), qaf(begp:endp),     &
                      soilstate_vars, surfalb_vars, solarabs_vars,    &
                     canopystate_vars, photosyns_vars)
+               !$acc end data
             else
               call Photosynthesis(bounds, fn, iter_filterp, iter_filter_map, num_nolu_vegp, &
                    svpts(1:num_nolu_vegp), eah(1:num_nolu_vegp), o2(1:num_nolu_vegp), &
@@ -842,7 +854,11 @@ contains
 
          end if ! end of if use_fates
 
-         !$acc parallel loop independent gang vector default(present) private(p,filter_index,deldT) present(laisun(:),&
+         ! convergence test for the iteration after this one, done per patch at the end of the kernel
+         compact = itlef + 1 > itmin
+         fn_next = 0
+         !$acc parallel loop independent gang vector default(present) private(p,filter_index,deldT,k) copy(fn_next) &
+         !$acc  present(laisun(:),&
          !$acc  thm(:), canopy_cond(:),temp2(:), frac_veg_nosno(:), esai(:), fdry(:), wta0(:), h2ocan(:), &
          !$acc  laisha(:),rssha(:),btran(:), fwet(:), qflx_evap_veg(:), qflx_tran_veg(:),sabv(:), eflx_sh_veg(:) )
          do active_index = 1, fn
@@ -1058,40 +1074,36 @@ contains
             if (nmozsgn(filter_index) >= 4) obu(filter_index) = zldis(filter_index)/(-0.01_r8)
             obuold(filter_index) = obu(filter_index)
 
-         end do   ! end of filtered pft loop
+            !laminar boundary resistance for h2o over leaf, should I make this consistent for latent heat calculation?
+            lbl_rsc_h2o(p) = getlblcef(forc_rho(t),t_veg(p))*uaf(filter_index)/(uaf(filter_index)**2._r8+1.e-10_r8)
 
-         !$acc parallel loop independent gang vector default(present) private(p,filter_index,t)
-         do active_index = 1, fn
-           p = iter_filterp(active_index)
-           filter_index = iter_filter_map(active_index)
-           t = veg_pp%topounit(p)
-           !laminar boundary resistance for h2o over leaf, should I make this consistent for latent heat calculation?
-           lbl_rsc_h2o(p) = getlblcef(forc_rho(t),t_veg(p))*uaf(filter_index)/(uaf(filter_index)**2._r8+1.e-10_r8)   
-         enddo
-
-         ! Test for convergence.
-         ! Compact iter_filterp/iter_filter_map in place, keeping only the patches that have
-         ! NOT yet converged; fn shrinks to the new active count. This loop has a sequential
-         ! write-index dependency (fn_new), so it must run in order.
-         itlef = itlef+1
-         if (itlef > itmin) then
-            fnold = fn
-            fn = 0
-            !$acc parallel loop seq default(present) private(p,filter_index) copy(fn) present(det(1:fnold), dele(1:fnold))
-            do active_index = 1, fnold
-               p = iter_filterp(active_index)
-               filter_index = iter_filter_map(active_index)
-               num_iter(p) = real(itlef,r8)
+            ! Test for convergence (the patches that have NOT yet converged form the filter of
+            ! the next iteration; the order of that filter doesn't matter)
+            if (compact) then
+               num_iter(p) = real(itlef+1,r8)
                dele(filter_index) = abs(efe(filter_index) - efeb(filter_index))
                efeb(filter_index) = efe(filter_index)
                det(filter_index)  = max(del(filter_index),del2(filter_index))
                if (.not. (det(filter_index) < dtmin .and. dele(filter_index) < dlemin) .or. &
                     (implicit_stress .and. abs(tau_diff(filter_index)) >= dtaumin)) then
-                  ! still unconverged: keep it in the compacted filter for the next iteration
-                  fn = fn + 1
-                  iter_filterp(fn)     = p
-                  iter_filter_map(fn)  = filter_index
+                  !$acc atomic capture
+                  fn_next = fn_next + 1
+                  k = fn_next
+                  !$acc end atomic
+                  next_filterp(k)     = p
+                  next_filter_map(k)  = filter_index
                end if
+            end if
+
+         end do   ! end of filtered pft loop
+
+         itlef = itlef+1
+         if (itlef > itmin) then
+            fn = fn_next
+            !$acc parallel loop gang vector default(present)
+            do active_index = 1, fn
+               iter_filterp(active_index)    = next_filterp(active_index)
+               iter_filter_map(active_index) = next_filter_map(active_index)
             end do
          end if
       end do ITERATION     ! End stability iteration
@@ -1250,7 +1262,7 @@ contains
       end if
       !$acc exit data delete(del(:), efeb(:), wtlq0(:),wtalq(:), &
       !$acc  wtgq(:), wtaq0(:), obuold(:),dayl_factor(:) , &
-      !$acc  iter_filterp(:), iter_filter_map(:), zldis(:), &
+      !$acc  iter_filterp(:), iter_filter_map(:), next_filterp(:), next_filter_map(:), zldis(:), &
       !$acc  air(:),bir(:), cir(:), co2(:),o2(:),&
       !$acc  nmozsgn(:), taf(:),qaf(:), ur(:),dth(:),dqh(:),delq(:), &
       !$acc  dthv(:), obu(:),el(:),qsatl(:),qsatldT(:), &
@@ -1260,9 +1272,9 @@ contains
       !$acc  wtal(:), wtl0(:), efe(:), det(:), dele(:), fm(:), ugust_total(:), &
       !$acc  wind_speed0(:), wind_speed_adj(:), tau(:), tau_diff(:), &
       !$acc  prev_tau(:), prev_tau_diff(:) )
-      !$acc exit data delete(itlef) 
     end associate
 
+    !$acc exit data delete(filterc_tmp)
   end subroutine CanopyFluxes
 
   !------------------------------------------------------------------------------

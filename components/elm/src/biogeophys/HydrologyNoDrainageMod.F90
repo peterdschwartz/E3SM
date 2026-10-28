@@ -211,6 +211,8 @@ contains
            filter_hydrologyc, soilstate_vars, canopystate_vars)
       
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(col_ws%h2osoi_liq) if_present
       if ( use_fan ) then 
          ! save the h2osoi_liq in top layer before evaluating the soilwater movement
          call store_tsl_moisture(filter_hydrologyc, num_hydrologyc) 
@@ -320,6 +322,7 @@ contains
 
       ! Vertically average t_soisno and sum of h2osoi_liq and h2osoi_ice
       ! over all snow layers for history output
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1, num_nolakec
          c = filter_nolakec(fc)
          snowice(c) = 0._r8
@@ -602,6 +605,7 @@ contains
       associate(h2osoi_tend_tsl => col_ws%h2osoi_tend_tsl_col, &
            h2osoi_liq => col_ws%h2osoi_liq)
 
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1, num_fc
          c = filter(fc)
          h2osoi_tend_tsl(c) = (h2osoi_liq(c,1) - h2osoi_liq_saved(c)) / dtime_mod

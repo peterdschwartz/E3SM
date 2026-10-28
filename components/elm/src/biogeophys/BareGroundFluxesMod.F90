@@ -119,6 +119,7 @@ contains
     real(r8) :: www                    ! surface soil wetness [-]
     !------------------------------------------------------------------------------
 
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     associate(                                                          &
          snl              =>    col_pp%snl                            , & ! Input:  [integer  (:)   ]  number of snow layers
          dz               =>    col_pp%dz                             , & ! Input:  [real(r8) (:,:) ]  layer depth (m)
@@ -433,15 +434,20 @@ contains
 #ifndef _OPENACC
       ! Check for convergence of stress.
       if (implicit_stress .and. get_nstep() > 0) then ! Suppress common warnings on the first time step.
+         spel_dc_1 = 0  ! spel defer-checks
+         !$acc parallel loop gang vector default(present) private(p) reduction(max:spel_dc_1)
          do f = 1, num_nolu_barep
             p = filter_nolu_barep(f)
-            if (abs(tau_diff(f)) > dtaumin) then
+            if (abs(tau_diff(f)) > dtaumin) spel_dc_1 = max(spel_dc_1, f - (1) + 1)  ! spel defer-checks
+         end do
+         if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+            f = 1 + spel_dc_1 - 1
+            p = filter_nolu_barep(f)
                write(iulog,*)'WARNING: Stress did not converge for bare ground ',&
                     ' nstep = ',get_nstep(),' p= ',p,' prev_tau_diff= ',prev_tau_diff(f),&
                     ' tau_diff= ',tau_diff(f),' tau= ',tau(f),&
                     ' wind_speed_adj= ',wind_speed_adj(f),' iter_final= ',iter_final
-            end if
-         end do
+         end if
       end if
 #endif
 

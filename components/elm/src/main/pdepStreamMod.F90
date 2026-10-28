@@ -176,6 +176,7 @@ contains
 
    ig = 0
    dayspyr = get_days_per_year( )
+   !$acc parallel loop gang vector default(present) reduction(+:ig)
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_pdep_grc(g) = sdat%avs(1)%rAttr(1,ig) / (secspday * dayspyr)

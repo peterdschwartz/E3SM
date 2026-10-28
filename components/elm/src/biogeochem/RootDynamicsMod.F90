@@ -200,6 +200,8 @@ contains
       ! Calculate coarse root fraction from standard root distribution
       !------------------------------------------------------------------
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(col_pp%zi) if_present
       call init_vegrootfr(bounds, nlevsoi, nlevgrnd, &
                    nlevbed(bounds%begc:bounds%endc), &
                    rootfr_coarse(bounds%begp:bounds%endp,1:nlevgrnd))

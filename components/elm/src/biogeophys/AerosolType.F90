@@ -18,6 +18,8 @@ module AerosolType
   !
   ! !PUBLIC DATA:
   !
+  public :: aerosol_reset_column
+
   type, public :: aerosol_type
      real(r8), pointer :: mss_bcpho_col(:,:)      ! col mass of hydrophobic BC in snow (col,lyr)     [kg]
      real(r8), pointer :: mss_bcphi_col(:,:)      ! col mass of hydrophillic BC in snow (col,lyr)    [kg]
@@ -410,13 +412,28 @@ contains
   end subroutine Restart
 
   subroutine Reset(this, column)
-    !$acc routine seq
     ! !DESCRIPTION:
     ! Intitialize SNICAR variables for fresh snow column
     !
     ! !ARGUMENTS:
     class(aerosol_type)             :: this
     integer           , intent(in)  :: column     ! column index
+    !-----------------------------------------------------------------------
+
+    call aerosol_reset_column(this, column)
+
+  end subroutine Reset
+
+  !-----------------------------------------------------------------------
+  subroutine aerosol_reset_column(this, column)
+    !$acc routine seq
+    ! !DESCRIPTION:
+    ! Reset, callable in device code (no type-bound dispatch): intitialize SNICAR
+    ! variables for fresh snow column
+    !
+    ! !ARGUMENTS:
+    type(aerosol_type), intent(inout) :: this
+    integer           , intent(in)    :: column     ! column index
     !-----------------------------------------------------------------------
 
     this%mss_bcpho_col(column,:)  = 0._r8
@@ -439,6 +456,6 @@ contains
     this%mss_dst_col_col(column)  = 0._r8
     this%mss_dst_top_col(column)  = 0._r8
 
-  end subroutine Reset
+  end subroutine aerosol_reset_column
 
 end module AerosolType

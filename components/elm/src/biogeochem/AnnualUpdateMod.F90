@@ -66,14 +66,18 @@ contains
       )
       dt = dtime_mod 
     ! column loop
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        annsum_counter_col(c) = annsum_counter_col(c) + dt
     end do
 
     if (num_soilc > 0) then
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(cnstate_vars%annsum_counter_col) if_present
       if (annsum_counter_col(filter_soilc(1)) >= dayspyr_mod * secspday) then
           ! patch loop
+          !$acc parallel loop gang vector default(present) private(p)
           do fp = 1,num_soilp
              p = filter_soilp(fp)
 
@@ -112,6 +116,7 @@ contains
     end if
 
     ! column loop
+    !$acc parallel loop gang vector default(present) private(c)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        if (annsum_counter_col(c) >= dayspyr_mod * secspday) then

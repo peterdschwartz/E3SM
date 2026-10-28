@@ -118,6 +118,7 @@ contains
     integer,  dimension(12), parameter ::  jday  = (/1,32,60,91,121,152,182,213,244,274,305,335/)
     real(r8), dimension(12), parameter ::  indx  = (/1,2,3,4,5,6,7,8,9,10,11,12/)
     !-----------------------------------------------------------------------
+    integer :: spel_dc_1, spel_dc_2  ! spel defer-checks: elements recorded by deferred checks
     !$acc routine seq  ! spel acc-apply
     associate(                                    &
          ivt        => veg_pp%itype                  & ! Input:  [integer  (:) ] pft vegetation type
@@ -141,16 +142,26 @@ contains
           else                            ! no cold season
               ! (explicit loop: maxloc is not available inside an acc routine)
               imax = 1
+              spel_dc_1 = 0  ! spel defer-checks
               do i = 2, size(p2e)
-                 if (p2e(i) > p2e(imax)) imax = i
+                 if (p2e(i) > p2e(imax)) spel_dc_1 = max(spel_dc_1, i - (2) + 1)  ! spel defer-checks
               end do
+              if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+                 i = 2 + spel_dc_1 - 1
+                 imax = i
+              end if
               plantmonth = month(imax)
           end if
        else                     ! precipitation seasonality
          imax = 1
+         spel_dc_2 = 0  ! spel defer-checks
          do i = 2, size(p2e)
-            if (p2e(i) > p2e(imax)) imax = i
+            if (p2e(i) > p2e(imax)) spel_dc_2 = max(spel_dc_2, i - (2) + 1)  ! spel defer-checks
          end do
+         if (spel_dc_2 > 0) then  ! spel defer-checks: the last element where the check held
+            i = 2 + spel_dc_2 - 1
+            imax = i
+         end if
          plantmonth = month(imax)
        end if
     else if (cvt > tcvt) then   ! temperature seasonality

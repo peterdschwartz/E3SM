@@ -99,6 +99,7 @@ contains
          )
       
       ! Initialize column forcing (needs to be done for ALL active columns)
+      !$acc parallel loop gang vector default(present) private(g)
       do c = bounds%begc,bounds%endc
          if (col_pp%active(c)) then
             g = col_pp%gridcell(c)
@@ -116,6 +117,10 @@ contains
       ! Downscale forc_t, forc_th, forc_q, forc_pbot, and forc_rho to columns.
       ! For glacier_mec columns the downscaling is based on surface elevation.
       ! For other columns the downscaling is a simple copy (above).
+      !$acc parallel loop gang vector default(present) &
+      !$acc   private(c, l, g, hsurf_g, hsurf_c, tbot_g, thbot_g, qbot_g, pbot_g) &
+      !$acc   private(zbot_g, zbot_c, tbot_c, hbot, pbot_c, thbot_c, dum1, dum2) &
+      !$acc   private(es_g, qs_g, es_c, qs_c, qbot_c, egcm_c, rhos_c)
       do fc = 1, num_do_smb_c
          c = filter_do_smb_c(fc)
          l = col_pp%landunit(c)
@@ -224,6 +229,7 @@ contains
     character(len=*), parameter :: subname = 'downscale_longwave'
     !-----------------------------------------------------------------------
 
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     associate(&
          ! Gridcell-level fields:
          forc_t_g     => atm2lnd_vars%forc_t_not_downscaled_grc    , & ! Input:  [real(r8) (:)]  atmospheric temperature (Kelvin)        
@@ -235,6 +241,7 @@ contains
          )
     
       ! Initialize column forcing (needs to be done for ALL active columns)
+      !$acc parallel loop gang vector default(present) private(g)
       do c = bounds%begc, bounds%endc
          if (col_pp%active(c)) then
             g = col_pp%gridcell(c)
@@ -246,13 +253,19 @@ contains
       if (glcmec_downscale_longwave) then
 
          ! Initialize variables related to normalization
+         !$acc data copy(newsum_lwrad_g, sum_lwrad_g, sum_wts_g)
+         !$acc parallel loop gang vector default(present)
          do g = bounds%begg, bounds%endg
             sum_lwrad_g(g) = 0._r8
             sum_wts_g(g) = 0._r8
             newsum_lwrad_g(g) = 0._r8
          end do
+         !$acc end data
 
          ! Do the downscaling
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(atm2lnd_vars%forc_lwrad_downscaled_col, &
+         !$acc&   atm2lnd_vars%forc_lwrad_not_downscaled_grc, atm2lnd_vars%forc_t_downscaled_col) if_present
          do fc = 1, num_do_smb_c
             c = filter_do_smb_c(fc)
             l = col_pp%landunit(c)
@@ -300,16 +313,25 @@ contains
 
          ! Make sure that, after normalization, the grid cell mean is conserved
 
+         spel_dc_1 = 0  ! spel defer-checks
+         !$acc update device(atm2lnd_vars%forc_lwrad_downscaled_col) if_present
+         !$acc data copy(newsum_lwrad_g, sum_wts_g)
+         !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
          do g = bounds%begg, bounds%endg
             if (sum_wts_g(g) > 0._r8) then
-               if (abs((newsum_lwrad_g(g) / sum_wts_g(g)) - forc_lwrad_g(g)) > 1.e-8_r8) then
+               if (abs((newsum_lwrad_g(g) / sum_wts_g(g)) - forc_lwrad_g(g)) > 1.e-8_r8) spel_dc_1 = max(spel_dc_1, g - (bounds%begg) + 1)  ! spel defer-checks
+            end if
+         end do
+         !$acc end data
+         if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc) if_present
+            g = bounds%begg + spel_dc_1 - 1
                   write(iulog,*) 'g, newsum_lwrad_g, sum_wts_g, forc_lwrad_g: ', &
                        g, newsum_lwrad_g(g), sum_wts_g(g), forc_lwrad_g(g)
                   call endrun(msg=' ERROR: Energy conservation error downscaling longwave'//&
                        errMsg(__FILE__, __LINE__))
-               end if
-            end if
-         end do
+         end if
 
       end if    ! glcmec_downscale_longwave
 
@@ -398,6 +420,7 @@ contains
     character(len=*), parameter :: subname = 'check_downscale_consistency'
     !-----------------------------------------------------------------------
 
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     associate(&
          ! Gridcell-level fields:
          forc_t_g     => atm2lnd_vars%forc_t_not_downscaled_grc     , & ! Input:  [real(r8) (:)]  atmospheric temperature (Kelvin)        
@@ -425,27 +448,25 @@ contains
       ! sometimes uses the gridcell-level forcing fields (and it would take a large
       ! refactor to change this to use column-level fields).
       
+      spel_dc_1 = 0  ! spel defer-checks
+      !$acc parallel loop gang vector default(present) private(l, g) reduction(max:spel_dc_1)
       do c = bounds%begc, bounds%endc
          if (col_pp%active(c)) then
             l = col_pp%landunit(c)
             g = col_pp%gridcell(c)
 
             if (lun_pp%urbpoi(l)) then
-               if (forc_t_c(c)     /= forc_t_g(g)    .or. &
-                    forc_th_c(c)    /= forc_th_g(g)   .or. &
-                    forc_q_c(c)     /= forc_q_g(g)    .or. &
-                    forc_pbot_c(c)  /= forc_pbot_g(g) .or. &
-                    forc_rho_c(c)   /= forc_rho_g(g)  .or. &
-                    forc_rain_c(c)  /= forc_rain_g(g) .or. &
-                    forc_snow_c(c)  /= forc_snow_g(g) .or. &
-                    forc_lwrad_c(c) /= forc_lwrad_g(g)) then
-                  write(iulog,*) subname//' ERROR: column-level forcing differs from gridcell-level forcing for urban point'
-                  write(iulog,*) 'c, g = ', c, g
-                  call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if  ! inequal
+               if (forc_t_c(c)     /= forc_t_g(g)    .or. forc_th_c(c)    /= forc_th_g(g)   .or. forc_q_c(c)     /= forc_q_g(g)    .or. forc_pbot_c(c)  /= forc_pbot_g(g) .or. forc_rho_c(c)   /= forc_rho_g(g)  .or. forc_rain_c(c)  /= forc_rain_g(g) .or. forc_snow_c(c)  /= forc_snow_g(g) .or. forc_lwrad_c(c) /= forc_lwrad_g(g)) spel_dc_1 = max(spel_dc_1, c - (bounds%begc) + 1)  ! spel defer-checks
             end if  ! urbpoi
          end if  ! active
       end do
+      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+         c = bounds%begc + spel_dc_1 - 1
+         g = col_pp%gridcell(c)
+                  write(iulog,*) subname//' ERROR: column-level forcing differs from gridcell-level forcing for urban point'
+                  write(iulog,*) 'c, g = ', c, g
+                  call endrun(msg=errMsg(__FILE__, __LINE__))
+      end if
 
     end associate
 
@@ -516,6 +537,8 @@ contains
      deg2rad = SHR_CONST_PI/180._r8
 
       ! Initialize column forcing (needs to be done for ALL active columns)
+     !$acc parallel loop gang vector default(present) &
+     !$acc   private(topo, cossza, slope_rad, aspect_rad, dd) private(horizon_angle_twd_sun_rad, ib)
      do g = bounds%begg, bounds%endg
 
          forc_solad_pp_grc(g,:) = forc_solad_grc(g,:)
@@ -524,6 +547,7 @@ contains
          forc_lwrad_pp_grc(g) = forc_lwrad_grc(g)
 
          ! copy radiation values from gridcell to topounit
+         !$acc loop seq
          do topo = grc_pp%topi(g), grc_pp%topf(g)
             top_af%solad_pp(topo,:) = forc_solad_pp_grc(g,:)
             top_af%solai_pp(topo,:) = forc_solai_pp_grc(g,:)
@@ -576,6 +600,7 @@ contains
             if (f_short_dif(g) < 0._r8) f_short_dif(g) = 0._r8
 
             forc_solar_grc(g) = 0._r8
+            !$acc loop seq
             do ib = 1, numrad
                ! Calculate reflected radiation from adjacent terrain
                f_short_refl(g,ib) = terrain_config_factor(g) / cos(slope_rad) * (albd(g,ib) * forc_solad_grc(g,ib) + albi(g,ib) * forc_solai_grc(g,ib))
@@ -603,6 +628,7 @@ contains
          forc_lwrad_grc(g) = forc_lwrad_grc(g) * f_long_dif(g) + f_long_refl(g)
 
          ! copy radiation values from gridcell to topounit
+         !$acc loop seq
          do topo = grc_pp%topi(g), grc_pp%topf(g)
             top_af%solad(topo,:) = forc_solad_grc(g,:)
             top_af%solai(topo,:) = forc_solai_grc(g,:)

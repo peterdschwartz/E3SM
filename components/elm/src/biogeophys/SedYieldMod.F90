@@ -97,6 +97,11 @@ contains
     character(len=32) :: subname = 'SoilErosion'           ! subroutine name
     !-----------------------------------------------------------------------
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(canopystate_vars%hbot_patch, canopystate_vars%htop_patch, canopystate_vars%tlai_patch, &
+    !$acc&   cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, col_cs%core%decomp_pools_vr, &
+    !$acc&   col_wf%qflx_qrgwl, col_wf%qflx_surf, col_ws%frac_sno, veg_cs%core%deadcroot, veg_cs%core%froot, &
+    !$acc&   veg_cs%core%livecroot, veg_wf%qflx_dirct_rain, veg_wf%qflx_leafdrip) if_present
     associate(                                                        &
          forc_rain        =>    top_af%rain                         , & ! Input: [real(r8) (:) ] rain rate [mm/s]
          forc_t           =>    top_as%tbot                         , & ! Input: [real(r8) (:) ] atmospheric temperature (Kelvin)
@@ -299,6 +304,8 @@ contains
          end do
 
     end associate
+    !$acc update device(sedflux_vars%sed_crop_ero_col, sedflux_vars%sed_ero_col, sedflux_vars%sed_p_ero_col, &
+    !$acc&   sedflux_vars%sed_q_ero_col, sedflux_vars%sed_yld_col) if_present
 
   end subroutine SoilErosion
 

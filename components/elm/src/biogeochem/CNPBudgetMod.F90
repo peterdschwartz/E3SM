@@ -379,6 +379,7 @@ contains
        call get_curr_date(year, mon, day, sec)
        call get_prev_date(year, mon, day, sec)
 
+       !$acc parallel loop gang vector default(present)
        do ip = 1,p_size
           if (ip == p_inst) then
              budg_fluxL(:,ip)  = 0.0_r8
@@ -413,41 +414,59 @@ contains
     else
 
        if (trim(mode) == 'inst') then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
           budg_fluxL  (:,p_inst)   = 0.0_r8
           budg_fluxG  (:,p_inst)   = 0.0_r8
           budg_fluxN  (:,p_inst)   = 0.0_r8
           budg_stateL (:,p_inst)   = 0.0_r8
           budg_stateG (:,p_inst)   = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'day') then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
           budg_fluxL  (:,p_day)    = 0.0_r8
           budg_fluxG  (:,p_day)    = 0.0_r8
           budg_fluxN  (:,p_day)    = 0.0_r8
           budg_stateL (:,p_day)    = 0.0_r8
           budg_stateG (:,p_day)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'mon') then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
           budg_fluxL  (:,p_mon)    = 0.0_r8
           budg_fluxG  (:,p_mon)    = 0.0_r8
           budg_fluxN  (:,p_mon)    = 0.0_r8
           budg_stateL (:,p_mon)    = 0.0_r8
           budg_stateG (:,p_mon)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'ann') then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
           budg_fluxL  (:,p_ann)    = 0.0_r8
           budg_fluxG  (:,p_ann)    = 0.0_r8
           budg_fluxN  (:,p_ann)    = 0.0_r8
           budg_stateL (:,p_ann)    = 0.0_r8
           budg_stateG (:,p_ann)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'inf') then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
           budg_fluxL  (:,p_inf)    = 0.0_r8
           budg_fluxG  (:,p_inf)    = 0.0_r8
           budg_fluxN  (:,p_inf)    = 0.0_r8
           budg_stateL (:,p_inf)    = 0.0_r8
           budg_stateG (:,p_inf)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'all') then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
           budg_fluxL  (:,:)        = 0.0_r8
           budg_fluxG  (:,:)        = 0.0_r8
           budg_fluxN  (:,:)        = 0.0_r8
           budg_stateL (:,:)        = 0.0_r8
           budg_stateG (:,:)        = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        else
           call shr_sys_abort(subname//' ERROR in mode '//trim(mode))
        endif
@@ -528,6 +547,8 @@ contains
     call get_curr_date(year_curr, month_curr, day_curr, sec_curr)
 
     do ip = p_inst+1, p_size
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(budg_fluxl) if_present
        budg_fluxL(:,ip) = budg_fluxL(:,ip) + budg_fluxL(:,p_inst)
        update_state_beg = .false.
        update_state_end = .false.
@@ -548,21 +569,30 @@ contains
 
        ! If this is the first time step, update the states for all budget types
        if (get_nstep() == 1) update_state_beg = .true.
+       !$acc update device(budg_fluxl) if_present
 
        if (update_state_beg) then
+          !$acc parallel loop gang vector default(present)
           do is = 1, s_size/2 - 1
              budg_stateL(is,ip) = budg_stateL(is, p_inst)
           end do
        endif
 
        if (update_state_end) then
+          !$acc parallel loop gang vector default(present)
           do is = s_size/2 + 1, s_size-1
              budg_stateL(is,ip) = budg_stateL(is, p_inst)
           end do
        endif
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(budg_statel) if_present
        is= s_size; budg_stateL(is,ip) = budg_stateL(is,ip) + budg_stateL(is, p_inst)
+       !$acc update device(budg_statel) if_present
     end do
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(budg_fluxn) if_present
     budg_fluxN(:,:) = budg_fluxN(:,:) + 1._r8
+    !$acc update device(budg_fluxn) if_present
 
   end subroutine Accum
 
@@ -582,7 +612,16 @@ contains
     type(gridcell_carbon_state) , intent(in) :: grc_cs
     type(gridcell_carbon_flux)  , intent(in) :: grc_cf
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(c_budg_fluxl, c_budg_statel, grc_cf%er, grc_cf%fire_closs, grc_cf%gpp, &
+    !$acc&   grc_cf%hrv_xsmrpool_to_atm, grc_cf%prod100_loss, grc_cf%prod10_loss, grc_cf%prod1_loss, &
+    !$acc&   grc_cf%som_c_leached, grc_cf%somc_yield, grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, &
+    !$acc&   grc_cs%beg_cwdc, grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, grc_cs%beg_totprodc, &
+    !$acc&   grc_cs%beg_totsomc, grc_cs%core%balance_err, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, &
+    !$acc&   grc_cs%end_cwdc, grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
+    !$acc&   grc_cs%end_totsomc) if_present
     call CBudget_Run(bounds, atm2lnd_vars, lnd2atm_vars, grc_cs, grc_cf, c_budg_fluxL, c_budg_stateL)
+    !$acc update device(c_budg_fluxl, c_budg_statel) if_present
 
   end subroutine CNPBudget_Run
     
@@ -743,11 +782,14 @@ contains
     integer , intent(in) :: budg_print_ltann
     integer , intent(in) :: budg_print_ltend
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(c_budg_fluxg, c_budg_fluxl, c_budg_fluxn, c_budg_stateg, c_budg_statel) if_present
     call Print( carbon_budget, c_f_size, c_s_size            , &
          c_budg_fluxL, c_budg_fluxG, c_budg_fluxN            , &
          c_budg_stateL, c_budg_stateG                        , &
          budg_print_inst, budg_print_daily, budg_print_month , &
          budg_print_ann, budg_print_ltann, budg_print_ltend)
+    !$acc update device(c_budg_fluxg, c_budg_fluxl, c_budg_stateg, c_budg_statel) if_present
 
   end subroutine CNPBudget_Print
 
@@ -782,6 +824,7 @@ contains
     real(r8) :: unit_conversion
     real(r8) :: budg_fluxGpr (f_size,p_size) ! values to print, scaled and such
 
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     sumdone = .false.
 
     if (get_nstep() <= 1) then
@@ -792,6 +835,7 @@ contains
 
     cdate = year*10000 + mon*100 + day
 
+    spel_dc_1 = 0  ! spel defer-checks
     do ip = 1,p_size
        plev = 0
        if (ip == p_inst) then
@@ -825,7 +869,12 @@ contains
           if (ip == p_ann .and. get_nstep() == 1) cycle
           if (ip == p_inf .and. get_nstep() == 1) cycle
 
-          if (masterproc) then
+          if (masterproc) spel_dc_1 = max(spel_dc_1, ip - (1) + 1)  ! spel defer-checks
+       end if
+    end do
+    if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+       ip = 1 + spel_dc_1 - 1
+       unit_conversion = 1._r8/(4.0_r8*shr_const_pi)*1.0e9_r8
              select case (budget_type)
              case (carbon_budget)
                 call CarbonBudget_Message(ip, cdate, sec, f_size, s_size, &
@@ -837,9 +886,7 @@ contains
                 call endrun(msg='ERROR: Unknown budget type'//&
                      errMsg(__FILE__, __LINE__))
              end select
-          end if
-       end if
-    end do
+    end if
 
   end subroutine Print
 
@@ -1199,7 +1246,10 @@ contains
               tcs_month_end_grc(bounds%begg:bounds%endg), &
               c2l_scale_type= 'unity', l2g_scale_type='unity' )
       else
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(grc_cs%tcs_month_end) if_present
          tcs_month_end_grc(bounds%begg:bounds%endg) = spval
+         !$acc update device(grc_cs%tcs_month_end) if_present
       endif
 
     end associate

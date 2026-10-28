@@ -164,6 +164,7 @@ contains
              budg_stateG (:,ip)= 0.0_r8
           endif
        enddo
+       !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
 
     else
 
@@ -173,36 +174,42 @@ contains
           budg_fluxN  (:,p_inst)   = 0.0_r8
           budg_stateL (:,p_inst)   = 0.0_r8
           budg_stateG (:,p_inst)   = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'day') then
           budg_fluxL  (:,p_day)    = 0.0_r8
           budg_fluxG  (:,p_day)    = 0.0_r8
           budg_fluxN  (:,p_day)    = 0.0_r8
           budg_stateL (:,p_day)    = 0.0_r8
           budg_stateG (:,p_day)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'mon') then
           budg_fluxL  (:,p_mon)    = 0.0_r8
           budg_fluxG  (:,p_mon)    = 0.0_r8
           budg_fluxN  (:,p_mon)    = 0.0_r8
           budg_stateL (:,p_mon)    = 0.0_r8
           budg_stateG (:,p_mon)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'ann') then
           budg_fluxL  (:,p_ann)    = 0.0_r8
           budg_fluxG  (:,p_ann)    = 0.0_r8
           budg_fluxN  (:,p_ann)    = 0.0_r8
           budg_stateL (:,p_ann)    = 0.0_r8
           budg_stateG (:,p_ann)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'inf') then
           budg_fluxL  (:,p_inf)    = 0.0_r8
           budg_fluxG  (:,p_inf)    = 0.0_r8
           budg_fluxN  (:,p_inf)    = 0.0_r8
           budg_stateL (:,p_inf)    = 0.0_r8
           budg_stateG (:,p_inf)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'all') then
           budg_fluxL  (:,:)        = 0.0_r8
           budg_fluxG  (:,:)        = 0.0_r8
           budg_fluxN  (:,:)        = 0.0_r8
           budg_stateL (:,:)        = 0.0_r8
           budg_stateG (:,:)        = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
        else
           call shr_sys_abort(subname//' ERROR in mode '//trim(mode))
        endif
@@ -268,6 +275,7 @@ contains
        nf = s_w_errh2o  ; budg_stateL(nf,ip) = budg_stateL(nf,ip) + budg_stateL(nf, p_inst)
     end do
     budg_fluxN(:,:) = budg_fluxN(:,:) + 1._r8
+    !$acc update device(budg_fluxl, budg_fluxn, budg_statel) if_present
 
   end subroutine WaterBudget_Accum
 
@@ -290,6 +298,11 @@ contains
     integer  :: g, nf, ip
     real(r8) :: af, one_over_re2
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(grc_ws%beg_h2ocan, grc_ws%beg_h2osfc, grc_ws%beg_h2osno, grc_ws%beg_h2osoi_ice, &
+    !$acc&   grc_ws%beg_h2osoi_liq, grc_ws%begwb, grc_ws%end_h2ocan, grc_ws%end_h2osfc, grc_ws%end_h2osno, &
+    !$acc&   grc_ws%end_h2osoi_ice, grc_ws%end_h2osoi_liq, grc_ws%endwb, grc_ws%errh2o, &
+    !$acc&   soilhydrology_vars%beg_wa_grc, soilhydrology_vars%end_wa_grc) if_present
     associate(                                                             &
          forc_rain          => atm2lnd_vars%forc_rain_not_downscaled_grc , &
          forc_snow          => atm2lnd_vars%forc_snow_not_downscaled_grc , &
@@ -356,6 +369,7 @@ contains
       end do
 
     end associate
+    !$acc update device(budg_fluxl, budg_statel) if_present
 
   end subroutine WaterBudget_Run
 
@@ -520,6 +534,7 @@ contains
           end if
        end if
     end do
+    !$acc update device(budg_fluxg) if_present
 
   end subroutine WaterBudget_Print
 
@@ -748,7 +763,10 @@ contains
               tws_month_end_grc(bounds%begg:bounds%endg), &
               c2l_scale_type= 'urbanf', l2g_scale_type='unity')
       else
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(grc_ws%tws_month_end) if_present
          tws_month_end_grc(bounds%begg:bounds%endg) = spval
+         !$acc update device(grc_ws%tws_month_end) if_present
       end if
 
     end associate

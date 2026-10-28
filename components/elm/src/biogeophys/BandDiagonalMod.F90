@@ -61,6 +61,7 @@ contains
     !AB(KL+KU+1+i-j,j) = A(i,j)
 
     ! the largest system spans every level
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     nmax = ubj - lbj + 1
 
     !$acc data create(nlev, info, ipiv, ab, rhs)
@@ -119,13 +120,17 @@ contains
 
     if (ierr /= 0) then
        !$acc update self(info, nlev)
+       spel_dc_1 = 0  ! spel defer-checks
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
        do fc = 1, numf
-          if (info(fc) /= 0) then
+          if (info(fc) /= 0) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
+       end do
+       if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+          fc = 1 + spel_dc_1 - 1
              write(iulog,*)'filter index: ', fc
              write(iulog,*)'n,kl,ku,m ',nlev(fc),kl,ku,m
              write(iulog,*)'dgbsv info: ',fc,info(fc)
-          end if
-       end do
+       end if
        stop
     end if
 

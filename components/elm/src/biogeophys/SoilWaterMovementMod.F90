@@ -1343,6 +1343,8 @@ contains
         integer , parameter :: soil=1,root=4  ! index values
         !-----------------------------------------------------------------------
 
+        ! spel acc-locals: device storage of the local work arrays
+        !$acc enter data create(temp)
         associate(&
               k_soil_root         => soilstate_vars%k_soil_root_patch   , & ! Input:  [real(r8) (:,:) ]
                                                                             ! soil-root interface conductance (mm/s)
@@ -1368,13 +1370,16 @@ contains
                                                                             ! matric potential (mm)
               )
 
+          !$acc parallel loop gang vector default(present) private(c, j, grav2, pi, p)
           do fc = 1, num_filterc
              c = filterc(fc)
              !qflx_phs_neg_col(c) = 0._r8
 
+             !$acc loop seq
              do j = 1, nlevsoi
                 grav2 = z(c,j) * 1000._r8
                 temp(c) = 0._r8
+                !$acc loop seq
                 do pi = 1,max_patch_per_col
                    if (pi <= col_pp%npfts(c)) then
                       p = col_pp%pfti(c) + pi - 1
@@ -1393,6 +1398,7 @@ contains
 
              ! Back out the effective root density
              if( sum(qflx_rootsoi_col(c,1:nlevsoi))>0.0_r8 ) then
+                !$acc loop seq
                 do j = 1, nlevsoi
                    rootr_col(c,j) = qflx_rootsoi_col(c,j)/sum( qflx_rootsoi_col(c,1:nlevsoi))
                 end do
@@ -1402,6 +1408,7 @@ contains
           end do
 
         end associate
+        !$acc exit data delete(temp)
      end subroutine Compute_EffecRootFrac_And_VertTranSink_HydStress
 
 

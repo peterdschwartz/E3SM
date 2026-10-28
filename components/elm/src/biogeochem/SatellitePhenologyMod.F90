@@ -456,6 +456,8 @@ contains
        InterpMonths1 = months(1)
        call t_stopf('readMonthlyVeg')
     end if
+    !$acc update device(canopystate_vars%mlaidiff_patch, interpmonths1, mhvb2t, mhvt2t, mlai2t, msai2t, &
+    !$acc&   scmlat, scmlon, timwt) if_present
 
   end subroutine interpMonthlyVeg
 

@@ -696,6 +696,7 @@ contains
       call BuildSnowFilter(num_lakec, filter_lakec, &
            num_shlakesnowc, filter_shlakesnowc, num_shlakenosnowc, filter_shlakenosnowc)
       
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1, num_lakec
          c = filter_lakec(fc)
          snowice(c) = 0._r8

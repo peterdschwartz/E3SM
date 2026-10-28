@@ -298,6 +298,7 @@ contains
    call shr_strdata_advance(sdat_past, mcdate, sec, mpicom, 'clmfanpasture')
 
    ig = 0
+   !$acc parallel loop gang vector default(present) reduction(+:ig)
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_ndep_past_grc(g) = sdat_past%avs(1)%rAttr(1,ig) / (secspday * dayspyr)
@@ -306,6 +307,7 @@ contains
    call shr_strdata_advance(sdat_mix, mcdate, sec, mpicom, 'clmfanmixed')
 
    ig = 0
+   !$acc parallel loop gang vector default(present) reduction(+:ig)
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_ndep_mgrz_grc(g) = sdat_mix%avs(1)%rAttr(1,ig) / (secspday * dayspyr)
@@ -314,6 +316,7 @@ contains
    call shr_strdata_advance(sdat_urea, mcdate, sec, mpicom, 'clmfanurea')
 
    ig = 0
+   !$acc parallel loop gang vector default(present) reduction(+:ig)
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_ndep_urea_grc(g) = sdat_urea%avs(1)%rAttr(1,ig)
@@ -322,6 +325,7 @@ contains
    call shr_strdata_advance(sdat_nitr, mcdate, sec, mpicom, 'clmfannitr')
 
    ig = 0
+   !$acc parallel loop gang vector default(present) reduction(+:ig)
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_ndep_nitr_grc(g) = sdat_nitr%avs(1)%rAttr(1,ig)
@@ -330,6 +334,7 @@ contains
    call shr_strdata_advance(sdat_soilph, mcdate, sec, mpicom, 'clmfanph')
 
    ig = 0
+   !$acc parallel loop gang vector default(present) reduction(+:ig)
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_soilph_grc(g) = sdat_soilph%avs(1)%rAttr(1,ig)

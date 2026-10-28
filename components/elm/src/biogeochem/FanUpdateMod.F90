@@ -318,12 +318,15 @@ contains
     end if
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_nf%fert_n_appl, col_nf%fert_nh4_runoff, col_nf%fert_nh4_to_soil, &
-    !$acc&   col_nf%fert_no3_to_soil, col_nf%manure_n_appl, col_nf%manure_n_barns, col_nf%manure_n_grz, &
-    !$acc&   col_nf%manure_n_mix, col_nf%manure_n_transf, col_nf%manure_nh4_runoff, &
-    !$acc&   col_nf%manure_nh4_to_soil, col_nf%manure_no3_to_soil, col_nf%manure_tan_appl, col_nf%nh3_barns, &
-    !$acc&   col_nf%nh3_fert, col_nf%nh3_grz, col_nf%nh3_manure_app, col_nf%nh3_otherfert, col_nf%nh3_stores, &
-    !$acc&   col_nf%nh3_total, col_nf%otherfert_n_appl) if_present
+    !$acc update self(atm2lnd_vars%forc_q_downscaled_col, col_es%t_grnd, col_nf%fert_n_appl, &
+    !$acc&   col_nf%fert_nh4_runoff, col_nf%fert_nh4_to_soil, col_nf%fert_no3_to_soil, col_nf%manure_n_appl, &
+    !$acc&   col_nf%manure_n_barns, col_nf%manure_n_grz, col_nf%manure_n_mix, col_nf%manure_n_transf, &
+    !$acc&   col_nf%manure_nh4_runoff, col_nf%manure_nh4_to_soil, col_nf%manure_no3_to_soil, &
+    !$acc&   col_nf%manure_tan_appl, col_nf%nh3_barns, col_nf%nh3_fert, col_nf%nh3_grz, &
+    !$acc&   col_nf%nh3_manure_app, col_nf%nh3_otherfert, col_nf%nh3_stores, col_nf%nh3_total, &
+    !$acc&   col_nf%otherfert_n_appl, col_wf%qflx_evap_grnd, col_wf%qflx_infl, col_wf%qflx_surf, &
+    !$acc&   col_ws%h2osoi_tend_tsl_col, col_ws%h2osoi_vol, frictionvel_vars%ram1_patch, &
+    !$acc&   frictionvel_vars%rb1_patch, soilstate_vars%soilpsi_col) if_present
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        l = col_pp%landunit(c)
@@ -792,8 +795,9 @@ contains
     end do
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(manure_n_barns, manure_n_transf, n_manure_graze, n_manure_mixed, n_manure_spread, &
-    !$acc&   nh3_flux_barns, nh3_flux_stores, tan_manure_spread) if_present
+    !$acc update self(frictionvel_vars%u10_patch, manure_n_barns, manure_n_transf, n_manure_graze, &
+    !$acc&   n_manure_mixed, n_manure_spread, nh3_flux_barns, nh3_flux_stores, tan_manure_spread, &
+    !$acc&   veg_es%t_ref2m) if_present
     do g = begg, endg
        ! First find out if there are grasslands in this cell. If yes, a fraction of manure
        ! can be diverted to them before storage. At this time, we assume that the

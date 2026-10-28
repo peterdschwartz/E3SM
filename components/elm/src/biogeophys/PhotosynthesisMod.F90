@@ -296,7 +296,12 @@ contains
       !==============================================================================!
       ! Step 1: patch kinetic parameters at leaf temperature
       !==============================================================================!
-      !$acc parallel loop independent gang vector default(present) private(p,og,t,i_type,kc25,ko25,sco,cp25)
+      ! Steps 1-4 run in one kernel: each step reads only what the earlier ones computed for
+      ! the same patch (one launch per call instead of four)
+      !$acc parallel loop independent gang vector default(present) private(p,og,t,i_type,kc25,ko25,sco,cp25,&
+      !$acc iv,lnc,total_lai,sum_nscaler,vcmax25top,jmax25top,tpu25top,kp25top,lmr25top,laican,nscaler,&
+      !$acc lmr25,vcmax25,jmax25,tpu25,kp25,vcmaxse,jmaxse,cf,ceair,qabs,r1,r2,niter,ciold,cs,gs,hs,&
+      !$acc gs_mol_err,leaf,psncan,psncan_wc,psncan_wj,psncan_wp,lmrcan,gscan)
       do f = 1, fn
          p = filterp(f)
          og = filter_map(f)
@@ -329,21 +334,10 @@ contains
          kc(p) = kc25 * ft(t_veg(p), veg_vp%kcha(i_type))
          ko(p) = ko25 * ft(t_veg(p), veg_vp%koha(i_type))
          cp(p) = cp25 * ft(t_veg(p), veg_vp%cpha(i_type))
-      end do
 
-      !==============================================================================!
-      ! Step 2: canopy-layer capacities scaled by the leaf nitrogen profile
-      ! (cumulative lai at the midpoint of each layer). Respiration is computed
-      ! every timestep; the other capacities only for daytime layers.
-      !==============================================================================!
-      !$acc parallel loop independent gang vector default(present) &
-      !$acc private(p,og,i_type,iv,lnc,total_lai,sum_nscaler,vcmax25top,jmax25top,tpu25top,kp25top,lmr25top,&
-      !$acc laican,nscaler,lmr25,vcmax25,jmax25,tpu25,kp25,vcmaxse,jmaxse) present(&
-      !$acc btran(:),kp_z(:,:),lmr_z(:,:),par_z(:,:),nrad(:),vcmaxcint(:),&
-      !$acc vcmax_z(:,:),t10(:),tpu_z(:,:),tlai_z(:,:),alphapsn(:),c3flag(:))
-      do f = 1, fn
-         p = filterp(f)
-         og = filter_map(f)
+         ! Step 2: canopy-layer capacities scaled by the leaf nitrogen profile
+         ! (cumulative lai at the midpoint of each layer). Respiration is computed
+         ! every timestep; the other capacities only for daytime layers.
          i_type = veg_pp%itype(p)
 
          ! Leaf N profile summed over the radiative layers; needed only when leaf N
@@ -484,18 +478,8 @@ contains
             ! output variable
             vcmax25_top(p) = vcmax25top
          end do       ! canopy layer loop
-      end do     ! patch loop
 
-      !==============================================================================!
-      ! Step 3: leaf-level photosynthesis and stomatal conductance
-      !==============================================================================!
-      !$acc parallel loop independent gang vector default(present) &
-      !$acc private(p,og,iv,t,cf,ceair,qabs,r1,r2,niter,ciold,cs,gs,hs,gs_mol_err,leaf) present(&
-      !$acc c3flag(:),nrad(:),bbb(:),rh_leaf(:),ap(:,:),ac(:,:),ag(:,:),psn_z(:,:),&
-      !$acc rs_z(:,:),an(:,:),aj(:,:),ci_z(:,:))
-      do f = 1, fn
-         p = filterp(f)
-         og = filter_map(f)
+         ! Step 3: leaf-level photosynthesis and stomatal conductance
          t = veg_pp%topounit(p)
 
          !$acc loop seq
@@ -586,21 +570,11 @@ contains
                end if
             end if    ! night or day if branch
          end do       ! canopy layer loop
-      end do          ! patch loop
 
-      !==============================================================================!
-      ! Step 4: canopy photosynthesis and stomatal conductance
-      ! Sum canopy layer fluxes and then derive effective leaf-level fluxes (per
-      ! unit leaf area), which are used in other parts of the model. Here, laican
-      ! sums to either laisun or laisha.
-      !==============================================================================!
-      !$acc parallel loop gang worker independent default(present) &
-      !$acc private(p,og,iv,psncan,psncan_wc,psncan_wj,psncan_wp,lmrcan,gscan,laican) present(&
-      !$acc lai_z(:,:),nrad(:),rs_z(:,:),rs(:),psn_z(:,:),psn_wp(:),psn_wc(:),&
-      !$acc psn_wj(:),lmr(:),lmr_z(:,:),psn(:))
-      do f = 1, fn
-         p = filterp(f)
-         og = filter_map(f)
+         ! Step 4: canopy photosynthesis and stomatal conductance
+         ! Sum canopy layer fluxes and then derive effective leaf-level fluxes (per
+         ! unit leaf area), which are used in other parts of the model. Here, laican
+         ! sums to either laisun or laisha.
          psncan = 0._r8
          psncan_wc = 0._r8
          psncan_wj = 0._r8

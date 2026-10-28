@@ -40,6 +40,8 @@ contains
     use elm_varpar , only : nlevdecomp_full, crop_prog
     use pftvarcon  , only : iscft
     use CNDecompCascadeConType , only : decomp_cascade_con
+    use NutrientStateType, only : nlinked_pools, igrain_pools, &
+         vegetation_nutrient_state_small_pools, vegetation_nutrient_state_truncate
     !
     ! !ARGUMENTS:
     integer                  , intent(in)    :: num_soilc       ! number of soil columns in filter
@@ -62,8 +64,11 @@ contains
     real(r8):: cc_eca
     real(r8):: cn_eca
     real(r8):: cp_eca
+    logical :: small(nlinked_pools), small_iso(nlinked_pools) ! linked pools to truncate (C, N, P; isotopes)
+    integer :: nreset         ! small negative soil mineral N values reset to zero
     !-----------------------------------------------------------------------
 
+    integer :: spel_dc_1, spel_dc_2, spel_dc_3, spel_dc_4  ! spel defer-checks: elements recorded by deferred checks
     associate(&
          floating_cn_ratio_decomp_pools   =>    decomp_cascade_con%floating_cn_ratio_decomp_pools , &
          floating_cp_ratio_decomp_pools   =>    decomp_cascade_con%floating_cp_ratio_decomp_pools , &
@@ -81,7 +86,7 @@ contains
 
       ! patch loop
       if (.not.use_fates) then
-         !$acc parallel loop gang vector default(present) private(p, pc, pn, pp, pc13, pc14)
+         !$acc parallel loop gang vector default(present) private(p, k, pc, pn, pp, pc13, pc14, small, small_iso)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
 
@@ -96,379 +101,24 @@ contains
             ! for linked C-N state variables, perform precision test on
             ! the C component, but truncate C, C13, and N components
 
-            ! leaf C and N
-            if (abs(veg_cs%core%leaf(p)) < ccrit) then
-               pc = pc + veg_cs%core%leaf(p)
-               veg_cs%core%leaf(p) = 0._r8
-               pn = pn + veg_ns%core%leaf(p)
-               veg_ns%core%leaf(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%leaf(p)
-                  c13_veg_cs%core%leaf(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%leaf(p)
-                  c14_veg_cs%core%leaf(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%leaf(p)
-               veg_ps%core%leaf(p) = 0._r8
-            end if
-
-            ! leaf storage C and N
-            if (abs(veg_cs%core%leaf_storage(p)) < ccrit) then
-               pc = pc + veg_cs%core%leaf_storage(p)
-               veg_cs%core%leaf_storage(p) = 0._r8
-               pn = pn + veg_ns%core%leaf_storage(p)
-               veg_ns%core%leaf_storage(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%leaf_storage(p)
-                  c13_veg_cs%core%leaf_storage(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%leaf_storage(p)
-                  c14_veg_cs%core%leaf_storage(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%leaf_storage(p)
-               veg_ps%core%leaf_storage(p) = 0._r8
-            end if
-
-            ! leaf transfer C and N
-            if (abs(veg_cs%core%leaf_xfer(p)) < ccrit) then
-               pc = pc + veg_cs%core%leaf_xfer(p)
-               veg_cs%core%leaf_xfer(p) = 0._r8
-               pn = pn + veg_ns%core%leaf_xfer(p)
-               veg_ns%core%leaf_xfer(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%leaf_xfer(p)
-                  c13_veg_cs%core%leaf_xfer(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%leaf_xfer(p)
-                  c14_veg_cs%core%leaf_xfer(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%leaf_xfer(p)
-               veg_ps%core%leaf_xfer(p) = 0._r8
-            end if
-
-            ! froot C and N
-            if (abs(veg_cs%core%froot(p)) < ccrit) then
-               pc = pc + veg_cs%core%froot(p)
-               veg_cs%core%froot(p) = 0._r8
-               pn = pn + veg_ns%core%froot(p)
-               veg_ns%core%froot(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%froot(p)
-                  c13_veg_cs%core%froot(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%froot(p)
-                  c14_veg_cs%core%froot(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%froot(p)
-               veg_ps%core%froot(p) = 0._r8
-            end if
-
-            ! froot storage C and N
-            if (abs(veg_cs%core%froot_storage(p)) < ccrit) then
-               pc = pc + veg_cs%core%froot_storage(p)
-               veg_cs%core%froot_storage(p) = 0._r8
-               pn = pn + veg_ns%core%froot_storage(p)
-               veg_ns%core%froot_storage(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%froot_storage(p)
-                  c13_veg_cs%core%froot_storage(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%froot_storage(p)
-                  c14_veg_cs%core%froot_storage(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%froot_storage(p)
-               veg_ps%core%froot_storage(p) = 0._r8
-            end if
-
-            ! froot transfer C and N
-            if (abs(veg_cs%core%froot_xfer(p)) < ccrit) then
-               pc = pc + veg_cs%core%froot_xfer(p)
-               veg_cs%core%froot_xfer(p) = 0._r8
-               pn = pn + veg_ns%core%froot_xfer(p)
-               veg_ns%core%froot_xfer(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%froot_xfer(p)
-                  c13_veg_cs%core%froot_xfer(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%froot_xfer(p)
-                  c14_veg_cs%core%froot_xfer(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%froot_xfer(p)
-               veg_ps%core%froot_xfer(p) = 0._r8
-            end if
-
-            if ( crop_prog .and. iscft(veg_pp%itype(p)))then
-               ! grain C and N
-               if (abs(veg_cs%core%grain(p)) < ccrit) then
-                  pc = pc + veg_cs%core%grain(p)
-                  veg_cs%core%grain(p) = 0._r8
-                  pn = pn + veg_ns%core%grain(p)
-                  veg_ns%core%grain(p) = 0._r8
-                  pp = pp + veg_ps%core%grain(p)
-                  veg_ps%core%grain(p) = 0._r8
-               end if
-
-               ! grain storage C and N
-               if (abs(veg_cs%core%grain_storage(p)) < ccrit) then
-                  pc = pc + veg_cs%core%grain_storage(p)
-                  veg_cs%core%grain_storage(p) = 0._r8
-                  pn = pn + veg_ns%core%grain_storage(p)
-                  veg_ns%core%grain_storage(p) = 0._r8
-                  pp = pp + veg_ps%core%grain_storage(p)
-                  veg_ps%core%grain_storage(p) = 0._r8
-               end if
-
-               ! grain transfer C and N
-               if (abs(veg_cs%core%grain_xfer(p)) < ccrit) then
-                  pc = pc + veg_cs%core%grain_xfer(p)
-                  veg_cs%core%grain_xfer(p) = 0._r8
-                  pn = pn + veg_ns%core%grain_xfer(p)
-                  veg_ns%core%grain_xfer(p) = 0._r8
-                  pp = pp + veg_ps%core%grain_xfer(p)
-                  veg_ps%core%grain_xfer(p) = 0._r8
-               end if
-            end if
-
-            ! livestem C and N
-            if (abs(veg_cs%core%livestem(p)) < ccrit) then
-               pc = pc + veg_cs%core%livestem(p)
-               veg_cs%core%livestem(p) = 0._r8
-               pn = pn + veg_ns%core%livestem(p)
-               veg_ns%core%livestem(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%livestem(p)
-                  c13_veg_cs%core%livestem(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%livestem(p)
-                  c14_veg_cs%core%livestem(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%livestem(p)
-               veg_ps%core%livestem(p) = 0._r8
-            end if
-
-            ! livestem storage C and N
-            if (abs(veg_cs%core%livestem_storage(p)) < ccrit) then
-               pc = pc + veg_cs%core%livestem_storage(p)
-               veg_cs%core%livestem_storage(p) = 0._r8
-               pn = pn + veg_ns%core%livestem_storage(p)
-               veg_ns%core%livestem_storage(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%livestem_storage(p)
-                  c13_veg_cs%core%livestem_storage(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%livestem_storage(p)
-                  c14_veg_cs%core%livestem_storage(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%livestem_storage(p)
-               veg_ps%core%livestem_storage(p) = 0._r8
-            end if
-
-            ! livestem transfer C and N
-            if (abs(veg_cs%core%livestem_xfer(p)) < ccrit) then
-               pc = pc + veg_cs%core%livestem_xfer(p)
-               veg_cs%core%livestem_xfer(p) = 0._r8
-               pn = pn + veg_ns%core%livestem_xfer(p)
-               veg_ns%core%livestem_xfer(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%livestem_xfer(p)
-                  c13_veg_cs%core%livestem_xfer(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%livestem_xfer(p)
-                  c14_veg_cs%core%livestem_xfer(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%livestem_xfer(p)
-               veg_ps%core%livestem_xfer(p) = 0._r8
-            end if
-
-            ! deadstem C and N
-            if (abs(veg_cs%core%deadstem(p)) < ccrit) then
-               pc = pc + veg_cs%core%deadstem(p)
-               veg_cs%core%deadstem(p) = 0._r8
-               pn = pn + veg_ns%core%deadstem(p)
-               veg_ns%core%deadstem(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%deadstem(p)
-                  c13_veg_cs%core%deadstem(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%deadstem(p)
-                  c14_veg_cs%core%deadstem(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%deadstem(p)
-               veg_ps%core%deadstem(p) = 0._r8
-            end if
-
-            ! deadstem storage C and N
-            if (abs(veg_cs%core%deadstem_storage(p)) < ccrit) then
-               pc = pc + veg_cs%core%deadstem_storage(p)
-               veg_cs%core%deadstem_storage(p) = 0._r8
-               pn = pn + veg_ns%core%deadstem_storage(p)
-               veg_ns%core%deadstem_storage(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%deadstem_storage(p)
-                  c13_veg_cs%core%deadstem_storage(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%deadstem_storage(p)
-                  c14_veg_cs%core%deadstem_storage(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%deadstem_storage(p)
-               veg_ps%core%deadstem_storage(p) = 0._r8
-            end if
-
-            ! deadstem transfer C and N
-            if (abs(veg_cs%core%deadstem_xfer(p)) < ccrit) then
-               pc = pc + veg_cs%core%deadstem_xfer(p)
-               veg_cs%core%deadstem_xfer(p) = 0._r8
-               pn = pn + veg_ns%core%deadstem_xfer(p)
-               veg_ns%core%deadstem_xfer(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%deadstem_xfer(p)
-                  c13_veg_cs%core%deadstem_xfer(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%deadstem_xfer(p)
-                  c14_veg_cs%core%deadstem_xfer(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%deadstem_xfer(p)
-               veg_ps%core%deadstem_xfer(p) = 0._r8
-            end if
-
-            ! livecroot C and N
-            if (abs(veg_cs%core%livecroot(p)) < ccrit) then
-               pc = pc + veg_cs%core%livecroot(p)
-               veg_cs%core%livecroot(p) = 0._r8
-               pn = pn + veg_ns%core%livecroot(p)
-               veg_ns%core%livecroot(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%livecroot(p)
-                  c13_veg_cs%core%livecroot(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%livecroot(p)
-                  c14_veg_cs%core%livecroot(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%livecroot(p)
-               veg_ps%core%livecroot(p) = 0._r8
-            end if
-
-            ! livecroot storage C and N
-            if (abs(veg_cs%core%livecroot_storage(p)) < ccrit) then
-               pc = pc + veg_cs%core%livecroot_storage(p)
-               veg_cs%core%livecroot_storage(p) = 0._r8
-               pn = pn + veg_ns%core%livecroot_storage(p)
-               veg_ns%core%livecroot_storage(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%livecroot_storage(p)
-                  c13_veg_cs%core%livecroot_storage(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%livecroot_storage(p)
-                  c14_veg_cs%core%livecroot_storage(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%livecroot_storage(p)
-               veg_ps%core%livecroot_storage(p) = 0._r8
-            end if
-
-            ! livecroot transfer C and N
-            if (abs(veg_cs%core%livecroot_xfer(p)) < ccrit) then
-               pc = pc + veg_cs%core%livecroot_xfer(p)
-               veg_cs%core%livecroot_xfer(p) = 0._r8
-               pn = pn + veg_ns%core%livecroot_xfer(p)
-               veg_ns%core%livecroot_xfer(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%livecroot_xfer(p)
-                  c13_veg_cs%core%livecroot_xfer(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%livecroot_xfer(p)
-                  c14_veg_cs%core%livecroot_xfer(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%livecroot_xfer(p)
-               veg_ps%core%livecroot_xfer(p) = 0._r8
-            end if
-
-            ! deadcroot C and N
-            if (abs(veg_cs%core%deadcroot(p)) < ccrit) then
-               pc = pc + veg_cs%core%deadcroot(p)
-               veg_cs%core%deadcroot(p) = 0._r8
-               pn = pn + veg_ns%core%deadcroot(p)
-               veg_ns%core%deadcroot(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%deadcroot(p)
-                  c13_veg_cs%core%deadcroot(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%deadcroot(p)
-                  c14_veg_cs%core%deadcroot(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%deadcroot(p)
-               veg_ps%core%deadcroot(p) = 0._r8
-            end if
-
-            ! deadcroot storage C and N
-            if (abs(veg_cs%core%deadcroot_storage(p)) < ccrit) then
-               pc = pc + veg_cs%core%deadcroot_storage(p)
-               veg_cs%core%deadcroot_storage(p) = 0._r8
-               pn = pn + veg_ns%core%deadcroot_storage(p)
-               veg_ns%core%deadcroot_storage(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%deadcroot_storage(p)
-                  c13_veg_cs%core%deadcroot_storage(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%deadcroot_storage(p)
-                  c14_veg_cs%core%deadcroot_storage(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%deadcroot_storage(p)
-               veg_ps%core%deadcroot_storage(p) = 0._r8
-            end if
-
-            ! deadcroot transfer C and N
-            if (abs(veg_cs%core%deadcroot_xfer(p)) < ccrit) then
-               pc = pc + veg_cs%core%deadcroot_xfer(p)
-               veg_cs%core%deadcroot_xfer(p) = 0._r8
-               pn = pn + veg_ns%core%deadcroot_xfer(p)
-               veg_ns%core%deadcroot_xfer(p) = 0._r8
-               if ( use_c13 ) then
-                  pc13 = pc13 + c13_veg_cs%core%deadcroot_xfer(p)
-                  c13_veg_cs%core%deadcroot_xfer(p) = 0._r8
-               endif
-               if ( use_c14 ) then
-                  pc14 = pc14 + c14_veg_cs%core%deadcroot_xfer(p)
-                  c14_veg_cs%core%deadcroot_xfer(p) = 0._r8
-               endif
-
-               pp = pp + veg_ps%core%deadcroot_xfer(p)
-               veg_ps%core%deadcroot_xfer(p) = 0._r8
-            end if
+            ! pools linked across C, N and P: test the carbon pool, truncate C, N, P (and C13, C14;
+            ! grain only on crops, and not for the isotopes)
+            call vegetation_nutrient_state_small_pools(veg_cs%core, p, ccrit, small)
+            ! element by element: array assignments in kernels are miscompiled
+            !$acc loop seq
+            do k = 1, nlinked_pools
+               small_iso(k) = small(k)
+            end do
+            !$acc loop seq
+            do k = 1, size(igrain_pools)
+               if (.not. (crop_prog .and. iscft(veg_pp%itype(p)))) small(igrain_pools(k)) = .false.
+               small_iso(igrain_pools(k)) = .false.
+            end do
+            call vegetation_nutrient_state_truncate(veg_cs%core, p, small, pc)
+            call vegetation_nutrient_state_truncate(veg_ns%core, p, small, pn)
+            if ( use_c13 ) call vegetation_nutrient_state_truncate(c13_veg_cs%core, p, small_iso, pc13)
+            if ( use_c14 ) call vegetation_nutrient_state_truncate(c14_veg_cs%core, p, small_iso, pc14)
+            call vegetation_nutrient_state_truncate(veg_ps%core, p, small, pp)
 
             ! gresp_storage (C only)
             if (abs(veg_cs%gresp_storage(p)) < ccrit) then
@@ -614,33 +264,27 @@ contains
          end do   ! end of column loop
 
          ! remove small negative perturbations for stability purposes, if any should arise.
-         
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(col_ns%smin_no3_vr) if_present
+         ! (one thread per column and level; the number of resets is reported after the kernel)
+         nreset = 0
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) reduction(+:nreset)
          do fc = 1,num_soilc
-            c = filter_soilc(fc)
             do j = 1,nlevdecomp_full
+               c = filter_soilc(fc)
                if (abs(col_ns%smin_no3_vr(c,j)) < ncrit/1e4_r8) then
                   if ( col_ns%smin_no3_vr(c,j)  < 0._r8 ) then
-#ifndef _OPENACC
-                     write(iulog, *) '-10^-12 < smin_no3 < 0. resetting to zero.'
-                     write(iulog, *) 'smin_no3_vr_col(c,j), c, j: ', col_ns%smin_no3_vr(c,j), c, j
                      col_ns%smin_no3_vr(c,j) = 0._r8
-#endif
+                     nreset = nreset + 1
                   endif
                end if
                if (abs(col_ns%smin_nh4_vr(c,j)) < ncrit/1e4_r8) then
                   if ( col_ns%smin_nh4_vr(c,j)  < 0._r8 ) then
-#ifndef _OPENACC
-                     write(iulog, *) '-10^-12 < smin_nh4 < 0. resetting to zero.'
-                     write(iulog, *) 'smin_nh4_vr_col(c,j), c, j: ', col_ns%smin_nh4_vr(c,j), c, j
                      col_ns%smin_nh4_vr(c,j) = 0._r8
-#endif
+                     nreset = nreset + 1
                   endif
                end if
             end do
          end do
-         !$acc update device(col_ns%smin_nh4_vr, col_ns%smin_no3_vr) if_present
+         if (nreset > 0) write(iulog, *) nreset, ' values of smin_no3_vr/smin_nh4_vr in (-10^-12, 0) reset to zero'
 
 
         if (nu_com .eq. 'ECA') then
@@ -729,35 +373,58 @@ contains
             !$acc&   col_ps%core%decomp_pools_vr, col_ps%core%trunc_sink_vr) if_present
 
           if(.not.use_fates) then
-            ! spel acc-sync: device data this host code uses
-            !$acc update self(veg_ns%core%pool, veg_ns%retrans%pool, veg_ps%core%pool, &
-            !$acc&   veg_ps%retrans%pool) if_present
+            spel_dc_1 = 0  ! spel defer-checks
+            spel_dc_2 = 0  ! spel defer-checks
+            spel_dc_3 = 0  ! spel defer-checks
+            spel_dc_4 = 0  ! spel defer-checks
+            !$acc parallel loop gang vector default(present) private(p) reduction(max:spel_dc_1) &
+            !$acc   reduction(max:spel_dc_2) reduction(max:spel_dc_3) reduction(max:spel_dc_4)
             do fp = 1,num_soilp
                p = filter_soilp(fp)
 #ifndef _OPENACC
-               if (veg_ns%retrans%pool(p) < 0._r8) then
+               if (veg_ns%retrans%pool(p) < 0._r8) spel_dc_1 = max(spel_dc_1, fp - (1) + 1)  ! spel defer-checks
+               if (veg_ns%core%pool(p) < 0._r8) spel_dc_2 = max(spel_dc_2, fp - (1) + 1)  ! spel defer-checks
+               if (veg_ps%retrans%pool(p) < 0._r8) spel_dc_3 = max(spel_dc_3, fp - (1) + 1)  ! spel defer-checks
+               if (veg_ps%core%pool(p) < 0._r8) spel_dc_4 = max(spel_dc_4, fp - (1) + 1)  ! spel defer-checks
+#endif
+            end do
+            if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(veg_ns%retrans%pool) if_present
+               fp = 1 + spel_dc_1 - 1
+               p = filter_soilp(fp)
 
                   write(iulog, *) 'error retransn_patch is negative: ',p
                   write(iulog, *) 'retransn_patch: ', veg_ns%retrans%pool(p)
                   call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if
-               if (veg_ns%core%pool(p) < 0._r8) then
+            end if
+            if (spel_dc_2 > 0) then  ! spel defer-checks: the last element where the check held
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(veg_ns%core%pool) if_present
+               fp = 1 + spel_dc_2 - 1
+               p = filter_soilp(fp)
                   write(iulog, *) 'error npool_patch is negative: ',p
                   write(iulog, *) 'npool_patch: ', veg_ns%core%pool(p)
                   call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if
-               if (veg_ps%retrans%pool(p) < 0._r8) then
+            end if
+            if (spel_dc_3 > 0) then  ! spel defer-checks: the last element where the check held
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(veg_ps%retrans%pool) if_present
+               fp = 1 + spel_dc_3 - 1
+               p = filter_soilp(fp)
                   write(iulog, *) 'error retransp_patch is negative: ',p
                   write(iulog, *) 'retransp_patch: ', veg_ps%retrans%pool(p)
                   call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if
-               if (veg_ps%core%pool(p) < 0._r8) then
+            end if
+            if (spel_dc_4 > 0) then  ! spel defer-checks: the last element where the check held
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(veg_ps%core%pool) if_present
+               fp = 1 + spel_dc_4 - 1
+               p = filter_soilp(fp)
                   write(iulog, *) 'error ppool_patch is negative: ',p
                   write(iulog, *) 'ppool_patch: ', veg_ps%core%pool(p)
                   call endrun(msg=errMsg(__FILE__, __LINE__))
-               end if
-#endif
-            end do
+            end if
          endif
 
        endif  !if ECA

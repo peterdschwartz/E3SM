@@ -202,6 +202,7 @@ contains
     real(r8) :: sum_denom, sum_numer
     !-----------------------------------------------------------------------
 
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     associate(                                                                &
          snl                 =>   col_pp%snl                                   , & ! Input:  [integer  (:)   ]  number of snow layers
          ctype               =>   col_pp%itype                                 , & ! Input:  [integer  (:)   ]  column type
@@ -414,6 +415,8 @@ contains
       end do
 
       if(erridx1 > 0) then
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(lun_pp%z_0_town, lun_pp%z_d_town) if_present
          l = erridx1
          write (iulog,*) 'aerodynamic parameter error in UrbanFluxes'
          write (iulog,*) 'h_r - z_d <= z_0'
@@ -425,6 +428,8 @@ contains
       end if
 
       if(erridx2 > 0) then
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(frictionvel_vars%forc_hgt_u_patch, lun_pp%z_0_town, lun_pp%z_d_town) if_present
          l = erridx2
          write (iulog,*) 'aerodynamic parameter error in UrbanFluxes'
          write (iulog,*) 'h_u - z_d <= z_0'
@@ -1115,17 +1120,22 @@ contains
 
       ! Check for convergence of stress.
       if (implicit_stress) then
+         spel_dc_1 = 0  ! spel defer-checks
+         !$acc parallel loop gang vector default(present) private(l) reduction(max:spel_dc_1)
          do fl = 1, num_urbanl
             l = filter_urbanl(fl)
             if (abs(tau_diff(fl)) > dtaumin) then
-               if (nstep_mod > 0) then ! Suppress common warnings on the first time step.
+               if (nstep_mod > 0) spel_dc_1 = max(spel_dc_1, fl - (1) + 1)  ! spel defer-checks
+            end if
+         end do
+         if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+            fl = 1 + spel_dc_1 - 1
+            l = filter_urbanl(fl)
                   write(iulog,*)'WARNING: Stress did not converge for urban columns ',&
                        ' nstep = ',nstep,' indexl= ',l,' prev_tau_diff= ',prev_tau_diff(fl),&
                        ' tau_diff= ',tau_diff(fl),' tau= ',tau(fl),&
                        ' wind_speed_adj= ',wind_speed_adj(fl),' iter_final= ',iter_final
-               end if
-            end if
-         end do
+         end if
       end if
 
       ! Gather terms required to determine internal building temperature

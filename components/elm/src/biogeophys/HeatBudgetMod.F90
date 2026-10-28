@@ -221,6 +221,8 @@ contains
              budg_gfluxN(:,ip) = 0.0_r8
           endif
        enddo
+       !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
+       !$acc&   budg_stateg, budg_statel) if_present
 
     else
 
@@ -233,6 +235,8 @@ contains
           budg_gfluxL (:,p_inst)   = 0.0_r8
           budg_gfluxG (:,p_inst)   = 0.0_r8
           budg_gfluxN (:,p_inst)   = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
+          !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'day') then
           budg_fluxL  (:,p_day)    = 0.0_r8
           budg_fluxG  (:,p_day)    = 0.0_r8
@@ -242,6 +246,8 @@ contains
           budg_gfluxL (:,p_day)    = 0.0_r8
           budg_gfluxG (:,p_day)    = 0.0_r8
           budg_gfluxN (:,p_day)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
+          !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'mon') then
           budg_fluxL  (:,p_mon)    = 0.0_r8
           budg_fluxG  (:,p_mon)    = 0.0_r8
@@ -251,6 +257,8 @@ contains
           budg_gfluxL (:,p_mon)    = 0.0_r8
           budg_gfluxG (:,p_mon)    = 0.0_r8
           budg_gfluxN (:,p_mon)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
+          !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'ann') then
           budg_fluxL  (:,p_ann)    = 0.0_r8
           budg_fluxG  (:,p_ann)    = 0.0_r8
@@ -260,6 +268,8 @@ contains
           budg_gfluxL (:,p_ann)    = 0.0_r8
           budg_gfluxG (:,p_ann)    = 0.0_r8
           budg_gfluxN (:,p_ann)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
+          !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'inf') then
           budg_fluxL  (:,p_inf)    = 0.0_r8
           budg_fluxG  (:,p_inf)    = 0.0_r8
@@ -269,6 +279,8 @@ contains
           budg_gfluxL (:,p_inf)    = 0.0_r8
           budg_gfluxG (:,p_inf)    = 0.0_r8
           budg_gfluxN (:,p_inf)    = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
+          !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'all') then
           budg_fluxL  (:,:)        = 0.0_r8
           budg_fluxG  (:,:)        = 0.0_r8
@@ -278,6 +290,8 @@ contains
           budg_gfluxL (:,:)        = 0.0_r8
           budg_gfluxG (:,:)        = 0.0_r8
           budg_gfluxN (:,:)        = 0.0_r8
+          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
+          !$acc&   budg_stateg, budg_statel) if_present
        else
           call shr_sys_abort(subname//' ERROR in mode '//trim(mode))
        endif
@@ -337,6 +351,7 @@ contains
     end do
     budg_fluxN(:,:)  = budg_fluxN(:,:)  + 1._r8
     budg_gfluxN(:,:) = budg_gfluxN(:,:) + 1._r8
+    !$acc update device(budg_fluxl, budg_fluxn, budg_gfluxl, budg_gfluxn, budg_statel) if_present
 
   end subroutine HeatBudget_Accum
 
@@ -413,6 +428,10 @@ contains
     real(r8) :: phase_col(bounds%begc:bounds%endc)
     real(r8) :: grnd_patch(bounds%begp:bounds%endp)
 
+    ! spel acc-locals: device storage of the local work arrays
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno) if_present
+    !$acc enter data create(phase_col)
     call c2g(bounds, col_es%hc_soisno(bounds%begc:bounds%endc), &
          grc_es%end_hc(bounds%begg:bounds%endg), &
          c2l_scale_type='unity', l2g_scale_type='unity')
@@ -428,7 +447,11 @@ contains
     call c2g(bounds, col_ef%errsoi(bounds%begc:bounds%endc), &
          grc_es%errsoi(bounds%begg:bounds%endg), &
          c2l_scale_type='unity', l2g_scale_type='unity')
+    !$acc update device(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno, grc_es%end_hc, &
+    !$acc&   grc_es%end_hc_lake, grc_es%end_hc_soi, grc_es%errsoi) if_present
 
+    !$acc data copy(grnd_patch)
+    !$acc parallel loop gang vector default(present) private(c, l)
     do p = bounds%begp, bounds%endp
        c = veg_pp%column(p)
        l = col_pp%landunit(c)
@@ -438,10 +461,12 @@ contains
           grnd_patch(p) = veg_ef%eflx_soil_grnd(p)
        end if
     end do
+    !$acc end data
 
     call p2g(bounds, grnd_patch(bounds%begp:bounds%endp), &
          grc_ef%heat_into_grnd(bounds%begg:bounds%endg), &
          p2c_scale_type='unity', c2l_scale_type='unity', l2g_scale_type='unity')
+    !$acc update device(grc_ef%heat_into_grnd) if_present
 
     associate(                                       &
          xmf          => col_ef%xmf                , &
@@ -454,6 +479,7 @@ contains
          c_h2osfc     => col_es%c_h2osfc             &
          )
 
+      !$acc parallel loop gang vector default(present) private(l)
       do c = bounds%begc, bounds%endc
          l = col_pp%landunit(c)
          if (lun_pp%urbpoi(l)) then
@@ -486,6 +512,7 @@ contains
     ! Doing this at gridcell level gives every term identical spatial
     ! support and also handles snow layers that appear or disappear.
     !$acc end data
+    !$acc parallel loop gang vector default(present)
     do c = bounds%begg, bounds%endg
        if (grc_es%beg_hc(c) /= spval .and. grc_es%end_hc(c) /= spval &
             .and. grc_ef%heat_into_grnd(c) /= spval .and. grc_ef%heat_phase_corr(c) /= spval) then
@@ -496,6 +523,7 @@ contains
        end if
     end do
 
+    !$acc exit data delete(phase_col)
   end subroutine HeatBudget_SetEndingStates
 
   !-----------------------------------------------------------------------
@@ -528,6 +556,9 @@ contains
     integer  :: g, nf, ip
     real(r8) :: af, one_over_re2
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc, grc_ef%heat_phase_corr, &
+    !$acc&   grc_ef%heat_state_adj, grc_es%beg_hc, grc_es%beg_hc_lake, grc_es%beg_hc_soi) if_present
     associate(                                                              &
          forc_lwdn   => atm2lnd_vars%forc_lwrad_not_downscaled_grc        , &
          forc_snow   => atm2lnd_vars%forc_snow_not_downscaled_grc         , &
@@ -595,6 +626,7 @@ contains
       end do
 
     end associate
+    !$acc update device(budg_fluxl, budg_gfluxl, budg_statel) if_present
 
   end subroutine HeatBudget_Run
 
@@ -715,6 +747,7 @@ contains
           end if
        end if
     end do
+    !$acc update device(budg_fluxg, budg_gfluxg, budg_gfluxl) if_present
 
   end subroutine HeatBudget_Print
 

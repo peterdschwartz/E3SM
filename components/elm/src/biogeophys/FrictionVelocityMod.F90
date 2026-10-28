@@ -106,7 +106,7 @@ associate(                                                   &
 
   ! Adjustment factors for unstable (moz < 0) or stable (moz > 0) conditions.
   is_landunit_index = present(landunit_index)
-  !$acc enter data copyin(is_landunit_index)
+  ! (is_landunit_index reaches the kernel by value: no device copy)
 
   !$acc parallel loop independent gang vector default(present) 
    do index = 1, fn
@@ -396,7 +396,6 @@ associate(                                                   &
       end if
    end do !! do loop of fn
 
-   !$acc exit data delete(is_landunit_index)
  end associate
 
   end subroutine FrictionVelocity

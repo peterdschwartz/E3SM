@@ -26,7 +26,13 @@ module NutrientStateType
       vegetation_nutrient_state_init, vegetation_nutrient_state_init_history, &
       vegetation_nutrient_state_restart, vegetation_nutrient_state_summary, &
       vegetation_nutrient_state_zerodwt, gridcell_nutrient_state_init, &
-      gridcell_nutrient_state_init_history
+      gridcell_nutrient_state_init_history, &
+      vegetation_nutrient_state_small_pools, vegetation_nutrient_state_truncate
+
+  ! The vegetation pools precision control truncates together in C, N and P: their positions in
+  ! the flags of vegetation_nutrient_state_small_pools/_truncate (the grain pools only on crops)
+  integer, parameter, public :: nlinked_pools = 21
+  integer, parameter, public :: igrain_pools(3) = [7, 8, 9]
 
   !-----------------------------------------------------------------------
   ! Define the data structure that holds carbon state information at the column level.
@@ -364,16 +370,18 @@ contains
           c = filter_soilc(fc)
           this%totlit_1m(c)         = 0._r8
        end do
-       do l = 1, ndecomp_pools
-          if ( decomp_cascade_con%is_litter(l) ) then
-             !$acc parallel loop gang vector default(present) private(c)
-             do fc = 1,num_soilc
+       ! one thread per column, the l loop sequential: each column keeps its order of operations
+       !$acc parallel loop gang vector default(present) private(l, c)
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do l = 1, ndecomp_pools
+             if ( decomp_cascade_con%is_litter(l) ) then
                 c = filter_soilc(fc)
                 this%totlit_1m(c) = &
                      this%totlit_1m(c) + &
                      this%decomp_pools_1m(c,l)
-             end do
-          endif
+             endif
+          end do
        end do
 
        ! total soil organic matter carbon in the top meter (TOTSOMC_1m)
@@ -382,16 +390,18 @@ contains
           c = filter_soilc(fc)
           this%totsom_1m(c) = 0._r8
        end do
-       do l = 1, ndecomp_pools
-          if ( decomp_cascade_con%is_soil(l) ) then
-             !$acc parallel loop gang vector default(present) private(c)
-             do fc = 1,num_soilc
+       ! one thread per column, the l loop sequential: each column keeps its order of operations
+       !$acc parallel loop gang vector default(present) private(l, c)
+       do fc = 1,num_soilc
+          !$acc loop seq
+          do l = 1, ndecomp_pools
+             if ( decomp_cascade_con%is_soil(l) ) then
                 c = filter_soilc(fc)
                 this%totsom_1m(c) = &
                      this%totsom_1m(c) + &
                      this%decomp_pools_1m(c,l)
-             end do
-          end if
+             end if
+          end do
        end do
 
     end if ! nlevdecomp>1
@@ -402,16 +412,18 @@ contains
        c = filter_soilc(fc)
        this%totlit(c) = 0._r8
     end do
-    do l = 1, ndecomp_pools
-       if ( decomp_cascade_con%is_litter(l) ) then
-          !$acc parallel loop gang vector default(present) private(c)
-          do fc = 1,num_soilc
+    ! one thread per column, the l loop sequential: each column keeps its order of operations
+    !$acc parallel loop gang vector default(present) private(l, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do l = 1, ndecomp_pools
+          if ( decomp_cascade_con%is_litter(l) ) then
              c = filter_soilc(fc)
              this%totlit(c) = &
                   this%totlit(c) + &
                   this%decomp_pools(c,l)
-          end do
-       endif
+          endif
+       end do
     end do
 
     ! total soil organic matter carbon (TOTSOMC)
@@ -420,16 +432,18 @@ contains
        c = filter_soilc(fc)
        this%totsom(c) = 0._r8
     end do
-    do l = 1, ndecomp_pools
-       if ( decomp_cascade_con%is_soil(l) ) then
-          !$acc parallel loop gang vector default(present) private(c)
-          do fc = 1,num_soilc
+    ! one thread per column, the l loop sequential: each column keeps its order of operations
+    !$acc parallel loop gang vector default(present) private(l, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do l = 1, ndecomp_pools
+          if ( decomp_cascade_con%is_soil(l) ) then
              c = filter_soilc(fc)
              this%totsom(c) = &
                   this%totsom(c) + &
                   this%decomp_pools(c,l)
-          end do
-       end if
+          end if
+       end do
     end do
 
     ! coarse woody debris carbon
@@ -438,16 +452,18 @@ contains
        c = filter_soilc(fc)
        this%cwd(c) = 0._r8
     end do
-    do l = 1, ndecomp_pools
-       if ( decomp_cascade_con%is_cwd(l) ) then
-          !$acc parallel loop gang vector default(present) private(c)
-          do fc = 1,num_soilc
+    ! one thread per column, the l loop sequential: each column keeps its order of operations
+    !$acc parallel loop gang vector default(present) private(l, c)
+    do fc = 1,num_soilc
+       !$acc loop seq
+       do l = 1, ndecomp_pools
+          if ( decomp_cascade_con%is_cwd(l) ) then
              c = filter_soilc(fc)
              this%cwd(c) = &
                   this%cwd(c) + &
                   this%decomp_pools(c,l)
-          end do
-       end if
+          end if
+       end do
     end do
 
     ! truncation carbon
@@ -887,6 +903,7 @@ contains
     integer  :: fp              ! filter indices
     !-----------------------------------------------------------------------
 
+    !$acc parallel loop gang vector default(present) private(p)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
        ! displayed vegetation carbon, excluding storage and cpool (DISPVEGC)
@@ -925,6 +942,147 @@ contains
     end do
 
   end subroutine vegetation_nutrient_state_zerodwt
+
+  !-----------------------------------------------------------------------
+  subroutine vegetation_nutrient_state_small_pools(this, p, crit, small)
+    !$acc routine seq
+    !
+    ! !DESCRIPTION:
+    ! Precision control: which of the linked pools (see nlinked_pools) of patch p are
+    ! smaller than crit in magnitude. Precision control tests the carbon pools.
+    !
+    ! !ARGUMENTS:
+    type(vegetation_nutrient_state), intent(in) :: this
+    integer , intent(in)  :: p
+    real(r8), intent(in)  :: crit
+    logical , intent(out) :: small(nlinked_pools)
+    !-----------------------------------------------------------------------
+
+    small( 1) = abs(this%leaf(p)) < crit
+    small( 2) = abs(this%leaf_storage(p)) < crit
+    small( 3) = abs(this%leaf_xfer(p)) < crit
+    small( 4) = abs(this%froot(p)) < crit
+    small( 5) = abs(this%froot_storage(p)) < crit
+    small( 6) = abs(this%froot_xfer(p)) < crit
+    small( 7) = abs(this%grain(p)) < crit
+    small( 8) = abs(this%grain_storage(p)) < crit
+    small( 9) = abs(this%grain_xfer(p)) < crit
+    small(10) = abs(this%livestem(p)) < crit
+    small(11) = abs(this%livestem_storage(p)) < crit
+    small(12) = abs(this%livestem_xfer(p)) < crit
+    small(13) = abs(this%deadstem(p)) < crit
+    small(14) = abs(this%deadstem_storage(p)) < crit
+    small(15) = abs(this%deadstem_xfer(p)) < crit
+    small(16) = abs(this%livecroot(p)) < crit
+    small(17) = abs(this%livecroot_storage(p)) < crit
+    small(18) = abs(this%livecroot_xfer(p)) < crit
+    small(19) = abs(this%deadcroot(p)) < crit
+    small(20) = abs(this%deadcroot_storage(p)) < crit
+    small(21) = abs(this%deadcroot_xfer(p)) < crit
+
+  end subroutine vegetation_nutrient_state_small_pools
+
+  !-----------------------------------------------------------------------
+  subroutine vegetation_nutrient_state_truncate(this, p, small, trunc)
+    !$acc routine seq
+    !
+    ! !DESCRIPTION:
+    ! Precision control: set the linked pools of patch p flagged in small to zero and add
+    ! them to trunc, in the order of the pools.
+    !
+    ! !ARGUMENTS:
+    type(vegetation_nutrient_state), intent(inout) :: this
+    integer , intent(in)    :: p
+    logical , intent(in)    :: small(nlinked_pools)
+    real(r8), intent(inout) :: trunc
+    !-----------------------------------------------------------------------
+
+    if (small( 1)) then
+       trunc = trunc + this%leaf(p)
+       this%leaf(p) = 0._r8
+    end if
+    if (small( 2)) then
+       trunc = trunc + this%leaf_storage(p)
+       this%leaf_storage(p) = 0._r8
+    end if
+    if (small( 3)) then
+       trunc = trunc + this%leaf_xfer(p)
+       this%leaf_xfer(p) = 0._r8
+    end if
+    if (small( 4)) then
+       trunc = trunc + this%froot(p)
+       this%froot(p) = 0._r8
+    end if
+    if (small( 5)) then
+       trunc = trunc + this%froot_storage(p)
+       this%froot_storage(p) = 0._r8
+    end if
+    if (small( 6)) then
+       trunc = trunc + this%froot_xfer(p)
+       this%froot_xfer(p) = 0._r8
+    end if
+    if (small( 7)) then
+       trunc = trunc + this%grain(p)
+       this%grain(p) = 0._r8
+    end if
+    if (small( 8)) then
+       trunc = trunc + this%grain_storage(p)
+       this%grain_storage(p) = 0._r8
+    end if
+    if (small( 9)) then
+       trunc = trunc + this%grain_xfer(p)
+       this%grain_xfer(p) = 0._r8
+    end if
+    if (small(10)) then
+       trunc = trunc + this%livestem(p)
+       this%livestem(p) = 0._r8
+    end if
+    if (small(11)) then
+       trunc = trunc + this%livestem_storage(p)
+       this%livestem_storage(p) = 0._r8
+    end if
+    if (small(12)) then
+       trunc = trunc + this%livestem_xfer(p)
+       this%livestem_xfer(p) = 0._r8
+    end if
+    if (small(13)) then
+       trunc = trunc + this%deadstem(p)
+       this%deadstem(p) = 0._r8
+    end if
+    if (small(14)) then
+       trunc = trunc + this%deadstem_storage(p)
+       this%deadstem_storage(p) = 0._r8
+    end if
+    if (small(15)) then
+       trunc = trunc + this%deadstem_xfer(p)
+       this%deadstem_xfer(p) = 0._r8
+    end if
+    if (small(16)) then
+       trunc = trunc + this%livecroot(p)
+       this%livecroot(p) = 0._r8
+    end if
+    if (small(17)) then
+       trunc = trunc + this%livecroot_storage(p)
+       this%livecroot_storage(p) = 0._r8
+    end if
+    if (small(18)) then
+       trunc = trunc + this%livecroot_xfer(p)
+       this%livecroot_xfer(p) = 0._r8
+    end if
+    if (small(19)) then
+       trunc = trunc + this%deadcroot(p)
+       this%deadcroot(p) = 0._r8
+    end if
+    if (small(20)) then
+       trunc = trunc + this%deadcroot_storage(p)
+       this%deadcroot_storage(p) = 0._r8
+    end if
+    if (small(21)) then
+       trunc = trunc + this%deadcroot_xfer(p)
+       this%deadcroot_xfer(p) = 0._r8
+    end if
+
+  end subroutine vegetation_nutrient_state_truncate
 
   !------------------------------------------------------------------------
   ! Subroutines to initialize and clean gridcell carbon state data structure

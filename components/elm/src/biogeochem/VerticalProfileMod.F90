@@ -92,6 +92,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! spel acc-locals: device storage of the local work arrays
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     !$acc enter data create(cinput_rootfr, col_cinput_rootfr)
     associate(                                                               & 
          nlev2bed             => col_pp%nlevbed                            , & ! Input: [integer (:)     ]  number of layers to bedrock
@@ -361,10 +362,10 @@ contains
               ( abs(pdep_prof_sum - 1._r8) > delta )  ) nbad = nbad + 1
       end do
       if (nbad > 0) then  ! report on the host
-         !$acc update self(cinput_rootfr, col_cinput_rootfr)
          ! spel acc-sync: device data this host code uses
-         !$acc update self(cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, &
-         !$acc&   cnstate_vars%pdep_prof_col) if_present
+         !$acc update self(canopystate_vars%altmax_lastyear_indx_col, cnstate_vars%ndep_prof_col, &
+         !$acc&   cnstate_vars%nfixation_prof_col, cnstate_vars%pdep_prof_col) if_present
+         !$acc update self(cinput_rootfr, col_cinput_rootfr)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             ndep_prof_sum = 0._r8
@@ -417,23 +418,36 @@ contains
       end do
       if (nbad > 0) then  ! report on the host
          !$acc update self(cinput_rootfr, col_cinput_rootfr)
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
-         !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%stem_prof_patch) if_present
+         spel_dc_1 = 0  ! spel defer-checks
+         !$acc parallel loop gang vector default(present) &
+         !$acc   private(p, froot_prof_sum, croot_prof_sum, leaf_prof_sum) private(stem_prof_sum, j) &
+         !$acc   reduction(max:spel_dc_1)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
             froot_prof_sum = 0._r8
             croot_prof_sum = 0._r8
             leaf_prof_sum = 0._r8
             stem_prof_sum = 0._r8
+            !$acc loop seq
             do j = 1, nlevdecomp
                froot_prof_sum = froot_prof_sum + froot_prof(p,j) *  dzsoi_decomp(j)
                croot_prof_sum = croot_prof_sum + croot_prof(p,j) *  dzsoi_decomp(j)
                leaf_prof_sum = leaf_prof_sum + leaf_prof(p,j) *  dzsoi_decomp(j)
                stem_prof_sum = stem_prof_sum + stem_prof(p,j) *  dzsoi_decomp(j)
             end do
-            if ( ( abs(froot_prof_sum - 1._r8) > delta ) .or.  ( abs(croot_prof_sum - 1._r8) > delta ) .or. &
-                 ( abs(stem_prof_sum - 1._r8) > delta ) .or.  ( abs(leaf_prof_sum - 1._r8) > delta ) ) then
+            if (( abs(froot_prof_sum - 1._r8) > delta ) .or.  ( abs(croot_prof_sum - 1._r8) > delta ) .or. ( abs(stem_prof_sum - 1._r8) > delta ) .or.  ( abs(leaf_prof_sum - 1._r8) > delta )) spel_dc_1 = max(spel_dc_1, fp - (1) + 1)  ! spel defer-checks
+         end do
+         if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(canopystate_vars%altmax_lastyear_indx_col, cnstate_vars%croot_prof_patch, &
+            !$acc&   cnstate_vars%froot_prof_patch, cnstate_vars%leaf_prof_patch, &
+            !$acc&   cnstate_vars%stem_prof_patch) if_present
+            fp = 1 + spel_dc_1 - 1
+            p = filter_soilp(fp)
+            froot_prof_sum = 0._r8
+            croot_prof_sum = 0._r8
+            leaf_prof_sum = 0._r8
+            stem_prof_sum = 0._r8
                c = veg_pp%column(p)
                write(iulog, *) 'profile sums: ', froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum
                write(iulog, *) 'c: ',c
@@ -448,8 +462,7 @@ contains
                write(iulog,*)  'leaf_prof(p,:): ',leaf_prof(p,:)
                write(iulog,*)  'stem_prof(p,:): ',stem_prof(p,:)
                call endrun(msg=' ERROR: sum-1 > delta'//errMsg(__FILE__, __LINE__))
-            endif
-         end do
+         end if
       end if
 
     end associate 

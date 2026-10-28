@@ -441,6 +441,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! spel acc-locals: device storage of the local work arrays
+    integer :: spel_dc_1, spel_dc_2, spel_dc_3  ! spel defer-checks: elements recorded by deferred checks
     !$acc enter data create(dummyfilter)
     associate(                                                                 &
          dz                   =>   col_pp%dz                                    , & ! Input:  [real(r8) (:,:) ]  layer thickness (m)  (-nlevsno+1:nlevsoi)
@@ -512,6 +513,8 @@ contains
          endp                 =>   bounds%endp                                 &
          )
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(ch4_vars%ch4_surf_flux_tot_col) if_present
       redoxlag          = CH4ParamsInst%redoxlag
       redoxlag_vertical = CH4ParamsInst%redoxlag_vertical
       atmch4            = CH4ParamsInst%atmch4
@@ -536,19 +539,25 @@ contains
 
       ! Adjustment to NEE for methane production - oxidation
       nem_col(begc:endc)           = 0._r8
+      !$acc update device(ch4_vars%ch4_surf_flux_tot_col, rgasm) if_present
       !$acc enter data copyin(jwt, totcolch4_bef, ch4_prod_tot, ch4_oxid_tot, nem_col, errch4_col, ierr)
       !$acc update device(ch4_surf_flux_tot(begc:endc))
 
       if (.not. ch4offline) then
+         spel_dc_1 = 0  ! spel defer-checks
+         !$acc parallel loop gang vector default(present) private(t) reduction(max:spel_dc_1)
          do g= begg, endg
             t = grc_pp%topi(g)
-            if (forc_pch4(t) == 0._r8) then
+            if (forc_pch4(t) == 0._r8) spel_dc_1 = max(spel_dc_1, g - (begg) + 1)  ! spel defer-checks
+         end do
+         if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+            g = begg + spel_dc_1 - 1
+            t = grc_pp%topi(g)
                write(iulog,*) 'not using ch4offline, but methane concentration not passed from the atmosphere'//&
                      'to land model! CLM Model is stopping.'
                call endrun(msg=' ERROR: Methane not being passed to atmosphere'//&
                      errMsg(__FILE__, __LINE__))
-            end if
-         end do
+         end if
       end if
       !$acc parallel loop independent gang vector default(present) private(t)
       do g= begg, endg
@@ -658,11 +667,14 @@ contains
          ! Set rootfraction to spval for non-veg points, unless veg_pp%wtcol > 0.99,
          ! in which case set it equal to uniform dist.
 
+         !$acc data copy(rootfraction)
+         !$acc parallel loop gang vector default(present) private(p, c, j, pf)
          do fp = 1, num_soilp
             p = filter_soilp(fp)
             c = veg_pp%column(p)
 
             if(.not. col_pp%is_fates(c) ) then
+               !$acc loop seq
                do j=1, nlevsoi
                   if (veg_pp%itype(p) /= noveg) then
                      rootfraction(p,j) = rootfr(p,j)
@@ -680,6 +692,7 @@ contains
                end do
             end if
          end do
+         !$acc end data
 
          
          !$acc data copy(rootfraction)
@@ -689,6 +702,7 @@ contains
               unity)
 
          !$acc end data
+         !$acc parallel loop gang vector collapse(2) default(present) private(c)
          do j=1, nlevsoi
             do fc = 1, num_soilc
                c = filter_soilc(fc)
@@ -962,17 +976,22 @@ contains
          end if
       end do
       !$acc update self(ierr)
+      spel_dc_2 = 0  ! spel defer-checks
+      !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_2)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
-         if (ierr(c) /= 0) then
+         if (ierr(c) /= 0) spel_dc_2 = max(spel_dc_2, fc - (1) + 1)  ! spel defer-checks
+      end do
+      if (spel_dc_2 > 0) then  ! spel defer-checks: the last element where the check held
+         fc = 1 + spel_dc_2 - 1
+         c = filter_soilc(fc)
             !$acc update self(errch4_col(c:c))
             write(iulog, *) 'CH4 Conservation Error in CH4Mod driver, nstep, c, errch4 (gC /m^2.timestep)',&
                  nstep,c,errch4_col(c)
             g = col_pp%gridcell(c)
             write(iulog,*) 'Latdeg,Londeg=',grc_pp%latdeg(g),grc_pp%londeg(g)
             call endrun(msg=' ERROR: Methane conservation error'//errMsg(__FILE__, __LINE__))
-         end if
-      end do
+      end if
 
       if (allowlakeprod) then
          !$acc parallel loop independent gang vector default(present) private(c, j)
@@ -991,22 +1010,25 @@ contains
             end if
          end do
          !$acc update self(ierr)
+         spel_dc_3 = 0  ! spel defer-checks
+         !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_3)
          do fc = 1, num_lakec
             c = filter_lakec(fc)
-            if (ierr(c) /= 0) then
+            if (ierr(c) /= 0) spel_dc_3 = max(spel_dc_3, fc - (1) + 1)  ! spel defer-checks
+         end do
+         if (spel_dc_3 > 0) then  ! spel defer-checks: the last element where the check held
+            fc = 1 + spel_dc_3 - 1
+            c = filter_lakec(fc)
                !$acc update self(errch4_col(c:c))
                write(iulog, *) 'CH4 Conservation Error in CH4Mod driver for lake column, nstep, c, errch4 (gC /m^2.timestep)',&
                     nstep,c,errch4_col(c)
                g = col_pp%gridcell(c)
                write(iulog,*) 'Latdeg,Londeg=',grc_pp%latdeg(g),grc_pp%londeg(g)
                call endrun(msg=' ERROR: Methane conservation error, allowlakeprod'//errMsg(__FILE__, __LINE__))
-            end if
-         end do
+         end if
       end if
 
       ! Now average up to gridcell for fluxes
-      !$acc update self(ch4_oxid_tot, ch4_prod_tot, nem_col)
-      !$acc exit data delete(jwt, totcolch4_bef, ch4_prod_tot, ch4_oxid_tot, nem_col, errch4_col, ierr)
       call c2g( bounds, &
            ch4_oxid_tot(begc:endc), ch4co2f(begg:endg),        &
            c2l_scale_type= unity, l2g_scale_type=unity )
@@ -1018,6 +1040,8 @@ contains
       call c2g( bounds, &
            nem_col(begc:endc), nem_grc(begg:endg),               &
            c2l_scale_type= unity, l2g_scale_type=unity )
+      !$acc update self(ch4_oxid_tot, ch4_prod_tot, nem_col)
+      !$acc exit data delete(jwt, totcolch4_bef, ch4_prod_tot, ch4_oxid_tot, nem_col, errch4_col, ierr)
 
     end associate
 
@@ -1768,6 +1792,12 @@ contains
          end do
       end do
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(c_atm, ch4_aere_depth, ch4_prod_depth, ch4_tran_depth, col_es%t_soisno, col_pp%dz, &
+      !$acc&   col_pp%z, col_ws%h2osoi_vol, conc_ch4, conc_o2, elai, grnd_ch4_cond, jwt, o2_aere_depth, &
+      !$acc&   rootfr, rootr, veg_cf%annavg_agnpp, veg_cf%annavg_bgnpp, veg_cf%annsum_npp, veg_cs%core%froot, &
+      !$acc&   veg_wf%qflx_tran_veg) if_present
+      !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
       if (lake) return
 
       nc = bounds%clump_index
@@ -1841,6 +1871,7 @@ contains
             end do
 
          end do ! p filter
+         !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
          return
       end if
 
@@ -1852,6 +1883,7 @@ contains
       diffus_aere = d_con_g(1,1)*1.e-4_r8  ! for CH4: m^2/s
       ! This parameter is poorly constrained and should be done on a PFT-specific basis...
       oxdiffus = diffus_aere * d_con_g(2,1) / d_con_g(1,1) ! adjust for O2:CH4 molecular diffusion
+      !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
 
       ! Column loop; the patches of the column in the soil patch filter (active)
       ! partition the aerenchyma flux into each soil layer.
@@ -2403,6 +2435,9 @@ contains
     !-----------------------------------------------------------------------
 
 
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(log_kh_theta)
     associate(                                                 &
          z             =>    col_pp%z                           , & ! Input:  [real(r8) (:,:) ]  soil layer depth (m)
          dz            =>    col_pp%dz                          , & ! Input:  [real(r8) (:,:) ]  layer thickness (m)  (-nlevsno+1:nlevsoi)
@@ -2565,6 +2600,7 @@ contains
 
 
       ! Set the Henry's Law coefficients
+      !$acc parallel loop gang vector default(present)
       do s = 1,2
          log_kh_theta(s) = log (kh_theta(s))
       end do
@@ -2637,6 +2673,9 @@ contains
       !$acc end data
       !$acc update self(ierr, jerr)
       if (any(ierr(1:num_methc) /= 0)) then
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(ch4_vars%conc_ch4_sat_col, ch4_vars%conc_ch4_unsat_col, ch4_vars%conc_o2_sat_col, &
+         !$acc&   ch4_vars%conc_o2_unsat_col) if_present
          !$acc update self(source)
          do fc = 1, num_methc
             if (ierr(fc) == 0) cycle
@@ -3196,14 +3235,18 @@ contains
       end do
       !$acc end data
       !$acc update self(ierr)
+      spel_dc_1 = 0  ! spel defer-checks
+      !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
       do fc = 1, num_methc
-         if (ierr(fc) /= 0) then
+         if (ierr(fc) /= 0) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
+      end do
+      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+         fc = 1 + spel_dc_1 - 1
             c = filter_methc (fc)
             write(iulog,*) 'CH4 Conservation Error in CH4Mod during diffusion, nstep, c, errch4 (mol /m^2.timestep)'
             g = col_pp%gridcell(c)
             write(iulog,*) 'Latdeg,Londeg=',grc_pp%latdeg(g),grc_pp%londeg(g)
-         end if
-      end do
+      end if
 
       !$acc exit data delete(at, bt, ct, rt, diffus, k_h_cc, dp1_zp1, dm1_zm1, conc_ch4_bef, errch4, &
       !$acc   conc_ch4_rel, conc_o2_rel, conc_ch4_rel_old, h2osoi_vol_min, snowres, spec_grnd_cond, &
@@ -3212,6 +3255,7 @@ contains
 
     end associate
 
+    !$acc exit data delete(log_kh_theta)
   end subroutine ch4_tran
 
   !-----------------------------------------------------------------------
@@ -3323,6 +3367,9 @@ contains
          )
 
       ! set time steps
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(ch4_vars%annsum_counter_col, ch4_vars%tempavg_finrw_col, &
+      !$acc&   ch4_vars%tempavg_somhr_col) if_present
       secsperyear = real( dayspyr * secspday, r8)
 
       newrun = .false.
@@ -3342,8 +3389,11 @@ contains
 
          annsum_counter(c) = annsum_counter(c) + dt
       end do
+      !$acc update device(ch4_vars%annsum_counter_col, ch4_vars%tempavg_finrw_col, &
+      !$acc&   ch4_vars%tempavg_somhr_col) if_present
 
       ! patch loop
+      !$acc parallel loop gang vector default(present) private(p, c)
       do fp = 1,num_methp
          p = filter_methp(fp)
          c = veg_pp%column(p)
@@ -3355,6 +3405,7 @@ contains
          end if
       end do
 
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_methc
          c = filter_methc(fc)
          
@@ -3377,6 +3428,7 @@ contains
          end if
       end do
 
+      !$acc parallel loop gang vector default(present) private(p, c)
       do fp = 1,num_methp
          p = filter_methp(fp)
          c = veg_pp%column(p)
@@ -3397,6 +3449,7 @@ contains
       end do
 
       ! column loop
+      !$acc parallel loop gang vector default(present) private(c)
       do fc = 1,num_methc
          c = filter_methc(fc)
          if (annsum_counter(c) >= secsperyear) annsum_counter(c) = 0._r8

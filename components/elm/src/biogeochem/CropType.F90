@@ -683,6 +683,8 @@ contains
 
     ! Accumulate and extract GDDPLANT
     
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present) private(ivt)
     do p = begp,endp
        if (this%croplive_patch(p)) then ! relative to planting date
           ivt = veg_pp%itype(p)
@@ -697,6 +699,7 @@ contains
           rbufslp(p) = accumResetVal
        end if
     end do
+    !$acc end data
     call update_accum_field  ('GDDPLANT', rbufslp, nstep)
     call extract_accum_field ('GDDPLANT', this%gddplant_patch, nstep)
 
@@ -704,6 +707,8 @@ contains
     ! In agroibis this variable is calculated
     ! to 0.05 m, so here we use the top two soil layers
 
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present) private(ivt, c)
     do p = begp,endp
        if (this%croplive_patch(p)) then ! relative to planting date
           ivt = veg_pp%itype(p)
@@ -719,6 +724,7 @@ contains
           rbufslp(p) = accumResetVal
        end if
     end do
+    !$acc end data
     call update_accum_field  ('GDDTSOI', rbufslp, nstep)
     call extract_accum_field ('GDDTSOI', this%gddtsoi_patch, nstep)
 
@@ -759,12 +765,14 @@ contains
     ! then it was
     ! active for the whole year.
     if ((kmo == 1 .and. kda == 1 .and. mcsec == 0) .and. .not. is_first_step()) then
+       !$acc parallel loop gang vector default(present) private(p)
        do fp = 1, num_pcropp
           p = filter_pcropp(fp)
 
           this%nyrs_crop_active_patch(p) = this%nyrs_crop_active_patch(p) + 1
        end do
 
+       !$acc parallel loop gang vector default(present) private(p)
        do fp = 1, num_ppercropp
           p = filter_ppercropp(fp)
 

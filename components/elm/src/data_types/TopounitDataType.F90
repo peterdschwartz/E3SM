@@ -338,18 +338,24 @@ module TopounitDataType
      endif
 
      ! Accumulate 24-hour running mean of relative humidity
+     !$acc data copy(rbufslt)
+     !$acc parallel loop gang vector default(present)
      do t = begt,endt
         rbufslt(t) = this%rhbot(t)
      end do
+     !$acc end data
      if (use_fates) then
         call update_accum_field  ('RH24H', rbufslt, nstep)
         call extract_accum_field ('RH24H', this%rh24h, nstep)
      end if
 
      ! Accumulate 24-hour running mean of wind speed
+     !$acc data copy(rbufslt)
+     !$acc parallel loop gang vector default(present)
      do t = begt,endt
         rbufslt(t) = this%windbot(t)
      end do
+     !$acc end data
      if (use_fates) then
         call update_accum_field  ('WIND24H', rbufslt, nstep)
         call extract_accum_field ('WIND24H', this%wind24h, nstep)
@@ -586,27 +592,36 @@ module TopounitDataType
     endif
 
     ! Accumulate and extract forc_solad24 & forc_solad240
+    !$acc data copy(rbufslt)
+    !$acc parallel loop gang vector default(present)
     do t = begt,endt
        rbufslt(t) = this%solad(t,1)
     end do
+    !$acc end data
     call update_accum_field  ('FSD240H', rbufslt              , nstep)
     call extract_accum_field ('FSD240H', this%fsd240h         , nstep)
     call update_accum_field  ('FSD24H' , rbufslt              , nstep)
     call extract_accum_field ('FSD24H' , this%fsd24h          , nstep)
 
     ! Accumulate and extract forc_solai24 & forc_solai240
+    !$acc data copy(rbufslt)
+    !$acc parallel loop gang vector default(present)
     do t = begt,endt
        rbufslt(t) = this%solai(t,1)
     end do
+    !$acc end data
     call update_accum_field  ('FSI24H' , rbufslt              , nstep)
     call extract_accum_field ('FSI24H' , this%fsi24h          , nstep)
     call update_accum_field  ('FSI240H', rbufslt              , nstep)
     call extract_accum_field ('FSI240H', this%fsi240h         , nstep)
 
     ! Accumulate and extract total precip
+    !$acc data copy(rbufslt)
+    !$acc parallel loop gang vector default(present)
     do t = begt,endt
        rbufslt(t) = this%rain(t) + this%snow(t)
     end do
+    !$acc end data
     if (use_cn) then
        ! Accumulate and extract PREC60D (accumulates total precipitation as 60-day running mean)
        call update_accum_field  ('PREC60D', rbufslt, nstep)

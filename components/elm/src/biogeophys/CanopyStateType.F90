@@ -472,18 +472,24 @@ contains
        call endrun(msg=errMsg(__FILE__, __LINE__))
     endif
     ! Accumulate and extract fsun24 & fsun240
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present)
     do p = begp,endp
        rbufslp(p) = this%fsun_patch(p)
     end do
+    !$acc end data
     call update_accum_field  ('FSUN24' , rbufslp              , nstep)
     call extract_accum_field ('FSUN24' , this%fsun24_patch    , nstep)
     call update_accum_field  ('FSUN240', rbufslp              , nstep)
     call extract_accum_field ('FSUN240', this%fsun240_patch   , nstep)
 
     ! Accumulate and extract elai240
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present)
     do p = begp,endp
        rbufslp(p) = this%elai_patch(p)
     end do
+    !$acc end data
     call update_accum_field  ('LAI240', rbufslp                 , nstep)
     call extract_accum_field ('LAI240', this%elai240_patch       , nstep)
 

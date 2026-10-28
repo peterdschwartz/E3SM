@@ -156,6 +156,7 @@ contains
     end if
 
     end associate
+    !$acc update device(first_step, grc_pp%dayl, grc_pp%prev_dayl) if_present
 
   end subroutine UpdateDaylength
 

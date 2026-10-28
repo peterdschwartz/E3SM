@@ -87,28 +87,22 @@ contains
             flux_mineralization(c,j) = 0._r8
          enddo
       enddo
-        do k = 1, ndecomp_cascade_transitions
-          if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
-            !$acc parallel loop gang vector collapse(2) default(present) private(c)
-            do j = 1, nlevdecomp
-               ! column loop
-               do fc = 1,num_soilc
-                  c = filter_soilc(fc)
+        ! one thread per (level, column), the transitions sequential: each element keeps its order of operations
+        !$acc parallel loop gang vector collapse(2) default(present) private(c, k)
+        do j = 1, nlevdecomp
+           do fc = 1,num_soilc
+              c = filter_soilc(fc)
+              !$acc loop seq
+              do k = 1, ndecomp_cascade_transitions
+                 if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
                     flux_mineralization(c,j) = flux_mineralization(c,j) - &
                                                col_pf%mineral%decomp_cascade_smin_flux_vr(c,j,k)*dt
-               end do
-             end do
-           else
-             !$acc parallel loop gang vector collapse(2) default(present) private(c)
-             do j = 1, nlevdecomp
-               ! column loop
-               do fc = 1,num_soilc
-                  c = filter_soilc(fc)
+                 else
                     flux_mineralization(c,j) = flux_mineralization(c,j) + &
                                                col_pf%mineral%decomp_cascade_smin_flux_vr(c,j,k)*dt
-               end do
-             end do
-           endif
+                 endif
+              end do
+           end do
         end do
 
 

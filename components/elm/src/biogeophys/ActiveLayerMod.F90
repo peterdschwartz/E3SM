@@ -100,6 +100,7 @@ contains
       day = day_curr 
       sec = secs_curr
       if ( (mon .eq. 1) .and. (day .eq. 1) .and. ( sec / int(dtime) .eq. 1) ) then
+         !$acc parallel loop gang vector default(present) private(c, g)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             g = col_pp%gridcell(c)
@@ -113,6 +114,7 @@ contains
          end do
       endif
       if ( (mon .eq. 7) .and. (day .eq. 1) .and. ( sec / dtime .eq. 1) ) then
+         !$acc parallel loop gang vector default(present) private(c, g)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             g = col_pp%gridcell(c)
@@ -126,6 +128,9 @@ contains
       endif
 
       do fc = 1,num_soilc
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col, &
+         !$acc&   col_es%t_soisno) if_present
          c = filter_soilc(fc)
 
          ! calculate alt for a given timestep
@@ -174,10 +179,15 @@ contains
                 altmax_ever_indx(c) = 0
             endif
          endif
+         !$acc update device(canopystate_vars%alt_col, canopystate_vars%alt_indx_col, &
+         !$acc&   canopystate_vars%altmax_col, canopystate_vars%altmax_ever_col, &
+         !$acc&   canopystate_vars%altmax_ever_indx_col, canopystate_vars%altmax_indx_col) if_present
 
          if (use_polygonal_tundra) then
             ! special case for year = 1989. For now it is the assumed baseline year for 
             ! changes in polygonal ground
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col) if_present
             if (year .eq. 1989) then
                altmax_1989(c) = altmax(c)
                altmax_1989_indx(c) = altmax_indx(c)
@@ -191,7 +201,11 @@ contains
 
            ! initialize melt_profile as zero
            melt_profile(:) = 0._r8
+            !$acc update device(canopystate_vars%altmax_1989_col, &
+            !$acc&   canopystate_vars%altmax_1989_indx_col) if_present
 
+           !$acc data copy(melt_profile)
+           !$acc parallel loop gang vector default(present) private(orig_excess, old_mfrac)
            do j = nlevgrnd,1,-1 ! note, this will go from bottom to top
               if (j .gt. k_frz + 1) then ! all layers below k_frz + 1 remain frozen
                 melt_profile(j) = 0.0_r8
@@ -231,6 +245,7 @@ contains
               ! calculate subsidence at this layer:
               melt_profile(j) = melt_profile(j) * dzsoi(j)
            end do
+           !$acc end data
 
            ! subsidence is integral of melt profile:
            if ((year .ge. 1989) .and. (altmax_ever(c) .ge. altmax_1989(c))) then
@@ -259,6 +274,8 @@ contains
                ! if polygonal ground is misspecified on surface file.
              endif
            endif
+           !$acc update device(col_ws%iwp_ddep, col_ws%iwp_exclvol, col_ws%iwp_microrel, &
+           !$acc&   col_ws%iwp_subsidence) if_present
          endif
        end do
 

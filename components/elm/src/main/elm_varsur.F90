@@ -60,4 +60,6 @@ module elm_varsur
   real(r8),pointer :: f_grd(:,:)   ! fraction of water withdraws from groundwater
   !-----------------------------------------------------------------------
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(f_grd, f_surf, wt_lunit)
 end module elm_varsur

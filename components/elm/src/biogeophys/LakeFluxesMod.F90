@@ -161,7 +161,13 @@ contains
     !-----------------------------------------------------------------------
 
     ! spel acc-locals: device storage of the local work arrays
-    !$acc enter data create(fm)
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
+    logical :: check_stress  ! get_nstep() > 0: the stress convergence check applies
+    integer :: p0            ! bounds%begp, for the device code (bounds is not on the device)
+    !$acc enter data create(nmozsgn, jtop, dqh, dth, dzsur, htvp, obu, obuold, qsatg, qsatgdT, ram, rah, raw, &
+    !$acc&   stftg3, temp1, temp12m, temp2, temp22m, tgbef, thm, thv, tksur, tsur, um, ur, ustar, &
+    !$acc&   ugust_total, zldis, displa, z0mg, z0hg, z0qg, fm, fetch, wind_speed0, wind_speed_adj, tau, &
+    !$acc&   tau_diff, prev_tau, prev_tau_diff, fpcopy, fpmap)
     associate(                                                           & 
          snl              =>    col_pp%snl                                , & ! Input:  [integer  (:)   ]  number of snow layers                              
          dz               =>    col_pp%dz                                 , & ! Input:  [real(r8) (:,:) ]  layer thickness for soil or snow (m)            
@@ -249,6 +255,8 @@ contains
 
       kva0temp = 20._r8 + tfrz
 
+      ! Lake columns have one patch, so these patch loops write each column once
+      !$acc parallel loop gang vector default(present) private(p, c, t, g, kva, sqre0, sabg_nir, eg, degdT)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -277,7 +285,7 @@ contains
          ! Initialize roughness lengths
 
          if (t_grnd(c) > tfrz) then   ! for unfrozen lake
-            z0mg(p) = z0mg_col(c)
+            z0mg(p) = frictionvel_vars%z0mg_col(c)
             kva = kva0 * (t_grnd(c)/kva0temp)**1.5_r8 * kva0pres/forc_pbot(t) ! kinematic viscosity of air
             sqre0 = (max(z0mg(p)*ust_lake(c)/kva,0.1_r8))**0.5_r8   ! Square root of roughness Reynolds number
             z0hg(p) = z0mg(p) * exp( -vkc/prn*( 4._r8*sqre0 - 3.2_r8) ) ! SH roughness length
@@ -333,6 +341,7 @@ contains
 
 
 
+      !$acc parallel loop gang vector default(present) private(p, c, t, g, dthv)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -379,8 +388,12 @@ contains
 
       iter = 1
       fncopy = num_lakep
-      fpcopy(1:num_lakep) = filter_lakep(1:num_lakep)
-      fpmap(1:num_lakep) = filter_lakep(1:num_lakep) - begp + 1
+      p0 = begp
+      !$acc parallel loop gang vector default(present)
+      do fp = 1, num_lakep
+         fpcopy(fp) = filter_lakep(fp)
+         fpmap(fp) = filter_lakep(fp) - p0 + 1
+      end do
 
       ! Begin stability iteration
       if (implicit_stress) then
@@ -394,8 +407,6 @@ contains
          ! Determine friction velocity, and potential temperature and humidity
          ! profiles of the surface boundary layer
 
-         !$acc data copy(displa, fpcopy, fpmap, obu, temp1, temp12m, temp2, temp22m, ugust_total, &
-         !$acc&   um, ur, ustar, z0hg, z0mg, z0qg)
          call FrictionVelocity(begp, endp, fncopy, fpcopy, fpmap, endp-begp+1, &
               displa(begp:endp), z0mg(begp:endp), z0hg(begp:endp), z0qg(begp:endp), &
               obu(begp:endp), iter, ur(begp:endp), um(begp:endp), ugust_total(begp:endp), &
@@ -403,7 +414,8 @@ contains
               temp1(begp:endp), temp2(begp:endp), temp12m(begp:endp), temp22m(begp:endp), &
               fm(begp:endp), frictionvel_vars)
 
-         !$acc end data
+         !$acc parallel loop gang vector default(present) private(p, c, t, g, bw, ax, bx, eg, degdT, &
+         !$acc&   tstar, qstar, thvstar, zeta, wc, cur, kva, sqre0)
          do fp = 1, fncopy
             p = fpcopy(fp)
             c = veg_pp%column(p)
@@ -561,20 +573,28 @@ contains
          if (iter <= itmax ) then
             ! Rebuild copy of pft filter for next pass through the ITERATION loop
 
+            ! in order, on one device thread: only fncopy comes back for the do while test
             fnold = fncopy
+            !$acc serial default(present) copy(fncopy) copyin(fnold)
             fncopy = 0
+            !$acc loop seq
             do fp = 1, fnold
                p = fpcopy(fp)
                if (nmozsgn(p) < 3 .or. (implicit_stress .and. abs(tau_diff(p)) >= dtaumin)) then
                   fncopy = fncopy + 1
                   fpcopy(fncopy) = p
-                  fpmap(fncopy) = p - begp + 1
+                  fpmap(fncopy) = p - p0 + 1
                end if
             end do   ! end of filtered pft loop
+            !$acc end serial
          end if
 
       end do ITERATION   ! end of stability iteration
 
+      spel_dc_1 = 0  ! spel defer-checks
+      check_stress = get_nstep() > 0
+      !$acc parallel loop gang vector default(present) private(p, c, t, g, t_grnd_temp, e_ref2m, de2mdT, &
+      !$acc&   qsat_ref2m, dqsat2mdT, u2m) reduction(max:spel_dc_1)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -672,25 +692,30 @@ contains
          ks(c) = 6.6_r8*sqrt(abs(sin(grc_pp%lat(g))))*(u2m**(-1.84_r8))
 
          ! Update column roughness lengths and friction velocity
-         z0mg_col(c) = z0mg(p)
-         z0hg_col(c) = z0hg(p)
-         z0qg_col(c) = z0qg(p)
+         frictionvel_vars%z0mg_col(c) = z0mg(p)
+         frictionvel_vars%z0hg_col(c) = z0hg(p)
+         frictionvel_vars%z0qg_col(c) = z0qg(p)
          ust_lake(c) = ustar(p)
 
          ! Check for convergence of stress.
          if (implicit_stress .and. abs(tau_diff(p)) > dtaumin) then
-            if (get_nstep() > 0) then ! Suppress common warnings on the first time step.
+            if (check_stress) spel_dc_1 = max(spel_dc_1, fp - (1) + 1)  ! spel defer-checks
+         end if
+
+      end do
+      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+         fp = 1 + spel_dc_1 - 1
+         p = filter_lakep(fp)
+         !$acc update self(prev_tau_diff, tau_diff, tau, wind_speed_adj)
                write(iulog,*)'WARNING: Stress did not converge for lake ',&
                     ' nstep = ',get_nstep(),' p= ',p,' prev_tau_diff= ',prev_tau_diff(p),&
                     ' tau_diff= ',tau_diff(p),' tau= ',tau(p),&
                     ' wind_speed_adj= ',wind_speed_adj(p),' iter_final= ',iter_final
-            end if
-         end if
-
-      end do
+      end if
 
       ! The following are needed for global average on history tape.
 
+      !$acc parallel loop gang vector default(present) private(p, c, t)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -713,7 +738,10 @@ contains
 
     end associate
 
-    !$acc exit data delete(fm)
+    !$acc exit data delete(nmozsgn, jtop, dqh, dth, dzsur, htvp, obu, obuold, qsatg, qsatgdT, ram, rah, raw, &
+    !$acc&   stftg3, temp1, temp12m, temp2, temp22m, tgbef, thm, thv, tksur, tsur, um, ur, ustar, &
+    !$acc&   ugust_total, zldis, displa, z0mg, z0hg, z0qg, fm, fetch, wind_speed0, wind_speed_adj, tau, &
+    !$acc&   tau_diff, prev_tau, prev_tau_diff, fpcopy, fpmap)
   end subroutine LakeFluxes
 
 end module LakeFluxesMod

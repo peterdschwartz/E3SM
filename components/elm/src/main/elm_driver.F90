@@ -1557,11 +1557,13 @@ contains
          )
 
       ! Initialize intracellular CO2 (Pa) parameters each timestep for use in VOCEmission
+      !$acc parallel loop gang vector default(present)
       do p = bounds%begp,bounds%endp
          cisun_z(p,:) = -999._r8
          cisha_z(p,:) = -999._r8
       end do
 
+      !$acc parallel loop gang vector default(present) private(l)
       do c = bounds%begc,bounds%endc
          l = col_pp%landunit(c)
 
@@ -1589,6 +1591,7 @@ contains
 
       ! Initialize fraction of vegetation not covered by snow
 
+      !$acc parallel loop gang vector default(present)
       do p = bounds%begp,bounds%endp
          if (veg_pp%active(p)) then
             frac_veg_nosno(p) = frac_veg_nosno_alb(p)
@@ -1600,6 +1603,7 @@ contains
       ! Initialize set of previous time-step variables
       ! Ice fraction of snow at previous time step
 
+      !$acc parallel loop gang vector collapse(2) default(present) private(c)
       do j = -nlevsno+1,0
          do f = 1, num_nolakec
             c = filter_nolakec(f)

@@ -1571,9 +1571,9 @@ contains
                                    f_nit_vr(c,:),                     & ! OUT
                                    f_denit_vr(c,:))                     ! OUT
 
-            !$acc end data
             ! spel acc-sync: device data this host code uses
             !$acc update self(col_nf%uptake%col_plant_demand_vr) if_present
+            !$acc end data
             col_plant_ndemand_vr(c,:) = col_plant_nh4demand_vr(c,:)+col_plant_no3demand_vr(c,:)
             !$acc update device(col_nf%uptake%col_plant_demand_vr) if_present
          end do 
@@ -1733,9 +1733,9 @@ contains
            ! This is effectively only relevant with FATES
            ! big-leaf ECA would have 0 demand at this point
            ! and calculates supplement and need later on in allocation3
-           !$acc end data
            ! spel acc-sync: device data this host code uses
            !$acc update self(carbon_only) if_present
+           !$acc end data
            if ( carbon_only .or. carbonnitrogen_only) then
               !$acc parallel loop gang vector default(present)
               do j = 1, nlevdecomp
@@ -2274,10 +2274,12 @@ contains
       end do
 
       ! spel acc-sync: device data this host code uses
-      !$acc update self(arepr, aroot, carbon_only, cnstate_vars%aleaf_patch, cnstate_vars%astem_patch, &
-      !$acc&   cnstate_vars%c_allometry_patch, cnstate_vars%froot_prof_patch, cnstate_vars%grain_flag_patch, &
-      !$acc&   cnstate_vars%n_allometry_patch, cnstate_vars%p_allometry_patch, col_cf%w_scalar, &
-      !$acc&   crop_vars%croplive_patch, veg_cf%availc, veg_cf%core%plant_alloc, &
+      !$acc update self(arepr, aroot, canopystate_vars%laisha_patch, canopystate_vars%laisun_patch, &
+      !$acc&   carbon_only, cnstate_vars%aleaf_patch, cnstate_vars%annmax_retransn_patch, &
+      !$acc&   cnstate_vars%annmax_retransp_patch, cnstate_vars%annsum_potential_gpp_patch, &
+      !$acc&   cnstate_vars%astem_patch, cnstate_vars%c_allometry_patch, cnstate_vars%froot_prof_patch, &
+      !$acc&   cnstate_vars%grain_flag_patch, cnstate_vars%n_allometry_patch, cnstate_vars%p_allometry_patch, &
+      !$acc&   col_cf%w_scalar, crop_vars%croplive_patch, veg_cf%availc, veg_cf%core%plant_alloc, &
       !$acc&   veg_cf%core%pool_to_deadcroot, veg_cf%core%pool_to_deadcroot_storage, &
       !$acc&   veg_cf%core%pool_to_deadstem, veg_cf%core%pool_to_deadstem_storage, veg_cf%core%pool_to_froot, &
       !$acc&   veg_cf%core%pool_to_froot_storage, veg_cf%core%pool_to_grain, &
@@ -2657,7 +2659,7 @@ contains
 
        ! concentration of mineralized nutrient, per soil water
        ! spel acc-sync: device data this host code uses
-       !$acc update self(smin_nh4_vr) if_present
+       !$acc update self(h2osoi_vol, smin_nh4_vr) if_present
        solution_conc = smin_nh4_vr(j) / (bd(j)*adsorp_nh4_eff*m3_per_liter + h2osoi_vol(j))
 
        e_km = 0._r8
@@ -2680,8 +2682,9 @@ contains
        !$acc end data
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(actual_immob_nh4_vr, f_nit_vr, fpi_nh4_vr, plant_nh4demand_vr, pot_f_nit_vr, &
-       !$acc&   potential_immob_vr, smin_nh4_to_plant_vr, smin_nh4_vr, smin_no3_vr, t_scalar) if_present
+       !$acc update self(actual_immob_nh4_vr, f_nit_vr, fpi_nh4_vr, h2osoi_vol, plant_nh4demand_vr, &
+       !$acc&   pot_f_nit_vr, potential_immob_vr, smin_nh4_to_plant_vr, smin_nh4_vr, smin_no3_vr, &
+       !$acc&   t_scalar) if_present
        compet_decomp = solution_conc / (km_decomp_nh4 * (1._r8 + solution_conc/km_decomp_nh4 + e_km))
 
        compet_nit    = solution_conc / (km_nit * (1._r8 + solution_conc/km_nit + e_km))
@@ -2972,7 +2975,7 @@ contains
        ! loop over each pft within the same column
        ! calculate competition coefficients for N/P
        ! spel acc-sync: device data this host code uses
-       !$acc update self(labilep_vr, solutionp_vr) if_present
+       !$acc update self(h2osoi_vol, labilep_vr, solutionp_vr) if_present
        solution_pconc  = max(0._r8,solutionp_vr(j)/h2osoi_vol(j)) ! convert to per soil water based
 
        e_km_p = 0._r8

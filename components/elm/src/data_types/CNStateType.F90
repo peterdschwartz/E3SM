@@ -1616,19 +1616,28 @@ contains
     endif
 
     ! Accumulate and extract
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present)
     do p = begp,endp
        rbufslp(p) = this%cn_scalar(p)
     end do
+    !$acc end data
     call update_accum_field  ('nlim_m' , rbufslp             , nstep)
     call extract_accum_field ('nlim_m' , this%cn_scalar_runmean  , nstep)
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present)
     do p = begp,endp
        rbufslp(p) = this%cp_scalar(p)
     end do
+    !$acc end data
     call update_accum_field  ('plim_m' , rbufslp             , nstep)
     call extract_accum_field ('plim_m' , this%cp_scalar_runmean  , nstep)
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present)
     do p = begp,endp
        rbufslp(p) = this%water_scalar(p)
     end do
+    !$acc end data
     call update_accum_field  ('wlim_m' , rbufslp             , nstep)
     call extract_accum_field ('wlim_m' , this%water_scalar_runmean  , nstep)
     deallocate(rbufslp)

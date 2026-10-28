@@ -480,9 +480,10 @@ contains
               gross_pmin_vr(c,j) = 0.0_r8
           end do
       end do
-      do k = 1, ndecomp_cascade_transitions
-         !$acc parallel loop gang vector default(present) private(fc, c)
-         do fc = 1,num_soilc
+      !$acc parallel loop gang vector default(present) private(fc, j, c)
+      do fc = 1,num_soilc
+         !$acc loop seq
+         do k = 1, ndecomp_cascade_transitions
             !$acc loop seq
             do j = 1,nlevdecomp
                c = filter_soilc(fc)

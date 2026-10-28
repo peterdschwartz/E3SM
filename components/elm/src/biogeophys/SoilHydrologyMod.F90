@@ -276,8 +276,10 @@ contains
             t = col_pp%topounit(c)
             top_pp%uphill_wt(t) = top_pp%uphill_wt(t) + col_pp%wttopounit(c)
          end do
+         !$acc update device(top_pp%uphill_wt) if_present
 
          ! flow from uphill topounit goes to top of soil for soil, crop, and pervious road columns
+         !$acc parallel loop gang vector default(present) private(c, t)
          do fc = 1, num_hydrologyc
             c = filter_hydrologyc(fc)
             t = col_pp%topounit(c)
@@ -458,7 +460,7 @@ contains
 
        !NOTE : Assuming use_vichydro is .false.
        !$acc parallel loop independent gang vector default(present) private(c, g, l, pc, fsno, top_icefrac, rsurf_vic, &
-       !$acc   basis, qinmax, frac_infclust, vdep, phi_eff, swc, k_wet, h2osoi_left_vol1)
+       !$acc   basis, qinmax, frac_infclust, vdep, phi_eff, swc, k_wet, h2osoi_left_vol1) no_create(moist, max_moist, ice)
        do fc = 1, num_hydrologyc
           c  = filter_hydrologyc(fc)
           g  = cgridcell(c)
@@ -1664,10 +1666,12 @@ contains
 
           !-- recompute jwt for following calculations  ---------------------------------
           ! allow jwt to equal zero when zwt is in top layer
+          !$acc parallel loop gang vector default(present) private(c, nlevbed, j)
           do fc = 1, num_hydrologyc
              c = filter_hydrologyc(fc)
              nlevbed = nlev2bed(c)
              jwt(fc) = nlevbed
+             !$acc loop seq
              do j = 1,nlevbed
                 if(zwt(c) <= zi(c,j)) then
                    if (zengdecker_2009_with_var_soil_thick .and. zwt(c) == zi(c,nlevbed)) then
@@ -1867,6 +1871,8 @@ contains
      real(r8) :: dz_jtran, lateral_tot, lateral_layer, rous, s_y, h2osoi_left_vol          
      !-----------------------------------------------------------------------
 
+     ! spel acc-locals: device storage of the local work arrays
+     !$acc enter data create(jwt, jss)
      associate(                                                  &
           z                  =>    col_pp%z                      , & ! Input:  [real(r8) (:,:) ] layer depth (m)
           zi                 =>    col_pp%zi                     , & ! Input:  [real(r8) (:,:) ] interface level below a "z" level (m)
@@ -1885,6 +1891,10 @@ contains
           h2osoi_liq         =>    col_ws%h2osoi_liq               & ! Output: [real(r8) (:,:) ] liquid water (kg/m2)
           )
 
+       !$acc parallel loop gang vector default(present) &
+       !$acc   private(c, g, nlevbed, j, dzsum, icefracsum, imped, t1, f, jtran) &
+       !$acc   private(dz_jtran, t2, head, rous, lateral_tot, s_y, lateral_layer) &
+       !$acc   private(h2osoi_left_vol)
        do fc = 1, num_hydrologyc !TODO: introduce a filter for coastline grid cells
           c = filter_hydrologyc(fc)
           g = col_pp%gridcell(c)
@@ -1892,6 +1902,7 @@ contains
 
           jwt(c) = nlevbed
           ! allow jwt to equal zero when zwt is in top layer
+          !$acc loop seq
           do j = 1,nlevbed
              if (zwt(c) <= zi(c,j)) then
                 if (zengdecker_2009_with_var_soil_thick .and. zwt(c) == zi(c,nlevbed)) then
@@ -1904,6 +1915,7 @@ contains
           enddo
 
           jss(c) = nlevbed
+          !$acc loop seq
           do j = nlevbed,1,-1
              if(ocn2lnd_vars%ssh_grc(g) <= ldomain%topo(g) - zi(c,j)) then
                 jss(c) = j
@@ -1913,6 +1925,7 @@ contains
 
           dzsum = 0._r8
           icefracsum = 0._r8
+          !$acc loop seq
           do j = max(jwt(c),1), nlevbed
              dzsum  = dzsum + dz(c,j)*1.e3_r8
              icefracsum = icefracsum + icefrac(c,j) * dz(c,j)*1.e3_r8
@@ -1940,6 +1953,7 @@ contains
           ! Transmissivity equation from Fan et al., 2007, and 
           if (jtran <= nlevbed) then
              ! SSH is within the soil column
+             !$acc loop seq
              do j = jtran, nlevbed
                 if (j == jtran) then
                    T1 = T1 + 1.e-3_r8*hksat(c,j)*cellclay_col(c,j)*dz_jtran
@@ -1980,6 +1994,7 @@ contains
           !--   water table within soil layers 1-9   --!
              lateral_tot = -qflx_lnd2ocn(c) * dtime
              if(lateral_tot > 0._r8) then !rising water table (posive qflx_lnd2ocn)
+                !$acc loop seq
                 do j = jwt(c)+1, 1,-1
                    !scs: use analytical expression for specific yield
                    s_y = watsat(c,j) &
@@ -2006,6 +2021,7 @@ contains
                 endif 
 
              else ! deepening water table (negative qflx_lnd2ocn)
+                !$acc loop seq
                 do j = jwt(c)+1, nlevbed
                    !scs: use analytical expression for specific yield
                    s_y = watsat(c,j) &
@@ -2038,6 +2054,7 @@ contains
 
      end associate
 
+     !$acc exit data delete(jwt, jss)
    end subroutine Drainage_To_OCN
 
    !-----------------------------------------------------------------------
@@ -2485,6 +2502,8 @@ contains
      ! h2osoi_ice is actually water equivalent ice content.
      !-----------------------------------------------------------------------
 
+     ! spel acc-locals: device storage of the local work arrays
+     !$acc enter data create(ice0, moist0)
      associate(                                                   &
           dz            => col_pp%dz                               , & ! Input:  [real(r8) (:,:)   ] layer depth (m)
           zi            => col_pp%zi                               , & ! Input:  [real(r8) (:,:)   ] interface level below a "z" level (m)
@@ -2506,11 +2525,13 @@ contains
        ! map CLM to VIC
        do fc = 1, numf
           c = filter(fc)
+          !$acc parallel loop gang vector default(present) private(j)
           do i = 1, nlayer
              ice0(i) = ice(c,i)
              moist0(i) = moist(c,i)
              ice(c,i) = 0._r8
              moist(c,i) = 0._r8
+             !$acc loop seq
              do j = 1, nlevsoi
                 ice(c,i) = ice(c,i) + h2osoi_ice(c,j) * vic_elm_fract(c,i,j)
                 moist(c,i) = moist(c,i) + h2osoi_liq(c,j) * vic_elm_fract(c,i,j)
@@ -2525,13 +2546,20 @@ contains
           end do
 
           ! hydrologic inactive layers
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(col_ws%h2osoi_ice, col_ws%h2osoi_liq, col_ws%h2osoi_vol, &
+          !$acc&   soilhydrology_vars%ice_col, soilhydrology_vars%moist_col, &
+          !$acc&   soilhydrology_vars%moist_vol_col) if_present
           ice(c, nlayer+1:nlayert)       = h2osoi_ice(c, nlevsoi+1:nlevgrnd)
           moist(c, nlayer+1:nlayert)     = h2osoi_liq(c, nlevsoi+1:nlevgrnd)
           moist_vol(c, nlayer+1:nlayert) = h2osoi_vol(c, nlevsoi+1:nlevgrnd)
+          !$acc update device(soilhydrology_vars%ice_col, soilhydrology_vars%moist_col, &
+          !$acc&   soilhydrology_vars%moist_vol_col) if_present
        end do
 
      end associate
 
+     !$acc exit data delete(ice0, moist0)
    end subroutine ELMVICMap
 
 end module SoilHydrologyMod

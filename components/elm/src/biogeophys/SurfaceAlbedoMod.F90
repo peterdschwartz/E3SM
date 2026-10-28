@@ -633,9 +633,11 @@ contains
        if (err_can(fp) /= 0) nbad = nbad + 1
     end do
     if (nbad > 0) then
-       !$acc update self(err_can)
        ! spel acc-sync: device data this host code uses
-       !$acc update self(surfalb_vars%ncan_patch, surfalb_vars%nrad_patch) if_present
+       !$acc update self(canopystate_vars%elai_patch, canopystate_vars%esai_patch, &
+       !$acc&   canopystate_vars%tlai_patch, canopystate_vars%tsai_patch, surfalb_vars%ncan_patch, &
+       !$acc&   surfalb_vars%nrad_patch) if_present
+       !$acc update self(err_can)
        do fp = 1,num_nourbanp
           if (err_can(fp) /= 0) then
              p = filter_nourbanp(fp)

@@ -147,12 +147,16 @@ contains
 
          )
 
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(top_af%lwrad, top_af%lwrad_pp, top_af%solad, top_af%solad_pp, top_af%solai, &
+      !$acc&   top_af%solai_pp, top_af%solar, top_af%solar_pp) if_present
       if (.not. use_finetop_rad) then
          forc_solad(:,:) = top_af%solad(:,:)
          forc_solai(:,:) = top_af%solai(:,:)
          forc_solar(:)   = top_af%solar(:)
          forc_lwrad(:)   = top_af%lwrad(:)
       end if
+      !$acc update device(top_af%lwrad_pp, top_af%solad_pp, top_af%solai_pp, top_af%solar_pp) if_present
 
       ! Define fields that appear on the restart file for non-urban landunits
 

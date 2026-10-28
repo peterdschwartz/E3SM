@@ -94,6 +94,8 @@ contains
     integer :: begp,endp
     integer :: c,p,g,pft
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_cf%hr, veg_cf%npp) if_present
     begg = bounds%begg; endg = bounds%endg
     begp = bounds%begp; endp = bounds%endp
 
@@ -116,7 +118,9 @@ contains
 
       end if
     end do
+    !$acc update device(this%hr, this%npp, this%pftwgt) if_present
 
+    !$acc parallel loop gang vector default(present)
     do g = begg, endg
       ! Estimate heating and cooling degree days
       this%hdd(g) = max(t_base_K - lnd2atm_vars%t_ref2m_grc(g), 0.0_r8)

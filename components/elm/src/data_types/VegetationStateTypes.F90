@@ -742,9 +742,12 @@ contains
     endif
 
     ! fill the temporary variable
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present)
     do p = begp,endp
        rbufslp(p) = this%t_veg(p)
     end do
+    !$acc end data
 
     call update_accum_field  ('T10', this%t_ref2m, nstep)
     call extract_accum_field ('T10', this%t_a10  , nstep)
@@ -763,6 +766,8 @@ contains
     call update_accum_field  ('TREFAV', this%t_ref2m, nstep)
     call extract_accum_field ('TREFAV', rbufslp, nstep)
     end_cd = is_end_curr_day()
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present)
     do p = begp,endp
        if (rbufslp(p) /= spval) then
           this%t_ref2m_max_inst(p) = max(rbufslp(p), this%t_ref2m_max_inst(p))
@@ -778,6 +783,7 @@ contains
           this%t_ref2m_min(p) = spval
        endif
     end do
+    !$acc end data
 
     ! Accumulate and extract TREFAV_U - hourly average urban 2m air temperature
     ! Used to compute maximum and minimum of hourly averaged 2m reference
@@ -788,6 +794,8 @@ contains
 
     call update_accum_field  ('TREFAV_U', this%t_ref2m_u, nstep)
     call extract_accum_field ('TREFAV_U', rbufslp, nstep)
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present) private(l)
     do p = begp,endp
        l = veg_pp%landunit(p)
        if (rbufslp(p) /= spval) then
@@ -806,6 +814,7 @@ contains
           this%t_ref2m_min_u(p) = spval
        endif
     end do
+    !$acc end data
 
     ! Accumulate and extract TREFAV_R - hourly average rural 2m air temperature
     ! Used to compute maximum and minimum of hourly averaged 2m reference
@@ -816,6 +825,8 @@ contains
 
     call update_accum_field  ('TREFAV_R', this%t_ref2m_r, nstep)
     call extract_accum_field ('TREFAV_R', rbufslp, nstep)
+    !$acc data copy(rbufslp)
+    !$acc parallel loop gang vector default(present) private(l)
     do p = begp,endp
        l = veg_pp%landunit(p)
        if (rbufslp(p) /= spval) then
@@ -834,28 +845,37 @@ contains
           this%t_ref2m_min_r(p) = spval
        endif
     end do
+    !$acc end data
 
     if ( crop_prog )then
        ! Accumulate and extract TDM10
 
+       !$acc data copy(rbufslp)
+       !$acc parallel loop gang vector default(present)
        do p = begp,endp
           rbufslp(p) = min(this%t_ref2m_min(p),this%t_ref2m_min_inst(p))
           if (rbufslp(p) > 1.e30_r8) rbufslp(p) = SHR_CONST_TKFRZ !and were 'min'&
        end do                                                     !'min_inst' not initialized?
+       !$acc end data
        call update_accum_field  ('TDM10', rbufslp, nstep)
        call extract_accum_field ('TDM10', this%t_a10min, nstep)
 
        ! Accumulate and extract TDM5
 
+       !$acc data copy(rbufslp)
+       !$acc parallel loop gang vector default(present)
        do p = begp,endp
           rbufslp(p) = min(this%t_ref2m_min(p),this%t_ref2m_min_inst(p))
           if (rbufslp(p) > 1.e30_r8) rbufslp(p) = SHR_CONST_TKFRZ !and were 'min'&
        end do                                         !'min_inst' not initialized?
+       !$acc end data
        call update_accum_field  ('TDM5', rbufslp, nstep)
        call extract_accum_field ('TDM5', this%t_a5min, nstep)
 
        ! Accumulate and extract GDD0
 
+       !$acc data copy(rbufslp)
+       !$acc parallel loop gang vector default(present) private(g)
        do p = begp,endp
           g = veg_pp%gridcell(p)
 
@@ -883,11 +903,14 @@ contains
              end if
           end if
        end do
+       !$acc end data
        call update_accum_field  ('GDD0', rbufslp, nstep)
        call extract_accum_field ('GDD0', this%gdd0, nstep)
 
        ! Accumulate and extract GDD8
 
+       !$acc data copy(rbufslp)
+       !$acc parallel loop gang vector default(present) private(g)
        do p = begp,endp
           g = veg_pp%gridcell(p)
           if (month==1 .and. day==1 .and. secs==int(dtime)) then
@@ -900,11 +923,14 @@ contains
              rbufslp(p) = 0._r8      ! keeps gdd unchanged at other times (eg, through Dec in NH)
           end if
        end do
+       !$acc end data
        call update_accum_field  ('GDD8', rbufslp, nstep)
        call extract_accum_field ('GDD8', this%gdd8, nstep)
 
        ! Accumulate and extract GDD10
 
+       !$acc data copy(rbufslp)
+       !$acc parallel loop gang vector default(present) private(g)
        do p = begp,endp
           g = veg_pp%gridcell(p)
           if (month==1 .and. day==1 .and. secs==int(dtime)) then
@@ -917,6 +943,7 @@ contains
              rbufslp(p) = 0._r8      ! keeps gdd unchanged at other times (eg, through Dec in NH)
           end if
        end do
+       !$acc end data
        call update_accum_field  ('GDD10', rbufslp, nstep)
        call extract_accum_field ('GDD10', this%gdd10, nstep)
     end if
@@ -2195,11 +2222,7 @@ contains
     integer  :: fp              ! filter indices
     real(r8) :: maxdepth        ! depth to integrate soil variables
     !-----------------------------------------------------------------------
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(this%core%deadcroot, this%core%deadstem, this%core%froot, this%core%grain, &
-    !$acc&   this%core%leaf, this%core%livecroot, this%core%livestem) if_present
     call vegetation_nutrient_state_summary(this%core, num_soilp, filter_soilp)
-    !$acc update device(this%core%dispveg) if_present
     associate(&
       totpftc_patch  => this%core%totpft         , &
       totpftc_col    => col_cs%core%totpft, &
@@ -2616,11 +2639,7 @@ contains
     integer  :: c,p             ! indices
     integer  :: fp              ! filter indices
     !-----------------------------------------------------------------------
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(this%core%deadcroot, this%core%deadstem, this%core%froot, this%core%grain, &
-    !$acc&   this%core%leaf, this%core%livecroot, this%core%livestem) if_present
     call vegetation_nutrient_state_summary(this%core, num_soilp, filter_soilp)
-    !$acc update device(this%core%dispveg) if_present
     associate( &
      plant_n_buffer_patch  => this%plant_n_buffer  , &
      plant_n_buffer_col    => col_ns%plant_n_buffer , &
@@ -3114,11 +3133,7 @@ contains
     integer  :: p        ! indices
     integer  :: fp       ! lake filter indices
     !-----------------------------------------------------------------------
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(this%core%deadcroot, this%core%deadstem, this%core%froot, this%core%grain, &
-    !$acc&   this%core%leaf, this%core%livecroot, this%core%livestem) if_present
     call vegetation_nutrient_state_summary(this%core, num_soilp, filter_soilp)
-    !$acc update device(this%core%dispveg) if_present
     associate( &
      totvegp_patch  => this%core%totveg   , &
      totvegp_col    => col_ps%core%totveg, &

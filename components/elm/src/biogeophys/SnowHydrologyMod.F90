@@ -678,14 +678,19 @@ contains
 
        ! Begin calculation - note that the following column loops are only invoked if snl(c) < 0
        if( use_firn_percolation_and_compaction) then 
+          !$acc parallel loop gang vector default(present)
           do fc = 1, num_snowc
              burden(fc) = 0._r8
              zpseudo(fc) = 0._r8
              mobile(fc) = .true.
           end do
 
-         do j = -nlevsno+1, 0
-            do fc = 1, num_snowc
+         !$acc parallel loop gang vector default(present) &
+         !$acc   private(fc, c, t, l, wx, void, bi, fi, td, dexpf, ddz1_fresh) &
+         !$acc   private(snw_ssa, ddz1, p_gls, ddz2, ddz3, wsum, fsno_melt, ddz4) private(pdzdtc)
+         do fc = 1, num_snowc
+            !$acc loop seq
+            do j = -nlevsno+1, 0
                c = filter_snowc(fc)
                t = col_pp%topounit(c)
                l = col_pp%landunit(c)
@@ -787,8 +792,8 @@ contains
 
                   burden(fc) = burden(fc) + wx
                end if 
-            end do
-         end do  
+            end do  
+         end do
       else 
 
          !NOTE: revisit these loops 
@@ -978,6 +983,8 @@ contains
        
 
        ! dzmin will stay constant between timesteps
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(filter_snowc) if_present
        if (.not. use_extrasnowlayers) then
          dzminloc(:) = dzmin(:)
        else
@@ -1166,6 +1173,8 @@ contains
        ! Check the snow depth - snow layers combined
        ! The following loop IS NOT VECTORIZED
 
+       !$acc parallel loop gang vector default(present) &
+       !$acc   private(c, i, dzminloc_mssi_c, neibor, j, l, k)
        do fc = 1, num_snowc
           c = filter_snowc(fc)
 
@@ -1176,6 +1185,7 @@ contains
              msn_old(fc) = snl(c)
              mssi(fc) = 1
 
+             !$acc loop seq
              do i = msn_old(fc)+1,0
                 if (.not. use_extrasnowlayers) then
                     dzminloc_mssi_c = dzminloc(mssi(fc))
@@ -1228,6 +1238,7 @@ contains
                    ! Now shift all elements above this down one.
                    if (j-1 > snl(c)+1) then
 
+                      !$acc loop seq
                       do k = j-1, snl(c)+2, -1
                          t_soisno(c,k) = t_soisno(c,k-1)
                          h2osoi_ice(c,k) = h2osoi_ice(c,k-1)
@@ -1952,6 +1963,9 @@ contains
        ! Consistency check
        if (is_lake) then
 
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_pp%dz, col_pp%snl, col_ws%h2osoi_ice, col_ws%h2osoi_liq, &
+         !$acc&   filter_snowc) if_present
          do fc = 1, num_snowc
             c = filter_snowc(fc)
             
@@ -2115,8 +2129,10 @@ contains
 
        if ( is_lake ) then
           ! Initialize for consistency check
-          do j = -nlevsno+1,0
-             do fc = 1, num_snowc
+          !$acc parallel loop gang vector default(present) private(fc, c)
+          do fc = 1, num_snowc
+             !$acc loop seq
+             do j = -nlevsno+1,0
                 c = filter_snowc(fc)
                 
                 if (j == -nlevsno+1) then
@@ -2327,6 +2343,9 @@ contains
 
        ! Consistency check
        if (is_lake) then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(col_pp%dz, col_pp%snl, col_ws%h2osoi_ice, col_ws%h2osoi_liq, &
+          !$acc&   filter_snowc) if_present
           do j = -nlevsno + 1, 0
              do fc = 1, num_snowc
                 c = filter_snowc(fc)
@@ -2523,6 +2542,7 @@ contains
      real(r8), parameter :: min_snow_to_keep = 1.e-9  ! fraction of bottom snow layer to keep with capping
 
      !-----------------------------------------------------------------------
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
      associate( &
          qflx_snwcp_ice     => col_wf%qflx_snwcp_ice               , & ! Output: [real(r8) (:)   ]  excess solid h2o due to snow capping (outgoing) (mm H2O /s) [+]
          qflx_snwcp_liq     => col_wf%qflx_snwcp_liq               , & ! Output: [real(r8) (:)   ]  excess liquid h2o due to snow capping (outgoing) (mm H2O /s) [+]
@@ -2544,6 +2564,7 @@ contains
      ! Determine model time step
      dtime = dtime_mod 
      ! Initialize capping fluxes for all columns in domain (lake or non-lake)
+     !$acc parallel loop gang vector default(present) private(c)
      do fc = 1, num_nolakec
         c = filter_initc(fc)
         qflx_snwcp_ice(c) = 0.0_r8
@@ -2551,6 +2572,10 @@ contains
         qflx_ice_runoff_xs(c) = 0.0_r8
      end do
 
+     spel_dc_1 = 0  ! spel defer-checks
+     !$acc parallel loop gang vector default(present) &
+     !$acc   private(c, mss_snow_bottom_lyr, mss_snwcp_tot, icefrac, rho) private(frac_adjust) &
+     !$acc   reduction(max:spel_dc_1)
      loop_columns: do fc = 1, num_snowc
         c = filter_snowc(fc)
 
@@ -2580,11 +2605,7 @@ contains
            end if
 
            ! Check that water capacity is still positive
-           if (h2osoi_ice(c,0) < 0._r8 .or. h2osoi_liq(c,0) < 0._r8 ) then
-              write(iulog,*)'ERROR: capping procedure failed (negative mass remaining) c = ',c
-              write(iulog,*)'h2osoi_ice = ', h2osoi_ice(c,0), ' h2osoi_liq = ', h2osoi_liq(c,0)
-              call endrun(decomp_index=c, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
-           end if
+           if (h2osoi_ice(c,0) < 0._r8 .or. h2osoi_liq(c,0) < 0._r8) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
 
            ! Correct the top layer aerosol mass to account for snow capping.
            ! This approach conserves the aerosol mass concentration but not aerosol mass. 
@@ -2600,6 +2621,15 @@ contains
         end if
 
      end do loop_columns
+     if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+        ! spel acc-sync: device data this host code uses
+        !$acc update self(col_ws%h2osoi_ice, col_ws%h2osoi_liq, filter_snowc) if_present
+        fc = 1 + spel_dc_1 - 1
+        c = filter_snowc(fc)
+              write(iulog,*)'ERROR: capping procedure failed (negative mass remaining) c = ',c
+              write(iulog,*)'h2osoi_ice = ', h2osoi_ice(c,0), ' h2osoi_liq = ', h2osoi_liq(c,0)
+              call endrun(decomp_index=c, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
+     end if
 
      end associate
    end subroutine SnowCapping
@@ -2634,6 +2664,7 @@ contains
                 forc_wind => top_as%windbot  & ! Input:  [real(r8) (:) ]  atmospheric wind speed (m/s)
                 )
 
+      !$acc parallel loop gang vector default(present) private(c, t, t_for_bifall_degc)
       do fc = 1, num_c
          c = filter_c(fc)
          t = col_pp%topounit(c)
@@ -2712,6 +2743,7 @@ contains
      character(len=*), parameter :: subname = 'WindDriftCompaction'
      !-----------------------------------------------------------------------
 
+     !$acc routine seq  ! spel acc-apply
      if (mobile) then
         Frho = 1.25_r8 - 0.0042_r8*(max(rho_min, bi)-rho_min)
         ! assuming dendricity = 0, sphericity = 1, grain size = 0.35 mm Non-dendritic snow

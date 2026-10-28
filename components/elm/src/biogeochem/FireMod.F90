@@ -182,6 +182,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! spel acc-locals: device storage of the local work arrays
+    integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     !$acc enter data create(btran_col)
     associate(                                                                &
          is_cwd             =>    decomp_cascade_con%is_cwd                 , & ! Input:  [logical  (:)     ]  TRUE => pool is a cwd pool
@@ -578,11 +579,15 @@ contains
 
      ! find which pool is the cwd pool
      i_cwd = 0
+     spel_dc_1 = 0  ! spel defer-checks
+     !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
      do l = 1, ndecomp_pools
-        if ( is_cwd(l) ) then
-           i_cwd = l
-        endif
+        if (is_cwd(l)) spel_dc_1 = max(spel_dc_1, l - (1) + 1)  ! spel defer-checks
      end do
+     if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+        l = 1 + spel_dc_1 - 1
+           i_cwd = l
+     end if
 
      !
      ! begin column loop to calculate fractional area affected by fire
@@ -1659,6 +1664,7 @@ subroutine hdm_interp(bounds)
    call shr_strdata_advance(sdat_hdm, mcdate, sec, mpicom, 'hdmdyn')
 
    ig = 0
+   !$acc parallel loop gang vector default(present) reduction(+:ig)
    do g = bounds%begg,bounds%endg
       ig = ig+1
       forc_hdm(g) = sdat_hdm%avs(1)%rAttr(1,ig)
@@ -1809,6 +1815,7 @@ subroutine lnfm_interp(bounds )
    call shr_strdata_advance(sdat_lnfm, mcdate, sec, mpicom, 'lnfmdyn')
 
    ig = 0
+   !$acc parallel loop gang vector default(present) reduction(+:ig)
    do g = bounds%begg,bounds%endg
       ig = ig+1
       forc_lnfm(g) = sdat_lnfm%avs(1)%rAttr(1,ig)

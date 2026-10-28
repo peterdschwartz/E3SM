@@ -95,6 +95,8 @@ module LakeCon
   ! See initLakeMod for details. Difference is very small for
   ! small lakes and negligible for large lakes. Currently hardwired off.
   logical,  public :: lake_use_old_fcrit_minz0 = .false.
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(betavis, fcrit, minz0lake, lake_use_old_fcrit_minz0)
 
   ! used in LakeTemperature
   ! Increase mixing by a large factor for deep lakes

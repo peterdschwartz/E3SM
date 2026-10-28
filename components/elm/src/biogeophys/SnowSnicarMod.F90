@@ -358,6 +358,11 @@ contains
 
 
       ! set timestep and step interval
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(col_es%dtdz_top, col_es%snot_top, col_es%t_soisno, col_pp%dz, col_pp%snl, &
+      !$acc&   col_wf%qflx_snofrz_lyr, col_wf%qflx_snow_grnd, col_wf%qflx_snwcp_ice, col_ws%do_capsnow, &
+      !$acc&   col_ws%frac_sno_eff, col_ws%h2osoi_ice, col_ws%h2osoi_liq, col_ws%sno_liq_top, col_ws%snw_rds, &
+      !$acc&   col_ws%snw_rds_top) if_present
       dtime = dtime_mod
 
       ! loop over columns that have at least one snow layer
@@ -535,9 +540,12 @@ contains
 
          enddo
       enddo
+      !$acc update device(col_es%dtdz_top, col_es%snot_top, col_ws%sno_liq_top, col_ws%snw_rds, &
+      !$acc&   col_ws%snw_rds_top, snw_rds_refrz) if_present
 
       ! Special case: snow on ground, but not enough to have defined a snow layer:
       !   set snw_rds to fresh snow grain size:
+      !$acc parallel loop gang vector default(present) private(c_idx)
       do fc = 1, num_nosnowc
          c_idx = filter_nosnowc(fc)
          if (h2osno(c_idx) > 0._r8) then
@@ -1910,6 +1918,8 @@ contains
        enddo
        enddo
        if (nbad > 0) then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(col_pp%snl, col_ws%h2osno, col_ws%snw_rds) if_present
           !$acc update self(err_w, errv_w)
           call snicar_ad_report(num_nourbanc, filter_nourbanc, ncall, call_slr, err_w, errv_w, nbad)
           call endrun(msg="SNICAR_AD_RT: "//errmsg(__FILE__, __LINE__))

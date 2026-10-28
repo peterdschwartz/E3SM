@@ -164,6 +164,8 @@ contains
 
     ! Initialize to reasonable defaults
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_es%t_soisno, col_wf%qflx_glcice) if_present
     this%qice_grc(bounds%begg : bounds%endg, :) = 0._r8
     this%tsrf_grc(bounds%begg : bounds%endg, :) = tfrz
     this%topo_grc(bounds%begg : bounds%endg, :) = 0._r8
@@ -225,6 +227,7 @@ contains
     end do
 
     deallocate(fields_assigned)
+    !$acc update device(this%qice_grc, this%topo_grc, this%tsrf_grc) if_present
 
   end subroutine update_lnd2glc
 
