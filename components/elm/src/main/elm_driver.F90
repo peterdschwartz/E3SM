@@ -11,6 +11,10 @@ module elm_driver
   use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use ElmDeviceDataMod, only : elm_device_init, elm_device_copyin, elm_device_update, elm_device_resident  ! spel device-data
   use ElmDeviceDataMod, only : elm_device_fullsync, elm_device_pull_all, elm_device_filters_update  ! spel targeted
+  use DeepCopyBiogeophysMod, only : update_canopystate_type, update_energyflux_type, update_photosyns_type, update_soilstate_type, update_waterflux_type  ! spel targeted
+  use DeepCopyCouplingMod, only : update_atm2lnd_type  ! spel targeted
+  use DeepCopySoilNutrientMod, only : update_ch4_type, update_elm_interface_data_type  ! spel targeted
+  use DeepCopyVegNutrientMod, only : update_cnstate_type  ! spel targeted
   use shr_kind_mod           , only : r8 => shr_kind_r8
   use shr_sys_mod            , only : shr_sys_flush
   use shr_log_mod            , only : errMsg => shr_log_errMsg
@@ -1156,7 +1160,9 @@ contains
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before ndep_interp
 #endif
+       if (.not. elm_device_fullsync) call update_atm2lnd_type(atm2lnd_vars, .false.)  ! spel targeted: called code the analysis excludes
        call ndep_interp(bounds_proc, atm2lnd_vars)
+       if (.not. elm_device_fullsync) call update_atm2lnd_type(atm2lnd_vars, .true.)  ! spel targeted
        call t_stopf('ndep_interp')
     end if
 
@@ -1439,10 +1445,16 @@ contains
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before vocemission
 #endif
+          if (.not. elm_device_fullsync) call update_photosyns_type(photosyns_vars, .false.)  ! spel targeted: called code the analysis excludes
+          if (.not. elm_device_fullsync) call update_canopystate_type(canopystate_vars, .false.)  ! spel targeted: called code the analysis excludes
+          if (.not. elm_device_fullsync) call update_atm2lnd_type(atm2lnd_vars, .false.)  ! spel targeted: called code the analysis excludes
           call VOCEmission(bounds_clump,                                         &
                filter(nc)%num_soilp, filter(nc)%soilp,                           &
                atm2lnd_vars, canopystate_vars, photosyns_vars, temperature_vars, &
                vocemis_vars)
+          if (.not. elm_device_fullsync) call update_photosyns_type(photosyns_vars, .true.)  ! spel targeted
+          if (.not. elm_device_fullsync) call update_canopystate_type(canopystate_vars, .true.)  ! spel targeted
+          if (.not. elm_device_fullsync) call update_atm2lnd_type(atm2lnd_vars, .true.)  ! spel targeted
        end if
 
        call t_stopf('bgc')
@@ -1688,6 +1700,13 @@ contains
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before get_elm_data
 #endif
+              if (.not. elm_device_fullsync) call update_ch4_type(ch4_vars, .false.)  ! spel targeted: called code the analysis excludes
+              if (.not. elm_device_fullsync) call update_cnstate_type(cnstate_vars, .false.)  ! spel targeted: called code the analysis excludes
+              if (.not. elm_device_fullsync) call update_energyflux_type(energyflux_vars, .false.)  ! spel targeted: called code the analysis excludes
+              if (.not. elm_device_fullsync) call update_waterflux_type(waterflux_vars, .false.)  ! spel targeted: called code the analysis excludes
+              if (.not. elm_device_fullsync) call update_soilstate_type(soilstate_vars, .false.)  ! spel targeted: called code the analysis excludes
+              if (.not. elm_device_fullsync) call update_atm2lnd_type(atm2lnd_vars, .false.)  ! spel targeted: called code the analysis excludes
+              if (.not. elm_device_fullsync) call update_elm_interface_data_type(elm_interface_data, .false.)  ! spel targeted: called code the analysis excludes
               call get_elm_data(elm_interface_data,bounds_clump,                     &
                         filter(nc)%num_soilc, filter(nc)%soilc,                      &
                         filter(nc)%num_soilp, filter(nc)%soilp,                      &
@@ -1696,6 +1715,13 @@ contains
                         temperature_vars, energyflux_vars,                           &
                         cnstate_vars, &
                         ch4_vars)
+              if (.not. elm_device_fullsync) call update_ch4_type(ch4_vars, .true.)  ! spel targeted
+              if (.not. elm_device_fullsync) call update_cnstate_type(cnstate_vars, .true.)  ! spel targeted
+              if (.not. elm_device_fullsync) call update_energyflux_type(energyflux_vars, .true.)  ! spel targeted
+              if (.not. elm_device_fullsync) call update_waterflux_type(waterflux_vars, .true.)  ! spel targeted
+              if (.not. elm_device_fullsync) call update_soilstate_type(soilstate_vars, .true.)  ! spel targeted
+              if (.not. elm_device_fullsync) call update_atm2lnd_type(atm2lnd_vars, .true.)  ! spel targeted
+              if (.not. elm_device_fullsync) call update_elm_interface_data_type(elm_interface_data, .true.)  ! spel targeted
 
 
               if (use_pflotran .and. pf_cmode) then
@@ -1710,17 +1736,23 @@ contains
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before elm_pf_run
 #endif
+                 if (.not. elm_device_fullsync) call update_elm_interface_data_type(elm_interface_data, .false.)  ! spel targeted: called code the analysis excludes
                  call elm_pf_run(elm_interface_data, bounds_clump, filter, nc)
+                 if (.not. elm_device_fullsync) call update_elm_interface_data_type(elm_interface_data, .true.)  ! spel targeted
 
                  ! STEP-3: update CLM from elm_interface_data
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before update_bgc_data_pf2elm
 #endif
+                 if (.not. elm_device_fullsync) call update_ch4_type(ch4_vars, .false.)  ! spel targeted: called code the analysis excludes
+                 if (.not. elm_device_fullsync) call update_cnstate_type(cnstate_vars, .false.)  ! spel targeted: called code the analysis excludes
                  call update_bgc_data_pf2elm(elm_interface_data%bgc,         &
                         bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc, &
                         filter(nc)%num_soilp, filter(nc)%soilp,              &
                         cnstate_vars, &
                         ch4_vars)
+                 if (.not. elm_device_fullsync) call update_ch4_type(ch4_vars, .true.)  ! spel targeted
+                 if (.not. elm_device_fullsync) call update_cnstate_type(cnstate_vars, .true.)  ! spel targeted
 
                  call t_stopf('pflotran')
 
@@ -1735,22 +1767,36 @@ contains
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before elm_bgc_run
 #endif
+                 if (.not. elm_device_fullsync) call update_ch4_type(ch4_vars, .false.)  ! spel targeted: called code the analysis excludes
+                 if (.not. elm_device_fullsync) call update_cnstate_type(cnstate_vars, .false.)  ! spel targeted: called code the analysis excludes
+                 if (.not. elm_device_fullsync) call update_soilstate_type(soilstate_vars, .false.)  ! spel targeted: called code the analysis excludes
+                 if (.not. elm_device_fullsync) call update_canopystate_type(canopystate_vars, .false.)  ! spel targeted: called code the analysis excludes
+                 if (.not. elm_device_fullsync) call update_elm_interface_data_type(elm_interface_data, .false.)  ! spel targeted: called code the analysis excludes
                  call elm_bgc_run(elm_interface_data, bounds_clump,          &
                         filter(nc)%num_soilc, filter(nc)%soilc,              &
                         filter(nc)%num_soilp, filter(nc)%soilp,              &
                         canopystate_vars, soilstate_vars,                    &
                         temperature_vars, waterstate_vars,                   &
                         cnstate_vars, ch4_vars)
+                 if (.not. elm_device_fullsync) call update_ch4_type(ch4_vars, .true.)  ! spel targeted
+                 if (.not. elm_device_fullsync) call update_cnstate_type(cnstate_vars, .true.)  ! spel targeted
+                 if (.not. elm_device_fullsync) call update_soilstate_type(soilstate_vars, .true.)  ! spel targeted
+                 if (.not. elm_device_fullsync) call update_canopystate_type(canopystate_vars, .true.)  ! spel targeted
+                 if (.not. elm_device_fullsync) call update_elm_interface_data_type(elm_interface_data, .true.)  ! spel targeted
 
                  ! STEP-3: update CLM from elm_interface_data
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before update_bgc_data_elm2elm
 #endif
+                 if (.not. elm_device_fullsync) call update_ch4_type(ch4_vars, .false.)  ! spel targeted: called code the analysis excludes
+                 if (.not. elm_device_fullsync) call update_cnstate_type(cnstate_vars, .false.)  ! spel targeted: called code the analysis excludes
                  call update_bgc_data_elm2elm(elm_interface_data%bgc,        &
                         bounds_clump, filter(nc)%num_soilc, filter(nc)%soilc,&
                         filter(nc)%num_soilp, filter(nc)%soilp,              &
                         cnstate_vars, &
                         ch4_vars)
+                 if (.not. elm_device_fullsync) call update_ch4_type(ch4_vars, .true.)  ! spel targeted
+                 if (.not. elm_device_fullsync) call update_cnstate_type(cnstate_vars, .true.)  ! spel targeted
                  call t_stopf('elm-bgc via interface')
               end if !if (use_pflotran .and. pf_cmode)
           end if !if (use_elm_interface)
@@ -2330,6 +2376,7 @@ contains
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before restfile_write
 #endif
+          call elm_device_pull_all()  ! spel targeted: restart writes read the whole state
           call restFile_write( bounds_proc, filer,                          &
                atm2lnd_vars, aerosol_vars, canopystate_vars, cnstate_vars,  &
                ch4_vars, energyflux_vars, frictionvel_vars, lakestate_vars, &

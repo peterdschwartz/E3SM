@@ -727,6 +727,7 @@ contains
     ! USES
     use elm_time_manager, only : get_nstep
     use accumulMod      , only : update_accum_field, extract_accum_field
+    use elm_varctl      , only : elm_device_ready
     !
     ! !ARGUMENTS:
     class(atm2lnd_type)                 :: this
@@ -753,30 +754,39 @@ contains
        call endrun(msg=errMsg(__FILE__, __LINE__))
     endif
 
-    ! Accumulate and extract forc_solad24 & forc_solad240 
+    ! Accumulate and extract forc_solad24 & forc_solad240
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
     do p = begp,endp
        g = veg_pp%gridcell(p)
        rbufslp(p) = this%forc_solad_grc(g,1)
     end do
+    !$acc end data
     call update_accum_field  ('FSD240', rbufslp               , nstep)
     call extract_accum_field ('FSD240', this%fsd240_patch     , nstep)
     call update_accum_field  ('FSD24' , rbufslp               , nstep)
     call extract_accum_field ('FSD24' , this%fsd24_patch      , nstep)
 
-    ! Accumulate and extract forc_solai24 & forc_solai240 
+    ! Accumulate and extract forc_solai24 & forc_solai240
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
     do p = begp,endp
        g = veg_pp%gridcell(p)
        rbufslp(p) = this%forc_solai_grc(g,1)
     end do
+    !$acc end data
     call update_accum_field  ('FSI24' , rbufslp               , nstep)
     call extract_accum_field ('FSI24' , this%fsi24_patch      , nstep)
     call update_accum_field  ('FSI240', rbufslp               , nstep)
     call extract_accum_field ('FSI240', this%fsi240_patch     , nstep)
 
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do p = begp,endp
        c = veg_pp%column(p)
        rbufslp(p) = this%forc_rain_downscaled_col(c) + this%forc_snow_downscaled_col(c)
     end do
+    !$acc end data
 
     if (use_cn) then
        ! Accumulate and extract PREC60 (accumulates total precipitation as 60-day running mean)

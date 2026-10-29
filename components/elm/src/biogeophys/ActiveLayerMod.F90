@@ -67,6 +67,7 @@ contains
     integer  :: dtime                                   ! time step length in seconds
     integer  :: k_frz                                   ! index of first nonfrozen soil layer
     logical  :: found_thawlayer                         ! used to break loop when first unfrozen layer reached
+    integer  :: spinup                                  ! spinup_state, for the kernel
     real(r8) :: t1, t2, z1, z2, orig_excess, old_mfrac  ! temporary variables
     real(r8), dimension(nlevgrnd) :: melt_profile       ! profile of melted excess ice
     !-----------------------------------------------------------------------
@@ -128,10 +129,11 @@ contains
          end do
       endif
 
+      ! active layer thickness: one column per thread (the search over the levels is sequential)
+      spinup = spinup_state
+      !$acc parallel loop gang vector default(present) private(c, j, k_frz, found_thawlayer, z1, z2, t1, t2) &
+      !$acc   if(elm_device_ready)
       do fc = 1,num_soilc
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col, &
-         !$acc&   col_es%t_soisno) if_present if(elm_device_ready)
          c = filter_soilc(fc)
 
          ! calculate alt for a given timestep
@@ -145,6 +147,7 @@ contains
          else
             k_frz=0
             found_thawlayer = .false.
+            !$acc loop seq
             do j=nlevgrnd-1,1,-1
                if ( ( t_soisno(c,j) > SHR_CONST_TKFRZ ) .and. .not. found_thawlayer ) then
                   k_frz=j
@@ -172,7 +175,7 @@ contains
             altmax_indx(c) = alt_indx(c)
          endif
          if (alt(c) > altmax_ever(c)) then
-            if (spinup_state .eq. 0) then
+            if (spinup .eq. 0) then
                 altmax_ever(c) = alt(c)
                 altmax_ever_indx(c) = alt_indx(c)
             else !overwrite if in spinup
@@ -180,15 +183,31 @@ contains
                 altmax_ever_indx(c) = 0
             endif
          endif
-         !$acc update device(canopystate_vars%alt_col, canopystate_vars%alt_indx_col, &
-         !$acc&   canopystate_vars%altmax_col, canopystate_vars%altmax_ever_col, &
-         !$acc&   canopystate_vars%altmax_ever_indx_col, canopystate_vars%altmax_indx_col) if_present
+      end do
 
-         if (use_polygonal_tundra) then
-            ! special case for year = 1989. For now it is the assumed baseline year for 
+      if (use_polygonal_tundra) then
+         ! polygonal tundra (off by default): on the host, a column at a time, after the active
+         ! layer of every column (k_frz is searched again; with a thawed base layer, where the
+         ! original left it from the previous column, it is nlevgrnd)
+         !$acc update self(canopystate_vars%alt_col, canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col, &
+         !$acc&   canopystate_vars%altmax_ever_col, canopystate_vars%altmax_1989_col, canopystate_vars%altmax_1989_indx_col, &
+         !$acc&   col_es%t_soisno, col_ws%excess_ice, col_ws%frac_melted, col_ws%iwp_subsidence, col_ws%iwp_microrel, &
+         !$acc&   col_ws%iwp_exclvol, col_ws%iwp_ddep) if_present if(elm_device_ready)
+         do fc = 1,num_soilc
+            c = filter_soilc(fc)
+            k_frz = nlevgrnd
+            if (t_soisno(c,nlevgrnd) <= SHR_CONST_TKFRZ ) then
+               k_frz = 0
+               do j=nlevgrnd-1,1,-1
+                  if ( t_soisno(c,j) > SHR_CONST_TKFRZ ) then
+                     k_frz = j
+                     exit
+                  endif
+               end do
+            end if
+
+            ! special case for year = 1989. For now it is the assumed baseline year for
             ! changes in polygonal ground
-            ! spel acc-sync: device data this host code uses
-            !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col) if_present if(elm_device_ready)
             if (year .eq. 1989) then
                altmax_1989(c) = altmax(c)
                altmax_1989_indx(c) = altmax_indx(c)
@@ -202,11 +221,7 @@ contains
 
            ! initialize melt_profile as zero
            melt_profile(:) = 0._r8
-            !$acc update device(canopystate_vars%altmax_1989_col, &
-            !$acc&   canopystate_vars%altmax_1989_indx_col) if_present
 
-           !$acc data copy(melt_profile) if(elm_device_ready)
-           !$acc parallel loop gang vector default(present) private(orig_excess, old_mfrac) if(elm_device_ready)
            do j = nlevgrnd,1,-1 ! note, this will go from bottom to top
               if (j .gt. k_frz + 1) then ! all layers below k_frz + 1 remain frozen
                 melt_profile(j) = 0.0_r8
@@ -246,7 +261,6 @@ contains
               ! calculate subsidence at this layer:
               melt_profile(j) = melt_profile(j) * dzsoi(j)
            end do
-           !$acc end data
 
            ! subsidence is integral of melt profile:
            if ((year .ge. 1989) .and. (altmax_ever(c) .ge. altmax_1989(c))) then
@@ -270,15 +284,13 @@ contains
                rmax(c) = 0.4_r8
                vexc(c) = 0.2_r8
                ddep(c) = 0.05_r8
-             else
-               !call endrun !<- TODO: needed? Potential way to prevent unintended updating of microtopography
-               ! if polygonal ground is misspecified on surface file.
              endif
            endif
-           !$acc update device(col_ws%iwp_ddep, col_ws%iwp_exclvol, col_ws%iwp_microrel, &
-           !$acc&   col_ws%iwp_subsidence) if_present
-         endif
-       end do
+         end do
+         !$acc update device(canopystate_vars%altmax_1989_col, canopystate_vars%altmax_1989_indx_col, &
+         !$acc&   col_ws%excess_ice, col_ws%frac_melted, col_ws%iwp_subsidence, col_ws%iwp_microrel, &
+         !$acc&   col_ws%iwp_exclvol, col_ws%iwp_ddep) if_present if(elm_device_ready)
+      end if
 
     end associate 
 
