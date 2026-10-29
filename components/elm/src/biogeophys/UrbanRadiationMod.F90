@@ -97,6 +97,7 @@ contains
     real(r8) :: em_perroad_s   ! pervious road emissivity with snow effects
     !-----------------------------------------------------------------------
 
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     associate(                                               &
          ctype              =>    col_pp%itype                   , & ! Input:  [integer (:)    ]  column type
          coli               =>    lun_pp%coli                    , & ! Input:  [integer (:)    ]  beginning column index for landunit
@@ -148,16 +149,28 @@ contains
 
          )
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(top_af%lwrad, top_af%lwrad_pp, top_af%solad, top_af%solad_pp, top_af%solai, &
-      !$acc&   top_af%solai_pp, top_af%solar, top_af%solar_pp) if_present if(elm_device_ready)
       if (.not. use_finetop_rad) then
-         forc_solad(:,:) = top_af%solad(:,:)
-         forc_solai(:,:) = top_af%solai(:,:)
-         forc_solar(:)   = top_af%solar(:)
-         forc_lwrad(:)   = top_af%lwrad(:)
+         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+         do spel_i2 = lbound(forc_solad,2), ubound(forc_solad,2)  ! spel section-loop
+            do spel_i1 = lbound(forc_solad,1), ubound(forc_solad,1)
+               forc_solad(spel_i1, spel_i2) = top_af%solad(spel_i1, spel_i2)
+            end do
+         end do
+         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+         do spel_i2 = lbound(forc_solai,2), ubound(forc_solai,2)  ! spel section-loop
+            do spel_i1 = lbound(forc_solai,1), ubound(forc_solai,1)
+               forc_solai(spel_i1, spel_i2) = top_af%solai(spel_i1, spel_i2)
+            end do
+         end do
+         !$acc parallel loop gang vector default(present) if(elm_device_ready)
+         do spel_i1 = lbound(forc_solar,1), ubound(forc_solar,1)  ! spel section-loop
+            forc_solar(spel_i1)   = top_af%solar(spel_i1)
+         end do
+         !$acc parallel loop gang vector default(present) if(elm_device_ready)
+         do spel_i1 = lbound(forc_lwrad,1), ubound(forc_lwrad,1)  ! spel section-loop
+            forc_lwrad(spel_i1)   = top_af%lwrad(spel_i1)
+         end do
       end if
-      !$acc update device(top_af%lwrad_pp, top_af%solad_pp, top_af%solai_pp, top_af%solar_pp) if_present
 
       ! Define fields that appear on the restart file for non-urban landunits
 

@@ -238,6 +238,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! Set statement functions
+    integer :: spel_i1  ! spel section-loop indices
     associate(                                                      &
          is_cwd           => decomp_cascade_con%is_cwd            , & ! Input:  [logical (:)    ]  TRUE => pool is a cwd pool
          spinup_factor    => decomp_cascade_con%spinup_factor     , & ! Input:  [real(r8) (:)   ]  spinup accelerated decomposition factor, used to accelerate transport as well
@@ -313,8 +314,15 @@ contains
             !$acc end data
          else
             ncoef = 1
-            icoef(:) = 1
+            !$acc data copy(icoef)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
+            do spel_i1 = lbound(icoef,1), ubound(icoef,1)  ! spel section-loop
+               icoef(spel_i1) = 1
+            end do
+            !$acc end data
          end if
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present
          s_rep = 0
          do s = 1, ndecomp_pools
             if ( .not. is_cwd(s) ) then
@@ -327,10 +335,13 @@ contains
          allocate(bet_coef(num_soilc,0:nlevdecomp+1,ncoef))
          allocate(gam_coef(num_soilc,0:nlevdecomp+1,ncoef))
          allocate(r_coef  (num_soilc,1:nlevdecomp  ,ncoef))
+         !$acc update device(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present
          ! the coefficients and the concentration work array live on the device only
          !$acc enter data create(a_coef, c_coef, bet_coef, gam_coef, r_coef, conc_trcr)
 
          do s = 1, ndecomp_pools
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(icoef) if_present
             if ( is_cwd(s) ) cycle
             l = icoef(s)
             ! when one matrix serves all pools, build it from the first non-CWD pool only
@@ -460,6 +471,8 @@ contains
                   cycle
                end if
 
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(icoef) if_present
                l = icoef(s)
 
                ! Build the right-hand side, store the initial concentration and
@@ -523,8 +536,11 @@ contains
       end do  ! i_type
 
       if (use_vertsoilc) then
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present
          !$acc exit data delete(a_coef, c_coef, bet_coef, gam_coef, r_coef, conc_trcr)
          deallocate(a_coef, c_coef, bet_coef, gam_coef, r_coef)
+         !$acc update device(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present
       end if
    
     end associate

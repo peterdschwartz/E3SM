@@ -244,6 +244,7 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
       INTEGER :: COL, ROW
 
       transA = transpose(A)
+      !$acc update device(transa) if_present
 
       !$acc data copy(transa) if(elm_device_ready)
       !$acc parallel loop gang vector default(present) if(elm_device_ready)

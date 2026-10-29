@@ -728,6 +728,8 @@ contains
         ivt         => veg_pp%itype       & ! Input:  [integer  (:) ]  pft vegetation type
         )
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslp) if_present
     begp = bounds%begp; endp = bounds%endp
 
     dtime = get_step_size()
@@ -737,6 +739,7 @@ contains
     ! Allocate needed dynamic memory for single level pft field
 
     allocate(rbufslp(begp:endp), stat=ier)
+    !$acc update device(rbufslp) if_present
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbuf1dp'
        call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -949,7 +952,10 @@ contains
        call extract_accum_field ('GDD10', this%gdd10, nstep)
     end if
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslp) if_present
     deallocate(rbufslp)
+    !$acc update device(rbufslp) if_present
     end associate
 
   end subroutine update_acc_vars_veg_es
@@ -2786,6 +2792,7 @@ contains
     !-----------------------------------------------------------------------
 
     call vegetation_nutrient_state_zerodwt(this%core, bounds)
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        this%core%totveg(p)  = 0._r8
     end do
@@ -3112,6 +3119,7 @@ contains
     !-----------------------------------------------------------------------
 
     call vegetation_nutrient_state_zerodwt(this%core, bounds)
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        this%core%totveg(p)  = 0._r8
     end do

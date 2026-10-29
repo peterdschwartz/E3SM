@@ -65,7 +65,7 @@ module FireMod
   private :: lnfm_interp ! interpolates between two years of Lightning file data
 
   ! !PRIVATE MEMBER DATA:
-  real(r8), pointer     :: forc_lnfm(:)        ! Lightning frequency
+  real(r8), public, pointer :: forc_lnfm(:)    ! Lightning frequency
   real(r8), public, pointer :: forc_hdm(:)     ! Human population density
   !$acc declare create(forc_lnfm)
   !$acc declare create(forc_hdm )
@@ -109,6 +109,7 @@ contains
 #ifndef CPL_BYPASS
     call hdm_interp(bounds)
     call lnfm_interp(bounds)
+    !$acc update device(forc_hdm, forc_lnfm) if_present
 #endif
   end subroutine FireInterp
 
@@ -1670,7 +1671,6 @@ subroutine hdm_interp(bounds)
       ig = ig+1
       forc_hdm(g) = sdat_hdm%avs(1)%rAttr(1,ig)
    end do
-   !$acc update device(forc_hdm) if(elm_device_ready)
 end subroutine hdm_interp
 
 !-----------------------------------------------------------------------
@@ -1824,7 +1824,6 @@ subroutine lnfm_interp(bounds )
    end do
    ! unconditional: forc_lnfm is private to FireMod, so the whole-state transitions (DeepCopyGlobalsMod)
    ! cannot carry it, and this interp runs in a host segment (flag off)
-   !$acc update device(forc_lnfm)
 
 end subroutine lnfm_interp
 

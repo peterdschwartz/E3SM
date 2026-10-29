@@ -935,7 +935,9 @@ contains
      real(r8):: dzminloc16(16)             ! minimum of top snow layer (local)
      real(r8) :: sum1, sum2, sum3, sum4 
 
+     integer :: spel_i1  ! spel section-loop indices
      data dzmin /0.010_r8, 0.015_r8, 0.025_r8, 0.055_r8, 0.115_r8/
+     !$acc update device(dzmin) if_present
 
      !-----------------------------------------------------------------------
 
@@ -988,24 +990,36 @@ contains
 
        ! dzmin will stay constant between timesteps
        if (.not. use_extrasnowlayers) then
-         dzminloc(:) = dzmin(:)
+         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         do spel_i1 = lbound(dzminloc,1), ubound(dzminloc,1)  ! spel section-loop
+            dzminloc(spel_i1) = dzmin(spel_i1)
+         end do
        else
-         dzminloc16(:) = dzmin16(:)
+         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         do spel_i1 = lbound(dzminloc16,1), ubound(dzminloc16,1)  ! spel section-loop
+            dzminloc16(spel_i1) = dzmin16(spel_i1)
+         end do
        endif
 
        ! Add lsadz to dzmin for lakes
        ! Determine whether called from LakeHydrology
        ! Note: this assumes that this function is called separately with the lake-snow and non-lake-snow filters.
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(filter_snowc) if_present if(elm_device_ready)
        if (num_snowc > 0) then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(filter_snowc) if_present
           c = filter_snowc(1)
           l = col_pp%landunit(c)
           if (col_pp%is_lake(c)) then ! Called from LakeHydrology
             if (.not. use_extrasnowlayers) then
-               dzminloc(:) = dzmin(:) + lsadz
+               !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+               do spel_i1 = lbound(dzminloc,1), ubound(dzminloc,1)  ! spel section-loop
+                  dzminloc(spel_i1) = dzmin(spel_i1) + lsadz
+               end do
             else
-               dzminloc16(:) = dzmin16(:) + lsadz
+               !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+               do spel_i1 = lbound(dzminloc16,1), ubound(dzminloc16,1)  ! spel section-loop
+                  dzminloc16(spel_i1) = dzmin16(spel_i1) + lsadz
+               end do
             end if
           end if
        end if
@@ -1995,7 +2009,7 @@ contains
          end do
          if (nbad_lake > 0) then
             ! spel acc-sync: device data this host code uses
-            !$acc update self(filter_snowc) if_present if(elm_device_ready)
+            !$acc update self(dztot, filter_snowc, snwicetot, snwliqtot) if_present
             !$acc update self(filter_snowc, dztot, snwicetot, snwliqtot) if(elm_device_ready)
             fc = nbad_lake
             c = filter_snowc(fc)
@@ -2066,6 +2080,7 @@ contains
      integer  :: j, c, fc, k                              ! indices
      real(r8) :: drr                                      ! thickness of the combined [m]
      integer  :: msno                                     ! number of snow layer 1 (top) to msno (bottom)
+     integer  :: nbad                                     ! columns failing the lake consistency check (device count)
      real(r8) :: dzsno(1:num_snowc,nlevsno)   ! Snow layer thickness [m]
      real(r8) :: swice(1:num_snowc,nlevsno)   ! Partial volume of ice [m3/m3]
      real(r8) :: swliq(1:num_snowc,nlevsno)   ! Partial volume of liquid water [m3/m3]
@@ -2357,33 +2372,38 @@ contains
           end do
        end do
 
-       ! Consistency check
+       ! Consistency check: the remainders per column (same order of operations as the serial
+       ! j-outer loop), counted on the device; the report runs on the host only on a failure
        if (is_lake) then
-          ! spel acc-sync: device data this host code uses
-          !$acc update self(col_pp%dz, col_pp%snl, col_ws%h2osoi_ice, col_ws%h2osoi_liq, &
-          !$acc&   filter_snowc) if_present if(elm_device_ready)
-          do j = -nlevsno + 1, 0
-             do fc = 1, num_snowc
-                c = filter_snowc(fc)
-
+          nbad = 0
+          !$acc parallel loop independent gang vector default(present) private(c, j) reduction(+:nbad) if(elm_device_ready) copyin(bounds)
+          do fc = 1, num_snowc
+             c = filter_snowc(fc)
+             !$acc loop seq
+             do j = -nlevsno + 1, 0
                 if (j >= snl(c)+1) then
                    dztot(fc) = dztot(fc) - dz(c,j)
                    snwicetot(fc) = snwicetot(fc) - h2osoi_ice(c,j)
                    snwliqtot(fc) = snwliqtot(fc) - h2osoi_liq(c,j)
                 end if
-
-                if (j == 0) then
-                   if ( abs(dztot(fc)) > 1.e-10_r8 .or. abs(snwicetot(fc)) > 1.e-7_r8 .or. &
-                        abs(snwliqtot(fc)) > 1.e-7_r8 ) then
-#ifndef _OPENACC
-                      write(iulog,*)'Inconsistency in SnowDivision_Lake! c, remainders', &
-                           'dztot, snwicetot, snwliqtot = ',c,dztot(fc),snwicetot(fc),snwliqtot(fc)
-                      call endrun(decomp_index=c, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
-#endif
-                   end if
+             end do
+             if ( abs(dztot(fc)) > 1.e-10_r8 .or. abs(snwicetot(fc)) > 1.e-7_r8 .or. &
+                  abs(snwliqtot(fc)) > 1.e-7_r8 ) nbad = nbad + 1
+          end do
+          if (nbad > 0) then
+             ! spel acc-sync: device data this host code uses
+             !$acc update self(dztot, filter_snowc, snwicetot, snwliqtot) if_present
+             !$acc update self(dztot, snwicetot, snwliqtot) if(elm_device_ready)
+             do fc = 1, num_snowc
+                c = filter_snowc(fc)
+                if ( abs(dztot(fc)) > 1.e-10_r8 .or. abs(snwicetot(fc)) > 1.e-7_r8 .or. &
+                     abs(snwliqtot(fc)) > 1.e-7_r8 ) then
+                   write(iulog,*)'Inconsistency in SnowDivision_Lake! c, remainders', &
+                        'dztot, snwicetot, snwliqtot = ',c,dztot(fc),snwicetot(fc),snwliqtot(fc)
+                   call endrun(decomp_index=c, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
                 end if
              end do
-          end do
+          end if
        end if
 
        ! layers in order: each interface depth comes from the one above it
@@ -2639,7 +2659,7 @@ contains
      end do loop_columns
      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
         ! spel acc-sync: device data this host code uses
-        !$acc update self(col_ws%h2osoi_ice, col_ws%h2osoi_liq, filter_snowc) if_present if(elm_device_ready)
+        !$acc update self(col_ws%h2osoi_ice, col_ws%h2osoi_liq, filter_snowc) if_present
         fc = 1 + spel_dc_1 - 1
         c = filter_snowc(fc)
               write(iulog,*)'ERROR: capping procedure failed (negative mass remaining) c = ',c

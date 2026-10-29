@@ -936,6 +936,7 @@ contains
     !-----------------------------------------------------------------------
     !-----------------------------------------------------------------------
 
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        this%dispveg(p)   = 0._r8
        this%storveg(p)   = 0._r8

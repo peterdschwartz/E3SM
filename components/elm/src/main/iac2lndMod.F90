@@ -5,6 +5,7 @@
   ! Handle coupled data from iac for use in clm
   ! Iac is on the same grid as clm.
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use decompMod      , only : bounds_type
   use shr_log_mod    , only : errMsg => shr_log_errMsg
   use shr_kind_mod   , only : r8 => shr_kind_r8
@@ -127,6 +128,7 @@ contains
 
     character(len=*), parameter :: subname = 'update_iac2lnd'
 
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     begg = bounds%begg; endg = bounds%endg
     begp = bounds%begp; endp = bounds%endp
 
@@ -139,6 +141,7 @@ contains
        ! the the weight of prev time point
        wt1 = 1.0_r8 - get_curr_yearfrac()
 
+       !$acc parallel loop gang vector default(present) private(g, pft, l, c, temp, temp_prev) copyin(bounds) if(elm_device_ready)
        do p = begp,endp
           g=veg_pp%gridcell(p)
           pft=veg_pp%itype(p)
@@ -196,7 +199,13 @@ contains
        ! land unit type 1 is vegetated land unit
        ! just need to make sure that the values are <= 1
 
-       harvest_rates(:,begg:endg) = 0._r8
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(col_pp%wtgcell) if_present
+       do spel_i2 = begg, endg  ! spel section-loop
+          do spel_i1 = lbound(harvest_rates,1), ubound(harvest_rates,1)
+             harvest_rates(spel_i1, spel_i2) = 0._r8
+          end do
+       end do
        do g = begg,endg
          do c = bounds%begc, bounds%endc
             if (col_pp%is_soil(c) .and. col_pp%gridcell(c) .eq. g) then
@@ -211,6 +220,7 @@ contains
              end if
           end do
        end do
+       !$acc update device(harvest_rates) if_present
     endif
   end subroutine update_iac2lnd
 

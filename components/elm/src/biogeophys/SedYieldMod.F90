@@ -103,7 +103,7 @@ contains
     !$acc&   cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, col_cs%core%decomp_pools_vr, &
     !$acc&   col_wf%qflx_qrgwl, col_wf%qflx_surf, col_ws%frac_sno, veg_cs%core%deadcroot, veg_cs%core%froot, &
     !$acc&   veg_cs%core%livecroot, veg_wf%qflx_dirct_rain, veg_wf%qflx_leafdrip, &
-    !$acc&   veg_wf%qflx_real_irrig_patch) if_present if(elm_device_ready)
+    !$acc&   veg_wf%qflx_real_irrig_patch) if_present
     associate(                                                        &
          forc_rain        =>    top_af%rain                         , & ! Input: [real(r8) (:) ] rain rate [mm/s]
          forc_t           =>    top_as%tbot                         , & ! Input: [real(r8) (:) ] atmospheric temperature (Kelvin)
@@ -307,7 +307,7 @@ contains
 
     end associate
     !$acc update device(sedflux_vars%sed_crop_ero_col, sedflux_vars%sed_ero_col, sedflux_vars%sed_p_ero_col, &
-    !$acc&   sedflux_vars%sed_q_ero_col, sedflux_vars%sed_yld_col) if_present
+    !$acc&   sedflux_vars%sed_q_ero_col, sedflux_vars%sed_yld_col, stxt) if_present
 
   end subroutine SoilErosion
 

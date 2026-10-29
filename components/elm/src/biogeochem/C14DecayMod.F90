@@ -208,6 +208,7 @@ contains
         ! find points in atm timeseries to interpolate between
         ntim_atm_ts = size(atm_c14file_time)
         ind_below = 0
+        !$acc parallel loop gang vector default(present) reduction(+:ind_below) if(elm_device_ready)
         do nt = 1, ntim_atm_ts
            if (dateyear >= atm_c14file_time(nt) ) then
               ind_below = ind_below+1

@@ -443,7 +443,12 @@ contains
 
     ! spel acc-locals: device storage of the local work arrays
     integer :: spel_dc_1, spel_dc_2, spel_dc_3  ! spel defer-checks: elements recorded by deferred checks
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     !$acc enter data create(dummyfilter)
+    ! spel acc-locals: device storage of the local work arrays
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(rootfraction)
+    !$acc enter data create(jwt, ch4_prod_tot, ch4_oxid_tot, nem_col, totcolch4_bef)
     associate(                                                                 &
          dz                   =>   col_pp%dz                                    , & ! Input:  [real(r8) (:,:) ]  layer thickness (m)  (-nlevsno+1:nlevsoi)
          zi                   =>   col_pp%zi                                    , & ! Input:  [real(r8) (:,:) ]  interface level below a "z" level (m)
@@ -514,8 +519,6 @@ contains
          endp                 =>   bounds%endp                                 &
          )
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(ch4_vars%ch4_surf_flux_tot_col) if_present if(elm_device_ready)
       redoxlag          = CH4ParamsInst%redoxlag
       redoxlag_vertical = CH4ParamsInst%redoxlag_vertical
       atmch4            = CH4ParamsInst%atmch4
@@ -527,20 +530,45 @@ contains
       redoxlags = redoxlag*secspday ! days --> s
       redoxlags_vertical = redoxlag_vertical*secspday ! days --> s
       rgasm = rgas / 1000._r8
+      !$acc update device(rgasm) if_present
       !$acc update device(rgasm)
 
-      jwt(begc:endc)            = huge(1)
-      totcolch4_bef(begc:endc)  = spval
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = begc, endc  ! spel section-loop
+         jwt(spel_i1)            = huge(1)
+      end do
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = begc, endc  ! spel section-loop
+         totcolch4_bef(spel_i1)  = spval
+      end do
 
       ! Initialize local fluxes to zero: necessary for columns outside the filters because averaging up to gridcell will be done
-      ch4_surf_flux_tot(begc:endc) = 0._r8
-      ch4_prod_tot(begc:endc)      = 0._r8
-      ch4_oxid_tot(begc:endc)      = 0._r8
-      rootfraction(begp:endp,:)    = spval
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = begc, endc  ! spel section-loop
+         ch4_surf_flux_tot(spel_i1) = 0._r8
+      end do
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = begc, endc  ! spel section-loop
+         ch4_prod_tot(spel_i1)      = 0._r8
+      end do
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = begc, endc  ! spel section-loop
+         ch4_oxid_tot(spel_i1)      = 0._r8
+      end do
+      !$acc data copy(rootfraction)
+      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i2 = lbound(rootfraction,2), ubound(rootfraction,2)  ! spel section-loop
+         do spel_i1 = begp, endp
+            rootfraction(spel_i1, spel_i2)    = spval
+         end do
+      end do
+      !$acc end data
 
       ! Adjustment to NEE for methane production - oxidation
-      nem_col(begc:endc)           = 0._r8
-      !$acc update device(ch4_vars%ch4_surf_flux_tot_col, rgasm) if_present
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = begc, endc  ! spel section-loop
+         nem_col(spel_i1)           = 0._r8
+      end do
       !$acc enter data copyin(jwt, totcolch4_bef, ch4_prod_tot, ch4_oxid_tot, nem_col, errch4_col, ierr)
       !$acc update device(ch4_surf_flux_tot(begc:endc))
 
@@ -984,6 +1012,8 @@ contains
          if (ierr(c) /= 0) spel_dc_2 = max(spel_dc_2, fc - (1) + 1)  ! spel defer-checks
       end do
       if (spel_dc_2 > 0) then  ! spel defer-checks: the last element where the check held
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(errch4_col) if_present
          fc = 1 + spel_dc_2 - 1
          c = filter_soilc(fc)
             !$acc update self(errch4_col(c:c)) if(elm_device_ready)
@@ -1018,6 +1048,8 @@ contains
             if (ierr(c) /= 0) spel_dc_3 = max(spel_dc_3, fc - (1) + 1)  ! spel defer-checks
          end do
          if (spel_dc_3 > 0) then  ! spel defer-checks: the last element where the check held
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(errch4_col) if_present
             fc = 1 + spel_dc_3 - 1
             c = filter_lakec(fc)
                !$acc update self(errch4_col(c:c)) if(elm_device_ready)
@@ -1047,6 +1079,8 @@ contains
     end associate
 
     !$acc exit data delete(dummyfilter)
+    !$acc exit data delete(jwt, ch4_prod_tot, ch4_oxid_tot, nem_col, totcolch4_bef)
+    !$acc exit data delete(rootfraction)
   end subroutine CH4
 
   !-----------------------------------------------------------------------
@@ -1769,6 +1803,7 @@ contains
     real(r8), pointer :: frootc_ptr
     !-----------------------------------------------------------------------
 
+    integer :: spel_i1  ! spel section-loop indices
     associate(                                                     &
          z              =>    col_pp%z                              , & ! Input:  [real(r8) (:,:)  ]  layer depth (m) (-nlevsno+1:nlevsoi)
          dz             =>    col_pp%dz                             , & ! Input:  [real(r8) (:,:)  ]  layer thickness (m)  (-nlevsno+1:nlevsoi)
@@ -1803,7 +1838,7 @@ contains
          !$acc update self(c_atm, ch4_aere_depth, ch4_prod_depth, ch4_tran_depth, col_es%t_soisno, col_pp%dz, &
          !$acc&   col_pp%z, col_ws%h2osoi_vol, conc_ch4, conc_o2, elai, grnd_ch4_cond, jwt, o2_aere_depth, &
          !$acc&   rootfr, rootr, veg_cf%annavg_agnpp, veg_cf%annavg_bgnpp, veg_cf%annsum_npp, &
-         !$acc&   veg_cs%core%froot, veg_wf%qflx_tran_veg) if_present if(elm_device_ready)
+         !$acc&   veg_cs%core%froot, veg_wf%qflx_tran_veg) if_present
          do fp = 1, num_methp
             p = filter_methp (fp)
             c = veg_pp%column(p)
@@ -1826,7 +1861,9 @@ contains
                annavg_agnpp_ptr => annavg_agnpp(p)
                annavg_bgnpp_ptr => annavg_bgnpp(p)
                frootc_ptr       => frootc(p)
-               rootfr_vr(1:nlevsoi) = rootfr(p,1:nlevsoi)
+               do spel_i1 = 1, nlevsoi  ! spel section-loop
+                  rootfr_vr(spel_i1) = rootfr(p, spel_i1)
+               end do
 
             else
 
@@ -1846,7 +1883,9 @@ contains
                annavg_bgnpp_ptr => elm_fates%fates(nc)%bc_out(s)%annavg_bgnpp_pa(pf)
                frootc_ptr       => elm_fates%fates(nc)%bc_out(s)%frootc_pa(pf)
                nlevsoil_f = elm_fates%fates(nc)%bc_in(s)%nlevsoil
-               rootfr_vr(1:nlevsoi) = 0._r8
+               do spel_i1 = 1, nlevsoi  ! spel section-loop
+                  rootfr_vr(spel_i1) = 0._r8
+               end do
                rootfr_vr(1:nlevsoil_f) = elm_fates%fates(nc)%bc_out(s)%rootfr_pa(pf,1:nlevsoil_f)
 
             end if
@@ -1871,9 +1910,11 @@ contains
             end do
 
          end do ! p filter
-         !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
+         !$acc update device(aere_f, ch4_aere_depth, ch4_tran_depth, o2_aere_depth, oxaere_f, rootfr_vr, &
+         !$acc&   tranloss_f) if_present
          return
-         !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
+         !$acc update device(aere_f, ch4_aere_depth, ch4_tran_depth, o2_aere_depth, oxaere_f, rootfr_vr, &
+         !$acc&   tranloss_f) if_present
       end if
 
       nongrassporosratio = CH4ParamsInst%nongrassporosratio
@@ -2430,6 +2471,7 @@ contains
     real(r8) :: bet(num_methc)                                             ! tridiagonal solver: pivot
     integer  :: ierr(num_methc)                                            ! error/note code per column, checked on the host after a kernel
     integer  :: jerr(num_methc)                                            ! layer of the error
+    integer  :: nbad                                                       ! flagged columns (device count; host report only if > 0)
     integer  :: nstep                       ! time step number
     character(len=32) :: subname='ch4_tran' ! subroutine name
     !-----------------------------------------------------------------------
@@ -2466,6 +2508,10 @@ contains
          )
 
       if (sat == 0) then                                    ! unsaturated
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(ch4_aere_depth, ch4_ebul_depth, ch4_ebul_total, ch4_oxid_depth, ch4_surf_aere, &
+         !$acc&   ch4_surf_diff, ch4_surf_ebul, ch4stress, conc_ch4, conc_o2, o2_decomp_depth, o2_oxid_depth, &
+         !$acc&   o2stress) if_present
          o2_decomp_depth  => ch4_vars%o2_decomp_depth_unsat_col  ! Output: [real(r8) (:,:) ]  O2 consumption during decomposition in each soil layer (nlevsoi) (mol/m3/s)
          o2stress         => ch4_vars%o2stress_unsat_col         ! Output: [real(r8) (:,:) ]  Ratio of oxygen available to that demanded by roots, aerobes, & methanotrophs (nlevsoi)
          ch4_oxid_depth   => ch4_vars%ch4_oxid_depth_unsat_col   ! Output: [real(r8) (:,:) ]  CH4 consumption rate via oxidation in each soil layer (mol/m3/s) (nlevsoi)
@@ -2482,7 +2528,14 @@ contains
          co2_decomp_depth => ch4_vars%co2_decomp_depth_unsat_col ! Output: [real(r8) (:,:) ]  CO2 production during decomposition in each soil layer (nlevsoi) (mol/m3/s)
          conc_ch4         => ch4_vars%conc_ch4_unsat_col         ! Output: [real(r8) (:,:) ]  CH4 conc in each soil layer (mol/m3) (nlevsoi)
          conc_o2          => ch4_vars%conc_o2_unsat_col          ! Output: [real(r8) (:,:) ]  O2 conc in each soil layer (mol/m3) (nlevsoi)
+         !$acc update device(ch4_aere_depth, ch4_ebul_depth, ch4_ebul_total, ch4_oxid_depth, ch4_prod_depth, &
+         !$acc&   ch4_surf_aere, ch4_surf_diff, ch4_surf_ebul, ch4stress, co2_decomp_depth, conc_ch4, &
+         !$acc&   conc_o2, o2_aere_depth, o2_decomp_depth, o2_oxid_depth, o2stress) if_present
       else                                                  ! saturated
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(ch4_aere_depth, ch4_ebul_depth, ch4_ebul_total, ch4_oxid_depth, ch4_surf_aere, &
+         !$acc&   ch4_surf_diff, ch4_surf_ebul, ch4stress, conc_ch4, conc_o2, o2_decomp_depth, o2_oxid_depth, &
+         !$acc&   o2stress) if_present
          o2_decomp_depth  => ch4_vars%o2_decomp_depth_sat_col    ! Output: [real(r8) (:,:) ]  O2 consumption during decomposition in each soil layer (nlevsoi) (mol/m3/s)
          o2stress         => ch4_vars%o2stress_sat_col           ! Output: [real(r8) (:,:) ]  Ratio of oxygen available to that demanded by roots, aerobes, & methanotrophs (nlevsoi)
          ch4_oxid_depth   => ch4_vars%ch4_oxid_depth_sat_col     ! Output: [real(r8) (:,:) ]  CH4 consumption rate via oxidation in each soil layer (mol/m3/s) (nlevsoi)
@@ -2499,6 +2552,9 @@ contains
          co2_decomp_depth => ch4_vars%co2_decomp_depth_sat_col   ! Output: [real(r8) (:,:) ]  CO2 production during decomposition in each soil layer (nlevsoi) (mol/m3/s)
          conc_ch4         => ch4_vars%conc_ch4_sat_col           ! Output: [real(r8) (:,:) ]  CH4 conc in each soil layer (mol/m3) (nlevsoi)
          conc_o2          => ch4_vars%conc_o2_sat_col            ! Output: [real(r8) (:,:) ]  O2 conc in each soil layer (mol/m3) (nlevsoi)
+         !$acc update device(ch4_aere_depth, ch4_ebul_depth, ch4_ebul_total, ch4_oxid_depth, ch4_prod_depth, &
+         !$acc&   ch4_surf_aere, ch4_surf_diff, ch4_surf_ebul, ch4stress, co2_decomp_depth, conc_ch4, &
+         !$acc&   conc_o2, o2_aere_depth, o2_decomp_depth, o2_oxid_depth, o2stress) if_present
       endif
 
       ! Get land model time step
@@ -2671,11 +2727,16 @@ contains
          enddo ! fc
       enddo ! j
       !$acc end data
-      !$acc update self(ierr, jerr) if(elm_device_ready)
-      if (any(ierr(1:num_methc) /= 0)) then
+      nbad = 0
+      !$acc parallel loop gang vector default(present) reduction(+:nbad) if(elm_device_ready) copyin(bounds)
+      do fc = 1, num_methc
+         if (ierr(fc) /= 0) nbad = nbad + 1
+      end do
+      if (nbad > 0) then
          ! spel acc-sync: device data this host code uses
          !$acc update self(ch4_vars%conc_ch4_sat_col, ch4_vars%conc_ch4_unsat_col, ch4_vars%conc_o2_sat_col, &
-         !$acc&   ch4_vars%conc_o2_unsat_col) if_present if(elm_device_ready)
+         !$acc&   ch4_vars%conc_o2_unsat_col, conc_ch4, conc_o2, ierr, jerr, source) if_present
+         !$acc update self(ierr, jerr) if(elm_device_ready)
          !$acc update self(source) if(elm_device_ready)
          do fc = 1, num_methc
             if (ierr(fc) == 0) cycle
@@ -3100,6 +3161,14 @@ contains
                enddo
             enddo
             !$acc end data
+            nbad = 0
+            !$acc parallel loop gang vector default(present) reduction(+:nbad) if(elm_device_ready) copyin(bounds)
+            do fc = 1, num_methc
+               if (ierr(fc) /= 0) nbad = nbad + 1
+            end do
+            if (nbad > 0) then   ! a note, not an error: printed on the host
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(ierr) if_present
             !$acc update self(ierr) if(elm_device_ready)
             do fc = 1, num_methc
                if (ierr(fc) /= 0) then
@@ -3112,6 +3181,7 @@ contains
                   write(iulog,*) 'If this occurs frequently, consider reducing land model (or  methane model) timestep, or reducing the max. sink per timestep in the methane model.'
                end if
             end do
+            end if
 
 
          elseif (s == 2) then  ! O2
@@ -3369,7 +3439,7 @@ contains
       ! set time steps
       ! spel acc-sync: device data this host code uses
       !$acc update self(ch4_vars%annsum_counter_col, ch4_vars%tempavg_finrw_col, &
-      !$acc&   ch4_vars%tempavg_somhr_col) if_present if(elm_device_ready)
+      !$acc&   ch4_vars%tempavg_somhr_col) if_present
       secsperyear = real( dayspyr * secspday, r8)
 
       newrun = .false.

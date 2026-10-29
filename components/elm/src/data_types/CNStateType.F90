@@ -1602,6 +1602,8 @@ contains
     real(r8), pointer :: rbufslp(:)      ! temporary single level - pft level
     !---------------------------------------------------------------------
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslp) if_present
     begp = bounds%begp; endp = bounds%endp
 
     dtime = get_step_size()
@@ -1611,6 +1613,7 @@ contains
     ! Allocate needed dynamic memory for single level pft field
 
     allocate(rbufslp(begp:endp), stat=ier)
+    !$acc update device(rbufslp) if_present
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbuf1dp'
        call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -1638,10 +1641,13 @@ contains
     do p = begp,endp
        rbufslp(p) = this%water_scalar(p)
     end do
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslp) if_present
     !$acc end data
     call update_accum_field  ('wlim_m' , rbufslp             , nstep)
     call extract_accum_field ('wlim_m' , this%water_scalar_runmean  , nstep)
     deallocate(rbufslp)
+    !$acc update device(rbufslp) if_present
 
   end subroutine UpdateAccVars
 

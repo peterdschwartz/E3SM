@@ -551,7 +551,15 @@ end subroutine normalize_test
     !------------------------------------------------------------------------------
 
     !define normalized rootfraction for unfrozen soil
-    rootfr_unf(1:fn,1:nlevgrnd) = 0._r8
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(rootfr_unf)
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = 1, nlevgrnd  ! spel section-loop
+       do spel_i1 = 1, fn
+          rootfr_unf(spel_i1, spel_i2) = 0._r8
+       end do
+    end do
     !$acc enter data copyin(rootfr_unf(1:fn,1:nlevgrnd))
 
     call normalize_unfrozen_rootfr(bounds,  &
@@ -580,6 +588,7 @@ end subroutine normalize_test
     end select
     !$acc exit data delete(rootfr_unf(:,:))
 
+    !$acc exit data delete(rootfr_unf)
   end subroutine calc_root_moist_stress
 
 end module SoilMoistStressMod

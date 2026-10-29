@@ -326,6 +326,8 @@ module TopounitDataType
      real(r8), pointer :: rbufslt(:)      ! temporary single level - topounit level
      !---------------------------------------------------------------------
 
+     ! spel acc-sync: device data this host code uses
+     !$acc update self(rbufslt) if_present
      begt = bounds%begt; endt = bounds%endt
 
       nstep = get_nstep()
@@ -333,6 +335,7 @@ module TopounitDataType
      ! Allocate needed dynamic memory for single level topounit field
 
      allocate(rbufslt(begt:endt), stat=ier)
+     !$acc update device(rbufslt) if_present
      if (ier/=0) then
          write(iulog,*)'update_accum_hist allocation error for rbufslt'
           call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -362,7 +365,10 @@ module TopounitDataType
         call extract_accum_field ('WIND24H', this%wind24h, nstep)
      end if
 
+     ! spel acc-sync: device data this host code uses
+     !$acc update self(rbufslt) if_present
      deallocate(rbufslt)
+     !$acc update device(rbufslt) if_present
     end subroutine update_acc_vars_top_as
 
   !-----------------------------------------------------------------------
@@ -580,6 +586,8 @@ module TopounitDataType
     real(r8), pointer :: rbufslt(:)      ! temporary single level - topounit level
     !---------------------------------------------------------------------
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslt) if_present
     begt = bounds%begt; endt = bounds%endt
 
     nstep = get_nstep()
@@ -587,6 +595,7 @@ module TopounitDataType
     ! Allocate needed dynamic memory for single level topounit field
 
     allocate(rbufslt(begt:endt), stat=ier)
+    !$acc update device(rbufslt) if_present
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbufslt'
        call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -638,7 +647,10 @@ module TopounitDataType
        call extract_accum_field ('PREC24H', this%prec24h, nstep)
     end if
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslt) if_present
     deallocate(rbufslt)
+    !$acc update device(rbufslt) if_present
 
   end subroutine update_acc_vars_top_af
 

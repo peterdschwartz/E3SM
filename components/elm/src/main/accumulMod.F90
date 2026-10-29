@@ -26,6 +26,7 @@ module accumulMod
   ! list, the lookup by name, the initialization and the restart.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only: r8 => shr_kind_r8
   use shr_sys_mod , only: shr_sys_abort
   use elm_varctl  , only: iulog, elm_device_ready
@@ -501,7 +502,7 @@ contains
     dev = field(f%beg1d:f%end1d)
     nin = 0
     if (acc_is_present(field)) then
-       !$acc parallel loop present(field) copyout(dev)
+       !$acc parallel loop present(field) copyout(dev) if(elm_device_ready)
        do k = f%beg1d, f%end1d
           dev(k) = field(k)
        end do

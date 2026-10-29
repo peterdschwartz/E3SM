@@ -158,12 +158,15 @@ contains
     integer  :: nbad                                                   ! patches with an error
     real(r8), parameter :: mpe = 1.e-06_r8                                                ! prevents overflow for division by zero
     integer , parameter :: nband =numrad                                                  ! number of solar radiation waveband classes
+   integer :: spel_i1  ! spel section-loop indices
   !-----------------------------------------------------------------------
 
    ! spel acc-locals: device storage of the local work arrays
    !$acc enter data create(filter_vegsol, filter_novegsol, coszen_patch)
    !$acc enter data create(wl, ws, blai, bsai, coszen_gcell, cosinc_gcell, cosinc_patch, rho, tau, &
    !$acc&   case_slr, case_aer, alb_snw, abs_snw, err_can)
+   ! spel acc-locals: device storage of the local work arrays
+   !$acc enter data create(aer_bc, aer_oc, aer_dst, aer_all, aer_none)
    associate(&
           rhol          =>    veg_vp%rhol                     , & ! Input:  [real(r8)  (:,:) ]  leaf reflectance: 1=vis, 2=nir
           rhos          =>    veg_vp%rhos                     , & ! Input:  [real(r8)  (:,:) ]  stem reflectance: 1=vis, 2=nir
@@ -341,16 +344,37 @@ contains
             lakestate_vars, surfalb_vars)
 
     ! SNICAR cases. Aerosol species: 1-2 BC, 3-4 OC, 5-8 dust.
-    aer_none(:) = .false.
-    aer_all(:) = .false.
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i1 = lbound(aer_none,1), ubound(aer_none,1)  ! spel section-loop
+       aer_none(spel_i1) = .false.
+    end do
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i1 = lbound(aer_all,1), ubound(aer_all,1)  ! spel section-loop
+       aer_all(spel_i1) = .false.
+    end do
     if (DO_SNO_AER) then
-       aer_all(1:2) = .true.
-       aer_all(3:4) = DO_SNO_OC
-       aer_all(5:8) = .true.
+       !$acc data copy(aer_all)
+       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       do spel_i1 = 1, 2  ! spel section-loop
+          aer_all(spel_i1) = .true.
+       end do
+       !$acc end data
+       !$acc data copy(aer_all)
+       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       do spel_i1 = 3, 4  ! spel section-loop
+          aer_all(spel_i1) = DO_SNO_OC
+       end do
+       !$acc end data
+       !$acc data copy(aer_all)
+       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       do spel_i1 = 5, 8  ! spel section-loop
+          aer_all(spel_i1) = .true.
+       end do
+       !$acc end data
     endif
-    aer_bc(:)  = (/ .false., .false., DO_SNO_OC, DO_SNO_OC, .true., .true., .true., .true. /)  ! BC_FRC=[(BC+OC+dust)-(OC+dust)]
-    aer_oc(:)  = (/ .true., .true., .false., .false., .true., .true., .true., .true. /)          ! OC_FRC=[(BC+OC+dust)-(BC+dust)]
-    aer_dst(:) = (/ .true., .true., DO_SNO_OC, DO_SNO_OC, .false., .false., .false., .false. /) ! DST_FRC=[(BC+OC+dust)-(BC+OC)]
+    aer_bc(:)  = (/ .false., .false., DO_SNO_OC, DO_SNO_OC, .true., .true., .true., .true. /)
+    aer_oc(:)  = (/ .true., .true., .false., .false., .true., .true., .true., .true. /)
+    aer_dst(:) = (/ .true., .true., DO_SNO_OC, DO_SNO_OC, .false., .false., .false., .false. /)
     ncase = 0
     kd_bc = 0; ki_bc = 0; kd_oc = 0; ki_oc = 0; kd_dst = 0; ki_dst = 0; kd_pur = 0; ki_pur = 0
     ! climate feedback, all aerosols: cases 1 and 2, which also return the absorbed-flux profiles
@@ -636,8 +660,8 @@ contains
     if (nbad > 0) then
        ! spel acc-sync: device data this host code uses
        !$acc update self(canopystate_vars%elai_patch, canopystate_vars%esai_patch, &
-       !$acc&   canopystate_vars%tlai_patch, canopystate_vars%tsai_patch, surfalb_vars%ncan_patch, &
-       !$acc&   surfalb_vars%nrad_patch) if_present if(elm_device_ready)
+       !$acc&   canopystate_vars%tlai_patch, canopystate_vars%tsai_patch, err_can, surfalb_vars%ncan_patch, &
+       !$acc&   surfalb_vars%nrad_patch) if_present
        !$acc update self(err_can) if(elm_device_ready)
        do fp = 1,num_nourbanp
           if (err_can(fp) /= 0) then
@@ -742,6 +766,7 @@ contains
    !$acc exit data delete(filter_vegsol, filter_novegsol, coszen_patch)
    !$acc exit data delete(wl, ws, blai, bsai, coszen_gcell, cosinc_gcell, cosinc_patch, rho, tau, &
    !$acc&   case_slr, case_aer, alb_snw, abs_snw, err_can)
+   !$acc exit data delete(aer_bc, aer_oc, aer_dst, aer_all, aer_none)
    contains
 
      subroutine add_case(slr, aer, k)
@@ -749,10 +774,14 @@ contains
        integer , intent(in)  :: slr
        logical , intent(in)  :: aer(:)
        integer , intent(out) :: k
+       integer :: spel_i1  ! spel section-loop indices
        ncase = ncase + 1
        k = ncase
        case_slr(k) = slr
-       case_aer(:,k) = aer(:)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
+       do spel_i1 = lbound(case_aer,1), ubound(case_aer,1)  ! spel section-loop
+          case_aer(spel_i1, k) = aer(spel_i1)
+       end do
      end subroutine add_case
 
    end subroutine SurfaceAlbedo
@@ -1529,6 +1558,9 @@ contains
     real(r8) :: coeff_dif(4,0:7)                          ! regression coefficients for f_dif
     real(r8) :: coeff_rdif(3,0:7)                         ! regression coefficients for f_rdif
 
+    integer :: spel_i1  ! spel section-loop indices
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(coeff_dif, coeff_dir, coeff_rdif, coeff_rdir) if_present
     data coeff_dir(:,1) /2.045E+1_r8, 6.792E-1_r8, -2.103E+1_r8/
     data coeff_dir(:,2) /1.993E+0_r8, 9.284E-1_r8, -2.911E+0_r8/
     data coeff_dir(:,3) /5.900E-2_r8, 9.863E-1_r8, -1.045E+0_r8/
@@ -1563,6 +1595,7 @@ contains
 
      ! Enforce expected array sizes
     SHR_ASSERT_ALL((ubound(coszen) == (/bounds%endp/)),         errMsg(__FILE__, __LINE__))
+    !$acc update device(coeff_dif, coeff_dir, coeff_rdif, coeff_rdir) if_present
 
     ! Assign local pointers to derived subtypes components (gridcell-level)
 
@@ -1593,10 +1626,30 @@ contains
 
 
 
-     coeff_dir(:,0) = coeff_dir(:,1)
-     coeff_rdir(:,0) = coeff_rdir(:,1)
-     coeff_dif(:,0) = coeff_dif(:,1)
-     coeff_rdif(:,0) = coeff_rdif(:,1)
+     !$acc data copy(coeff_dir)
+     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+     do spel_i1 = lbound(coeff_dir,1), ubound(coeff_dir,1)  ! spel section-loop
+        coeff_dir(spel_i1, 0) = coeff_dir(spel_i1, 1)
+     end do
+     !$acc end data
+     !$acc data copy(coeff_rdir)
+     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+     do spel_i1 = lbound(coeff_rdir,1), ubound(coeff_rdir,1)  ! spel section-loop
+        coeff_rdir(spel_i1, 0) = coeff_rdir(spel_i1, 1)
+     end do
+     !$acc end data
+     !$acc data copy(coeff_dif)
+     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+     do spel_i1 = lbound(coeff_dif,1), ubound(coeff_dif,1)  ! spel section-loop
+        coeff_dif(spel_i1, 0) = coeff_dif(spel_i1, 1)
+     end do
+     !$acc end data
+     !$acc data copy(coeff_rdif)
+     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+     do spel_i1 = lbound(coeff_rdif,1), ubound(coeff_rdif,1)  ! spel section-loop
+        coeff_rdif(spel_i1, 0) = coeff_rdif(spel_i1, 1)
+     end do
+     !$acc end data
 
      next_tod = 86400._r8 * (nextsw_cday - int(nextsw_cday))
 

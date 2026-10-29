@@ -363,10 +363,11 @@ contains
 
       if (use_firn_percolation_and_compaction) then
           snw_rds_refrz   = 1500._r8
+          !$acc update device(snw_rds_refrz) if_present
       else
           snw_rds_refrz   = 1000._r8
+          !$acc update device(snw_rds_refrz) if_present
       endif
-      !$acc update device(snw_rds_refrz) if_present
       !$acc update device(snw_rds_refrz)
 
       ! loop over columns that have at least one snow layer (each writes its own column)
@@ -1921,7 +1922,7 @@ contains
        enddo
        if (nbad > 0) then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_pp%snl, col_ws%h2osno, col_ws%snw_rds) if_present if(elm_device_ready)
+          !$acc update self(col_pp%snl, col_ws%h2osno, col_ws%snw_rds, err_w, errv_w) if_present
           !$acc update self(err_w, errv_w) if(elm_device_ready)
           call snicar_ad_report(num_nourbanc, filter_nourbanc, ncall, call_slr, err_w, errv_w, nbad)
           call endrun(msg="SNICAR_AD_RT: "//errmsg(__FILE__, __LINE__))

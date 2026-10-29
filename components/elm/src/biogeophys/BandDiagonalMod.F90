@@ -127,6 +127,8 @@ contains
           if (info(fc) /= 0) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
        end do
        if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(info, nlev) if_present
           fc = 1 + spel_dc_1 - 1
              write(iulog,*)'filter index: ', fc
              write(iulog,*)'n,kl,ku,m ',nlev(fc),kl,ku,m

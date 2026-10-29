@@ -669,6 +669,8 @@ contains
     character(len=*), parameter :: subname = 'UpdateAccVars'
     !-----------------------------------------------------------------------
     
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslp) if_present
     begp = bounds%begp; endp = bounds%endp
 
     dtime = get_step_size()
@@ -677,6 +679,7 @@ contains
     ! Allocate needed dynamic memory for single level pft field
 
     allocate(rbufslp(begp:endp), stat=ier)
+    !$acc update device(rbufslp) if_present
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbuf1dp'
        call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -725,11 +728,14 @@ contains
           rbufslp(p) = accumResetVal
        end if
     end do
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslp) if_present
     !$acc end data
     call update_accum_field  ('GDDTSOI', rbufslp, nstep)
     call extract_accum_field ('GDDTSOI', this%gddtsoi_patch, nstep)
 
     deallocate(rbufslp)
+    !$acc update device(rbufslp) if_present
 
   end subroutine UpdateAccVars
 

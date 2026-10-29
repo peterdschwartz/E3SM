@@ -44,6 +44,9 @@ contains
 #endif
     use subgridWeightsMod , only : set_active, check_weights
     use decompMod         , only : bounds_type, BOUNDS_LEVEL_CLUMP
+    use columntype, only : col_pp  ! spel acc-sync
+    use landunittype, only : lun_pp  ! spel acc-sync
+    use vegetationtype, only : veg_pp  ! spel acc-sync
     !
     ! !ARGUMENTS:
     type(bounds_type) , intent(in) :: bounds                      ! clump bounds
@@ -53,6 +56,7 @@ contains
     SHR_ASSERT(bounds%level == BOUNDS_LEVEL_CLUMP, errMsg(__FILE__, __LINE__))
 
     call set_active(bounds)
+    !$acc update device(col_pp%active, lun_pp%active, veg_pp%active) if_present
     call check_weights(bounds, active_only=.false.)
     call check_weights(bounds, active_only=.true.)
     call setFilters(bounds, icemask_grc(bounds%begg:bounds%endg))

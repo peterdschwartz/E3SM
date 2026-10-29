@@ -95,16 +95,32 @@ contains
     integer :: begp,endp
     integer :: c,p,g,pft
 
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(col_cf%hr, veg_cf%npp) if_present if(elm_device_ready)
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     begg = bounds%begg; endg = bounds%endg
     begp = bounds%begp; endp = bounds%endp
 
-    this%hr(begg:endg,:)=0.0_r8
-    this%npp(begg:endg,:)=0.0_r8
-    this%pftwgt(begg:endg,:)=0.0_r8
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(this%hr,2), ubound(this%hr,2)  ! spel section-loop
+       do spel_i1 = begg, endg
+          this%hr(spel_i1, spel_i2)=0.0_r8
+       end do
+    end do
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(this%npp,2), ubound(this%npp,2)  ! spel section-loop
+       do spel_i1 = begg, endg
+          this%npp(spel_i1, spel_i2)=0.0_r8
+       end do
+    end do
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(this%pftwgt,2), ubound(this%pftwgt,2)  ! spel section-loop
+       do spel_i1 = begg, endg
+          this%pftwgt(spel_i1, spel_i2)=0.0_r8
+       end do
+    end do
 
     ! Loop over patch index, extract fields by pft type and gridcell
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_cf%hr, this%hr, this%npp, this%pftwgt, veg_cf%npp, veg_pp%wtgcell) if_present
     do p = begp, endp
        g=veg_pp%gridcell(p)
        pft=veg_pp%itype(p)

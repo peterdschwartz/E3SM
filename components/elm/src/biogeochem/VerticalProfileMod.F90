@@ -94,7 +94,10 @@ contains
 
     ! spel acc-locals: device storage of the local work arrays
     integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
+    integer :: spel_i1  ! spel section-loop indices
     !$acc enter data create(cinput_rootfr, col_cinput_rootfr)
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(surface_prof)
     associate(                                                               & 
          nlev2bed             => col_pp%nlevbed                            , & ! Input: [integer (:)     ]  number of layers to bedrock
          rootfr               => soilstate_vars%rootfr_patch               , & ! Input:  [real(r8)  (:,:) ]  fraction of roots in each soil layer  (nlevgrnd)
@@ -119,7 +122,10 @@ contains
       if (use_vertsoilc) then
 
          ! define a single shallow surface profile for surface additions (leaves, stems, and N deposition)
-         surface_prof(:) = 0._r8
+         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         do spel_i1 = lbound(surface_prof,1), ubound(surface_prof,1)  ! spel section-loop
+            surface_prof(spel_i1) = 0._r8
+         end do
          !$acc data copy(surface_prof) if(elm_device_ready)
          !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
          do j = 1, nlevdecomp
@@ -364,9 +370,11 @@ contains
       end do
       if (nbad > 0) then  ! report on the host
          ! spel acc-sync: device data this host code uses
-         !$acc update self(canopystate_vars%altmax_lastyear_indx_col, cnstate_vars%ndep_prof_col, &
-         !$acc&   cnstate_vars%nfixation_prof_col, cnstate_vars%pdep_prof_col) if_present if(elm_device_ready)
+         !$acc update self(canopystate_vars%altmax_lastyear_indx_col, cinput_rootfr, &
+         !$acc&   cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, cnstate_vars%pdep_prof_col, &
+         !$acc&   col_cinput_rootfr, surface_prof) if_present
          !$acc update self(cinput_rootfr, col_cinput_rootfr) if(elm_device_ready)
+         !$acc update self(surface_prof)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             ndep_prof_sum = 0._r8
@@ -419,6 +427,7 @@ contains
       end do
       if (nbad > 0) then  ! report on the host
          !$acc update self(cinput_rootfr, col_cinput_rootfr) if(elm_device_ready)
+         !$acc update self(surface_prof)
          spel_dc_1 = 0  ! spel defer-checks
          !$acc parallel loop gang vector default(present) &
          !$acc   private(p, froot_prof_sum, croot_prof_sum, leaf_prof_sum) private(stem_prof_sum, j) &
@@ -440,9 +449,10 @@ contains
          end do
          if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
             ! spel acc-sync: device data this host code uses
-            !$acc update self(canopystate_vars%altmax_lastyear_indx_col, cnstate_vars%croot_prof_patch, &
-            !$acc&   cnstate_vars%froot_prof_patch, cnstate_vars%leaf_prof_patch, &
-            !$acc&   cnstate_vars%stem_prof_patch) if_present if(elm_device_ready)
+            !$acc update self(canopystate_vars%altmax_lastyear_indx_col, cinput_rootfr, &
+            !$acc&   cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
+            !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%stem_prof_patch, col_cinput_rootfr, &
+            !$acc&   surface_prof) if_present
             fp = 1 + spel_dc_1 - 1
             p = filter_soilp(fp)
             froot_prof_sum = 0._r8
@@ -469,6 +479,7 @@ contains
     end associate 
 
     !$acc exit data delete(cinput_rootfr, col_cinput_rootfr)
+    !$acc exit data delete(surface_prof)
   end subroutine decomp_vertprofiles
   
 end module VerticalProfileMod

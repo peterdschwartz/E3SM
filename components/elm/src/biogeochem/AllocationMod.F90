@@ -128,6 +128,7 @@ module AllocationMod
 
   real(r8), allocatable,target :: veg_rootc_bigleaf(:,:)        ! column-level fine-root biomas kgc/m3
   integer,  pointer :: ft_index_bigleaf(:)                      ! array holding the pft index of each competitor
+  !$acc declare create(ft_index_bigleaf, veg_rootc_bigleaf)
 
   ! ECA parameters
   ! scaling factor for plant fine root biomass to calculate nutrient carrier enzyme abundance
@@ -1128,11 +1129,14 @@ contains
    real(r8), parameter :: cp_stoich_var=0.4    ! variability of CP ratio
    real(r8) :: sum1,sum2,sum_immob_no3,sum_immob_nh4,sum_immob_p,sum_pot_immob_p
    integer :: begc, endc 
+   integer :: spel_i1, spel_i2  ! spel section-loop indices
 
    !-----------------------------------------------------------------------
 
    ! spel acc-locals: device storage of the local work arrays
    !$acc enter data create(excess_immob_nh4_vr, excess_immob_no3_vr, excess_immob_p_vr)
+   ! spel acc-locals: device storage of the local work arrays
+   !$acc enter data create(decompmicc)
    associate(                                                                                 &
         ivt                          => veg_pp%itype                    , & ! Input:  [integer  (:) ]  pft vegetation type
                                                                             ! new variables due to partition of Allocation to 3 subroutines: BEG
@@ -1257,14 +1261,56 @@ contains
      elseif (nu_com .eq. 'ECA' .or. nu_com .eq. 'MIC') then
 
         if(use_fates)then
+           ! spel acc-sync: device data this host code uses
+           !$acc update self(filter_pcomp) if_present
            n_pcomp = size(elm_fates%fates(1)%bc_out(1)%ft_index) ! max number of plant competitors
-           allocate(filter_pcomp(n_pcomp));filter_pcomp(:) = -1
-           allocate(plant_nh4demand_vr_fates(n_pcomp,nlevdecomp)); plant_nh4demand_vr_fates(:,:) = nan
-           allocate(plant_no3demand_vr_fates(n_pcomp,nlevdecomp)); plant_no3demand_vr_fates(:,:) = nan
-           allocate(plant_pdemand_vr_fates(n_pcomp,nlevdecomp));   plant_pdemand_vr_fates(:,:) = nan
+           allocate(filter_pcomp(n_pcomp))
+           !$acc update device(filter_pcomp) if_present
+           !$acc data copy(filter_pcomp)
+           !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+           do spel_i1 = lbound(filter_pcomp,1), ubound(filter_pcomp,1)  ! spel section-loop
+              filter_pcomp(spel_i1) = -1
+           end do
+           ! spel acc-sync: device data this host code uses
+           !$acc update self(plant_nh4demand_vr_fates) if_present
+           !$acc end data
+           allocate(plant_nh4demand_vr_fates(n_pcomp,nlevdecomp))
+           !$acc update device(plant_nh4demand_vr_fates) if_present
+           do spel_i2 = lbound(plant_nh4demand_vr_fates,2), ubound(plant_nh4demand_vr_fates,2)  ! spel section-loop
+              do spel_i1 = lbound(plant_nh4demand_vr_fates,1), ubound(plant_nh4demand_vr_fates,1)
+                 plant_nh4demand_vr_fates(spel_i1, spel_i2) = nan
+              end do
+           end do
+           ! spel acc-sync: device data this host code uses
+           !$acc update self(plant_no3demand_vr_fates) if_present
+           allocate(plant_no3demand_vr_fates(n_pcomp,nlevdecomp))
+           !$acc update device(plant_no3demand_vr_fates) if_present
+           do spel_i2 = lbound(plant_no3demand_vr_fates,2), ubound(plant_no3demand_vr_fates,2)  ! spel section-loop
+              do spel_i1 = lbound(plant_no3demand_vr_fates,1), ubound(plant_no3demand_vr_fates,1)
+                 plant_no3demand_vr_fates(spel_i1, spel_i2) = nan
+              end do
+           end do
+           ! spel acc-sync: device data this host code uses
+           !$acc update self(plant_pdemand_vr_fates) if_present
+           allocate(plant_pdemand_vr_fates(n_pcomp,nlevdecomp))
+           !$acc update device(plant_pdemand_vr_fates) if_present
+           do spel_i2 = lbound(plant_pdemand_vr_fates,2), ubound(plant_pdemand_vr_fates,2)  ! spel section-loop
+              do spel_i1 = lbound(plant_pdemand_vr_fates,1), ubound(plant_pdemand_vr_fates,1)
+                 plant_pdemand_vr_fates(spel_i1, spel_i2) = nan
+              end do
+           end do
         else
+           ! spel acc-sync: device data this host code uses
+           !$acc update self(filter_pcomp) if_present
            n_pcomp = bounds%endp-bounds%begp+1   ! max number of plant competitors
-           allocate(filter_pcomp(n_pcomp));filter_pcomp(:) = -1
+           allocate(filter_pcomp(n_pcomp))
+           !$acc update device(filter_pcomp) if_present
+           !$acc data copy(filter_pcomp)
+           !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+           do spel_i1 = lbound(filter_pcomp,1), ubound(filter_pcomp,1)  ! spel section-loop
+              filter_pcomp(spel_i1) = -1
+           end do
+           !$acc end data
            !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
            do fp=1,num_soilp
               p = filter_soilp(fp)
@@ -1356,88 +1402,71 @@ contains
             end do
          else
 
-           ! spel acc-sync: device data this host code uses
-           !$acc update self(carbon_only, cnstate_vars%froot_prof_patch, veg_cs%core%froot, veg_cs%core%leaf, &
-           !$acc&   veg_cs%core%leaf_storage, veg_cs%core%leaf_xfer, veg_nf%plant_nh4demand_vr, &
-           !$acc&   veg_nf%plant_no3demand_vr, veg_ns%core%leaf, veg_ns%core%leaf_storage, &
-           !$acc&   veg_ns%core%leaf_xfer, veg_pf%uptake%plant_demand_vr, veg_ps%core%leaf, &
-           !$acc&   veg_ps%core%leaf_storage, veg_ps%core%leaf_xfer) if_present if(elm_device_ready)
+           ! Big-leaf (ELM native) plant competitors: one kernel over the soil columns; each column
+           ! walks its own patches in order, as the serial loop did (bit-for-bit), without the
+           ! filter_pcomp compaction the ECA path needs. The pointers are loop invariant.
+           ft_index_ptr   => ft_index_bigleaf
+           veg_rootc_ptr  => veg_rootc_bigleaf
+           km_nh4_ptr    => km_plant_nh4
+           vmax_nh4_ptr  => vmax_plant_nh4
+           cn_scalar_runmean_ptr => cn_scalar_runmean
+           km_no3_ptr   => km_plant_no3
+           vmax_no3_ptr => vmax_plant_no3
+           plant_no3demand_vr_ptr => plant_no3demand_vr_patch
+           plant_nh4demand_vr_ptr => plant_nh4demand_vr_patch
+           plant_pdemand_vr_ptr => plant_pdemand_vr_patch
+           cp_scalar_runmean_ptr => cp_scalar_runmean
+           km_p_ptr      => km_plant_p
+           vmax_p_ptr    => vmax_plant_p
+           !$acc update device(cn_scalar_runmean_ptr, cp_scalar_runmean_ptr, ft_index_ptr, km_nh4_ptr, &
+           !$acc&   km_no3_ptr, km_p_ptr, plant_nh4demand_vr_ptr, plant_no3demand_vr_ptr, &
+           !$acc&   plant_pdemand_vr_ptr, veg_rootc_ptr, vmax_nh4_ptr, vmax_no3_ptr, vmax_p_ptr) if_present
+           !$acc parallel loop gang vector default(present) private(c, l, pci, pcf, p, j) if(elm_device_ready) copyin(bounds)
            do fc=1,num_soilc
-
               c = filter_soilc(fc)
               l = col_pp%landunit(c)
-
               pci     = col_pp%pfti(c) ! Initial plant competitor index
               pcf     = col_pp%pftf(c) ! Final plant competitor index
-
-
-              f = 0
-              decompmicc(fc,:) = 0._r8
-              do p = col_pp%pfti(c), col_pp%pftf(c)
+              !$acc loop seq
+              do j = 1,nlevdecomp
+                 decompmicc(fc,j) = 0._r8
+              end do
+              !$acc loop seq
+              do p = pci, pcf
+                 cn_scalar(p) = 0._r8
+                 cp_scalar(p) = 0._r8
+                 do j = 1,nlevdecomp
+                    plant_no3demand_vr_patch(p,j) = 0._r8
+                    plant_nh4demand_vr_patch(p,j) = 0._r8
+                    plant_pdemand_vr_patch(p,j) = 0._r8
+                 end do
+              end do
+              !$acc loop seq
+              do p = pci, pcf
                  if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
-                    f = f + 1
-                    filter_pcomp(f) = p
                     ft_index_bigleaf(p) = ivt(p)
                     do j = 1,nlevdecomp
-
                        ! microbial decomposer biomass [gc/m3]
                        decompmicc(fc,j) = decompmicc(fc,j) + decompmicc_patch_vr(ivt(p),j)*veg_pp%wtcol(p)
-
                        ! [gC/m2] fine root C in column =
                        !         fine root C in patch [gC/m2]  * fraction in layer [-] * [m2/m2] patch fraction
                        veg_rootc_bigleaf(p,j) = frootc(p)*froot_prof(p,j)*veg_pp%wtcol(p)
-
                     end do
+                    if (.not.(carbonphosphorus_only .or. carbon_only))then
+                       cn_scalar(p) = min(max(((leafc(p) + leafc_storage(p) + leafc_xfer(p))/ &
+                            max(leafn(p) + leafn_storage(p) + leafn_xfer(p), 1e-20_r8) - &
+                            leafcn(ivt(p))*(1- cn_stoich_var)) / &
+                            (leafcn(ivt(p)) - leafcn(ivt(p))*(1- cn_stoich_var)),0.0_r8),1.0_r8)
+                    end if
+                    if ( .not. (carbonnitrogen_only .or. carbon_only) ) then
+                       cp_scalar(p) = min(max(((leafc(p) + leafc_storage(p) + leafc_xfer(p)) / &
+                            max(leafp(p) + leafp_storage(p) + leafp_xfer(p), 1e-20_r8) - &
+                            leafcp(ivt(p))*(1- cp_stoich_var)) / &
+                            (leafcp(ivt(p)) - leafcp(ivt(p))*(1- cp_stoich_var)),0.0_r8),1.0_r8)
+                    end if
                  end if
               end do
-              n_pcomp = f
-
-              ft_index_ptr   => ft_index_bigleaf
-              veg_rootc_ptr  => veg_rootc_bigleaf
-
-              cn_scalar(col_pp%pfti(c):col_pp%pftf(c)) = 0._r8
-              plant_no3demand_vr_patch(col_pp%pfti(c):col_pp%pftf(c),:) = 0._r8
-              plant_nh4demand_vr_patch(col_pp%pfti(c):col_pp%pftf(c),:) = 0._r8
-
-              if (.not.(carbonphosphorus_only .or. carbon_only))then
-                 do f = 1,n_pcomp
-                    p = filter_pcomp(f)
-                    cn_scalar(p) = min(max(((leafc(p) + leafc_storage(p) + leafc_xfer(p))/ &
-                         max(leafn(p) + leafn_storage(p) + leafn_xfer(p), 1e-20_r8) - &
-                         leafcn(ivt(p))*(1- cn_stoich_var)) / &
-                         (leafcn(ivt(p)) - leafcn(ivt(p))*(1- cn_stoich_var)),0.0_r8),1.0_r8)
-                 end do
-              end if
-
-              km_nh4_ptr    => km_plant_nh4
-              vmax_nh4_ptr  => vmax_plant_nh4
-              cn_scalar_runmean_ptr => cn_scalar_runmean
-              km_no3_ptr   => km_plant_no3
-              vmax_no3_ptr => vmax_plant_no3
-              plant_no3demand_vr_ptr => plant_no3demand_vr_patch
-              plant_nh4demand_vr_ptr => plant_nh4demand_vr_patch
-
-              cp_scalar(col_pp%pfti(c):col_pp%pftf(c)) = 0._r8
-              plant_pdemand_vr_patch(col_pp%pfti(c):col_pp%pftf(c),:) = 0._r8
-
-              if ( .not. (carbonnitrogen_only .or. carbon_only) ) then
-                 do f = 1,n_pcomp
-                    p = filter_pcomp(f)
-                    cp_scalar(p) = min(max(((leafc(p) + leafc_storage(p) + leafc_xfer(p)) / &
-                         max(leafp(p) + leafp_storage(p) + leafp_xfer(p), 1e-20_r8) - &
-                         leafcp(ivt(p))*(1- cp_stoich_var)) / &
-                         (leafcp(ivt(p)) - leafcp(ivt(p))*(1- cp_stoich_var)),0.0_r8),1.0_r8)
-                 end do
-              end if
-              plant_pdemand_vr_ptr => plant_pdemand_vr_patch
-              cp_scalar_runmean_ptr => cp_scalar_runmean
-              km_p_ptr      => km_plant_p
-              vmax_p_ptr    => vmax_plant_p
-
-           end do 
-           !$acc update device(cnstate_vars%cn_scalar, cnstate_vars%cp_scalar, ft_index_bigleaf, &
-           !$acc&   veg_nf%plant_nh4demand_vr, veg_nf%plant_no3demand_vr, veg_pf%uptake%plant_demand_vr, &
-           !$acc&   veg_rootc_bigleaf) if_present
+           end do
          end if ! nu_com
      end if
 
@@ -1498,6 +1527,7 @@ contains
               plant_no3demand_vr_ptr => plant_no3demand_vr_fates
               km_no3_ptr             => elm_fates%fates(ci)%bc_pconst%eca_km_no3
               vmax_no3_ptr           => elm_fates%fates(ci)%bc_pconst%vmax_no3
+              !$acc update device(plant_nh4demand_vr_ptr, plant_no3demand_vr_ptr) if_present
               !$acc data copy(filter_pcomp) if(elm_device_ready)
               !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
               do f = 1, n_pcomp
@@ -1506,6 +1536,8 @@ contains
               !$acc end data
 
            else
+              ! spel acc-sync: device data this host code uses
+              !$acc update self(filter_pcomp) if_present
               pci = col_pp%pfti(c)
               pcf = col_pp%pftf(c)
 
@@ -1527,6 +1559,9 @@ contains
                  endif
               enddo
               n_pcomp = f
+              !$acc update device(cn_scalar_runmean_ptr, filter_pcomp, ft_index_ptr, km_nh4_ptr, km_no3_ptr, &
+              !$acc&   plant_nh4demand_vr_ptr, plant_no3demand_vr_ptr, veg_rootc_ptr, vmax_nh4_ptr, &
+              !$acc&   vmax_no3_ptr) if_present
            end if
 
 
@@ -1574,11 +1609,11 @@ contains
                                    f_nit_vr(c,:),                     & ! OUT
                                    f_denit_vr(c,:))                     ! OUT
 
-            ! spel acc-sync: device data this host code uses
-            !$acc update self(col_nf%uptake%col_plant_demand_vr) if_present if(elm_device_ready)
             !$acc end data
-            col_plant_ndemand_vr(c,:) = col_plant_nh4demand_vr(c,:)+col_plant_no3demand_vr(c,:)
-            !$acc update device(col_nf%uptake%col_plant_demand_vr) if_present
+            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            do spel_i1 = lbound(col_plant_ndemand_vr,2), ubound(col_plant_ndemand_vr,2)  ! spel section-loop
+               col_plant_ndemand_vr(c, spel_i1) = col_plant_nh4demand_vr(c, spel_i1)+col_plant_no3demand_vr(c, spel_i1)
+            end do
          end do 
 
       end if
@@ -1672,6 +1707,7 @@ contains
               plant_pdemand_vr_ptr   => plant_pdemand_vr_fates
               km_p_ptr               => elm_fates%fates(ci)%bc_pconst%eca_km_p
               vmax_p_ptr             => elm_fates%fates(ci)%bc_pconst%vmax_p
+              !$acc update device(plant_pdemand_vr_ptr) if_present
               !$acc data copy(filter_pcomp) if(elm_device_ready)
               !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
               do f = 1, n_pcomp
@@ -1679,6 +1715,8 @@ contains
               end do
               !$acc end data
            else
+              ! spel acc-sync: device data this host code uses
+              !$acc update self(filter_pcomp) if_present
               pci = col_pp%pfti(c)
               pcf = col_pp%pftf(c)
               ft_index_ptr   => ft_index_bigleaf
@@ -1696,6 +1734,8 @@ contains
                  endif
               enddo
               n_pcomp = f
+              !$acc update device(cp_scalar_runmean_ptr, filter_pcomp, ft_index_ptr, km_p_ptr, &
+              !$acc&   plant_pdemand_vr_ptr, veg_rootc_ptr, vmax_p_ptr) if_present
 
            end if
 
@@ -1737,7 +1777,7 @@ contains
            ! big-leaf ECA would have 0 demand at this point
            ! and calculates supplement and need later on in allocation3
            ! spel acc-sync: device data this host code uses
-           !$acc update self(carbon_only) if_present if(elm_device_ready)
+           !$acc update self(carbon_only) if_present
            !$acc end data
            if ( carbon_only .or. carbonnitrogen_only) then
               !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
@@ -1756,7 +1796,7 @@ contains
 
       call t_startf('phase2-colim')
       ! spel acc-sync: device data this host code uses
-      !$acc update self(carbon_only) if_present if(elm_device_ready)
+      !$acc update self(carbon_only) if_present
       np_bothactive: if ( .not.carbon_only .and.  &
            .not.carbonphosphorus_only .and. &
            .not.carbonnitrogen_only ) then
@@ -1928,7 +1968,7 @@ contains
            do fc=1, num_soilc
               ! spel acc-sync: device data this host code uses
               !$acc update self(col_nf%uptake%col_plant_demand_vr, col_nf%uptake%plant_demand, &
-              !$acc&   col_pf%uptake%col_plant_demand_vr, col_pf%uptake%plant_demand) if_present if(elm_device_ready)
+              !$acc&   col_pf%uptake%col_plant_demand_vr, col_pf%uptake%plant_demand) if_present
               c = filter_soilc(fc)
               l = col_pp%landunit(c)
               plant_ndemand_col(c) = 0._r8
@@ -1941,26 +1981,36 @@ contains
 
            do j = 1, nlevdecomp
 
-              ! spel acc-sync: device data this host code uses
-              !$acc update self(col_nf%smin_nh4_to_plant_vr, col_nf%smin_no3_to_plant_vr, &
-              !$acc&   col_pf%uptake%col_plant_demand_vr, col_pf%uptake%smin_to_plant_vr) if_present if(elm_device_ready)
               if (col_plant_nh4demand_vr(c,j) > 0._r8 ) then
+                 ! spel acc-sync: device data this host code uses
+                 !$acc update self(col_nf%smin_nh4_to_plant_vr) if_present
                  fpg_nh4_vr(c,j) = smin_nh4_to_plant_vr(c,j)/col_plant_nh4demand_vr(c,j)
+                 !$acc update device(cnstate_vars%fpg_nh4_vr_col) if_present
               else
                  fpg_nh4_vr(c,j) = 1.0_r8
+                 !$acc update device(cnstate_vars%fpg_nh4_vr_col) if_present
               end if
               if (col_plant_no3demand_vr(c,j) > 0._r8) then
+                 ! spel acc-sync: device data this host code uses
+                 !$acc update self(col_nf%smin_no3_to_plant_vr) if_present
                  fpg_no3_vr(c,j) = smin_no3_to_plant_vr(c,j)/col_plant_no3demand_vr(c,j)
+                 !$acc update device(cnstate_vars%fpg_no3_vr_col) if_present
               else
                  fpg_no3_vr(c,j) = 1.0_r8
+                 !$acc update device(cnstate_vars%fpg_no3_vr_col) if_present
               end if
+              ! spel acc-sync: device data this host code uses
+              !$acc update self(col_pf%uptake%col_plant_demand_vr) if_present
               if (col_plant_pdemand_vr(c,j) > 0._r8) then
+                 ! spel acc-sync: device data this host code uses
+                 !$acc update self(col_pf%uptake%col_plant_demand_vr, &
+                 !$acc&   col_pf%uptake%smin_to_plant_vr) if_present
                  fpg_p_vr(c,j) = sminp_to_plant_vr(c,j)/col_plant_pdemand_vr(c,j)
+                 !$acc update device(cnstate_vars%fpg_p_vr_col) if_present
               else
                  fpg_p_vr(c,j) = 1.0_r8
+                 !$acc update device(cnstate_vars%fpg_p_vr_col) if_present
               end if
-              !$acc update device(cnstate_vars%fpg_nh4_vr_col, cnstate_vars%fpg_no3_vr_col, &
-              !$acc&   cnstate_vars%fpg_p_vr_col) if_present
               if(.not.use_fates) then
                  !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                  do p = col_pp%pfti(c), col_pp%pftf(c)
@@ -1988,7 +2038,10 @@ contains
 
 
      if ((nu_com .eq. 'ECA' .or. nu_com .eq. 'MIC')) then
+        ! spel acc-sync: device data this host code uses
+        !$acc update self(filter_pcomp) if_present
         deallocate(filter_pcomp)
+        !$acc update device(filter_pcomp) if_present
         if(.not.use_fates)then
            !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
            do fp=1,num_soilp
@@ -2184,9 +2237,14 @@ contains
       end do
 
       if (nu_com .eq. 'ECA' .or. nu_com .eq. 'MIC') then
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(plant_nh4demand_vr_fates, plant_no3demand_vr_fates, &
+         !$acc&   plant_pdemand_vr_fates) if_present
          deallocate(plant_nh4demand_vr_fates)
          deallocate(plant_no3demand_vr_fates)
          deallocate(plant_pdemand_vr_fates)
+         !$acc update device(plant_nh4demand_vr_fates, plant_no3demand_vr_fates, &
+         !$acc&   plant_pdemand_vr_fates) if_present
       end if
 
     end if  ! if(use_fates)
@@ -2195,6 +2253,7 @@ contains
    !$acc exit data delete(excess_immob_nh4_vr, excess_immob_no3_vr, excess_immob_p_vr, fpi_nh4_vr, &
    !$acc&   fpi_no3_vr, nuptake_prof, puptake_prof, sum1, sum2, sum_immob_nh4, sum_immob_no3, &
    !$acc&   sum_immob_p, sum_pot_immob_p)
+   !$acc exit data delete(decompmicc)
  end subroutine Allocation2_ResolveNPLimit
 
  subroutine PlantCNPAlloc_ECAMIC(bounds,  &
@@ -2313,7 +2372,7 @@ contains
       !$acc&   veg_pf%core%pool_to_livestem, veg_pf%core%pool_to_livestem_storage, &
       !$acc&   veg_pf%retrans%avail_retrans, veg_pf%retrans%retrans_to_pool, veg_pf%uptake%smin_to_plant, &
       !$acc&   veg_pf%uptake%smin_to_pool, veg_pf%uptake%supplement_to_plant, veg_ps%core%leaf, &
-      !$acc&   veg_ps%core%leaf_storage, veg_ps%core%leaf_xfer, veg_ps%retrans%pool) if_present if(elm_device_ready)
+      !$acc&   veg_ps%core%leaf_storage, veg_ps%core%leaf_xfer, veg_ps%retrans%pool) if_present
       call DistributeN_ECAMIC(num_soilp, filter_soilp, canopystate_vars, cnstate_vars, crop_vars)
       !$acc update device(cnstate_vars%c_allometry_patch, cnstate_vars%n_allometry_patch, &
       !$acc&   cnstate_vars%p_allometry_patch, veg_cf%allocation_froot, veg_cf%allocation_leaf, &
@@ -2463,7 +2522,7 @@ contains
       !! Phosphorus
 
       ! spel acc-sync: device data this host code uses
-      !$acc update self(carbon_only) if_present if(elm_device_ready)
+      !$acc update self(carbon_only) if_present
       if( .not.carbonphosphorus_only .and. .not.carbonnitrogen_only .and. &
            .not. carbon_only )then
 
@@ -2662,7 +2721,7 @@ contains
 
        ! concentration of mineralized nutrient, per soil water
        ! spel acc-sync: device data this host code uses
-       !$acc update self(h2osoi_vol, smin_nh4_vr) if_present if(elm_device_ready)
+       !$acc update self(decompmicc, filter_pcomp, ft_index, h2osoi_vol, smin_nh4_vr, veg_rootc) if_present
        solution_conc = smin_nh4_vr(j) / (bd(j)*adsorp_nh4_eff*m3_per_liter + h2osoi_vol(j))
 
        e_km = 0._r8
@@ -2685,7 +2744,8 @@ contains
        !$acc end data
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(plant_nh4demand_vr, pot_f_nit_vr, potential_immob_vr, t_scalar) if_present if(elm_device_ready)
+       !$acc update self(compet_plant, filter_pcomp, ft_index, plant_nh4demand_vr, pot_f_nit_vr, &
+       !$acc&   potential_immob_vr, t_scalar, veg_rootc) if_present
        compet_decomp = solution_conc / (km_decomp_nh4 * (1._r8 + solution_conc/km_decomp_nh4 + e_km))
 
        compet_nit    = solution_conc / (km_nit * (1._r8 + solution_conc/km_nit + e_km))
@@ -2715,7 +2775,7 @@ contains
        if (nu_com .eq. 'ECA') then
 
           ! spel acc-sync: device data this host code uses
-          !$acc update self(pot_f_nit_vr, potential_immob_vr) if_present if(elm_device_ready)
+          !$acc update self(pot_f_nit_vr, potential_immob_vr) if_present
           sum_nh4_demand_scaled = col_plant_nh4demand_vr(j) + &
                potential_immob_vr(j)*compet_decomp + &
                pot_f_nit_vr(j)*compet_nit
@@ -2723,15 +2783,16 @@ contains
        else ! 'MIC' mode
 
           ! spel acc-sync: device data this host code uses
-          !$acc update self(pot_f_nit_vr, potential_immob_vr) if_present if(elm_device_ready)
+          !$acc update self(pot_f_nit_vr, potential_immob_vr) if_present
           sum_nh4_demand_scaled = potential_immob_vr(j)*compet_decomp + &
                pot_f_nit_vr(j)*compet_nit
 
        end if
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(actual_immob_nh4_vr, f_nit_vr, fpi_nh4_vr, h2osoi_vol, pot_f_nit_vr, &
-       !$acc&   potential_immob_vr, smin_nh4_to_plant_vr, smin_nh4_vr, smin_no3_vr) if_present if(elm_device_ready)
+       !$acc update self(actual_immob_nh4_vr, decompmicc, f_nit_vr, filter_pcomp, fpi_nh4_vr, ft_index, &
+       !$acc&   h2osoi_vol, pot_f_nit_vr, potential_immob_vr, smin_nh4_to_plant_vr, smin_nh4_vr, smin_no3_vr, &
+       !$acc&   veg_rootc) if_present
        if (sum_nh4_demand*dt < smin_nh4_vr(j)) then
 
           ! NH4 availability is not limiting immobilization or plant
@@ -2805,8 +2866,8 @@ contains
        !$acc end data
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(actual_immob_nh4_vr, plant_no3demand_vr, pot_f_denit_vr, potential_immob_vr, &
-       !$acc&   t_scalar) if_present if(elm_device_ready)
+       !$acc update self(actual_immob_nh4_vr, compet_plant, filter_pcomp, ft_index, plant_no3demand_vr, &
+       !$acc&   pot_f_denit_vr, potential_immob_vr, t_scalar, veg_rootc) if_present
        compet_decomp = solution_conc / (km_decomp_no3 * (1._r8 + solution_conc/km_decomp_no3 + e_km))
        compet_denit = solution_conc / (km_den * (1._r8 + solution_conc/km_den + e_km))
 
@@ -2836,19 +2897,19 @@ contains
        !$acc update device(col_plant_no3demand_vr, plant_no3demand_vr) if_present
        if (nu_com .eq. 'ECA') then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(actual_immob_nh4_vr, pot_f_denit_vr, potential_immob_vr) if_present if(elm_device_ready)
+          !$acc update self(actual_immob_nh4_vr, pot_f_denit_vr, potential_immob_vr) if_present
           sum_no3_demand_scaled = col_plant_no3demand_vr(j) + &
                (potential_immob_vr(j)-actual_immob_nh4_vr(j))*compet_decomp + pot_f_denit_vr(j)*compet_denit
        else ! 'MIC' mode
           ! spel acc-sync: device data this host code uses
-          !$acc update self(actual_immob_nh4_vr, pot_f_denit_vr, potential_immob_vr) if_present if(elm_device_ready)
+          !$acc update self(actual_immob_nh4_vr, pot_f_denit_vr, potential_immob_vr) if_present
           sum_no3_demand_scaled = (potential_immob_vr(j)-actual_immob_nh4_vr(j)) * &
                compet_decomp + pot_f_denit_vr(j)*compet_denit
        end if
 
        ! spel acc-sync: device data this host code uses
        !$acc update self(actual_immob_nh4_vr, actual_immob_no3_vr, f_denit_vr, fpi_nh4_vr, fpi_no3_vr, &
-       !$acc&   pot_f_denit_vr, potential_immob_vr, smin_no3_to_plant_vr, smin_no3_vr) if_present if(elm_device_ready)
+       !$acc&   pot_f_denit_vr, potential_immob_vr, smin_no3_to_plant_vr, smin_no3_vr) if_present
        if (sum_no3_demand*dt < smin_no3_vr(j)) then
           ! NO3 availability is not limiting immobilization or plant
           ! uptake, and all can proceed at their potential rates
@@ -2989,7 +3050,8 @@ contains
        ! loop over each pft within the same column
        ! calculate competition coefficients for N/P
        ! spel acc-sync: device data this host code uses
-       !$acc update self(h2osoi_vol, labilep_vr, solutionp_vr) if_present if(elm_device_ready)
+       !$acc update self(decompmicc, filter_pcomp, ft_index, h2osoi_vol, labilep_vr, solutionp_vr, &
+       !$acc&   veg_rootc) if_present
        solution_pconc  = max(0._r8,solutionp_vr(j)/h2osoi_vol(j)) ! convert to per soil water based
 
        e_km_p = 0._r8
@@ -3013,9 +3075,10 @@ contains
        !$acc end data
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(adsorb_to_labilep_vr, biochem_pmin_vr_col, col_plant_pdemand_vr, &
-       !$acc&   desorb_to_solutionp_vr, gross_pmin_vr, labilep_vr, pdep_prof, plant_pdemand_vr_patch, &
-       !$acc&   potential_immob_p_vr, primp_to_labilep_vr_col, solutionp_vr, t_scalar) if_present if(elm_device_ready)
+       !$acc update self(adsorb_to_labilep_vr, biochem_pmin_vr_col, col_plant_pdemand_vr, compet_plant, &
+       !$acc&   desorb_to_solutionp_vr, filter_pcomp, ft_index, gross_pmin_vr, labilep_vr, pdep_prof, &
+       !$acc&   plant_pdemand_vr_patch, potential_immob_p_vr, primp_to_labilep_vr_col, solutionp_vr, &
+       !$acc&   t_scalar, veg_rootc) if_present
        compet_decomp_p = solution_pconc / &
             (km_decomp_p * (1._r8 + solution_pconc/km_decomp_p + e_km_p))
 
@@ -3058,12 +3121,12 @@ contains
        !$acc&   plant_pdemand_vr_patch) if_present
        if (nu_com .eq. 'ECA') then ! ECA mode
           ! spel acc-sync: device data this host code uses
-          !$acc update self(adsorb_to_labilep_vr, col_plant_pdemand_vr, potential_immob_p_vr) if_present if(elm_device_ready)
+          !$acc update self(adsorb_to_labilep_vr, col_plant_pdemand_vr, potential_immob_p_vr) if_present
           sum_pdemand_scaled  = col_plant_pdemand_vr(j) + potential_immob_p_vr(j)*compet_decomp_p + &
                adsorb_to_labilep_vr(j)*compet_minsurf_p
        else ! 'MIC' mode
           ! spel acc-sync: device data this host code uses
-          !$acc update self(adsorb_to_labilep_vr, potential_immob_p_vr) if_present if(elm_device_ready)
+          !$acc update self(adsorb_to_labilep_vr, potential_immob_p_vr) if_present
           sum_pdemand_scaled = potential_immob_p_vr(j)*compet_decomp_p + &
                adsorb_to_labilep_vr(j)*compet_minsurf_p
        end if
@@ -3071,7 +3134,7 @@ contains
        ! spel acc-sync: device data this host code uses
        !$acc update self(actual_immob_p_vr, adsorb_to_labilep_vr, carbon_only, col_plant_pdemand_vr, &
        !$acc&   fpi_p_vr, potential_immob_p_vr, sminp_to_plant_vr, solutionp_vr, &
-       !$acc&   supplement_to_sminp_vr) if_present if(elm_device_ready)
+       !$acc&   supplement_to_sminp_vr) if_present
        if (sum_pdemand*dt < solutionp_vr(j)) then
           ! P availability is not limiting immobilization or plant
           ! uptake, and both can proceed at their potential rates

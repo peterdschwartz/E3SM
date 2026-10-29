@@ -379,6 +379,7 @@ contains
      !
      !------------------------------------------------------------------------------
 
+     integer :: spel_i1, spel_i2  ! spel section-loop indices
      associate(                                                     &
           snl             =>    col_pp%snl                           , & ! Input:  [integer  (:)   ] negative number of snow layers [nbr]
 
@@ -488,13 +489,20 @@ contains
          !$acc sum4)
 
 
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(top_af%solad, top_af%solad_pp, top_af%solai, top_af%solai_pp) if_present if(elm_device_ready)
        if (.not. use_finetop_rad) then
-          forc_solad_pp(:,:) = forc_solad(:,:)
-          forc_solai_pp(:,:) = forc_solai(:,:)
+          !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+          do spel_i2 = lbound(forc_solad_pp,2), ubound(forc_solad_pp,2)  ! spel section-loop
+             do spel_i1 = lbound(forc_solad_pp,1), ubound(forc_solad_pp,1)
+                forc_solad_pp(spel_i1, spel_i2) = forc_solad(spel_i1, spel_i2)
+             end do
+          end do
+          !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+          do spel_i2 = lbound(forc_solai_pp,2), ubound(forc_solai_pp,2)  ! spel section-loop
+             do spel_i1 = lbound(forc_solai_pp,1), ubound(forc_solai_pp,1)
+                forc_solai_pp(spel_i1, spel_i2) = forc_solai(spel_i1, spel_i2)
+             end do
+          end do
        end if
-       !$acc update device(top_af%solad_pp, top_af%solai_pp) if_present
 
        ! Initialize fluxes
        !$acc parallel loop independent gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)

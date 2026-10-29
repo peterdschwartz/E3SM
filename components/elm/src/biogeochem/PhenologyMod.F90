@@ -2592,6 +2592,7 @@ contains
 
 
       fracday = dt/secspday
+      !$acc update device(fracday) if_present
 
       if (num_pcropp > 0) then
          ! get time-related info
@@ -2600,7 +2601,6 @@ contains
          kda = day_curr
          mcsec = secs_curr
       end if
-      !$acc update device(fracday) if_present
 
       !$acc parallel loop gang vector default(present) &
       !$acc   private(p, c, t, h, mu_t, mu_p, m, sigmasum_t, sigmasum_p, sigma_t) &

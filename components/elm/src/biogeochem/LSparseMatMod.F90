@@ -346,13 +346,20 @@ contains
     ! !LOCAL VARIABLES:
     integer :: jj, ii, id
 
-    rscal(:)=1._r8
+    integer :: spel_i1  ! spel section-loop indices
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
+    do spel_i1 = lbound(rscal,1), ubound(rscal,1)  ! spel section-loop
+       rscal(spel_i1)=1._r8
+    end do
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rscal) if_present
     do ii=1, spm_d%szrow
       do jj = 1, spm_d%ncol(ii)
         id = spm_d%pB(ii)+jj-1
         rscal(spm_d%icol(id)) = min(pscal(ii),rscal(spm_d%icol(id)))
       enddo
     enddo
+    !$acc update device(rscal) if_present
 
   end subroutine calc_reaction_rscal
 
@@ -404,11 +411,20 @@ contains
   integer, parameter :: itmax=40
 
   !initialize the iterator and adjustment scalar vector for the destruction fluxes 
+  integer :: spel_i1  ! spel section-loop indices
+  ! spel acc-sync: device data this host code uses
+  !$acc update self(rscal) if_present
   it=0
   rscal=0._r8
+  !$acc update device(rscal) if_present
   do
     !obtain the destruction fluxes
-    d_dt(:)=0._r8
+    !$acc data copy(d_dt)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
+    do spel_i1 = lbound(d_dt,1), ubound(d_dt,1)  ! spel section-loop
+       d_dt(spel_i1)=0._r8
+    end do
+    !$acc end data
     !$acc data copy(d_dt) if(elm_device_ready)
     call spm_axpy(spm_d%szrow, spm_d%szcol, 1._r8, rfluxes, spm_d, d_dt, errinfo)
 
@@ -417,7 +433,12 @@ contains
       call endrun(msg='ERROR:: in spm_axpy'//errMsg(__FILE__, __LINE__))
     endif
     !obtain the production fluxes
-    p_dt(:)=0._r8
+    !$acc data copy(p_dt)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
+    do spel_i1 = lbound(p_dt,1), ubound(p_dt,1)  ! spel section-loop
+       p_dt(spel_i1)=0._r8
+    end do
+    !$acc end data
     !$acc data copy(p_dt) if(elm_device_ready)
     call spm_axpy(spm_p%szrow, spm_d%szcol, 1._r8, rfluxes, spm_p, p_dt, errinfo)
 
@@ -426,18 +447,23 @@ contains
       call endrun(msg='ERROR:: in spm_axpy '//errMsg(__FILE__, __LINE__))
     endif
     !obtain flux reducing scalar for all primary variables
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(d_dt, p_dt, ystates) if_present
     call lom%calc_state_pscal(spm_d%szrow, dtime, ystates, p_dt,  d_dt, &
       pscal, lneg, errinfo)
+    !$acc update device(pscal) if_present
     if(errinfo<0)then
       call endrun(msg='ERROR:: in calc_state_pscal '//errMsg(__FILE__, __LINE__))
     endif
 
     !obtain the adjustment scalar for each destruction flux based on the stoichiometry matrix
     if(lneg .and. it<=itmax)then
+      !$acc data copy(pscal, rscal)
       call lom%calc_reaction_rscal(spm_d%szrow, spm_d%szcol,  pscal, &
         spm_d,rscal)
 
       !$acc data copy(rscal) if(elm_device_ready)
+      !$acc end data
       call lom%apply_reaction_rscal(spm_d%szcol, rscal, rfluxes)
       !$acc end data
     else

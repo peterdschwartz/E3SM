@@ -436,23 +436,46 @@ contains
     integer           , intent(in)    :: column     ! column index
     !-----------------------------------------------------------------------
 
-    this%mss_bcpho_col(column,:)  = 0._r8
-    this%mss_bcphi_col(column,:)  = 0._r8
-    this%mss_bctot_col(column,:)  = 0._r8
+    integer :: spel_i1  ! spel section-loop indices
+    do spel_i1 = lbound(this%mss_bcpho_col,2), ubound(this%mss_bcpho_col,2)  ! spel section-loop
+       this%mss_bcpho_col(column, spel_i1)  = 0._r8
+    end do
+    do spel_i1 = lbound(this%mss_bcphi_col,2), ubound(this%mss_bcphi_col,2)  ! spel section-loop
+       this%mss_bcphi_col(column, spel_i1)  = 0._r8
+    end do
+    do spel_i1 = lbound(this%mss_bctot_col,2), ubound(this%mss_bctot_col,2)  ! spel section-loop
+       this%mss_bctot_col(column, spel_i1)  = 0._r8
+    end do
     this%mss_bc_col_col(column)   = 0._r8
     this%mss_bc_top_col(column)   = 0._r8
 
-    this%mss_ocpho_col(column,:)  = 0._r8
-    this%mss_ocphi_col(column,:)  = 0._r8
-    this%mss_octot_col(column,:)  = 0._r8
+    do spel_i1 = lbound(this%mss_ocpho_col,2), ubound(this%mss_ocpho_col,2)  ! spel section-loop
+       this%mss_ocpho_col(column, spel_i1)  = 0._r8
+    end do
+    do spel_i1 = lbound(this%mss_ocphi_col,2), ubound(this%mss_ocphi_col,2)  ! spel section-loop
+       this%mss_ocphi_col(column, spel_i1)  = 0._r8
+    end do
+    do spel_i1 = lbound(this%mss_octot_col,2), ubound(this%mss_octot_col,2)  ! spel section-loop
+       this%mss_octot_col(column, spel_i1)  = 0._r8
+    end do
     this%mss_oc_col_col(column)   = 0._r8
     this%mss_oc_top_col(column)   = 0._r8
 
-    this%mss_dst1_col(column,:)   = 0._r8
-    this%mss_dst2_col(column,:)   = 0._r8
-    this%mss_dst3_col(column,:)   = 0._r8
-    this%mss_dst4_col(column,:)   = 0._r8
-    this%mss_dsttot_col(column,:) = 0._r8
+    do spel_i1 = lbound(this%mss_dst1_col,2), ubound(this%mss_dst1_col,2)  ! spel section-loop
+       this%mss_dst1_col(column, spel_i1)   = 0._r8
+    end do
+    do spel_i1 = lbound(this%mss_dst2_col,2), ubound(this%mss_dst2_col,2)  ! spel section-loop
+       this%mss_dst2_col(column, spel_i1)   = 0._r8
+    end do
+    do spel_i1 = lbound(this%mss_dst3_col,2), ubound(this%mss_dst3_col,2)  ! spel section-loop
+       this%mss_dst3_col(column, spel_i1)   = 0._r8
+    end do
+    do spel_i1 = lbound(this%mss_dst4_col,2), ubound(this%mss_dst4_col,2)  ! spel section-loop
+       this%mss_dst4_col(column, spel_i1)   = 0._r8
+    end do
+    do spel_i1 = lbound(this%mss_dsttot_col,2), ubound(this%mss_dsttot_col,2)  ! spel section-loop
+       this%mss_dsttot_col(column, spel_i1) = 0._r8
+    end do
     this%mss_dst_col_col(column)  = 0._r8
     this%mss_dst_top_col(column)  = 0._r8
 

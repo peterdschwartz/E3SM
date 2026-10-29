@@ -65,6 +65,7 @@ contains
 
       if (.not.use_fates) then
 
+         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
          do g = bounds%begg, bounds%endg
             grc_ns%core%seed(g) = grc_ns%core%seed(g) &
                  - grc_nf%core%dwt_seed_to_leaf(g)     * dt &
@@ -72,6 +73,7 @@ contains
                  - grc_nf%dwt_seedn_to_npool(g)    * dt
          end do
 
+         !$acc parallel loop gang vector default(present) private(c, j) copyin(bounds) if(elm_device_ready)
          do fc = 1, num_soilc_with_inactive
 
             c = filter_soilc_with_inactive(fc)
@@ -79,6 +81,7 @@ contains
             col_ns%core%prod100(c) = col_ns%core%prod100(c) + col_nf%core%dwt_prod100_gain(c)*dt
             col_ns%core%prod1(c) = col_ns%core%prod1(c) + col_nf%core%dwt_crop_product_gain(c)*dt
 
+            !$acc loop seq
             do j = 1,nlevdecomp
 
                col_ns%core%decomp_pools_vr(c,j,i_met_lit) = col_ns%core%decomp_pools_vr(c,j,i_met_lit) + &

@@ -734,6 +734,7 @@ contains
     ! set column-level conversion and product pool fluxes
     ! to 0 at the beginning of every timestep
 
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do c = bounds%begc,bounds%endc
        this%dwt_conv_flux(c)           = 0._r8
        this%dwt_prod10_gain(c)         = 0._r8
@@ -742,6 +743,7 @@ contains
        this%dwt_slash_flux(c)          = 0._r8
     end do
 
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
     do j = 1, nlevdecomp_full
        do c = bounds%begc,bounds%endc
           this%dwt_froot_to_litr_met(c,j)    = 0._r8
@@ -1694,6 +1696,7 @@ contains
     ! set column-level conversion and product pool fluxes
     ! to 0 at the beginning of every timestep
 
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        this%dwt_seed_to_leaf(g)         = 0._r8
        this%dwt_seed_to_deadstem(g)     = 0._r8

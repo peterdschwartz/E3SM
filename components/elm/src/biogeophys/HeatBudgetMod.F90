@@ -176,50 +176,115 @@ contains
     integer :: ip
     character(*),parameter :: subName = '(HeatBudget_Reset) '
 
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     if (.not.present(mode)) then
        call get_curr_date(year, mon, day, sec)
        call get_prev_date(year, mon, day, sec)
 
        do ip = 1,p_size
           if (ip == p_inst) then
-             budg_fluxL(:,ip)  = 0.0_r8
-             budg_fluxG(:,ip)  = 0.0_r8
-             budg_fluxN(:,ip)  = 0.0_r8
-             budg_stateL(:,ip) = 0.0_r8
-             budg_stateG(:,ip) = 0.0_r8
-             budg_gfluxL(:,ip) = 0.0_r8
-             budg_gfluxG(:,ip) = 0.0_r8
-             budg_gfluxN(:,ip) = 0.0_r8
+             do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+                budg_fluxL(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+                budg_fluxG(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+                budg_fluxN(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+                budg_stateL(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+                budg_stateG(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+                budg_gfluxL(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+                budg_gfluxG(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+                budg_gfluxN(spel_i1, ip) = 0.0_r8
+             end do
           endif
           if (ip==p_day .and. sec==0) then
-             budg_fluxL(:,ip)  = 0.0_r8
-             budg_fluxG(:,ip)  = 0.0_r8
-             budg_fluxN(:,ip)  = 0.0_r8
-             budg_stateL(:,ip) = 0.0_r8
-             budg_stateG(:,ip) = 0.0_r8
-             budg_gfluxL(:,ip) = 0.0_r8
-             budg_gfluxG(:,ip) = 0.0_r8
-             budg_gfluxN(:,ip) = 0.0_r8
+             do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+                budg_fluxL(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+                budg_fluxG(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+                budg_fluxN(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+                budg_stateL(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+                budg_stateG(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+                budg_gfluxL(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+                budg_gfluxG(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+                budg_gfluxN(spel_i1, ip) = 0.0_r8
+             end do
           endif
           if (ip==p_mon .and. day==1 .and. sec==0) then
-             budg_fluxL(:,ip)  = 0.0_r8
-             budg_fluxG(:,ip)  = 0.0_r8
-             budg_fluxN(:,ip)  = 0.0_r8
-             budg_stateL(:,ip) = 0.0_r8
-             budg_stateG(:,ip) = 0.0_r8
-             budg_gfluxL(:,ip) = 0.0_r8
-             budg_gfluxG(:,ip) = 0.0_r8
-             budg_gfluxN(:,ip) = 0.0_r8
+             do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+                budg_fluxL(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+                budg_fluxG(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+                budg_fluxN(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+                budg_stateL(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+                budg_stateG(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+                budg_gfluxL(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+                budg_gfluxG(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+                budg_gfluxN(spel_i1, ip) = 0.0_r8
+             end do
           endif
           if (ip==p_ann .and. mon==1 .and. day==1 .and. sec==0) then
-             budg_fluxL(:,ip)  = 0.0_r8
-             budg_fluxG(:,ip)  = 0.0_r8
-             budg_fluxN(:,ip)  = 0.0_r8
-             budg_stateL(:,ip) = 0.0_r8
-             budg_stateG(:,ip) = 0.0_r8
-             budg_gfluxL(:,ip) = 0.0_r8
-             budg_gfluxG(:,ip) = 0.0_r8
-             budg_gfluxN(:,ip) = 0.0_r8
+             do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+                budg_fluxL(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+                budg_fluxG(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+                budg_fluxN(spel_i1, ip)  = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+                budg_stateL(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+                budg_stateG(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+                budg_gfluxL(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+                budg_gfluxG(spel_i1, ip) = 0.0_r8
+             end do
+             do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+                budg_gfluxN(spel_i1, ip) = 0.0_r8
+             end do
           endif
        enddo
        !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
@@ -228,69 +293,181 @@ contains
     else
 
        if (trim(mode) == 'inst') then
-          budg_fluxL  (:,p_inst)   = 0.0_r8
-          budg_fluxG  (:,p_inst)   = 0.0_r8
-          budg_fluxN  (:,p_inst)   = 0.0_r8
-          budg_stateL (:,p_inst)   = 0.0_r8
-          budg_stateG (:,p_inst)   = 0.0_r8
-          budg_gfluxL (:,p_inst)   = 0.0_r8
-          budg_gfluxG (:,p_inst)   = 0.0_r8
-          budg_gfluxN (:,p_inst)   = 0.0_r8
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_inst)   = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_inst)   = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_inst)   = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_inst)   = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_inst)   = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+             budg_gfluxL (spel_i1, p_inst)   = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+             budg_gfluxG (spel_i1, p_inst)   = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+             budg_gfluxN (spel_i1, p_inst)   = 0.0_r8
+          end do
           !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
           !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'day') then
-          budg_fluxL  (:,p_day)    = 0.0_r8
-          budg_fluxG  (:,p_day)    = 0.0_r8
-          budg_fluxN  (:,p_day)    = 0.0_r8
-          budg_stateL (:,p_day)    = 0.0_r8
-          budg_stateG (:,p_day)    = 0.0_r8
-          budg_gfluxL (:,p_day)    = 0.0_r8
-          budg_gfluxG (:,p_day)    = 0.0_r8
-          budg_gfluxN (:,p_day)    = 0.0_r8
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_day)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_day)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_day)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_day)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_day)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+             budg_gfluxL (spel_i1, p_day)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+             budg_gfluxG (spel_i1, p_day)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+             budg_gfluxN (spel_i1, p_day)    = 0.0_r8
+          end do
           !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
           !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'mon') then
-          budg_fluxL  (:,p_mon)    = 0.0_r8
-          budg_fluxG  (:,p_mon)    = 0.0_r8
-          budg_fluxN  (:,p_mon)    = 0.0_r8
-          budg_stateL (:,p_mon)    = 0.0_r8
-          budg_stateG (:,p_mon)    = 0.0_r8
-          budg_gfluxL (:,p_mon)    = 0.0_r8
-          budg_gfluxG (:,p_mon)    = 0.0_r8
-          budg_gfluxN (:,p_mon)    = 0.0_r8
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_mon)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_mon)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_mon)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_mon)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_mon)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+             budg_gfluxL (spel_i1, p_mon)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+             budg_gfluxG (spel_i1, p_mon)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+             budg_gfluxN (spel_i1, p_mon)    = 0.0_r8
+          end do
           !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
           !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'ann') then
-          budg_fluxL  (:,p_ann)    = 0.0_r8
-          budg_fluxG  (:,p_ann)    = 0.0_r8
-          budg_fluxN  (:,p_ann)    = 0.0_r8
-          budg_stateL (:,p_ann)    = 0.0_r8
-          budg_stateG (:,p_ann)    = 0.0_r8
-          budg_gfluxL (:,p_ann)    = 0.0_r8
-          budg_gfluxG (:,p_ann)    = 0.0_r8
-          budg_gfluxN (:,p_ann)    = 0.0_r8
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_ann)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_ann)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_ann)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_ann)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_ann)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+             budg_gfluxL (spel_i1, p_ann)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+             budg_gfluxG (spel_i1, p_ann)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+             budg_gfluxN (spel_i1, p_ann)    = 0.0_r8
+          end do
           !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
           !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'inf') then
-          budg_fluxL  (:,p_inf)    = 0.0_r8
-          budg_fluxG  (:,p_inf)    = 0.0_r8
-          budg_fluxN  (:,p_inf)    = 0.0_r8
-          budg_stateL (:,p_inf)    = 0.0_r8
-          budg_stateG (:,p_inf)    = 0.0_r8
-          budg_gfluxL (:,p_inf)    = 0.0_r8
-          budg_gfluxG (:,p_inf)    = 0.0_r8
-          budg_gfluxN (:,p_inf)    = 0.0_r8
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_inf)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_inf)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_inf)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_inf)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_inf)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+             budg_gfluxL (spel_i1, p_inf)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)  ! spel section-loop
+             budg_gfluxG (spel_i1, p_inf)    = 0.0_r8
+          end do
+          do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)  ! spel section-loop
+             budg_gfluxN (spel_i1, p_inf)    = 0.0_r8
+          end do
           !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
           !$acc&   budg_stateg, budg_statel) if_present
        elseif (trim(mode) == 'all') then
-          budg_fluxL  (:,:)        = 0.0_r8
-          budg_fluxG  (:,:)        = 0.0_r8
-          budg_fluxN  (:,:)        = 0.0_r8
-          budg_stateL (:,:)        = 0.0_r8
-          budg_stateG (:,:)        = 0.0_r8
-          budg_gfluxL (:,:)        = 0.0_r8
-          budg_gfluxG (:,:)        = 0.0_r8
-          budg_gfluxN (:,:)        = 0.0_r8
+          do spel_i2 = lbound(budg_fluxL,2), ubound(budg_fluxL,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)
+                budg_fluxL  (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          do spel_i2 = lbound(budg_fluxG,2), ubound(budg_fluxG,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)
+                budg_fluxG  (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          do spel_i2 = lbound(budg_fluxN,2), ubound(budg_fluxN,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)
+                budg_fluxN  (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          do spel_i2 = lbound(budg_stateL,2), ubound(budg_stateL,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)
+                budg_stateL (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          do spel_i2 = lbound(budg_stateG,2), ubound(budg_stateG,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)
+                budg_stateG (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          do spel_i2 = lbound(budg_gfluxL,2), ubound(budg_gfluxL,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)
+                budg_gfluxL (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          do spel_i2 = lbound(budg_gfluxG,2), ubound(budg_gfluxG,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_gfluxG,1), ubound(budg_gfluxG,1)
+                budg_gfluxG (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          do spel_i2 = lbound(budg_gfluxN,2), ubound(budg_gfluxN,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)
+                budg_gfluxN (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
           !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_gfluxg, budg_gfluxl, budg_gfluxn, &
           !$acc&   budg_stateg, budg_statel) if_present
        else
@@ -313,12 +490,17 @@ contains
     character(*),parameter :: subName = '(HeatBudget_Accum)'
     logical                :: update_state_beg, update_state_end
 
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     call get_prev_date(year_prev, month_prev, day_prev, sec_prev)
     call get_curr_date(year_curr, month_curr, day_curr, sec_curr)
 
     do ip = p_inst+1, p_size
-       budg_fluxL(:,ip)  = budg_fluxL(:,ip)  + budg_fluxL(:,p_inst)
-       budg_gfluxL(:,ip) = budg_gfluxL(:,ip) + budg_gfluxL(:,p_inst)
+       do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+          budg_fluxL(spel_i1, ip)  = budg_fluxL(spel_i1, ip)  + budg_fluxL(spel_i1, p_inst)
+       end do
+       do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+          budg_gfluxL(spel_i1, ip) = budg_gfluxL(spel_i1, ip) + budg_gfluxL(spel_i1, p_inst)
+       end do
        update_state_beg = .false.
        update_state_end = .false.
 
@@ -350,8 +532,16 @@ contains
        endif
        nf = s_h_errsoi ; budg_stateL(nf,ip) = budg_stateL(nf,ip) + budg_stateL(nf, p_inst)
     end do
-    budg_fluxN(:,:)  = budg_fluxN(:,:)  + 1._r8
-    budg_gfluxN(:,:) = budg_gfluxN(:,:) + 1._r8
+    do spel_i2 = lbound(budg_fluxN,2), ubound(budg_fluxN,2)  ! spel section-loop
+       do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)
+          budg_fluxN(spel_i1, spel_i2)  = budg_fluxN(spel_i1, spel_i2)  + 1._r8
+       end do
+    end do
+    do spel_i2 = lbound(budg_gfluxN,2), ubound(budg_gfluxN,2)  ! spel section-loop
+       do spel_i1 = lbound(budg_gfluxN,1), ubound(budg_gfluxN,1)
+          budg_gfluxN(spel_i1, spel_i2) = budg_gfluxN(spel_i1, spel_i2) + 1._r8
+       end do
+    end do
     !$acc update device(budg_fluxl, budg_fluxn, budg_gfluxl, budg_gfluxn, budg_statel) if_present
 
   end subroutine HeatBudget_Accum
@@ -431,7 +621,7 @@ contains
 
     ! spel acc-locals: device storage of the local work arrays
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno) if_present if(elm_device_ready)
+    !$acc update self(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno) if_present
     !$acc enter data create(phase_col)
     call c2g(bounds, col_es%hc_soisno(bounds%begc:bounds%endc), &
          grc_es%end_hc(bounds%begg:bounds%endg), &
@@ -464,10 +654,12 @@ contains
     end do
     !$acc end data
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(grnd_patch) if_present
     call p2g(bounds, grnd_patch(bounds%begp:bounds%endp), &
          grc_ef%heat_into_grnd(bounds%begg:bounds%endg), &
          p2c_scale_type='unity', c2l_scale_type='unity', l2g_scale_type='unity')
-    !$acc update device(grc_ef%heat_into_grnd) if_present
+    !$acc update device(grc_ef%heat_into_grnd, grnd_patch) if_present
 
     associate(                                       &
          xmf          => col_ef%xmf                , &
@@ -557,9 +749,10 @@ contains
     integer  :: g, nf, ip
     real(r8) :: af, one_over_re2
 
+    integer :: spel_i1  ! spel section-loop indices
     ! spel acc-sync: device data this host code uses
     !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc, grc_ef%heat_phase_corr, &
-    !$acc&   grc_ef%heat_state_adj, grc_es%beg_hc, grc_es%beg_hc_lake, grc_es%beg_hc_soi) if_present if(elm_device_ready)
+    !$acc&   grc_ef%heat_state_adj, grc_es%beg_hc, grc_es%beg_hc_lake, grc_es%beg_hc_soi) if_present
     associate(                                                              &
          forc_lwdn   => atm2lnd_vars%forc_lwrad_not_downscaled_grc        , &
          forc_snow   => atm2lnd_vars%forc_snow_not_downscaled_grc         , &
@@ -582,8 +775,12 @@ contains
 
       ip = p_inst
 
-      budg_stateL(:,ip) = 0._r8
-      budg_gfluxL(:,ip) = 0._r8
+      do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+         budg_stateL(spel_i1, ip) = 0._r8
+      end do
+      do spel_i1 = lbound(budg_gfluxL,1), ubound(budg_gfluxL,1)  ! spel section-loop
+         budg_gfluxL(spel_i1, ip) = 0._r8
+      end do
       one_over_re2 = 1._r8/(re**2._r8)
 
       do g = bounds%begg, bounds%endg
@@ -644,6 +841,7 @@ contains
     real(r8)               :: budg_gfluxGtmp(g_size,p_size) ! temporary sum
     character(*),parameter :: subName = '(HeatBudget_Sum0)'
 
+    integer :: spel_i1  ! spel section-loop indices
     budg_fluxGtmp = 0._r8
     budg_stateGtmp = 0._r8
     budg_gfluxGtmp = 0._r8
@@ -657,7 +855,9 @@ contains
     budg_gfluxG = budg_gfluxG + budg_gfluxGtmp
 
     budg_fluxL            = 0._r8 ! reset all fluxes
-    budg_stateL(:,p_inst) = 0._r8 ! only reset instantaneous states
+    do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+       budg_stateL(spel_i1, p_inst) = 0._r8
+    end do
     budg_gfluxL            = 0._r8 ! reset all fluxes
 
   end subroutine HeatBudget_Sum0
@@ -748,7 +948,7 @@ contains
           end if
        end if
     end do
-    !$acc update device(budg_fluxg, budg_gfluxg, budg_gfluxl) if_present
+    !$acc update device(budg_fluxg, budg_fluxgpr, budg_gfluxg, budg_gfluxl) if_present
 
   end subroutine HeatBudget_Print
 

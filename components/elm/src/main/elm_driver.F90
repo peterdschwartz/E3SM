@@ -20,6 +20,8 @@ module elm_driver
   use shr_log_mod            , only : errMsg => shr_log_errMsg
   use elm_varctl             , only : wrtdia, iulog, create_glacier_mec_landunit, use_fates, use_firn_percolation_and_compaction
   use elm_varctl             , only : use_cn, use_lch4, use_voc, use_noio, use_c13, use_c14
+  use shr_megan_mod          , only : shr_megan_mechcomps_n  ! VOCEmission returns at once without MEGAN species
+  use dynSubgridControlMod   , only : get_subgrid_weights_updated
   use elm_varctl             , only : use_erosion, use_fates_sp, use_fan
   use elm_varctl             , only : iac_present
   use elm_varctl             , only : mpi_sync_nstep_freq
@@ -100,7 +102,7 @@ module elm_driver
   use iac2lndMod             , only : iac2lnd_type
   !
   use seq_drydep_mod         , only : n_drydep, drydep_method, DD_XLND
-  use DryDepVelocity         , only : depvel_compute
+  use DryDepVelocity         , only : depvel_compute, drydep_active
   !
   use DaylengthMod           , only : UpdateDaylength
   use perf_mod
@@ -216,13 +218,9 @@ contains
      use elm_varctl            , only : fates_seeddisp_cadence
      use FATESFireFactoryMod   , only : scalar_lightning
      use FatesInterfaceTypesMod, only : fates_dispersal_cadence_none
-     use cnpbudgetmod, only : c_budg_stateg  ! spel targeted
      use daylengthmod, only : first_step  ! spel targeted
-     use dynharvestmod, only : harvest_rates  ! spel targeted
-     use elm_varctl, only : scmlat, scmlon  ! spel targeted
-     use gridcelldatatype, only : grc_ef, grc_es, grc_wf, grc_ws  ! spel targeted
-     use totalwaterandheatmod, only : heat_base_temp  ! spel targeted
-     use vegetationdatatype, only : c13_veg_cf, c14_veg_cf  ! spel targeted
+     use firemod, only : forc_hdm, forc_lnfm  ! spel targeted
+     use gridcelldatatype, only : grc_ef, grc_es, grc_ws  ! spel targeted
      
     ! !ARGUMENTS:
     implicit none
@@ -308,6 +306,8 @@ contains
     call get_curr_date(year_curr,mon_curr, day_curr,secs_curr)
     dayspyr_mod = get_days_per_year()
     jday_mod = get_curr_calday()
+    !$acc update device(day_curr, dayspyr_mod, dtime_mod, first_restart_step_mod, jday_mod, mon_curr, &
+    !$acc&   nstep_mod, secs_curr, year_curr) if_present if(.not. elm_device_fullsync)
 
     if (mpi_sync_nstep_freq > 0) then
        if (mod(nstep_mod,mpi_sync_nstep_freq) == 0) then
@@ -317,8 +317,6 @@ contains
           end if
        end if
     end if
-    !$acc update device(day_curr, dtime_mod, first_restart_step_mod, mon_curr, nstep_mod, secs_curr, &
-    !$acc&   year_curr) if_present if(.not. elm_device_fullsync)
 
     if (do_budgets) then
 #ifdef _OPENACC
@@ -348,7 +346,7 @@ contains
        if ( n_drydep > 0 .and. drydep_method == DD_XLND ) then
           call t_startf('interpMonthlyVeg')
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before interpmonthlyveg
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before interpmonthlyveg
 #endif
           call interpMonthlyVeg(bounds_proc, canopystate_vars)
           call t_stopf('interpMonthlyVeg')
@@ -365,7 +363,7 @@ contains
           ! For now don't allow for dry-deposition because of issues in #1044 EBK Jun/17/2022
           call t_startf('interpMonthlyVeg')
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before interpmonthlyveg
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before interpmonthlyveg
 #endif
           call interpMonthlyVeg(bounds_proc, canopystate_vars)
           call t_stopf('interpMonthlyVeg')
@@ -380,14 +378,12 @@ contains
        if (doalb .or. ( n_drydep > 0 .and. drydep_method == DD_XLND )) then
           call t_startf('interpMonthlyVeg')
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before interpmonthlyveg
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before interpmonthlyveg
 #endif
           call interpMonthlyVeg(bounds_proc, canopystate_vars)
           call t_stopf('interpMonthlyVeg')
        end if
     end if
-    !$acc update device(canopystate_vars%mlaidiff_patch, scmlat, &
-    !$acc&   scmlon) if_present if(.not. elm_device_fullsync)
 
     ! ==================================================================================
     ! Determine decomp vertical profiles
@@ -403,6 +399,16 @@ contains
        !$acc enter data copyin(bounds_clump)  ! the private copy of this OpenMP loop: kernels read it
 
        call t_startf("decomp_vert")
+       !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
+       !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, bounds_clump%begg_ghost, &
+       !$acc&   bounds_clump%begl, bounds_clump%begl_all, bounds_clump%begl_ghost, bounds_clump%begp, &
+       !$acc&   bounds_clump%begp_all, bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
+       !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, bounds_clump%endc_all, &
+       !$acc&   bounds_clump%endc_ghost, bounds_clump%endcohort, bounds_clump%endg, bounds_clump%endg_all, &
+       !$acc&   bounds_clump%endg_ghost, bounds_clump%endl, bounds_clump%endl_all, bounds_clump%endl_ghost, &
+       !$acc&   bounds_clump%endp, bounds_clump%endp_all, bounds_clump%endp_ghost, bounds_clump%endt, &
+       !$acc&   bounds_clump%endt_all, bounds_clump%endt_ghost, &
+       !$acc&   bounds_clump%level) if_present if(.not. elm_device_fullsync)
 #ifdef _OPENACC
     call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before alt_calc
 #endif
@@ -444,6 +450,16 @@ contains
        !$acc enter data copyin(bounds_clump)  ! the private copy of this OpenMP loop: kernels read it
 
        call t_startf('beggridwbal')
+       !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
+       !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, bounds_clump%begg_ghost, &
+       !$acc&   bounds_clump%begl, bounds_clump%begl_all, bounds_clump%begl_ghost, bounds_clump%begp, &
+       !$acc&   bounds_clump%begp_all, bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
+       !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, bounds_clump%endc_all, &
+       !$acc&   bounds_clump%endc_ghost, bounds_clump%endcohort, bounds_clump%endg, bounds_clump%endg_all, &
+       !$acc&   bounds_clump%endg_ghost, bounds_clump%endl, bounds_clump%endl_all, bounds_clump%endl_ghost, &
+       !$acc&   bounds_clump%endp, bounds_clump%endp_all, bounds_clump%endp_ghost, bounds_clump%endt, &
+       !$acc&   bounds_clump%endt_all, bounds_clump%endt_ghost, &
+       !$acc&   bounds_clump%level) if_present if(.not. elm_device_fullsync)
 #ifdef _OPENACC
     call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before begingridwaterbalance
 #endif
@@ -458,13 +474,6 @@ contains
 #endif
           call HeatBudget_SetBeginningStates(bounds_clump)
        end if
-       ! spel targeted: device data this host code uses
-       !$acc update self(c13_grc_cf%hrv_deadstemc_to_prod100c, c13_grc_cf%hrv_deadstemc_to_prod10c, &
-       !$acc&   c14_grc_cf%hrv_deadstemc_to_prod100c, c14_grc_cf%hrv_deadstemc_to_prod10c, &
-       !$acc&   veg_cs%core%dispveg, veg_cs%core%storveg, veg_cs%core%totpft, veg_ns%core%dispveg, &
-       !$acc&   veg_ns%core%storveg, veg_ns%core%totpft, veg_ns%core%totveg, veg_ps%core%dispveg, &
-       !$acc&   veg_ps%core%storveg, veg_ps%core%totpft, &
-       !$acc&   veg_ps%core%totveg) if_present if(.not. elm_device_fullsync)
        call t_stopf('beggridwbal')
 
 
@@ -474,113 +483,67 @@ contains
           call t_startf('cnpvegzero')
 
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call veg_cs%ZeroDwt(bounds_clump)
           if (use_c13) then
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
              call c13_grc_cf%ZeroDWT(bounds_clump)
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
              call c13_col_cf%ZeroDWT(bounds_clump)
           end if
           if (use_c14) then
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
              call c14_grc_cf%ZeroDWT(bounds_clump)
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
              call c14_col_cf%ZeroDWT(bounds_clump)
           end if
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call veg_ns%ZeroDWT(bounds_clump)
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call veg_ps%ZeroDWT(bounds_clump)
           call t_stopf('cnpvegzero')
        end if
-       !$acc update device(c13_col_cf%core%dwt_conv_flux, c13_col_cf%core%dwt_crop_product_gain, &
-       !$acc&   c13_col_cf%core%dwt_deadcroot_to_cwd, c13_col_cf%core%dwt_froot_to_litr_cel, &
-       !$acc&   c13_col_cf%core%dwt_froot_to_litr_lig, c13_col_cf%core%dwt_froot_to_litr_met, &
-       !$acc&   c13_col_cf%core%dwt_livecroot_to_cwd, c13_col_cf%core%dwt_prod100_gain, &
-       !$acc&   c13_col_cf%core%dwt_prod10_gain, c13_col_cf%core%dwt_slash_flux, &
-       !$acc&   c13_grc_cf%core%dwt_conv_flux, c13_grc_cf%core%dwt_prod100_gain, &
-       !$acc&   c13_grc_cf%core%dwt_prod10_gain, c13_grc_cf%core%dwt_seed_to_deadstem, &
-       !$acc&   c13_grc_cf%core%dwt_seed_to_leaf, c13_grc_cf%hrv_deadstemc_to_prod100c, &
-       !$acc&   c13_grc_cf%hrv_deadstemc_to_prod10c, c14_col_cf%core%dwt_conv_flux, &
-       !$acc&   c14_col_cf%core%dwt_crop_product_gain, c14_col_cf%core%dwt_deadcroot_to_cwd, &
-       !$acc&   c14_col_cf%core%dwt_froot_to_litr_cel, c14_col_cf%core%dwt_froot_to_litr_lig, &
-       !$acc&   c14_col_cf%core%dwt_froot_to_litr_met, c14_col_cf%core%dwt_livecroot_to_cwd, &
-       !$acc&   c14_col_cf%core%dwt_prod100_gain, c14_col_cf%core%dwt_prod10_gain, &
-       !$acc&   c14_col_cf%core%dwt_slash_flux, c14_grc_cf%core%dwt_conv_flux, &
-       !$acc&   c14_grc_cf%core%dwt_prod100_gain, c14_grc_cf%core%dwt_prod10_gain, &
-       !$acc&   c14_grc_cf%core%dwt_seed_to_deadstem, c14_grc_cf%core%dwt_seed_to_leaf, &
-       !$acc&   c14_grc_cf%hrv_deadstemc_to_prod100c, c14_grc_cf%hrv_deadstemc_to_prod10c, &
-       !$acc&   veg_cs%core%dispveg, veg_cs%core%storveg, veg_cs%core%totpft, veg_ns%core%dispveg, &
-       !$acc&   veg_ns%core%storveg, veg_ns%core%totpft, veg_ns%core%totveg, veg_ps%core%dispveg, &
-       !$acc&   veg_ps%core%storveg, veg_ps%core%totpft, &
-       !$acc&   veg_ps%core%totveg) if_present if(.not. elm_device_fullsync)
 
        if (use_cn .or. use_fates) then
-          ! spel targeted: device data this host code uses
-          !$acc update self(grc_cf%hrv_deadstemc_to_prod100c, &
-          !$acc&   grc_cf%hrv_deadstemc_to_prod10c) if_present if(.not. elm_device_fullsync)
           call t_startf('cnpzero')
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call grc_cf%ZeroDWT(bounds_clump)
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call col_cf%ZeroDWT(bounds_clump)
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call grc_nf%ZeroDWT(bounds_clump)
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call col_nf%ZeroDWT(bounds_clump)
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call grc_pf%ZeroDWT(bounds_clump)
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before zerodwt
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zerodwt
 #endif
           call col_pf%ZeroDWT(bounds_clump)
           call t_stopf('cnpzero')
-          !$acc update device(col_cf%core%dwt_conv_flux, col_cf%core%dwt_crop_product_gain, &
-          !$acc&   col_cf%core%dwt_deadcroot_to_cwd, col_cf%core%dwt_froot_to_litr_cel, &
-          !$acc&   col_cf%core%dwt_froot_to_litr_lig, col_cf%core%dwt_froot_to_litr_met, &
-          !$acc&   col_cf%core%dwt_livecroot_to_cwd, col_cf%core%dwt_prod100_gain, &
-          !$acc&   col_cf%core%dwt_prod10_gain, col_cf%core%dwt_slash_flux, col_nf%core%dwt_conv_flux, &
-          !$acc&   col_nf%core%dwt_crop_product_gain, col_nf%core%dwt_deadcroot_to_cwd, &
-          !$acc&   col_nf%core%dwt_froot_to_litr_cel, col_nf%core%dwt_froot_to_litr_lig, &
-          !$acc&   col_nf%core%dwt_froot_to_litr_met, col_nf%core%dwt_livecroot_to_cwd, &
-          !$acc&   col_nf%core%dwt_prod100_gain, col_nf%core%dwt_prod10_gain, col_nf%core%dwt_slash_flux, &
-          !$acc&   col_pf%core%dwt_conv_flux, col_pf%core%dwt_crop_product_gain, &
-          !$acc&   col_pf%core%dwt_deadcroot_to_cwd, col_pf%core%dwt_froot_to_litr_cel, &
-          !$acc&   col_pf%core%dwt_froot_to_litr_lig, col_pf%core%dwt_froot_to_litr_met, &
-          !$acc&   col_pf%core%dwt_livecroot_to_cwd, col_pf%core%dwt_prod100_gain, &
-          !$acc&   col_pf%core%dwt_prod10_gain, col_pf%core%dwt_slash_flux, grc_cf%core%dwt_conv_flux, &
-          !$acc&   grc_cf%core%dwt_prod100_gain, grc_cf%core%dwt_prod10_gain, &
-          !$acc&   grc_cf%core%dwt_seed_to_deadstem, grc_cf%core%dwt_seed_to_leaf, &
-          !$acc&   grc_cf%hrv_deadstemc_to_prod100c, grc_cf%hrv_deadstemc_to_prod10c, &
-          !$acc&   grc_nf%core%dwt_conv_flux, grc_nf%core%dwt_prod100_gain, grc_nf%core%dwt_prod10_gain, &
-          !$acc&   grc_nf%core%dwt_seed_to_deadstem, grc_nf%core%dwt_seed_to_leaf, grc_nf%dwt_seedn_to_npool, &
-          !$acc&   grc_pf%core%dwt_conv_flux, grc_pf%core%dwt_prod100_gain, grc_pf%core%dwt_prod10_gain, &
-          !$acc&   grc_pf%core%dwt_seed_to_deadstem, grc_pf%core%dwt_seed_to_leaf, &
-          !$acc&   grc_pf%dwt_seedp_to_ppool) if_present if(.not. elm_device_fullsync)
        end if
 
        call t_startf('cnpvegsumm')
@@ -671,99 +634,12 @@ contains
     ! call needs to happen outside loops over nclumps.
     ! ============================================================================
 
-    call elm_device_filters_update(to_device=.false.)  ! spel targeted
-    ! spel targeted: device data this host code uses
-    !$acc update self(c13_col_cs%core%decomp_pools_vr, c13_col_cs%core%prod1, c13_col_cs%core%prod10, &
-    !$acc&   c13_col_cs%core%prod100, c13_col_cs%core%trunc_sink_vr, c13_veg_cs%core%cropseed_deficit, &
-    !$acc&   c13_veg_cs%core%deadcroot, c13_veg_cs%core%deadcroot_storage, c13_veg_cs%core%deadcroot_xfer, &
-    !$acc&   c13_veg_cs%core%deadstem, c13_veg_cs%core%deadstem_storage, c13_veg_cs%core%deadstem_xfer, &
-    !$acc&   c13_veg_cs%core%dispveg, c13_veg_cs%core%froot, c13_veg_cs%core%froot_storage, &
-    !$acc&   c13_veg_cs%core%froot_xfer, c13_veg_cs%core%grain, c13_veg_cs%core%grain_storage, &
-    !$acc&   c13_veg_cs%core%grain_xfer, c13_veg_cs%core%leaf, c13_veg_cs%core%leaf_storage, &
-    !$acc&   c13_veg_cs%core%leaf_xfer, c13_veg_cs%core%livecroot, c13_veg_cs%core%livecroot_storage, &
-    !$acc&   c13_veg_cs%core%livecroot_xfer, c13_veg_cs%core%livestem, c13_veg_cs%core%livestem_storage, &
-    !$acc&   c13_veg_cs%core%livestem_xfer, c13_veg_cs%core%pool, c13_veg_cs%core%storveg, &
-    !$acc&   c13_veg_cs%core%totpft, c13_veg_cs%core%totveg, c13_veg_cs%core%trunc_sink, &
-    !$acc&   c13_veg_cs%gresp_storage, c13_veg_cs%gresp_xfer, c13_veg_cs%xsmrpool, &
-    !$acc&   c14_col_cs%core%decomp_pools_vr, c14_col_cs%core%prod1, c14_col_cs%core%prod10, &
-    !$acc&   c14_col_cs%core%prod100, c14_col_cs%core%trunc_sink_vr, c14_veg_cs%core%cropseed_deficit, &
-    !$acc&   c14_veg_cs%core%deadcroot, c14_veg_cs%core%deadcroot_storage, c14_veg_cs%core%deadcroot_xfer, &
-    !$acc&   c14_veg_cs%core%deadstem, c14_veg_cs%core%deadstem_storage, c14_veg_cs%core%deadstem_xfer, &
-    !$acc&   c14_veg_cs%core%dispveg, c14_veg_cs%core%froot, c14_veg_cs%core%froot_storage, &
-    !$acc&   c14_veg_cs%core%froot_xfer, c14_veg_cs%core%grain, c14_veg_cs%core%grain_storage, &
-    !$acc&   c14_veg_cs%core%grain_xfer, c14_veg_cs%core%leaf, c14_veg_cs%core%leaf_storage, &
-    !$acc&   c14_veg_cs%core%leaf_xfer, c14_veg_cs%core%livecroot, c14_veg_cs%core%livecroot_storage, &
-    !$acc&   c14_veg_cs%core%livecroot_xfer, c14_veg_cs%core%livestem, c14_veg_cs%core%livestem_storage, &
-    !$acc&   c14_veg_cs%core%livestem_xfer, c14_veg_cs%core%pool, c14_veg_cs%core%storveg, &
-    !$acc&   c14_veg_cs%core%totpft, c14_veg_cs%core%totveg, c14_veg_cs%core%trunc_sink, &
-    !$acc&   c14_veg_cs%gresp_storage, c14_veg_cs%gresp_xfer, c14_veg_cs%xsmrpool, &
-    !$acc&   canopystate_vars%laisha_patch, canopystate_vars%laisun_patch, cnstate_vars%annavg_t2m_col, &
-    !$acc&   cnstate_vars%annavg_t2m_patch, cnstate_vars%annmax_retransn_patch, &
-    !$acc&   cnstate_vars%annmax_retransp_patch, cnstate_vars%annsum_potential_gpp_patch, &
-    !$acc&   cnstate_vars%bglfr_froot_patch, cnstate_vars%bglfr_leaf_patch, cnstate_vars%bgtr_patch, &
-    !$acc&   cnstate_vars%c_allometry_patch, cnstate_vars%croot_prof_patch, cnstate_vars%days_active_patch, &
-    !$acc&   cnstate_vars%dormant_flag_patch, cnstate_vars%downreg_patch, cnstate_vars%froot_prof_patch, &
-    !$acc&   cnstate_vars%lgsf_patch, cnstate_vars%n_allometry_patch, cnstate_vars%offset_counter_patch, &
-    !$acc&   cnstate_vars%offset_fdd_patch, cnstate_vars%offset_flag_patch, cnstate_vars%offset_swi_patch, &
-    !$acc&   cnstate_vars%onset_counter_patch, cnstate_vars%onset_fdd_patch, cnstate_vars%onset_flag_patch, &
-    !$acc&   cnstate_vars%onset_gdd_patch, cnstate_vars%onset_gddflag_patch, cnstate_vars%onset_swi_patch, &
-    !$acc&   cnstate_vars%p_allometry_patch, cnstate_vars%rc14_atm_patch, cnstate_vars%tempavg_t2m_patch, &
-    !$acc&   cnstate_vars%tempmax_retransn_patch, cnstate_vars%tempmax_retransp_patch, &
-    !$acc&   cnstate_vars%tempsum_potential_gpp_patch, col_cs%core%decomp_pools_vr, col_cs%core%prod1, &
-    !$acc&   col_cs%core%prod10, col_cs%core%prod100, col_cs%core%trunc_sink_vr, col_es%t_h2osfc, &
-    !$acc&   col_es%t_soisno, col_ns%core%decomp_pools_vr, col_ns%core%prod1, col_ns%core%prod10, &
-    !$acc&   col_ns%core%prod100, col_ns%core%trunc_sink_vr, col_ns%fan_grz_fract, col_ns%fan_totn, &
-    !$acc&   col_ns%fert_u1, col_ns%fert_u2, col_ns%manure_a_app, col_ns%manure_a_grz, &
-    !$acc&   col_ns%manure_n_stored, col_ns%manure_r_app, col_ns%manure_r_grz, col_ns%manure_tan_stored, &
-    !$acc&   col_ns%manure_u_app, col_ns%manure_u_grz, col_ns%mineral%smin_vr, col_ns%smin_nh4_vr, &
-    !$acc&   col_ns%smin_no3_vr, col_ns%tan_f1, col_ns%tan_f2, col_ns%tan_f3, col_ns%tan_f4, col_ns%tan_g1, &
-    !$acc&   col_ns%tan_g2, col_ns%tan_g3, col_ns%tan_s0, col_ns%tan_s1, col_ns%tan_s2, col_ns%tan_s3, &
-    !$acc&   col_pp%dz, col_pp%snl, col_ps%core%decomp_pools_vr, col_ps%core%prod1, col_ps%core%prod10, &
-    !$acc&   col_ps%core%prod100, col_ps%core%trunc_sink_vr, col_ps%labilep_vr, col_ps%occlp_vr, &
-    !$acc&   col_ps%primp_vr, col_ps%secondp_vr, col_ps%solutionp_vr, col_ws%h2osfc, col_ws%h2osno, &
-    !$acc&   col_ws%h2osoi_ice, col_ws%h2osoi_liq, col_ws%h2osoi_vol, grc_es%heat1, grc_es%heat2, &
-    !$acc&   grc_ws%ice1, grc_ws%ice2, grc_ws%liq1, grc_ws%liq2, heat_base_temp, &
-    !$acc&   lakestate_vars%lake_icefrac_col, photosyns_vars%alphapsnsha_patch, &
-    !$acc&   photosyns_vars%alphapsnsun_patch, photosyns_vars%c13_psnsha_patch, &
-    !$acc&   photosyns_vars%c13_psnsun_patch, photosyns_vars%c14_psnsha_patch, &
-    !$acc&   photosyns_vars%c14_psnsun_patch, photosyns_vars%psnsha_patch, photosyns_vars%psnsun_patch, &
-    !$acc&   photosyns_vars%rc13_canair_patch, photosyns_vars%rc13_psnsha_patch, &
-    !$acc&   photosyns_vars%rc13_psnsun_patch, soilhydrology_vars%wa_col, veg_cf%annsum_npp, veg_cf%availc, &
-    !$acc&   veg_cf%core%plant_alloc, veg_cf%core%prev_froot_to_litter, veg_cf%core%prev_leaf_to_litter, &
-    !$acc&   veg_cf%excess_cflux, veg_cf%gpp_before_downreg, veg_cf%tempsum_npp, veg_cf%xsmrpool_recover, &
-    !$acc&   veg_cs%core%cropseed_deficit, veg_cs%core%deadcroot, veg_cs%core%deadcroot_storage, &
-    !$acc&   veg_cs%core%deadcroot_xfer, veg_cs%core%deadstem, veg_cs%core%deadstem_storage, &
-    !$acc&   veg_cs%core%deadstem_xfer, veg_cs%core%dispveg, veg_cs%core%froot, veg_cs%core%froot_storage, &
-    !$acc&   veg_cs%core%froot_xfer, veg_cs%core%grain, veg_cs%core%grain_storage, veg_cs%core%grain_xfer, &
-    !$acc&   veg_cs%core%leaf, veg_cs%core%leaf_storage, veg_cs%core%leaf_xfer, veg_cs%core%livecroot, &
-    !$acc&   veg_cs%core%livecroot_storage, veg_cs%core%livecroot_xfer, veg_cs%core%livestem, &
-    !$acc&   veg_cs%core%livestem_storage, veg_cs%core%livestem_xfer, veg_cs%core%pool, veg_cs%core%storveg, &
-    !$acc&   veg_cs%core%totpft, veg_cs%core%totveg, veg_cs%core%trunc_sink, veg_cs%gresp_storage, &
-    !$acc&   veg_cs%gresp_xfer, veg_cs%xsmrpool, veg_nf%core%plant_alloc, veg_nf%retrans%avail_retrans, &
-    !$acc&   veg_nf%uptake%plant_demand, veg_ns%core%cropseed_deficit, veg_ns%core%deadcroot, &
-    !$acc&   veg_ns%core%deadcroot_storage, veg_ns%core%deadcroot_xfer, veg_ns%core%deadstem, &
-    !$acc&   veg_ns%core%deadstem_storage, veg_ns%core%deadstem_xfer, veg_ns%core%dispveg, veg_ns%core%froot, &
-    !$acc&   veg_ns%core%froot_storage, veg_ns%core%froot_xfer, veg_ns%core%grain, veg_ns%core%grain_storage, &
-    !$acc&   veg_ns%core%grain_xfer, veg_ns%core%leaf, veg_ns%core%leaf_storage, veg_ns%core%leaf_xfer, &
-    !$acc&   veg_ns%core%livecroot, veg_ns%core%livecroot_storage, veg_ns%core%livecroot_xfer, &
-    !$acc&   veg_ns%core%livestem, veg_ns%core%livestem_storage, veg_ns%core%livestem_xfer, veg_ns%core%pool, &
-    !$acc&   veg_ns%core%storveg, veg_ns%core%totpft, veg_ns%core%totveg, veg_ns%core%trunc_sink, &
-    !$acc&   veg_ns%retrans%pool, veg_pf%core%plant_alloc, veg_pf%retrans%avail_retrans, &
-    !$acc&   veg_pf%uptake%plant_demand, veg_ps%core%cropseed_deficit, veg_ps%core%deadcroot, &
-    !$acc&   veg_ps%core%deadcroot_storage, veg_ps%core%deadcroot_xfer, veg_ps%core%deadstem, &
-    !$acc&   veg_ps%core%deadstem_storage, veg_ps%core%deadstem_xfer, veg_ps%core%dispveg, veg_ps%core%froot, &
-    !$acc&   veg_ps%core%froot_storage, veg_ps%core%froot_xfer, veg_ps%core%grain, veg_ps%core%grain_storage, &
-    !$acc&   veg_ps%core%grain_xfer, veg_ps%core%leaf, veg_ps%core%leaf_storage, veg_ps%core%leaf_xfer, &
-    !$acc&   veg_ps%core%livecroot, veg_ps%core%livecroot_storage, veg_ps%core%livecroot_xfer, &
-    !$acc&   veg_ps%core%livestem, veg_ps%core%livestem_storage, veg_ps%core%livestem_xfer, veg_ps%core%pool, &
-    !$acc&   veg_ps%core%storveg, veg_ps%core%totpft, veg_ps%core%totveg, veg_ps%core%trunc_sink, &
-    !$acc&   veg_ps%retrans%pool, veg_ws%h2ocan) if_present if(.not. elm_device_fullsync)
     call t_startf('dyn_subgrid')
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! dynSubgrid_driver runs on the host (out of the GPU port): its kernels follow elm_device_ready
 #endif
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before dynsubgrid_driver
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before dynsubgrid_driver
 #endif
     call dynSubgrid_driver(bounds_proc,                                      &
        urbanparams_vars, soilstate_vars, soilhydrology_vars, lakestate_vars, &
@@ -772,143 +648,6 @@ contains
        col_cs, c13_col_cs, c14_col_cs, col_cf,  &
        grc_cs, grc_cf , glc2lnd_vars,  crop_vars, iac2lnd_vars)
     call t_stopf('dyn_subgrid')
-    call elm_device_filters_update(to_device=.true.)  ! spel targeted
-    !$acc update device(c13_col_cf%core%dwt_conv_flux, c13_col_cf%core%dwt_crop_product_gain, &
-    !$acc&   c13_col_cf%core%dwt_deadcroot_to_cwd, c13_col_cf%core%dwt_froot_to_litr_cel, &
-    !$acc&   c13_col_cf%core%dwt_froot_to_litr_lig, c13_col_cf%core%dwt_froot_to_litr_met, &
-    !$acc&   c13_col_cf%core%dwt_livecroot_to_cwd, c13_col_cf%core%dwt_prod100_gain, &
-    !$acc&   c13_col_cf%core%dwt_prod10_gain, c13_col_cf%core%dwt_slash_flux, &
-    !$acc&   c13_col_cs%core%decomp_pools_vr, c13_col_cs%core%dyn_bal_adjustments, c13_col_cs%core%prod1, &
-    !$acc&   c13_col_cs%core%prod10, c13_col_cs%core%prod100, c13_col_cs%core%trunc_sink_vr, &
-    !$acc&   c13_grc_cf%core%dwt_conv_flux, c13_grc_cf%core%dwt_prod100_gain, &
-    !$acc&   c13_grc_cf%core%dwt_prod10_gain, c13_grc_cf%core%dwt_seed_to_deadstem, &
-    !$acc&   c13_grc_cf%core%dwt_seed_to_leaf, c13_grc_cs%core%seed, c13_veg_cf%core%dwt_conv_flux, &
-    !$acc&   c13_veg_cf%core%dwt_crop_product_gain, c13_veg_cf%core%dwt_prod100_gain, &
-    !$acc&   c13_veg_cf%core%dwt_prod10_gain, c13_veg_cf%core%dwt_seed_to_deadstem, &
-    !$acc&   c13_veg_cf%core%dwt_seed_to_leaf, c13_veg_cs%core%cropseed_deficit, c13_veg_cs%core%deadcroot, &
-    !$acc&   c13_veg_cs%core%deadcroot_storage, c13_veg_cs%core%deadcroot_xfer, c13_veg_cs%core%deadstem, &
-    !$acc&   c13_veg_cs%core%deadstem_storage, c13_veg_cs%core%deadstem_xfer, c13_veg_cs%core%dispveg, &
-    !$acc&   c13_veg_cs%core%froot, c13_veg_cs%core%froot_storage, c13_veg_cs%core%froot_xfer, &
-    !$acc&   c13_veg_cs%core%grain, c13_veg_cs%core%grain_storage, c13_veg_cs%core%grain_xfer, &
-    !$acc&   c13_veg_cs%core%leaf, c13_veg_cs%core%leaf_storage, c13_veg_cs%core%leaf_xfer, &
-    !$acc&   c13_veg_cs%core%livecroot, c13_veg_cs%core%livecroot_storage, c13_veg_cs%core%livecroot_xfer, &
-    !$acc&   c13_veg_cs%core%livestem, c13_veg_cs%core%livestem_storage, c13_veg_cs%core%livestem_xfer, &
-    !$acc&   c13_veg_cs%core%pool, c13_veg_cs%core%storveg, c13_veg_cs%core%totpft, c13_veg_cs%core%totveg, &
-    !$acc&   c13_veg_cs%core%trunc_sink, c13_veg_cs%gresp_storage, c13_veg_cs%gresp_xfer, &
-    !$acc&   c13_veg_cs%xsmrpool, c14_col_cf%core%dwt_conv_flux, c14_col_cf%core%dwt_crop_product_gain, &
-    !$acc&   c14_col_cf%core%dwt_deadcroot_to_cwd, c14_col_cf%core%dwt_froot_to_litr_cel, &
-    !$acc&   c14_col_cf%core%dwt_froot_to_litr_lig, c14_col_cf%core%dwt_froot_to_litr_met, &
-    !$acc&   c14_col_cf%core%dwt_livecroot_to_cwd, c14_col_cf%core%dwt_prod100_gain, &
-    !$acc&   c14_col_cf%core%dwt_prod10_gain, c14_col_cf%core%dwt_slash_flux, &
-    !$acc&   c14_col_cs%core%decomp_pools_vr, c14_col_cs%core%dyn_bal_adjustments, c14_col_cs%core%prod1, &
-    !$acc&   c14_col_cs%core%prod10, c14_col_cs%core%prod100, c14_col_cs%core%trunc_sink_vr, &
-    !$acc&   c14_grc_cf%core%dwt_conv_flux, c14_grc_cf%core%dwt_prod100_gain, &
-    !$acc&   c14_grc_cf%core%dwt_prod10_gain, c14_grc_cf%core%dwt_seed_to_deadstem, &
-    !$acc&   c14_grc_cf%core%dwt_seed_to_leaf, c14_grc_cs%core%seed, c14_veg_cf%core%dwt_conv_flux, &
-    !$acc&   c14_veg_cf%core%dwt_crop_product_gain, c14_veg_cf%core%dwt_prod100_gain, &
-    !$acc&   c14_veg_cf%core%dwt_prod10_gain, c14_veg_cf%core%dwt_seed_to_deadstem, &
-    !$acc&   c14_veg_cf%core%dwt_seed_to_leaf, c14_veg_cs%core%cropseed_deficit, c14_veg_cs%core%deadcroot, &
-    !$acc&   c14_veg_cs%core%deadcroot_storage, c14_veg_cs%core%deadcroot_xfer, c14_veg_cs%core%deadstem, &
-    !$acc&   c14_veg_cs%core%deadstem_storage, c14_veg_cs%core%deadstem_xfer, c14_veg_cs%core%dispveg, &
-    !$acc&   c14_veg_cs%core%froot, c14_veg_cs%core%froot_storage, c14_veg_cs%core%froot_xfer, &
-    !$acc&   c14_veg_cs%core%grain, c14_veg_cs%core%grain_storage, c14_veg_cs%core%grain_xfer, &
-    !$acc&   c14_veg_cs%core%leaf, c14_veg_cs%core%leaf_storage, c14_veg_cs%core%leaf_xfer, &
-    !$acc&   c14_veg_cs%core%livecroot, c14_veg_cs%core%livecroot_storage, c14_veg_cs%core%livecroot_xfer, &
-    !$acc&   c14_veg_cs%core%livestem, c14_veg_cs%core%livestem_storage, c14_veg_cs%core%livestem_xfer, &
-    !$acc&   c14_veg_cs%core%pool, c14_veg_cs%core%storveg, c14_veg_cs%core%totpft, c14_veg_cs%core%totveg, &
-    !$acc&   c14_veg_cs%core%trunc_sink, c14_veg_cs%gresp_storage, c14_veg_cs%gresp_xfer, &
-    !$acc&   c14_veg_cs%xsmrpool, canopystate_vars%laisha_patch, canopystate_vars%laisun_patch, &
-    !$acc&   cnstate_vars%alloc_pnow_patch, cnstate_vars%annavg_t2m_patch, &
-    !$acc&   cnstate_vars%annmax_retransn_patch, cnstate_vars%annmax_retransp_patch, &
-    !$acc&   cnstate_vars%annsum_potential_gpp_patch, cnstate_vars%bglfr_froot_patch, &
-    !$acc&   cnstate_vars%bglfr_leaf_patch, cnstate_vars%bglfr_patch, cnstate_vars%bgtr_patch, &
-    !$acc&   cnstate_vars%c_allometry_patch, cnstate_vars%days_active_patch, cnstate_vars%dormant_flag_patch, &
-    !$acc&   cnstate_vars%downreg_patch, cnstate_vars%lfpftd_patch, cnstate_vars%lgsf_patch, &
-    !$acc&   cnstate_vars%n_allometry_patch, cnstate_vars%offset_counter_patch, &
-    !$acc&   cnstate_vars%offset_fdd_patch, cnstate_vars%offset_flag_patch, cnstate_vars%offset_swi_patch, &
-    !$acc&   cnstate_vars%onset_counter_patch, cnstate_vars%onset_fdd_patch, cnstate_vars%onset_flag_patch, &
-    !$acc&   cnstate_vars%onset_gdd_patch, cnstate_vars%onset_gddflag_patch, cnstate_vars%onset_swi_patch, &
-    !$acc&   cnstate_vars%p_allometry_patch, cnstate_vars%rc14_atm_patch, cnstate_vars%tempavg_t2m_patch, &
-    !$acc&   cnstate_vars%tempmax_retransn_patch, cnstate_vars%tempmax_retransp_patch, &
-    !$acc&   cnstate_vars%tempsum_potential_gpp_patch, col_cf%core%dwt_conv_flux, &
-    !$acc&   col_cf%core%dwt_crop_product_gain, col_cf%core%dwt_deadcroot_to_cwd, &
-    !$acc&   col_cf%core%dwt_froot_to_litr_cel, col_cf%core%dwt_froot_to_litr_lig, &
-    !$acc&   col_cf%core%dwt_froot_to_litr_met, col_cf%core%dwt_livecroot_to_cwd, &
-    !$acc&   col_cf%core%dwt_prod100_gain, col_cf%core%dwt_prod10_gain, col_cf%core%dwt_slash_flux, &
-    !$acc&   col_cs%core%decomp_pools_vr, col_cs%core%dyn_bal_adjustments, col_cs%core%prod1, &
-    !$acc&   col_cs%core%prod10, col_cs%core%prod100, col_cs%core%trunc_sink_vr, col_es%t_soisno, &
-    !$acc&   col_nf%core%dwt_conv_flux, col_nf%core%dwt_crop_product_gain, col_nf%core%dwt_deadcroot_to_cwd, &
-    !$acc&   col_nf%core%dwt_froot_to_litr_cel, col_nf%core%dwt_froot_to_litr_lig, &
-    !$acc&   col_nf%core%dwt_froot_to_litr_met, col_nf%core%dwt_livecroot_to_cwd, &
-    !$acc&   col_nf%core%dwt_prod100_gain, col_nf%core%dwt_prod10_gain, col_nf%core%dwt_slash_flux, &
-    !$acc&   col_ns%core%decomp_pools_vr, col_ns%core%dyn_bal_adjustments, col_ns%core%prod1, &
-    !$acc&   col_ns%core%prod10, col_ns%core%prod100, col_ns%core%trunc_sink_vr, col_ns%fan_grz_fract, &
-    !$acc&   col_ns%fan_totn, col_ns%fert_u1, col_ns%fert_u2, col_ns%manure_a_app, col_ns%manure_a_grz, &
-    !$acc&   col_ns%manure_n_stored, col_ns%manure_r_app, col_ns%manure_r_grz, col_ns%manure_tan_stored, &
-    !$acc&   col_ns%manure_u_app, col_ns%manure_u_grz, col_ns%mineral%smin_vr, col_ns%smin_nh4_vr, &
-    !$acc&   col_ns%smin_no3_vr, col_ns%tan_f1, col_ns%tan_f2, col_ns%tan_f3, col_ns%tan_f4, col_ns%tan_g1, &
-    !$acc&   col_ns%tan_g2, col_ns%tan_g3, col_ns%tan_s0, col_ns%tan_s1, col_ns%tan_s2, col_ns%tan_s3, &
-    !$acc&   col_pf%core%dwt_conv_flux, col_pf%core%dwt_crop_product_gain, col_pf%core%dwt_deadcroot_to_cwd, &
-    !$acc&   col_pf%core%dwt_froot_to_litr_cel, col_pf%core%dwt_froot_to_litr_lig, &
-    !$acc&   col_pf%core%dwt_froot_to_litr_met, col_pf%core%dwt_livecroot_to_cwd, &
-    !$acc&   col_pf%core%dwt_prod100_gain, col_pf%core%dwt_prod10_gain, col_pf%core%dwt_slash_flux, &
-    !$acc&   col_pp%active, col_pp%glc_topo, col_pp%wtgcell, col_pp%wtlunit, col_pp%wttopounit, &
-    !$acc&   col_ps%core%decomp_pools_vr, col_ps%core%dyn_bal_adjustments, col_ps%core%prod1, &
-    !$acc&   col_ps%core%prod10, col_ps%core%prod100, col_ps%core%trunc_sink_vr, col_ps%labilep_vr, &
-    !$acc&   col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr, col_ps%solutionp_vr, col_ws%h2osoi_ice, &
-    !$acc&   col_ws%h2osoi_liq, col_ws%h2osoi_vol, glc2lnd_vars%glc_dyn_runoff_routing_grc, &
-    !$acc&   grc_cf%core%dwt_conv_flux, grc_cf%core%dwt_prod100_gain, grc_cf%core%dwt_prod10_gain, &
-    !$acc&   grc_cf%core%dwt_seed_to_deadstem, grc_cf%core%dwt_seed_to_leaf, grc_cs%core%seed, &
-    !$acc&   grc_ef%eflx_dynbal, grc_es%heat1, grc_es%heat2, grc_es%liquid_water_temp1, &
-    !$acc&   grc_es%liquid_water_temp2, grc_nf%core%dwt_conv_flux, grc_nf%core%dwt_prod100_gain, &
-    !$acc&   grc_nf%core%dwt_prod10_gain, grc_nf%core%dwt_seed_to_deadstem, grc_nf%core%dwt_seed_to_leaf, &
-    !$acc&   grc_nf%dwt_seedn_to_npool, grc_ns%core%seed, grc_pf%core%dwt_conv_flux, &
-    !$acc&   grc_pf%core%dwt_prod100_gain, grc_pf%core%dwt_prod10_gain, grc_pf%core%dwt_seed_to_deadstem, &
-    !$acc&   grc_pf%core%dwt_seed_to_leaf, grc_pf%dwt_seedp_to_ppool, grc_ps%core%seed, &
-    !$acc&   grc_wf%qflx_ice_dynbal, grc_wf%qflx_liq_dynbal, grc_ws%ice1, grc_ws%ice2, grc_ws%liq1, &
-    !$acc&   grc_ws%liq2, harvest_rates, lun_pp%active, lun_pp%wtgcell, lun_pp%wttopounit, &
-    !$acc&   photosyns_vars%alphapsnsha_patch, photosyns_vars%alphapsnsun_patch, &
-    !$acc&   photosyns_vars%c13_psnsha_patch, photosyns_vars%c13_psnsun_patch, &
-    !$acc&   photosyns_vars%c14_psnsha_patch, photosyns_vars%c14_psnsun_patch, photosyns_vars%psnsha_patch, &
-    !$acc&   photosyns_vars%psnsun_patch, photosyns_vars%rc13_canair_patch, photosyns_vars%rc13_psnsha_patch, &
-    !$acc&   photosyns_vars%rc13_psnsun_patch, soilhydrology_vars%wa_col, veg_cf%annsum_npp, veg_cf%availc, &
-    !$acc&   veg_cf%core%dwt_conv_flux, veg_cf%core%dwt_crop_product_gain, veg_cf%core%dwt_prod100_gain, &
-    !$acc&   veg_cf%core%dwt_prod10_gain, veg_cf%core%dwt_seed_to_deadstem, veg_cf%core%dwt_seed_to_leaf, &
-    !$acc&   veg_cf%core%plant_alloc, veg_cf%core%prev_froot_to_litter, veg_cf%core%prev_leaf_to_litter, &
-    !$acc&   veg_cf%excess_cflux, veg_cf%gpp_before_downreg, veg_cf%tempsum_npp, veg_cf%xsmrpool_c13ratio, &
-    !$acc&   veg_cf%xsmrpool_recover, veg_cs%core%cropseed_deficit, veg_cs%core%deadcroot, &
-    !$acc&   veg_cs%core%deadcroot_storage, veg_cs%core%deadcroot_xfer, veg_cs%core%deadstem, &
-    !$acc&   veg_cs%core%deadstem_storage, veg_cs%core%deadstem_xfer, veg_cs%core%dispveg, veg_cs%core%froot, &
-    !$acc&   veg_cs%core%froot_storage, veg_cs%core%froot_xfer, veg_cs%core%grain, veg_cs%core%grain_storage, &
-    !$acc&   veg_cs%core%grain_xfer, veg_cs%core%leaf, veg_cs%core%leaf_storage, veg_cs%core%leaf_xfer, &
-    !$acc&   veg_cs%core%livecroot, veg_cs%core%livecroot_storage, veg_cs%core%livecroot_xfer, &
-    !$acc&   veg_cs%core%livestem, veg_cs%core%livestem_storage, veg_cs%core%livestem_xfer, veg_cs%core%pool, &
-    !$acc&   veg_cs%core%storveg, veg_cs%core%totpft, veg_cs%core%totveg, veg_cs%core%trunc_sink, &
-    !$acc&   veg_cs%gresp_storage, veg_cs%gresp_xfer, veg_cs%xsmrpool, veg_nf%core%dwt_conv_flux, &
-    !$acc&   veg_nf%core%dwt_crop_product_gain, veg_nf%core%dwt_prod100_gain, veg_nf%core%dwt_prod10_gain, &
-    !$acc&   veg_nf%core%dwt_seed_to_deadstem, veg_nf%core%dwt_seed_to_leaf, veg_nf%core%plant_alloc, &
-    !$acc&   veg_nf%dwt_seedn_to_npool, veg_nf%retrans%avail_retrans, veg_nf%uptake%plant_demand, &
-    !$acc&   veg_ns%core%cropseed_deficit, veg_ns%core%deadcroot, veg_ns%core%deadcroot_storage, &
-    !$acc&   veg_ns%core%deadcroot_xfer, veg_ns%core%deadstem, veg_ns%core%deadstem_storage, &
-    !$acc&   veg_ns%core%deadstem_xfer, veg_ns%core%dispveg, veg_ns%core%froot, veg_ns%core%froot_storage, &
-    !$acc&   veg_ns%core%froot_xfer, veg_ns%core%grain, veg_ns%core%grain_storage, veg_ns%core%grain_xfer, &
-    !$acc&   veg_ns%core%leaf, veg_ns%core%leaf_storage, veg_ns%core%leaf_xfer, veg_ns%core%livecroot, &
-    !$acc&   veg_ns%core%livecroot_storage, veg_ns%core%livecroot_xfer, veg_ns%core%livestem, &
-    !$acc&   veg_ns%core%livestem_storage, veg_ns%core%livestem_xfer, veg_ns%core%pool, veg_ns%core%storveg, &
-    !$acc&   veg_ns%core%totpft, veg_ns%core%totveg, veg_ns%core%trunc_sink, veg_ns%retrans%pool, &
-    !$acc&   veg_pf%core%dwt_conv_flux, veg_pf%core%dwt_crop_product_gain, veg_pf%core%dwt_prod100_gain, &
-    !$acc&   veg_pf%core%dwt_prod10_gain, veg_pf%core%dwt_seed_to_deadstem, veg_pf%core%dwt_seed_to_leaf, &
-    !$acc&   veg_pf%core%plant_alloc, veg_pf%dwt_seedp_to_ppool, veg_pf%retrans%avail_retrans, &
-    !$acc&   veg_pf%uptake%plant_demand, veg_pp%active, veg_pp%wtcol, veg_pp%wtgcell, veg_pp%wtgcell_iac, &
-    !$acc&   veg_pp%wtlunit, veg_pp%wttopounit, veg_ps%core%cropseed_deficit, veg_ps%core%deadcroot, &
-    !$acc&   veg_ps%core%deadcroot_storage, veg_ps%core%deadcroot_xfer, veg_ps%core%deadstem, &
-    !$acc&   veg_ps%core%deadstem_storage, veg_ps%core%deadstem_xfer, veg_ps%core%dispveg, veg_ps%core%froot, &
-    !$acc&   veg_ps%core%froot_storage, veg_ps%core%froot_xfer, veg_ps%core%grain, veg_ps%core%grain_storage, &
-    !$acc&   veg_ps%core%grain_xfer, veg_ps%core%leaf, veg_ps%core%leaf_storage, veg_ps%core%leaf_xfer, &
-    !$acc&   veg_ps%core%livecroot, veg_ps%core%livecroot_storage, veg_ps%core%livecroot_xfer, &
-    !$acc&   veg_ps%core%livestem, veg_ps%core%livestem_storage, veg_ps%core%livestem_xfer, veg_ps%core%pool, &
-    !$acc&   veg_ps%core%storveg, veg_ps%core%totpft, veg_ps%core%totveg, veg_ps%core%trunc_sink, &
-    !$acc&   veg_ps%retrans%pool) if_present if(.not. elm_device_fullsync)
 
     if (use_cn  .or. use_fates) then
        nstep = get_nstep()
@@ -917,12 +656,27 @@ contains
           if (masterproc) then
              write(iulog,*) '--WARNING-- skipping CN balance check for first timestep'
           end if
-       else
+       else if (get_subgrid_weights_updated()) then
+          ! Only a change of the subgrid weights (dynSubgrid_driver) can have moved carbon between
+          ! columns since BeginGridCBalance; otherwise the state is unchanged and the end-of-step
+          ! GridCBalanceCheck covers the step. The summaries are recomputed below in any case.
           call t_startf('cnbalchk_at_grid')
 
           !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
           do nc = 1,nclumps
              call get_clump_bounds(nc, bounds_clump)
+             !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
+             !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, &
+             !$acc&   bounds_clump%begg_ghost, bounds_clump%begl, bounds_clump%begl_all, &
+             !$acc&   bounds_clump%begl_ghost, bounds_clump%begp, bounds_clump%begp_all, &
+             !$acc&   bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
+             !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, &
+             !$acc&   bounds_clump%endc_all, bounds_clump%endc_ghost, bounds_clump%endcohort, &
+             !$acc&   bounds_clump%endg, bounds_clump%endg_all, bounds_clump%endg_ghost, bounds_clump%endl, &
+             !$acc&   bounds_clump%endl_all, bounds_clump%endl_ghost, bounds_clump%endp, &
+             !$acc&   bounds_clump%endp_all, bounds_clump%endp_ghost, bounds_clump%endt, &
+             !$acc&   bounds_clump%endt_all, bounds_clump%endt_ghost, &
+             !$acc&   bounds_clump%level) if_present if(.not. elm_device_fullsync)
              !$acc enter data copyin(bounds_clump)  ! the private copy of this OpenMP loop: kernels read it
 
              if(use_cn) then
@@ -1034,6 +788,16 @@ contains
        !$acc enter data copyin(bounds_clump)  ! the private copy of this OpenMP loop: kernels read it
 
        call t_startf('begwbal')
+       !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
+       !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, bounds_clump%begg_ghost, &
+       !$acc&   bounds_clump%begl, bounds_clump%begl_all, bounds_clump%begl_ghost, bounds_clump%begp, &
+       !$acc&   bounds_clump%begp_all, bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
+       !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, bounds_clump%endc_all, &
+       !$acc&   bounds_clump%endc_ghost, bounds_clump%endcohort, bounds_clump%endg, bounds_clump%endg_all, &
+       !$acc&   bounds_clump%endg_ghost, bounds_clump%endl, bounds_clump%endl_all, bounds_clump%endl_ghost, &
+       !$acc&   bounds_clump%endp, bounds_clump%endp_all, bounds_clump%endp_ghost, bounds_clump%endt, &
+       !$acc&   bounds_clump%endt_all, bounds_clump%endt_ghost, &
+       !$acc&   bounds_clump%level) if_present if(.not. elm_device_fullsync)
 #ifdef _OPENACC
     call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before begincolwaterbalance
 #endif
@@ -1160,10 +924,9 @@ contains
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before ndep_interp
 #endif
-       if (.not. elm_device_fullsync) call update_atm2lnd_type(atm2lnd_vars, .false.)  ! spel targeted: called code the analysis excludes
        call ndep_interp(bounds_proc, atm2lnd_vars)
-       if (.not. elm_device_fullsync) call update_atm2lnd_type(atm2lnd_vars, .true.)  ! spel targeted
        call t_stopf('ndep_interp')
+       !$acc update device(atm2lnd_vars%forc_ndep_grc) if_present if(.not. elm_device_fullsync)
     end if
 
 
@@ -1174,6 +937,7 @@ contains
 #endif
        call FireInterp(bounds_proc)
        call t_stopf('fireinterp')
+       !$acc update device(forc_hdm, forc_lnfm) if_present if(.not. elm_device_fullsync)
     elseif (use_fates) then
        ! fates_spitfire_mode is assigned an integer value in the namelist
        ! see bld/namelist_files/namelist_definition.xml for details
@@ -1195,7 +959,7 @@ contains
        call t_startf('pdep_interp')
        ! PET: switching CN timestep
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before pdep_interp
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before pdep_interp
 #endif
        call pdep_interp(bounds_proc, atm2lnd_vars)
        call t_stopf('pdep_interp')
@@ -1205,7 +969,7 @@ contains
 
     if (use_fan) then
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before fanstream_interp
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before fanstream_interp
 #endif
        call fanstream_interp(bounds_proc, atm2lnd_vars)
     end if
@@ -1229,7 +993,16 @@ contains
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before updatedaylength
 #endif
        call UpdateDaylength(bounds_clump, declin)
-       !$acc update device(first_step, grc_pp%dayl, grc_pp%prev_dayl) if_present if(.not. elm_device_fullsync)
+       !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
+       !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, bounds_clump%begg_ghost, &
+       !$acc&   bounds_clump%begl, bounds_clump%begl_all, bounds_clump%begl_ghost, bounds_clump%begp, &
+       !$acc&   bounds_clump%begp_all, bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
+       !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, bounds_clump%endc_all, &
+       !$acc&   bounds_clump%endc_ghost, bounds_clump%endcohort, bounds_clump%endg, bounds_clump%endg_all, &
+       !$acc&   bounds_clump%endg_ghost, bounds_clump%endl, bounds_clump%endl_all, bounds_clump%endl_ghost, &
+       !$acc&   bounds_clump%endp, bounds_clump%endp_all, bounds_clump%endp_ghost, bounds_clump%endt, &
+       !$acc&   bounds_clump%endt_all, bounds_clump%endt_ghost, bounds_clump%level, first_step, grc_pp%dayl, &
+       !$acc&   grc_pp%prev_dayl) if_present if(.not. elm_device_fullsync)
 
        ! Initialze variables needed for new driver time step
 #ifdef _OPENACC
@@ -1441,7 +1214,7 @@ contains
             atm2lnd_vars, frictionvel_vars, dust_vars)
 
        ! VOC emission (A. Guenther's MEGAN (2006) model)
-       if (use_voc) then
+       if (use_voc .and. shr_megan_mechcomps_n > 0) then  ! no MEGAN species: VOCEmission would return at once
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before vocemission
 #endif
@@ -1851,20 +1624,8 @@ contains
 
        call t_stopf('ecosysdyn')
 
-       ! Dry Deposition of chemical tracers (Wesely (1998) parameterizaion)
-       call t_startf('depvel')
-       if(.not.use_fates)then
-#ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before depvel_compute
-#endif
-         ! spel targeted: device data this host code uses
-         !$acc update self(canopystate_vars%elai_patch, col_ws%h2osoi_vol, col_ws%snow_depth, &
-         !$acc&   frictionvel_vars%vds_patch, top_af%solad) if_present if(.not. elm_device_fullsync)
-         call depvel_compute(bounds_clump, &
-              atm2lnd_vars, canopystate_vars, frictionvel_vars, &
-              photosyns_vars, drydepvel_vars)
-       end if
-       call t_stopf('depvel')
+       ! Dry deposition velocities are computed once, after CH4 (upstream called depvel_compute
+       ! before and after CH4 with the same inputs).
 
 
        if (use_lch4) then
@@ -1884,13 +1645,10 @@ contains
 
        ! Dry Deposition of chemical tracers (Wesely (1998) parameterizaion)
        call t_startf('depvel')
-       if(.not.use_fates)then
+       if (.not.use_fates .and. drydep_active) then  ! no species: depvel_compute would return at once
 #ifdef _OPENACC
     call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before depvel_compute
 #endif
-         ! spel targeted: device data this host code uses
-         !$acc update self(canopystate_vars%elai_patch, col_ws%h2osoi_vol, col_ws%snow_depth, &
-         !$acc&   frictionvel_vars%vds_patch, top_af%solad) if_present if(.not. elm_device_fullsync)
          call depvel_compute(bounds_clump, &
               atm2lnd_vars, canopystate_vars, frictionvel_vars, &
               photosyns_vars, drydepvel_vars)
@@ -2133,8 +1891,6 @@ contains
     ! ============================================================================
 
 
-    ! spel targeted: device data this host code uses
-    !$acc update self(col_es%t_soisno, col_wf%qflx_glcice) if_present if(.not. elm_device_fullsync)
     call t_startf('lnd2atm')
 #ifdef _OPENACC
     call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before lnd2atm
@@ -2155,9 +1911,19 @@ contains
        !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
        do nc = 1,nclumps
           call get_clump_bounds(nc, bounds_clump)
+          !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
+          !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, bounds_clump%begg_ghost, &
+          !$acc&   bounds_clump%begl, bounds_clump%begl_all, bounds_clump%begl_ghost, bounds_clump%begp, &
+          !$acc&   bounds_clump%begp_all, bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
+          !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, &
+          !$acc&   bounds_clump%endc_all, bounds_clump%endc_ghost, bounds_clump%endcohort, bounds_clump%endg, &
+          !$acc&   bounds_clump%endg_all, bounds_clump%endg_ghost, bounds_clump%endl, bounds_clump%endl_all, &
+          !$acc&   bounds_clump%endl_ghost, bounds_clump%endp, bounds_clump%endp_all, &
+          !$acc&   bounds_clump%endp_ghost, bounds_clump%endt, bounds_clump%endt_all, &
+          !$acc&   bounds_clump%endt_ghost, bounds_clump%level) if_present if(.not. elm_device_fullsync)
           !$acc enter data copyin(bounds_clump)  ! the private copy of this OpenMP loop: kernels read it
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before update_lnd2glc
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before update_lnd2glc
 #endif
           call lnd2glc_vars%update_lnd2glc(bounds_clump,       &
                filter(nc)%num_do_smb_c, filter(nc)%do_smb_c,   &
@@ -2167,8 +1933,6 @@ contains
        !$OMP END PARALLEL DO
        call t_stopf('lnd2glc')
     end if
-    !$acc update device(lnd2glc_vars%qice_grc, lnd2glc_vars%topo_grc, &
-    !$acc&   lnd2glc_vars%tsrf_grc) if_present if(.not. elm_device_fullsync)
 
     ! ============================================================================
     ! Update stuff to send to iac
@@ -2179,6 +1943,16 @@ contains
        !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
        do nc = 1,nclumps
           call get_clump_bounds(nc, bounds_clump)
+          !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
+          !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, bounds_clump%begg_ghost, &
+          !$acc&   bounds_clump%begl, bounds_clump%begl_all, bounds_clump%begl_ghost, bounds_clump%begp, &
+          !$acc&   bounds_clump%begp_all, bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
+          !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, &
+          !$acc&   bounds_clump%endc_all, bounds_clump%endc_ghost, bounds_clump%endcohort, bounds_clump%endg, &
+          !$acc&   bounds_clump%endg_all, bounds_clump%endg_ghost, bounds_clump%endl, bounds_clump%endl_all, &
+          !$acc&   bounds_clump%endl_ghost, bounds_clump%endp, bounds_clump%endp_all, &
+          !$acc&   bounds_clump%endp_ghost, bounds_clump%endt, bounds_clump%endt_all, &
+          !$acc&   bounds_clump%endt_ghost, bounds_clump%level) if_present if(.not. elm_device_fullsync)
           !$acc enter data copyin(bounds_clump)  ! the private copy of this OpenMP loop: kernels read it
 #ifdef _OPENACC
     call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before update_lnd2iac
@@ -2320,30 +2094,18 @@ contains
 
        if (use_cn .and. do_budgets) then
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before cnpbudget_run
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before cnpbudget_run
 #endif
-          ! spel targeted: device data this host code uses
-          !$acc update self(grc_cf%er, grc_cf%fire_closs, grc_cf%gpp, grc_cf%hrv_xsmrpool_to_atm, &
-          !$acc&   grc_cf%prod100_loss, grc_cf%prod10_loss, grc_cf%prod1_loss, grc_cf%som_c_leached, &
-          !$acc&   grc_cf%somc_yield, grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, grc_cs%beg_cwdc, &
-          !$acc&   grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, grc_cs%beg_totprodc, &
-          !$acc&   grc_cs%beg_totsomc, grc_cs%core%balance_err, grc_cs%end_cropseedc_deficit, &
-          !$acc&   grc_cs%end_ctrunc, grc_cs%end_cwdc, grc_cs%end_totc, grc_cs%end_totlitc, &
-          !$acc&   grc_cs%end_totpftc, grc_cs%end_totprodc, &
-          !$acc&   grc_cs%end_totsomc) if_present if(.not. elm_device_fullsync)
           call CNPBudget_Run(bounds_proc, atm2lnd_vars, lnd2atm_vars, grc_cs, grc_cf)
 #ifdef _OPENACC
     call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before cnpbudget_accum
 #endif
           call CNPBudget_Accum()
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before cnpbudget_print
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before cnpbudget_print
 #endif
-          ! spel targeted: device data this host code uses
-          !$acc update self(c_budg_stateg) if_present if(.not. elm_device_fullsync)
           call CNPBudget_Print(budget_inst,  budget_daily,  budget_month,  &
                budget_ann,  budget_ltann,  budget_ltend)
-          !$acc update device(c_budg_stateg) if_present if(.not. elm_device_fullsync)
       end if
     endif
 
@@ -2412,7 +2174,9 @@ contains
     !$acc exit data delete(bounds_proc, bounds_clump)
 #endif
   ! spel targeted: device data this host code uses
-  !$acc update self(lnd2iac_vars%cdd, lnd2iac_vars%hdd) if_present if(.not. elm_device_fullsync)
+  !$acc update self(lnd2glc_vars%qice_grc, lnd2glc_vars%topo_grc, lnd2glc_vars%tsrf_grc, lnd2iac_vars%cdd, &
+  !$acc&   lnd2iac_vars%hdd, lnd2iac_vars%hr, lnd2iac_vars%npp, &
+  !$acc&   lnd2iac_vars%pftwgt) if_present if(.not. elm_device_fullsync)
   end subroutine elm_drv
 
   !-----------------------------------------------------------------------
@@ -2611,6 +2375,7 @@ contains
        end if
     end do
     num_allc = fc
+    !$acc update device(filter_allc) if_present
 
     ! Note: lake points are excluded from many of the following
     ! averages. For some fields, this is because the field doesn't

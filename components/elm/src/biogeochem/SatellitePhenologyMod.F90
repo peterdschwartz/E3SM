@@ -62,6 +62,8 @@ module SatellitePhenologyMod
   real(r8), private, allocatable :: mhvb2t(:,:) ! bottom vegetation height for interpolation(2 months)
   !-----------------------------------------------------------------------
 
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(mlai2t)
 contains
 
   !-----------------------------------------------------------------------
@@ -446,6 +448,7 @@ contains
     if (months(2) > 12) months(2) = 1
     timwt(1) = (it(1)+0.5_r8) - t
     timwt(2) = 1._r8-timwt(1)
+    !$acc update device(it, months, timwt) if_present
 
     if (InterpMonths1 /= months(1)) then
        if (masterproc) then
@@ -453,12 +456,13 @@ contains
           write(iulog,*) 'nstep = ',get_nstep(),' month = ',kmo,' day = ',kda
        end if
        call t_startf('readMonthlyVeg')
+       !$acc data copy(months)
        call readMonthlyVegetation (bounds, fsurdat, months, canopystate_vars)
+       !$acc end data
        InterpMonths1 = months(1)
        call t_stopf('readMonthlyVeg')
+       !$acc update device(interpmonths1) if_present
     end if
-    !$acc update device(canopystate_vars%mlaidiff_patch, interpmonths1, mhvb2t, mhvt2t, mlai2t, msai2t, &
-    !$acc&   scmlat, scmlon, timwt) if_present
 
   end subroutine interpMonthlyVeg
 
@@ -614,6 +618,7 @@ contains
          mhgtt(bounds%begg:bounds%endg,1:max_topounits,0:numpft), &
          mhgtb(bounds%begg:bounds%endg,1:max_topounits,0:numpft), &
          stat=ier)
+    !$acc update device(mhgtb, mhgtt, mlai, msai) if_present
     if (ier /= 0) then
        write(iulog,*)subname, 'allocation big error '
        call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -630,6 +635,7 @@ contains
     if (single_column) then
        call shr_scam_getCloseLatLon (ncid, scmlat, scmlon, closelat, closelon,&
             closelatidx, closelonidx)
+       !$acc update device(scmlat, scmlon) if_present
     endif
 
     do k=1,2   !loop over months and read vegetated data
@@ -688,7 +694,9 @@ contains
     end if
 
     deallocate(mlai, msai, mhgtt, mhgtb)
+    !$acc update device(mhgtb, mhgtt, mhvb2t, mhvt2t, mlai, mlai2t, msai, msai2t) if_present
 
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        canopystate_vars%mlaidiff_patch(p) = mlai2t(p,1)-mlai2t(p,2)
     enddo

@@ -72,6 +72,7 @@ contains
     real(r8), dimension(nlevgrnd) :: melt_profile       ! profile of melted excess ice
     !-----------------------------------------------------------------------
 
+    integer :: spel_i1  ! spel section-loop indices
     associate(                                                                &
          t_soisno             =>    col_es%t_soisno        ,    & ! Input:   [real(r8) (:,:) ]  soil temperature (Kelvin)  (-nlevsno+1:nlevgrnd)
 
@@ -189,14 +190,14 @@ contains
          ! polygonal tundra (off by default): on the host, a column at a time, after the active
          ! layer of every column (k_frz is searched again; with a thawed base layer, where the
          ! original left it from the previous column, it is nlevgrnd)
-         !$acc update self(canopystate_vars%alt_col, canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col, &
-         !$acc&   canopystate_vars%altmax_ever_col, canopystate_vars%altmax_1989_col, canopystate_vars%altmax_1989_indx_col, &
-         !$acc&   col_es%t_soisno, col_ws%excess_ice, col_ws%frac_melted, col_ws%iwp_subsidence, col_ws%iwp_microrel, &
-         !$acc&   col_ws%iwp_exclvol, col_ws%iwp_ddep) if_present if(elm_device_ready)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             k_frz = nlevgrnd
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_es%t_soisno) if_present
             if (t_soisno(c,nlevgrnd) <= SHR_CONST_TKFRZ ) then
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(col_es%t_soisno) if_present
                k_frz = 0
                do j=nlevgrnd-1,1,-1
                   if ( t_soisno(c,j) > SHR_CONST_TKFRZ ) then
@@ -209,8 +210,12 @@ contains
             ! special case for year = 1989. For now it is the assumed baseline year for
             ! changes in polygonal ground
             if (year .eq. 1989) then
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col) if_present
                altmax_1989(c) = altmax(c)
                altmax_1989_indx(c) = altmax_indx(c)
+               !$acc update device(canopystate_vars%altmax_1989_col, &
+               !$acc&   canopystate_vars%altmax_1989_indx_col) if_present
             endif
 
            ! update subsidence based on change in ALT
@@ -220,8 +225,15 @@ contains
            ! for taliks
 
            ! initialize melt_profile as zero
-           melt_profile(:) = 0._r8
+           !$acc data copy(melt_profile)
+           !$acc parallel loop gang vector default(present) if(elm_device_ready)
+           do spel_i1 = lbound(melt_profile,1), ubound(melt_profile,1)  ! spel section-loop
+              melt_profile(spel_i1) = 0._r8
+           end do
+           !$acc end data
 
+           !$acc data copy(melt_profile)
+           !$acc parallel loop gang vector default(present) private(orig_excess, old_mfrac) if(elm_device_ready)
            do j = nlevgrnd,1,-1 ! note, this will go from bottom to top
               if (j .gt. k_frz + 1) then ! all layers below k_frz + 1 remain frozen
                 melt_profile(j) = 0.0_r8
@@ -261,14 +273,21 @@ contains
               ! calculate subsidence at this layer:
               melt_profile(j) = melt_profile(j) * dzsoi(j)
            end do
+           !$acc end data
 
            ! subsidence is integral of melt profile:
+           ! spel acc-sync: device data this host code uses
+           !$acc update self(canopystate_vars%altmax_ever_col) if_present
            if ((year .ge. 1989) .and. (altmax_ever(c) .ge. altmax_1989(c))) then
+              ! spel acc-sync: device data this host code uses
+              !$acc update self(melt_profile) if_present
               subsidence(c) = subsidence(c) + sum(melt_profile)
+              !$acc update device(col_ws%iwp_subsidence) if_present
            end if
 
            ! limit subsidence to 0.4 m
            subsidence(c) = min(0.4_r8, subsidence(c))
+           !$acc update device(col_ws%iwp_subsidence) if_present
 
            ! update ice wedge polygon microtopographic parameters if in polygonal ground
            if (lun_pp%ispolygon(col_pp%landunit(c))) then
@@ -276,20 +295,20 @@ contains
                rmax(c) = 0.4_r8
                vexc(c) = 0.2_r8
                ddep(c) = max(0.05_r8, 0.15_r8 - 0.25_r8*subsidence(c))
+               !$acc update device(col_ws%iwp_ddep, col_ws%iwp_exclvol, col_ws%iwp_microrel) if_present
              elseif (lun_pp%polygontype(col_pp%landunit(c)) .eq. iflatcenpoly) then
                rmax(c) = min(0.4_r8, 0.1_r8 + 0.75_r8*subsidence(c))
                vexc(c) = min(0.2_r8, 0.05_r8 + 0.375_r8*subsidence(c))
                ddep(c) = min(0.05_r8, 0.01_r8 + 0.1_r8*subsidence(c))
+               !$acc update device(col_ws%iwp_ddep, col_ws%iwp_exclvol, col_ws%iwp_microrel) if_present
              elseif (lun_pp%polygontype(col_pp%landunit(c)) .eq. ihighcenpoly) then
                rmax(c) = 0.4_r8
                vexc(c) = 0.2_r8
                ddep(c) = 0.05_r8
+               !$acc update device(col_ws%iwp_ddep, col_ws%iwp_exclvol, col_ws%iwp_microrel) if_present
              endif
            endif
          end do
-         !$acc update device(canopystate_vars%altmax_1989_col, canopystate_vars%altmax_1989_indx_col, &
-         !$acc&   col_ws%excess_ice, col_ws%frac_melted, col_ws%iwp_subsidence, col_ws%iwp_microrel, &
-         !$acc&   col_ws%iwp_exclvol, col_ws%iwp_ddep) if_present if(elm_device_ready)
       end if
 
     end associate 

@@ -13,6 +13,7 @@ module dynColumnTemplateMod
   !
   ! !USES:
 #include "shr_assert.h"
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod    , only : r8 => shr_kind_r8
   use shr_log_mod     , only : errMsg => shr_log_errMsg
   use decompMod       , only : bounds_type
@@ -90,6 +91,7 @@ contains
 
     !SHR_ASSERT_ALL((ubound(cactive) == (/bounds%endc/)), errMsg(sourcefile, __LINE__))
 
+    !$acc routine seq  ! spel acc-apply
     found = .false.
     g = col_pp%gridcell(c_target)
     l = grc_pp%landunit_indices(landunit_type, g)
@@ -155,6 +157,7 @@ contains
     !SHR_ASSERT_ALL((ubound(cactive) == (/bounds%endc/)), errMsg(sourcefile, __LINE__))
     !SHR_ASSERT_ALL((ubound(c_templates) == (/bounds%endc/)), errMsg(sourcefile, __LINE__))
 
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do c = bounds%begc, bounds%endc
        c_templates(c) = template_col_from_landunit(bounds, c, istsoil, &
             cactive(bounds%begc:bounds%endc))

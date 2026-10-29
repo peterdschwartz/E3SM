@@ -82,6 +82,10 @@ contains
 
     !-----------------------------------------------------------------------
     ! Assign local pointers to derived type arrays (in)
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(w_limit, rswa, rsmn, sumrswa, sumrsmn, frootc_dz, sumfrootc, &
+    !$acc&   rootfr_coarse)
     associate(&
          ivt                    => veg_pp%itype                                , & ! Input  :  [integer (:)]  pft vegetation type
          pcolumn                => veg_pp%column                               , & ! Input  :  [integer (:)]  pft's column index
@@ -115,18 +119,50 @@ contains
          )
 
       !initialize to 0
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(soilstate_vars%root_depth_patch) if_present if(elm_device_ready)
-      w_limit(bounds%begp:bounds%endp)              = 0._r8
-      sumrswa(bounds%begp:bounds%endp)              = 0._r8
-      sumrsmn(bounds%begp:bounds%endp)              = 0._r8
-      sumfrootc(bounds%begp:bounds%endp)            = 0._r8
-      rswa(bounds%begp:bounds%endp,1:nlevgrnd)      = 0._r8
-      rsmn(bounds%begp:bounds%endp,1:nlevgrnd)      = 0._r8
-      frootc_dz(bounds%begp:bounds%endp,1:nlevgrnd) = 0._r8
-      root_depth(bounds%begp:bounds%endp)           = 0._r8
-      rootfr_coarse(bounds%begp:bounds%endp,1:nlevgrnd) = 0._r8
-      !$acc update device(soilstate_vars%root_depth_patch) if_present
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
+         w_limit(spel_i1)              = 0._r8
+      end do
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
+         sumrswa(spel_i1)              = 0._r8
+      end do
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
+         sumrsmn(spel_i1)              = 0._r8
+      end do
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
+         sumfrootc(spel_i1)            = 0._r8
+      end do
+      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i2 = 1, nlevgrnd  ! spel section-loop
+         do spel_i1 = bounds%begp, bounds%endp
+            rswa(spel_i1, spel_i2)      = 0._r8
+         end do
+      end do
+      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i2 = 1, nlevgrnd  ! spel section-loop
+         do spel_i1 = bounds%begp, bounds%endp
+            rsmn(spel_i1, spel_i2)      = 0._r8
+         end do
+      end do
+      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i2 = 1, nlevgrnd  ! spel section-loop
+         do spel_i1 = bounds%begp, bounds%endp
+            frootc_dz(spel_i1, spel_i2) = 0._r8
+         end do
+      end do
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
+         root_depth(spel_i1)           = 0._r8
+      end do
+      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i2 = 1, nlevgrnd  ! spel section-loop
+         do spel_i1 = bounds%begp, bounds%endp
+            rootfr_coarse(spel_i1, spel_i2) = 0._r8
+         end do
+      end do
 
       !---------------------------------------------------------------
       ! Set root depth, dynamic for crops, fixed for other vegetation
@@ -202,10 +238,11 @@ contains
       !------------------------------------------------------------------
 
       ! spel acc-sync: device data this host code uses
-      !$acc update self(col_pp%zi) if_present if(elm_device_ready)
+      !$acc update self(rootfr_coarse) if_present
       call init_vegrootfr(bounds, nlevsoi, nlevgrnd, &
                    nlevbed(bounds%begc:bounds%endc), &
                    rootfr_coarse(bounds%begp:bounds%endp,1:nlevgrnd))
+      !$acc update device(rootfr_coarse) if_present
 
       !--------------------------------------------------------------------
       ! Now calculate the density of roots in each soil layer for each pft
@@ -270,6 +307,8 @@ contains
 
     end associate
 
+    !$acc exit data delete(w_limit, rswa, rsmn, sumrswa, sumrsmn, frootc_dz, sumfrootc, &
+    !$acc&   rootfr_coarse)
   end subroutine RootDynamics
 
 end module RootDynamicsMod

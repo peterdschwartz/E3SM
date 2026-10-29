@@ -266,7 +266,8 @@ contains
          ! Do the downscaling
          ! spel acc-sync: device data this host code uses
          !$acc update self(atm2lnd_vars%forc_lwrad_downscaled_col, &
-         !$acc&   atm2lnd_vars%forc_lwrad_not_downscaled_grc, atm2lnd_vars%forc_t_downscaled_col) if_present if(elm_device_ready)
+         !$acc&   atm2lnd_vars%forc_lwrad_not_downscaled_grc, atm2lnd_vars%forc_t_downscaled_col, &
+         !$acc&   col_pp%glc_topo, col_pp%wtgcell, newsum_lwrad_g, sum_lwrad_g, sum_wts_g) if_present
          do fc = 1, num_do_smb_c
             c = filter_do_smb_c(fc)
             l = col_pp%landunit(c)
@@ -315,7 +316,8 @@ contains
          ! Make sure that, after normalization, the grid cell mean is conserved
 
          spel_dc_1 = 0  ! spel defer-checks
-         !$acc update device(atm2lnd_vars%forc_lwrad_downscaled_col) if_present if(elm_device_ready)
+         !$acc update device(atm2lnd_vars%forc_lwrad_downscaled_col, lwrad_norm_g, newsum_lwrad_g, &
+         !$acc&   sum_lwrad_g, sum_wts_g) if_present
          !$acc data copy(newsum_lwrad_g, sum_wts_g) if(elm_device_ready)
          !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
          do g = bounds%begg, bounds%endg
@@ -326,7 +328,8 @@ contains
          !$acc end data
          if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
             ! spel acc-sync: device data this host code uses
-            !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc) if_present if(elm_device_ready)
+            !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc, newsum_lwrad_g, &
+            !$acc&   sum_wts_g) if_present
             g = bounds%begg + spel_dc_1 - 1
                   write(iulog,*) 'g, newsum_lwrad_g, sum_wts_g, forc_lwrad_g: ', &
                        g, newsum_lwrad_g(g), sum_wts_g(g), forc_lwrad_g(g)

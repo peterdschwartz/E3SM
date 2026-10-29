@@ -165,17 +165,44 @@ contains
 
     ! Initialize to reasonable defaults
 
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(col_es%t_soisno, col_wf%qflx_glcice) if_present if(elm_device_ready)
-    this%qice_grc(bounds%begg : bounds%endg, :) = 0._r8
-    this%tsrf_grc(bounds%begg : bounds%endg, :) = tfrz
-    this%topo_grc(bounds%begg : bounds%endg, :) = 0._r8
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(this%qice_grc,2), ubound(this%qice_grc,2)  ! spel section-loop
+       do spel_i1 = bounds%begg, bounds%endg
+          this%qice_grc(spel_i1, spel_i2) = 0._r8
+       end do
+    end do
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(this%tsrf_grc,2), ubound(this%tsrf_grc,2)  ! spel section-loop
+       do spel_i1 = bounds%begg, bounds%endg
+          this%tsrf_grc(spel_i1, spel_i2) = tfrz
+       end do
+    end do
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(this%topo_grc,2), ubound(this%topo_grc,2)  ! spel section-loop
+       do spel_i1 = bounds%begg, bounds%endg
+          this%topo_grc(spel_i1, spel_i2) = 0._r8
+       end do
+    end do
 
     ! Fill the lnd->glc data on the clm grid
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(fields_assigned) if_present
     allocate(fields_assigned(bounds%begg:bounds%endg, 0:maxpatch_glcmec))
-    fields_assigned(:,:) = .false.
+    !$acc update device(fields_assigned) if_present
+    !$acc data copy(fields_assigned)
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(fields_assigned,2), ubound(fields_assigned,2)  ! spel section-loop
+       do spel_i1 = lbound(fields_assigned,1), ubound(fields_assigned,1)
+          fields_assigned(spel_i1, spel_i2) = .false.
+       end do
+    end do
+    !$acc end data
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_es%t_soisno, col_pp%glc_topo, col_pp%wttopounit, col_wf%qflx_glcice, &
+    !$acc&   fields_assigned, this%qice_grc, this%topo_grc, this%tsrf_grc) if_present
     do fc = 1, num_do_smb_c
       c = filter_do_smb_c(fc)
       l = col_pp%landunit(c)
@@ -228,7 +255,7 @@ contains
     end do
 
     deallocate(fields_assigned)
-    !$acc update device(this%qice_grc, this%topo_grc, this%tsrf_grc) if_present
+    !$acc update device(fields_assigned, this%qice_grc, this%topo_grc, this%tsrf_grc) if_present
 
   end subroutine update_lnd2glc
 

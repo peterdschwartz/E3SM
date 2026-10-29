@@ -206,6 +206,7 @@ contains
     !$acc sum_liq, &
     !$acc sum_ice)
     
+    !$acc parallel loop gang vector default(present) private(c) copyin(bounds) if(elm_device_ready)
     do fc = 1, num_nolakec
        c = filter_nolakec(fc)
        liquid_mass(c) = 0._r8

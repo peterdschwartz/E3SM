@@ -5,6 +5,7 @@ module GridcellDataType
   ! Gridcell data type allocation and initialization
   ! -------------------------------------------------------- 
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use SpeciesMod, only : species_from_string, CN_SPECIES_N, CN_SPECIES_P
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use elm_varcon, only : spval
@@ -854,6 +855,7 @@ contains
     ! to 0 at the beginning of every timestep
 
     call gridcell_nutrient_flux_zerodwt(this%core, bounds)
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        this%hrv_deadstemc_to_prod10c(g)  = 0._r8
        this%hrv_deadstemc_to_prod100c(g) = 0._r8
@@ -999,6 +1001,7 @@ contains
     !-----------------------------------------------------------------------
   
     call gridcell_nutrient_flux_zerodwt(this%core, bounds)
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        this%dwt_seedn_to_npool(g)    = 0._r8
     end do
@@ -1136,6 +1139,7 @@ contains
     integer  :: g          ! indices
     !-----------------------------------------------------------------------
     call gridcell_nutrient_flux_zerodwt(this%core, bounds)
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        this%dwt_seedp_to_ppool(g)    = 0._r8
     end do

@@ -72,6 +72,9 @@ Module DryDepVelocity
   private
   !
   public :: depvel_compute
+  ! dry deposition is active: depvel_compute computes velocities (elm_drv skips the call otherwise;
+  ! the routine itself returns at once without species). Set in Init.
+  logical, public :: drydep_active = .false.
   !
   type, public :: drydepvel_type
 
@@ -95,6 +98,7 @@ CONTAINS
     class(drydepvel_type) :: this
     type(bounds_type), intent(in) :: bounds
 
+    drydep_active = (n_drydep > 0 .and. drydep_method == DD_XLND)
     if ( (.not. use_fates_sp) .and. use_fates .and. &
          (n_drydep > 0 .and. drydep_method == DD_XLND) )then
        call endrun('ERROR: Dry-deposition currently does NOT work with FATES outside of FATES-SP mode'//&

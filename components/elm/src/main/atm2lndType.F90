@@ -5,6 +5,7 @@ module atm2lndType
   ! Handle atm2lnd, lnd2atm mapping
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod  , only : r8 => shr_kind_r8
   use shr_infnan_mod, only : nan => shr_infnan_nan, assignment(=)
   use shr_log_mod   , only : errMsg => shr_log_errMsg
@@ -742,6 +743,8 @@ contains
     real(r8), pointer :: rbufslp(:)      ! temporary single level - pft level
     !---------------------------------------------------------------------
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslp) if_present
     begp = bounds%begp; endp = bounds%endp
 
     nstep = get_nstep()
@@ -749,6 +752,7 @@ contains
     ! Allocate needed dynamic memory for single level pft field
 
     allocate(rbufslp(begp:endp), stat=ier)
+    !$acc update device(rbufslp) if_present
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbuf1dp'
        call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -756,7 +760,7 @@ contains
 
     ! Accumulate and extract forc_solad24 & forc_solad240
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        g = veg_pp%gridcell(p)
        rbufslp(p) = this%forc_solad_grc(g,1)
@@ -769,7 +773,7 @@ contains
 
     ! Accumulate and extract forc_solai24 & forc_solai240
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        g = veg_pp%gridcell(p)
        rbufslp(p) = this%forc_solai_grc(g,1)
@@ -781,7 +785,7 @@ contains
     call extract_accum_field ('FSI240', this%fsi240_patch     , nstep)
 
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        c = veg_pp%column(p)
        rbufslp(p) = this%forc_rain_downscaled_col(c) + this%forc_snow_downscaled_col(c)
@@ -802,24 +806,33 @@ contains
        call update_accum_field  ('PREC24', rbufslp, nstep)
        call extract_accum_field ('PREC24', this%prec24_patch, nstep)
 
+       !$acc data copy(rbufslp)
+       !$acc parallel loop gang vector default(present) private(c, g) copyin(bounds) if(elm_device_ready)
        do p = bounds%begp,bounds%endp
           c = veg_pp%column(p)
           g = veg_pp%gridcell(p)
           rbufslp(p) = this%forc_wind_grc(g) 
        end do
+       !$acc end data
        call update_accum_field  ('WIND24', rbufslp, nstep)
        call extract_accum_field ('WIND24', this%wind24_patch, nstep)
 
+       !$acc data copy(rbufslp)
+       !$acc parallel loop gang vector default(present) private(c, g) copyin(bounds) if(elm_device_ready)
        do p = bounds%begp,bounds%endp
           c = veg_pp%column(p)
           g = veg_pp%gridcell(p)
           rbufslp(p) = this%forc_rh_grc(g) 
        end do
+       !$acc end data
        call update_accum_field  ('RH24', rbufslp, nstep)
        call extract_accum_field ('RH24', this%rh24_patch, nstep)
     end if
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(rbufslp) if_present
     deallocate(rbufslp)
+    !$acc update device(rbufslp) if_present
 
   end subroutine UpdateAccVars
 

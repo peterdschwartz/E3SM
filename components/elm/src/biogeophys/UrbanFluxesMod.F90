@@ -204,6 +204,7 @@ contains
     !-----------------------------------------------------------------------
 
     integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
+    integer :: spel_i1  ! spel section-loop indices
     associate(                                                                &
          snl                 =>   col_pp%snl                                   , & ! Input:  [integer  (:)   ]  number of snow layers
          ctype               =>   col_pp%itype                                 , & ! Input:  [integer  (:)   ]  column type
@@ -373,7 +374,10 @@ contains
        endp = bounds%endp
       ! Get time step
 
-      lnd_to_urban_filter(:) = -9999
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = lbound(lnd_to_urban_filter,1), ubound(lnd_to_urban_filter,1)  ! spel section-loop
+         lnd_to_urban_filter(spel_i1) = -9999
+      end do
       ! Compute canyontop wind using Masson (2000)
       erridx1 = -9999
       erridx2 = -9999
@@ -417,7 +421,7 @@ contains
 
       if(erridx1 > 0) then
          ! spel acc-sync: device data this host code uses
-         !$acc update self(lun_pp%z_0_town, lun_pp%z_d_town) if_present if(elm_device_ready)
+         !$acc update self(lun_pp%z_0_town, lun_pp%z_d_town) if_present
          l = erridx1
          write (iulog,*) 'aerodynamic parameter error in UrbanFluxes'
          write (iulog,*) 'h_r - z_d <= z_0'
@@ -430,7 +434,7 @@ contains
 
       if(erridx2 > 0) then
          ! spel acc-sync: device data this host code uses
-         !$acc update self(frictionvel_vars%forc_hgt_u_patch, lun_pp%z_0_town, lun_pp%z_d_town) if_present if(elm_device_ready)
+         !$acc update self(frictionvel_vars%forc_hgt_u_patch, lun_pp%z_0_town, lun_pp%z_d_town) if_present
          l = erridx2
          write (iulog,*) 'aerodynamic parameter error in UrbanFluxes'
          write (iulog,*) 'h_u - z_d <= z_0'
@@ -1083,9 +1087,15 @@ contains
       end if
 
       if ( found ) then
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(eflx_err) if_present
          write(iulog,*)'WARNING:  Total sensible heat does not equal sum of scaled heat fluxes for urban columns ',&
               ' nstep = ',nstep_mod,' indexl= ',indexl,' eflx_err= ',eflx_err(indexl)
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(eflx_err) if_present
          if (abs(eflx_err(indexl)) > .01_r8) then
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(eflx, eflx_scale, eflx_sh_grnd_scale) if_present
             l = filter_urbanl(indexl)
             write(iulog,*)'elm model is stopping - error is greater than .01 W/m**2'
             write(iulog,*)'eflx_scale    = ',eflx_scale(indexl)
@@ -1107,11 +1117,17 @@ contains
       end do
 
       if ( erridx1 > 0 ) then
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(qflx_err) if_present
          indexl = erridx1
          !$acc update self(qflx_err(:), qflx_scale(:), qflx(:)) if(elm_device_ready)
          write(iulog,*)'WARNING:  Total water vapor flux does not equal sum of scaled water vapor fluxes for urban columns ',&
               ' nstep = ',nstep_mod,' indexl= ',indexl,' qflx_err= ',qflx_err(indexl)
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(qflx_err) if_present
          if (abs(qflx_err(indexl)) > 4.e-9_r8) then
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(qflx, qflx_scale) if_present
             write(iulog,*)'elm model is stopping - error is greater than 4.e-9 kg/m**2/s'
             write(iulog,*)'qflx_scale    = ',qflx_scale(indexl)
             write(iulog,*)'qflx          = ',qflx(indexl)
@@ -1130,6 +1146,8 @@ contains
             end if
          end do
          if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(prev_tau_diff, tau, tau_diff, wind_speed_adj) if_present
             fl = 1 + spel_dc_1 - 1
             l = filter_urbanl(fl)
                   write(iulog,*)'WARNING: Stress did not converge for urban columns ',&

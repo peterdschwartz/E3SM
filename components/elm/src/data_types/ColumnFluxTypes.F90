@@ -5842,6 +5842,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! set time steps
+     integer :: spel_i1, spel_i2, spel_i3  ! spel section-loop indices
      dtime = real( get_step_size(), r8 )
     if (use_pflotran .and. pf_cmode) then
         ! TODO
@@ -5873,11 +5874,20 @@ contains
        end do
     end do
 
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(this%core%external_to_decomp_pools, this%sminp_net_transport_vr) if_present if(elm_device_ready)
-    this%core%external_to_decomp_pools(:,:,:) = 0._r8
-    this%sminp_net_transport_vr(:,:) = 0._r8
-    !$acc update device(this%core%external_to_decomp_pools, this%sminp_net_transport_vr) if_present
+    !$acc parallel loop gang vector collapse(3) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i3 = lbound(this%core%external_to_decomp_pools,3), ubound(this%core%external_to_decomp_pools,3)  ! spel section-loop
+       do spel_i2 = lbound(this%core%external_to_decomp_pools,2), ubound(this%core%external_to_decomp_pools,2)
+          do spel_i1 = lbound(this%core%external_to_decomp_pools,1), ubound(this%core%external_to_decomp_pools,1)
+             this%core%external_to_decomp_pools(spel_i1, spel_i2, spel_i3) = 0._r8
+          end do
+       end do
+    end do
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(this%sminp_net_transport_vr,2), ubound(this%sminp_net_transport_vr,2)  ! spel section-loop
+       do spel_i1 = lbound(this%sminp_net_transport_vr,1), ubound(this%sminp_net_transport_vr,1)
+          this%sminp_net_transport_vr(spel_i1, spel_i2) = 0._r8
+       end do
+    end do
 
     ! add up all vertically-resolved addition/removal rates (gC/m3/s) of decomp_pools
     !$acc parallel loop gang vector default(present) private(fc, j, c) if(elm_device_ready) copyin(bounds)

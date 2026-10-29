@@ -344,12 +344,13 @@ contains
      
      bounds%level = BOUNDS_LEVEL_CLUMP
      bounds%clump_index = n
-     !$acc update device(bounds%begc_all, bounds%begc_ghost, bounds%begcohort, bounds%begg, bounds%begg_all, &
-     !$acc&   bounds%begg_ghost, bounds%begl_all, bounds%begl_ghost, bounds%begp_all, bounds%begp_ghost, &
-     !$acc&   bounds%begt_all, bounds%begt_ghost, bounds%clump_index, bounds%endc_all, bounds%endc_ghost, &
-     !$acc&   bounds%endcohort, bounds%endg, bounds%endg_all, bounds%endg_ghost, bounds%endl_all, &
-     !$acc&   bounds%endl_ghost, bounds%endp_all, bounds%endp_ghost, bounds%endt_all, bounds%endt_ghost, &
-     !$acc&   bounds%level) if_present
+     !$acc update device(bounds%begc, bounds%begc_all, bounds%begc_ghost, bounds%begcohort, bounds%begg, &
+     !$acc&   bounds%begg_all, bounds%begg_ghost, bounds%begl, bounds%begl_all, bounds%begl_ghost, &
+     !$acc&   bounds%begp, bounds%begp_all, bounds%begp_ghost, bounds%begt, bounds%begt_all, &
+     !$acc&   bounds%begt_ghost, bounds%clump_index, bounds%endc, bounds%endc_all, bounds%endc_ghost, &
+     !$acc&   bounds%endcohort, bounds%endg, bounds%endg_all, bounds%endg_ghost, bounds%endl, &
+     !$acc&   bounds%endl_all, bounds%endl_ghost, bounds%endp, bounds%endp_all, bounds%endp_ghost, &
+     !$acc&   bounds%endt, bounds%endt_all, bounds%endt_ghost, bounds%level) if_present
 
    end subroutine get_clump_bounds_new
 

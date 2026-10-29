@@ -499,7 +499,7 @@ contains
     ! be activated.
     !-------------------------------------------------------------------------------------------------
     ! spel acc-sync: device data this host code uses
-    !$acc update self(carbon_only) if_present if(elm_device_ready)
+    !$acc update self(carbon_only) if_present
     call EvaluateSupplStatus()
     !$acc update device(carbon_only, carbonnitrogen_only, carbonphosphorus_only, crop_supln, &
     !$acc&   do_eval_suppstat, nu_com_leaf_physiology, nu_com_nfix, nu_com_phosphatase, &

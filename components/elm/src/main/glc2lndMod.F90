@@ -14,6 +14,7 @@ module glc2lndMod
   ! 'ice' refers to sea ice, not land ice.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use decompMod      , only : bounds_type
   use shr_log_mod    , only : errMsg => shr_log_errMsg
   use shr_kind_mod   , only : r8 => shr_kind_r8
@@ -470,6 +471,7 @@ contains
     ! glc_dyn_runoff_routing=false scheme. This is needed to conserve water correctly in
     ! the absence of a calving flux.
 
+    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        if (this%icemask_coupled_fluxes_grc(g) > 0._r8) then
           this%glc_dyn_runoff_routing_grc(g) = .true.
@@ -511,6 +513,7 @@ contains
     character(len=*), parameter :: subname = 'update_glc2lnd_fracs'
     !-----------------------------------------------------------------------
 
+    integer :: spel_i1  ! spel section-loop indices
     do g = bounds%begg, bounds%endg
        ! Values from GLC are only valid within the icemask, so we only update CLM's areas there
        if (this%icemask_grc(g) > 0._r8) then
@@ -522,6 +525,7 @@ contains
              ! Set total icemec landunit area
              area_ice_mec = sum(this%frac_grc(g, 1:maxpatch_glcmec))
              call set_landunit_weight(t, istice_mec, area_ice_mec)
+             !$acc update device(lun_pp%wttopounit) if_present
 
              ! If new landunit area is greater than 0, then update column areas
              ! (If new landunit area is 0, col_pp%wtlunit is arbitrary, so we might as well keep the existing values)
@@ -533,7 +537,14 @@ contains
                    call endrun()
                 end if
 
-                frac_assigned(1:maxpatch_glcmec) = .false.
+                !$acc data copy(frac_assigned)
+                !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+                do spel_i1 = 1, maxpatch_glcmec  ! spel section-loop
+                   frac_assigned(spel_i1) = .false.
+                end do
+                ! spel acc-sync: device data this host code uses
+                !$acc update self(frac_assigned) if_present
+                !$acc end data
                 do c = lun_pp%coli(l_ice_mec), lun_pp%colf(l_ice_mec)
                    icemec_class = col_itype_to_icemec_class(col_pp%itype(c))
                    col_pp%wtlunit(c) = this%frac_grc(g, icemec_class) / lun_pp%wttopounit(l_ice_mec)
@@ -549,7 +560,10 @@ contains
                       error = .true.
                    end if
                 end do
+                !$acc update device(col_pp%wtlunit, frac_assigned) if_present
                 if (error) then
+                   ! spel acc-sync: device data this host code uses
+                   !$acc update self(frac_assigned) if_present
                    write(iulog,*) subname//' ERROR: at least one glc_mec column has non-zero area from the coupler,'
                    write(iulog,*) 'but there was no slot in memory for this column; g = ', g
                    write(iulog,*) 'this%frac_grc(g, 1:maxpatch_glcmec) = ', &
@@ -600,6 +614,7 @@ contains
     ! So it seems simplest just to take the minor performance hit of setting glc_topo
     ! over all columns, even those outside the do_smb_c filter.
 
+    !$acc parallel loop gang vector default(present) private(l, g, icemec_class) copyin(bounds) if(elm_device_ready)
     do c = bounds%begc, bounds%endc
        l = col_pp%landunit(c)
        g = col_pp%gridcell(c)

@@ -137,6 +137,8 @@ module elm_varpar
   !$acc declare create(nlevurb)
   ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(nlevlak)
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(maxpatch_glcmec)
 contains
 
   subroutine update_pft_array_bounds()

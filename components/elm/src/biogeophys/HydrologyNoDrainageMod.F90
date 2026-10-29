@@ -214,8 +214,6 @@ contains
 
       if ( use_fan ) then 
          ! save the h2osoi_liq in top layer before evaluating the soilwater movement
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(col_ws%h2osoi_liq) if_present if(elm_device_ready)
          call store_tsl_moisture(filter_hydrologyc, num_hydrologyc) 
       end if
  
@@ -588,6 +586,7 @@ contains
 
       integer :: fc, c
 
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1, num_fc
          c = filter(fc)
          h2osoi_liq_saved(c) = col_ws%h2osoi_liq(c,1)

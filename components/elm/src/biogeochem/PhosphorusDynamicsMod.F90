@@ -507,10 +507,13 @@ contains
     real(r8) :: fr_frac        ! fine-root fraction of mass in current layer
     real(r8) :: ptase_tmp
     integer  :: max_comps
+    integer :: spel_i1, spel_i2, spel_i3  ! spel section-loop indices
     !-----------------------------------------------------------------------
 
     ! spel acc-locals: device storage of the local work arrays
     !$acc enter data create(sop_profile)
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(biochem_pmin_to_ecosysp_vr_col_pot)
     associate(                                                              &
          ! fine root vertical profile Zeng, X. 2001. Global vegetation root distribution for land modeling. J. Hydrometeor. 2:525-530
          froot_prof           => cnstate_vars%froot_prof_patch            , &
@@ -532,35 +535,58 @@ contains
 
 
     ! set initial values for potential C and N fluxes
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(col_pf%biochem_pmin_ppools_vr) if_present if(elm_device_ready)
-    biochem_pmin_ppools_vr_col(bounds%begc : bounds%endc, :, :) = 0._r8
-    !$acc update device(col_pf%biochem_pmin_ppools_vr) if_present
+    !$acc parallel loop gang vector collapse(3) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i3 = lbound(biochem_pmin_ppools_vr_col,3), ubound(biochem_pmin_ppools_vr_col,3)  ! spel section-loop
+       do spel_i2 = lbound(biochem_pmin_ppools_vr_col,2), ubound(biochem_pmin_ppools_vr_col,2)
+          do spel_i1 = bounds%begc, bounds%endc
+             biochem_pmin_ppools_vr_col(spel_i1, spel_i2, spel_i3) = 0._r8
+          end do
+       end do
+    end do
 
     if(use_fates) then
+        ! spel acc-sync: device data this host code uses
+        !$acc update self(biochem_pmin_to_plant_vr_patch) if_present
         ci = bounds%clump_index
          max_comps = size(alm_fates%fates(ci)%bc_out(1)%cp_scalar,dim=1)
         allocate(biochem_pmin_to_plant_vr_patch(max_comps,nlevdecomp))
+        !$acc update device(biochem_pmin_to_plant_vr_patch) if_present
     else
       !!TODO:  Try to get rid of the allocate statement
        ! spel acc-sync: device data this host code uses
-       !$acc update self(veg_pf%biochem_pmin_to_plant) if_present if(elm_device_ready)
+       !$acc update self(biochem_pmin_to_plant_vr_patch) if_present
        allocate(biochem_pmin_to_plant_vr_patch(bounds%begp:bounds%endp,1:nlevdecomp))
-       biochem_pmin_to_plant_patch(bounds%begp:bounds%endp) = 0._r8
-       !$acc update device(veg_pf%biochem_pmin_to_plant) if_present
+       !$acc update device(biochem_pmin_to_plant_vr_patch) if_present
+       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
+          biochem_pmin_to_plant_patch(spel_i1) = 0._r8
+       end do
     end if
-    biochem_pmin_to_plant_vr_patch(:,:) = 0._r8
+    !$acc data copy(biochem_pmin_to_plant_vr_patch)
+    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    do spel_i2 = lbound(biochem_pmin_to_plant_vr_patch,2), ubound(biochem_pmin_to_plant_vr_patch,2)  ! spel section-loop
+       do spel_i1 = lbound(biochem_pmin_to_plant_vr_patch,1), ubound(biochem_pmin_to_plant_vr_patch,1)
+          biochem_pmin_to_plant_vr_patch(spel_i1, spel_i2) = 0._r8
+       end do
+    end do
+    !$acc end data
 
     do fc = 1,num_soilc
-        ! spel acc-sync: device data this host code uses
-        !$acc update self(col_pf%biochem_pmin_to_plant, col_pf%biochem_pmin_vr) if_present if(elm_device_ready)
         c = filter_soilc(fc)
 
 
-        biochem_pmin_vr(c,:) = 0.0_r8
-        biochem_pmin_to_ecosysp_vr_col_pot(c,:) = 0._r8
+        !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+        do spel_i1 = lbound(biochem_pmin_vr,2), ubound(biochem_pmin_vr,2)  ! spel section-loop
+           biochem_pmin_vr(c, spel_i1) = 0.0_r8
+        end do
+        !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+        do spel_i1 = lbound(biochem_pmin_to_ecosysp_vr_col_pot,2), ubound(biochem_pmin_to_ecosysp_vr_col_pot,2)  ! spel section-loop
+           biochem_pmin_to_ecosysp_vr_col_pot(c, spel_i1) = 0._r8
+        end do
+        ! spel acc-sync: device data this host code uses
+        !$acc update self(col_pf%biochem_pmin_to_plant) if_present
         biochem_pmin_to_plant(c) = 0._r8
-        !$acc update device(col_pf%biochem_pmin_to_plant, col_pf%biochem_pmin_vr) if_present
+        !$acc update device(col_pf%biochem_pmin_to_plant) if_present
 
         if(use_fates) then
            s = alm_fates%f2hmap(ci)%hsites(c)
@@ -621,7 +647,7 @@ contains
         do j = 1,nlevdecomp
             ! sum total
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_ps%core%decomp_pools_vr) if_present if(elm_device_ready)
+            !$acc update self(col_ps%core%decomp_pools_vr) if_present
             sop_tot = 0._r8
             do l = 1,ndecomp_pools
                 if (is_soil(l)) then
@@ -726,8 +752,8 @@ contains
 
                 ! sum up biochem_pmin_to_plant
                 ! spel acc-sync: device data this host code uses
-                !$acc update self(col_pf%biochem_pmin_to_plant, col_pp%dz, &
-                !$acc&   veg_pf%biochem_pmin_to_plant) if_present if(elm_device_ready)
+                !$acc update self(biochem_pmin_to_plant_vr_patch, col_pf%biochem_pmin_to_plant, col_pp%dz, &
+                !$acc&   veg_pf%biochem_pmin_to_plant) if_present
                 do p = col_pp%pfti(c), col_pp%pftf(c)
                     if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
                         !biochem_pmin_to_plant_patch(p) = 0._r8
@@ -760,11 +786,15 @@ contains
        end do
     end do
 
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(biochem_pmin_to_plant_vr_patch) if_present
     deallocate(biochem_pmin_to_plant_vr_patch)
+    !$acc update device(biochem_pmin_to_plant_vr_patch) if_present
 
    end associate
 
     !$acc exit data delete(sop_profile)
+    !$acc exit data delete(biochem_pmin_to_ecosysp_vr_col_pot)
   end subroutine PhosphorusBiochemMin_balance
 
   !-----------------------------------------------------------------------

@@ -376,6 +376,7 @@ contains
     integer :: ip
     character(*),parameter :: subName = '(Reset) '
 
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     if (.not.present(mode)) then
        call get_curr_date(year, mon, day, sec)
        call get_prev_date(year, mon, day, sec)
@@ -415,59 +416,141 @@ contains
     else
 
        if (trim(mode) == 'inst') then
-          ! spel acc-sync: device data this host code uses
-          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
-          budg_fluxL  (:,p_inst)   = 0.0_r8
-          budg_fluxG  (:,p_inst)   = 0.0_r8
-          budg_fluxN  (:,p_inst)   = 0.0_r8
-          budg_stateL (:,p_inst)   = 0.0_r8
-          budg_stateG (:,p_inst)   = 0.0_r8
-          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_inst)   = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_inst)   = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_inst)   = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_inst)   = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_inst)   = 0.0_r8
+          end do
        elseif (trim(mode) == 'day') then
-          ! spel acc-sync: device data this host code uses
-          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
-          budg_fluxL  (:,p_day)    = 0.0_r8
-          budg_fluxG  (:,p_day)    = 0.0_r8
-          budg_fluxN  (:,p_day)    = 0.0_r8
-          budg_stateL (:,p_day)    = 0.0_r8
-          budg_stateG (:,p_day)    = 0.0_r8
-          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_day)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_day)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_day)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_day)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_day)    = 0.0_r8
+          end do
        elseif (trim(mode) == 'mon') then
-          ! spel acc-sync: device data this host code uses
-          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
-          budg_fluxL  (:,p_mon)    = 0.0_r8
-          budg_fluxG  (:,p_mon)    = 0.0_r8
-          budg_fluxN  (:,p_mon)    = 0.0_r8
-          budg_stateL (:,p_mon)    = 0.0_r8
-          budg_stateG (:,p_mon)    = 0.0_r8
-          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_mon)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_mon)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_mon)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_mon)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_mon)    = 0.0_r8
+          end do
        elseif (trim(mode) == 'ann') then
-          ! spel acc-sync: device data this host code uses
-          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
-          budg_fluxL  (:,p_ann)    = 0.0_r8
-          budg_fluxG  (:,p_ann)    = 0.0_r8
-          budg_fluxN  (:,p_ann)    = 0.0_r8
-          budg_stateL (:,p_ann)    = 0.0_r8
-          budg_stateG (:,p_ann)    = 0.0_r8
-          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_ann)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_ann)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_ann)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_ann)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_ann)    = 0.0_r8
+          end do
        elseif (trim(mode) == 'inf') then
-          ! spel acc-sync: device data this host code uses
-          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
-          budg_fluxL  (:,p_inf)    = 0.0_r8
-          budg_fluxG  (:,p_inf)    = 0.0_r8
-          budg_fluxN  (:,p_inf)    = 0.0_r8
-          budg_stateL (:,p_inf)    = 0.0_r8
-          budg_stateG (:,p_inf)    = 0.0_r8
-          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+             budg_fluxL  (spel_i1, p_inf)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)  ! spel section-loop
+             budg_fluxG  (spel_i1, p_inf)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)  ! spel section-loop
+             budg_fluxN  (spel_i1, p_inf)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+             budg_stateL (spel_i1, p_inf)    = 0.0_r8
+          end do
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
+          do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)  ! spel section-loop
+             budg_stateG (spel_i1, p_inf)    = 0.0_r8
+          end do
        elseif (trim(mode) == 'all') then
-          ! spel acc-sync: device data this host code uses
-          !$acc update self(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
-          budg_fluxL  (:,:)        = 0.0_r8
-          budg_fluxG  (:,:)        = 0.0_r8
-          budg_fluxN  (:,:)        = 0.0_r8
-          budg_stateL (:,:)        = 0.0_r8
-          budg_stateG (:,:)        = 0.0_r8
-          !$acc update device(budg_fluxg, budg_fluxl, budg_fluxn, budg_stateg, budg_statel) if_present
+          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+          do spel_i2 = lbound(budg_fluxL,2), ubound(budg_fluxL,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)
+                budg_fluxL  (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+          do spel_i2 = lbound(budg_fluxG,2), ubound(budg_fluxG,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)
+                budg_fluxG  (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+          do spel_i2 = lbound(budg_fluxN,2), ubound(budg_fluxN,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)
+                budg_fluxN  (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+          do spel_i2 = lbound(budg_stateL,2), ubound(budg_stateL,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)
+                budg_stateL (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
+          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+          do spel_i2 = lbound(budg_stateG,2), ubound(budg_stateG,2)  ! spel section-loop
+             do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)
+                budg_stateG (spel_i1, spel_i2)        = 0.0_r8
+             end do
+          end do
        else
           call shr_sys_abort(subname//' ERROR in mode '//trim(mode))
        endif
@@ -544,13 +627,15 @@ contains
     character(*),parameter :: subName = '(CarbonBudget_Accum)'
     logical                :: update_state_beg, update_state_end
 
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     call get_prev_date(year_prev, month_prev, day_prev, sec_prev)
     call get_curr_date(year_curr, month_curr, day_curr, sec_curr)
 
     do ip = p_inst+1, p_size
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(budg_fluxl) if_present
-       budg_fluxL(:,ip) = budg_fluxL(:,ip) + budg_fluxL(:,p_inst)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
+       do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)  ! spel section-loop
+          budg_fluxL(spel_i1, ip) = budg_fluxL(spel_i1, ip) + budg_fluxL(spel_i1, p_inst)
+       end do
        update_state_beg = .false.
        update_state_end = .false.
 
@@ -570,7 +655,6 @@ contains
 
        ! If this is the first time step, update the states for all budget types
        if (get_nstep() == 1) update_state_beg = .true.
-       !$acc update device(budg_fluxl) if_present
 
        if (update_state_beg) then
           !$acc parallel loop gang vector default(present) if(elm_device_ready)
@@ -590,10 +674,12 @@ contains
        is= s_size; budg_stateL(is,ip) = budg_stateL(is,ip) + budg_stateL(is, p_inst)
        !$acc update device(budg_statel) if_present
     end do
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(budg_fluxn) if_present
-    budg_fluxN(:,:) = budg_fluxN(:,:) + 1._r8
-    !$acc update device(budg_fluxn) if_present
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+    do spel_i2 = lbound(budg_fluxN,2), ubound(budg_fluxN,2)  ! spel section-loop
+       do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)
+          budg_fluxN(spel_i1, spel_i2) = budg_fluxN(spel_i1, spel_i2) + 1._r8
+       end do
+    end do
 
   end subroutine Accum
 
@@ -613,16 +699,7 @@ contains
     type(gridcell_carbon_state) , intent(in) :: grc_cs
     type(gridcell_carbon_flux)  , intent(in) :: grc_cf
 
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(c_budg_fluxl, c_budg_statel, grc_cf%er, grc_cf%fire_closs, grc_cf%gpp, &
-    !$acc&   grc_cf%hrv_xsmrpool_to_atm, grc_cf%prod100_loss, grc_cf%prod10_loss, grc_cf%prod1_loss, &
-    !$acc&   grc_cf%som_c_leached, grc_cf%somc_yield, grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, &
-    !$acc&   grc_cs%beg_cwdc, grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, grc_cs%beg_totprodc, &
-    !$acc&   grc_cs%beg_totsomc, grc_cs%core%balance_err, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, &
-    !$acc&   grc_cs%end_cwdc, grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
-    !$acc&   grc_cs%end_totsomc) if_present if(elm_device_ready)
     call CBudget_Run(bounds, atm2lnd_vars, lnd2atm_vars, grc_cs, grc_cf, c_budg_fluxL, c_budg_stateL)
-    !$acc update device(c_budg_fluxl, c_budg_statel) if_present
 
   end subroutine CNPBudget_Run
     
@@ -647,6 +724,7 @@ contains
     integer  :: g, nf, ns, ip
     real(r8) :: af, one_over_re2
 
+    integer :: spel_i1  ! spel section-loop indices
     associate(                                                       &
          beg_totc                  => grc_cs%beg_totc              , & ! Input: [real(r8) (:)] (gC/m2) total column carbon, incl veg and cpool
          beg_totpftc               => grc_cs%beg_totpftc           , & ! Input: [real(r8) (:)] (gC/m2) patch-level carbon aggregated to column level, incl veg and cpool
@@ -680,7 +758,19 @@ contains
          )
 
       ip = p_inst
-      budg_stateL(:,ip) = 0._r8
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+         budg_stateL(spel_i1, ip) = 0._r8
+      end do
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(budg_fluxl, budg_statel, grc_cf%core%dwt_conv_flux, grc_cf%core%dwt_seed_to_deadstem, &
+      !$acc&   grc_cf%core%dwt_seed_to_leaf, grc_cf%er, grc_cf%fire_closs, grc_cf%gpp, &
+      !$acc&   grc_cf%hrv_xsmrpool_to_atm, grc_cf%prod100_loss, grc_cf%prod10_loss, grc_cf%prod1_loss, &
+      !$acc&   grc_cf%som_c_leached, grc_cf%somc_yield, grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, &
+      !$acc&   grc_cs%beg_cwdc, grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, grc_cs%beg_totprodc, &
+      !$acc&   grc_cs%beg_totsomc, grc_cs%core%balance_err, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, &
+      !$acc&   grc_cs%end_cwdc, grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
+      !$acc&   grc_cs%end_totsomc) if_present
       one_over_re2 = 1._r8/(re**2._r8)
 
       do g = bounds%begg, bounds%endg
@@ -722,6 +812,7 @@ contains
 
          ns = s_c_error               ; budg_stateL(ns,ip) = budg_stateL(ns,ip) + errcb(g)                 *af
       end do
+      !$acc update device(budg_fluxl, budg_statel) if_present
 
     end associate
 
@@ -754,6 +845,9 @@ contains
     real(r8)               :: budg_stateGtmp(s_size,p_size) ! temporary sum
     character(*),parameter :: subName = '(Sum0)'
 
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(budg_fluxg, budg_stateg) if_present
     budg_fluxGtmp = 0._r8
     budg_stateGtmp = 0._r8
 
@@ -763,9 +857,18 @@ contains
 
     budg_fluxG  = budg_fluxG + budg_fluxGtmp
     budg_stateG = budg_stateGtmp
+    !$acc update device(budg_fluxg, budg_fluxgtmp, budg_stateg, budg_stategtmp) if_present
 
-    budg_fluxL(:,:)       = 0._r8 ! reset all fluxes
-    budg_stateL(:,p_inst) = 0._r8 ! only reset instantaneous states
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
+    do spel_i2 = lbound(budg_fluxL,2), ubound(budg_fluxL,2)  ! spel section-loop
+       do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)
+          budg_fluxL(spel_i1, spel_i2)       = 0._r8
+       end do
+    end do
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
+    do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
+       budg_stateL(spel_i1, p_inst) = 0._r8
+    end do
 
   end subroutine Sum0
 
@@ -783,14 +886,11 @@ contains
     integer , intent(in) :: budg_print_ltann
     integer , intent(in) :: budg_print_ltend
 
-    ! spel acc-sync: device data this host code uses
-    !$acc update self(c_budg_fluxg, c_budg_fluxl, c_budg_fluxn, c_budg_stateg, c_budg_statel) if_present
     call Print( carbon_budget, c_f_size, c_s_size            , &
          c_budg_fluxL, c_budg_fluxG, c_budg_fluxN            , &
          c_budg_stateL, c_budg_stateG                        , &
          budg_print_inst, budg_print_daily, budg_print_month , &
          budg_print_ann, budg_print_ltann, budg_print_ltend)
-    !$acc update device(c_budg_fluxg, c_budg_fluxl, c_budg_stateg, c_budg_statel) if_present
 
   end subroutine CNPBudget_Print
 
@@ -860,9 +960,12 @@ contains
           if (.not.sumdone) then
              sumdone = .true.
              call Sum0(f_size, s_size, budg_fluxL, budg_fluxG, budg_stateL, budg_stateG)
+             ! spel acc-sync: device data this host code uses
+             !$acc update self(budg_fluxg, budg_fluxn) if_present
              budg_fluxGpr = budg_fluxG
              budg_fluxGpr = budg_fluxGpr*unit_conversion
              budg_fluxGpr = budg_fluxGpr/budg_fluxN
+             !$acc update device(budg_fluxgpr) if_present
           end if
 
           if (ip == p_day .and. get_nstep() == 1) cycle
@@ -874,6 +977,8 @@ contains
        end if
     end do
     if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(budg_fluxg, budg_stateg) if_present
        ip = 1 + spel_dc_1 - 1
        unit_conversion = 1._r8/(4.0_r8*shr_const_pi)*1.0e9_r8
              select case (budget_type)
@@ -1230,6 +1335,7 @@ contains
     integer :: year, month, day, sec
     !-----------------------------------------------------------------------
 
+    integer :: spel_i1  ! spel section-loop indices
     associate(                                          &
          endcb             =>    col_cs%core%balance_end         , & ! Input : [real(r8) (:)   ]  carbon mass begining of the time step
          tcs_month_end_grc =>    grc_cs%tcs_month_end   & ! Output: [real(r8) (:)   ]  grid-level carbon mass at the ending of a month
@@ -1247,10 +1353,10 @@ contains
               tcs_month_end_grc(bounds%begg:bounds%endg), &
               c2l_scale_type= 'unity', l2g_scale_type='unity' )
       else
-         ! spel acc-sync: device data this host code uses
-         !$acc update self(grc_cs%tcs_month_end) if_present
-         tcs_month_end_grc(bounds%begg:bounds%endg) = spval
-         !$acc update device(grc_cs%tcs_month_end) if_present
+         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         do spel_i1 = bounds%begg, bounds%endg  ! spel section-loop
+            tcs_month_end_grc(spel_i1) = spval
+         end do
       endif
 
     end associate

@@ -70,6 +70,7 @@ contains
     !-----------------------------------------------------------------------
 
     integer :: spel_dc_1, spel_dc_2, spel_dc_3, spel_dc_4  ! spel defer-checks: elements recorded by deferred checks
+    integer :: nbad_pc        ! floating-ratio N/P pools negative beyond ncrit (counted in the loop, abort on the host)
     associate(&
          floating_cn_ratio_decomp_pools   =>    decomp_cascade_con%floating_cn_ratio_decomp_pools , &
          floating_cp_ratio_decomp_pools   =>    decomp_cascade_con%floating_cp_ratio_decomp_pools , &
@@ -330,25 +331,24 @@ contains
 
             ! remove small negative perturbations for stability purposes, if any should arise in N,P pools
             ! for floating CN, CP ratio pools
-            ! spel acc-sync: device data this host code uses
-            !$acc update self(col_ns%core%decomp_pools_vr, col_ns%core%trunc_sink_vr, &
-            !$acc&   col_ps%core%decomp_pools_vr, col_ps%core%trunc_sink_vr) if_present if(elm_device_ready)
+            nbad_pc = 0
+            !$acc parallel loop gang vector default(present) private(c, j, cn_eca, cp_eca, l) &
+            !$acc   reduction(+:nbad_pc) if(elm_device_ready)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
+               !$acc loop seq
                do j = 1,nlevdecomp_full
 
                   cn_eca = 0.0_r8
                   cp_eca = 0.0_r8
+                  !$acc loop seq
                   do l = 1,ndecomp_pools
                      if ( col_ns%core%decomp_pools_vr(c,j,l) < 0.0_r8 .and. floating_cn_ratio_decomp_pools(l) ) then
                         if ( abs(col_ns%core%decomp_pools_vr(c,j,l))  < ncrit ) then
                            cn_eca = cn_eca - ncrit + col_ns%core%decomp_pools_vr(c,j,l)
                            col_ns%core%decomp_pools_vr(c,j,l) = ncrit
                         else
-#ifndef _OPENACC                                
-                           write(iulog, "(A,2I8,E8.1)") 'error decomp_npools is negative: ',j,l,col_ns%core%decomp_pools_vr(c,j,l)
-                           call endrun(msg=errMsg(__FILE__, __LINE__))
-#endif
+                           nbad_pc = nbad_pc + 1   ! reported after the loop
                         end if
                      end if
                      if ( col_ps%core%decomp_pools_vr(c,j,l)  < 0.0_r8 .and. floating_cp_ratio_decomp_pools(l) ) then
@@ -356,10 +356,7 @@ contains
                            cp_eca = cp_eca - ncrit/1e4_r8 + col_ps%core%decomp_pools_vr(c,j,l)
                            col_ps%core%decomp_pools_vr(c,j,l) = ncrit/1e4_r8
                          else
-#ifndef _OPENACC
-                           write(iulog, "(A,2I8,E8.1)") 'error decomp_ppools is negative: ',j,l,col_ps%core%decomp_pools_vr(c,j,l)
-                           call endrun(msg=errMsg(__FILE__, __LINE__))
-#endif
+                           nbad_pc = nbad_pc + 1   ! reported after the loop
                          end if
                      end if
 
@@ -370,8 +367,10 @@ contains
 
                end do
             end do
-            !$acc update device(col_ns%core%decomp_pools_vr, col_ns%core%trunc_sink_vr, &
-            !$acc&   col_ps%core%decomp_pools_vr, col_ps%core%trunc_sink_vr) if_present
+            if (nbad_pc > 0) then
+               write(iulog, *) 'PrecisionControl: ', nbad_pc, ' floating-ratio decomp N or P pools negative beyond ncrit'
+               call endrun(msg=errMsg(__FILE__, __LINE__))
+            end if
 
           if(.not.use_fates) then
             spel_dc_1 = 0  ! spel defer-checks
@@ -391,7 +390,7 @@ contains
             end do
             if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ns%retrans%pool) if_present if(elm_device_ready)
+               !$acc update self(veg_ns%retrans%pool) if_present
                fp = 1 + spel_dc_1 - 1
                p = filter_soilp(fp)
 
@@ -401,7 +400,7 @@ contains
             end if
             if (spel_dc_2 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ns%core%pool) if_present if(elm_device_ready)
+               !$acc update self(veg_ns%core%pool) if_present
                fp = 1 + spel_dc_2 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error npool_patch is negative: ',p
@@ -410,7 +409,7 @@ contains
             end if
             if (spel_dc_3 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ps%retrans%pool) if_present if(elm_device_ready)
+               !$acc update self(veg_ps%retrans%pool) if_present
                fp = 1 + spel_dc_3 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error retransp_patch is negative: ',p
@@ -419,7 +418,7 @@ contains
             end if
             if (spel_dc_4 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ps%core%pool) if_present if(elm_device_ready)
+               !$acc update self(veg_ps%core%pool) if_present
                fp = 1 + spel_dc_4 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error ppool_patch is negative: ',p

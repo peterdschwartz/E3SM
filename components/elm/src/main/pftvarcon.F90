@@ -354,6 +354,8 @@ module pftvarcon
   !$acc declare create(irrigated)
   ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(aleaff, allconsl, allconss, arootf, arooti, astemf, bfact, declfact, fleafi, fr_fcel, fr_flab, fr_flig, lf_fcel, lf_flab, lf_flig, nfixer, rsub_top_globalmax)
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(roota_par, rootb_par)
 contains
 
   !-----------------------------------------------------------------------

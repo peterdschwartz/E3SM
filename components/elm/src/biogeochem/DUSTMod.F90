@@ -275,6 +275,7 @@ contains
     !------------------------------------------------------------------------
 
     integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     ! spel acc-locals: device storage of the local work arrays
     !$acc enter data create(flx_mss_vrt_dst_ttl)
     associate(                                                         &
@@ -301,7 +302,12 @@ contains
          flx_mss_vrt_dst_tot => dust_vars%flx_mss_vrt_dst_tot_patch    & ! Output: [real(r8) (:)   ]  total dust flux back to atmosphere (pft)
          )
 
-      ttlai(bounds%begp : bounds%endp) = 0._r8
+      !$acc data copy(ttlai)
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
+         ttlai(spel_i1) = 0._r8
+      end do
+      !$acc end data
       ! make lai average at landunit level
       !$acc data copy(ttlai) if(elm_device_ready)
       !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
@@ -311,8 +317,20 @@ contains
       enddo
       !$acc end data
 
-      tlai_lu(bounds%begl : bounds%endl) = spval
-      sumwt(bounds%begl : bounds%endl) = 0._r8
+      !$acc data copy(tlai_lu)
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = bounds%begl, bounds%endl  ! spel section-loop
+         tlai_lu(spel_i1) = spval
+      end do
+      !$acc end data
+      !$acc data copy(sumwt)
+      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i1 = bounds%begl, bounds%endl  ! spel section-loop
+         sumwt(spel_i1) = 0._r8
+      end do
+      ! spel acc-sync: device data this host code uses
+      !$acc update self(sumwt, tlai_lu, ttlai, veg_pp%wtlunit) if_present
+      !$acc end data
       do p = bounds%begp,bounds%endp
          if (ttlai(p) /= spval .and. veg_pp%active(p) .and. veg_pp%wtlunit(p) /= 0._r8) then
             c = veg_pp%column(p)
@@ -332,6 +350,7 @@ contains
             tlai_lu(l) = tlai_lu(l)/sumwt(l)
          end if
       end do
+      !$acc update device(sumwt, tlai_lu) if_present
       if (found) then
 #ifndef _OPENACC
          write(iulog,*)  'p2l_1d error: sumwt is greater than 1.0 at l= ',index
@@ -342,10 +361,12 @@ contains
       ! Loop through patches
 
       ! initialize variables which get passed to the atmosphere
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(dust_vars%flx_mss_vrt_dst_patch) if_present if(elm_device_ready)
-      flx_mss_vrt_dst(bounds%begp:bounds%endp,:)=0._r8
-      !$acc update device(dust_vars%flx_mss_vrt_dst_patch) if_present
+      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      do spel_i2 = lbound(flx_mss_vrt_dst,2), ubound(flx_mss_vrt_dst,2)  ! spel section-loop
+         do spel_i1 = bounds%begp, bounds%endp
+            flx_mss_vrt_dst(spel_i1, spel_i2)=0._r8
+         end do
+      end do
 
       !$acc data copy(tlai_lu) if(elm_device_ready)
       !$acc parallel loop gang vector default(present) private(p, c, l) if(elm_device_ready) copyin(bounds)
@@ -383,7 +404,7 @@ contains
       end do
       if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
          ! spel acc-sync: device data this host code uses
-         !$acc update self(dust_vars%lnd_frc_mbl_patch) if_present if(elm_device_ready)
+         !$acc update self(dust_vars%lnd_frc_mbl_patch) if_present
          fp = 1 + spel_dc_1 - 1
          p = filter_nolakep(fp)
             write(iulog,*)'Error dstmbl: pft= ',p,' lnd_frc_mbl(p)= ',lnd_frc_mbl(p)

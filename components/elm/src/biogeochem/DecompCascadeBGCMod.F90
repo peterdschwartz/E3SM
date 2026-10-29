@@ -690,6 +690,7 @@ contains
     real(r8):: normalization_factor         ! factor by which to offset the decomposition rates frm century to a q10 formulation
     real(r8):: depth_scalar(bounds%begc:bounds%endc,1:nlevdecomp)
     real(r8):: mino2lim                     !minimum anaerobic decomposition rate
+    integer :: spel_i1, spel_i2  ! spel section-loop indices
     !-----------------------------------------------------------------------
 
     !----- CENTURY T response function
@@ -697,6 +698,8 @@ contains
 
     ! spel acc-locals: device storage of the local work arrays
     !$acc enter data create(depth_scalar)
+    ! spel acc-locals: device storage of the local work arrays
+    !$acc enter data create(frw)
     associate(                                             &
          sucsat         => soilstate_vars%sucsat_col     , & ! Input:  [real(r8) (:,:)   ]  minimum soil suction (mm)
          soilpsi        => soilstate_vars%soilpsi_col    , & ! Input:  [real(r8) (:,:)   ]  soil water potential in each soil layer (MPa)
@@ -788,6 +791,7 @@ contains
        decomp_k_pools(i_soil1) = k_s1
        decomp_k_pools(i_soil2) = k_s2
        decomp_k_pools(i_soil3) = k_s3
+      !$acc update device(decomp_cascade_con%decomp_k_pools) if_present
        ! pflotran:end
 
      ! The following code implements the acceleration part of the AD spinup algorithm
@@ -796,7 +800,6 @@ contains
          k_s2 = k_s2 * DecompBGCParamsInst%spinup_vector(2)
          k_s3 = k_s3 * DecompBGCParamsInst%spinup_vector(3)
       endif
-      !$acc update device(decomp_cascade_con%decomp_k_pools) if_present
 
       !--- time dependent coefficients-----!
       if ( nlevdecomp .eq. 1 ) then
@@ -807,10 +810,15 @@ contains
 
          ! the following normalizes values in fr so that they
          ! sum to 1.0 across top nlevdecomp levels on a column
-         frw(bounds%begc:bounds%endc) = 0._r8
+         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         do spel_i1 = bounds%begc, bounds%endc  ! spel section-loop
+            frw(spel_i1) = 0._r8
+         end do
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(fr) if_present
          nlev_soildecomp_standard=5
          allocate(fr(bounds%begc:bounds%endc,nlev_soildecomp_standard))
-         !$acc update device(nlev_soildecomp_standard) if_present
+         !$acc update device(fr, nlev_soildecomp_standard) if_present
          !$acc data copy(frw) if(elm_device_ready)
          !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready) copyin(bounds)
          do fc = 1,num_soilc
@@ -939,19 +947,26 @@ contains
                end do
                !$acc end data
             else
-               ! spel acc-sync: device data this host code uses
-               !$acc update self(col_cf%o_scalar) if_present if(elm_device_ready)
-               o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
-               !$acc update device(col_cf%o_scalar) if_present
+               !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+               do spel_i2 = 1, nlevdecomp  ! spel section-loop
+                  do spel_i1 = bounds%begc, bounds%endc
+                     o_scalar(spel_i1, spel_i2) = 1._r8
+                  end do
+               end do
             end if
          else
-            ! spel acc-sync: device data this host code uses
-            !$acc update self(col_cf%o_scalar) if_present if(elm_device_ready)
-            o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
-            !$acc update device(col_cf%o_scalar) if_present
+            !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+            do spel_i2 = 1, nlevdecomp  ! spel section-loop
+               do spel_i1 = bounds%begc, bounds%endc
+                  o_scalar(spel_i1, spel_i2) = 1._r8
+               end do
+            end do
          end if
 
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(fr) if_present
          deallocate(fr)
+         !$acc update device(fr) if_present
 
       else
 
@@ -1037,16 +1052,20 @@ contains
                   end do
                end do
             else
-               ! spel acc-sync: device data this host code uses
-               !$acc update self(col_cf%o_scalar) if_present if(elm_device_ready)
-               o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
-               !$acc update device(col_cf%o_scalar) if_present
+               !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+               do spel_i2 = 1, nlevdecomp  ! spel section-loop
+                  do spel_i1 = bounds%begc, bounds%endc
+                     o_scalar(spel_i1, spel_i2) = 1._r8
+                  end do
+               end do
             end if
          else
-            ! spel acc-sync: device data this host code uses
-            !$acc update self(col_cf%o_scalar) if_present if(elm_device_ready)
-            o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
-            !$acc update device(col_cf%o_scalar) if_present
+            !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+            do spel_i2 = 1, nlevdecomp  ! spel section-loop
+               do spel_i1 = bounds%begc, bounds%endc
+                  o_scalar(spel_i1, spel_i2) = 1._r8
+               end do
+            end do
          end if
 
       end if
@@ -1161,6 +1180,7 @@ contains
     end associate
 
     !$acc exit data delete(depth_scalar)
+    !$acc exit data delete(frw)
  end subroutine decomp_rate_constants_bgc
 
 end module DecompCascadeBGCMod
