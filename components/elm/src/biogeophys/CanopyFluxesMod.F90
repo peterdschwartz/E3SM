@@ -9,6 +9,7 @@ module CanopyFluxesMod
   ! fluxes for the new ground temperature.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_sys_mod           , only : shr_sys_flush
   use shr_kind_mod          , only : r8 => shr_kind_r8
   use shr_log_mod           , only : errMsg => shr_log_errMsg
@@ -444,7 +445,7 @@ contains
       ! (e.g. btran, t_veg, rootr, rresis)
       if(num_nolu_barep > 0) then
          !$acc parallel loop independent gang vector private(p,c,t) default(present) &
-         !$acc   present(t_veg(:), btran(:), rssun(:), rssha(:), lbl_rsc_h2o(:), thm(:) ) 
+         !$acc   present(t_veg(:), btran(:), rssun(:), rssha(:), lbl_rsc_h2o(:), thm(:) ) if(elm_device_ready) copyin(bounds)
          do fp = 1,num_nolu_barep
             p = filter_nolu_barep(fp)
             c = veg_pp%column(p)
@@ -456,7 +457,7 @@ contains
             rssha(p) = 1._r8/1.e15_r8 * cf_bare
             lbl_rsc_h2o(p)=0._r8
          end do
-         !$acc parallel loop independent gang default(present)
+         !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
          do j = 1, nlevgrnd
             !$acc loop vector private(p)
             do fp = 1,num_nolu_barep
@@ -481,11 +482,11 @@ contains
       !$acc exit data delete(filterc_tmp)
       if(num_nolu_vegp == 0) return
       !$acc enter data create(del(:), efeb(:), wtlq0(:),wtalq(:), &
-      !$acc    wtgq(:), wtaq0(:), obuold(:),dayl_factor(:),zldis(:) ) 
+      !$acc    wtgq(:), wtaq0(:), obuold(:),dayl_factor(:),zldis(:) )
       !$acc enter data create(iter_filterp(:), iter_filter_map(:), next_filterp(:), next_filter_map(:))
 
       ! Initialize
-      !$acc parallel loop independent gang vector private(p) default(present) present(btran(:), btran2(:))
+      !$acc parallel loop independent gang vector private(p) default(present) present(btran(:), btran2(:)) if(elm_device_ready) copyin(bounds)
       do filter_index = 1, fn
          iter_filterp(filter_index) = filter_nolu_vegp(filter_index) 
          iter_filter_map(filter_index) = filter_index
@@ -502,7 +503,7 @@ contains
       end do
 
       ! calculate daylength control for Vcmax
-      !$acc parallel loop independent gang vector private(p,g) default(present)
+      !$acc parallel loop independent gang vector private(p,g) default(present) if(elm_device_ready) copyin(bounds)
       do filter_index = 1, fn
          p=filter_nolu_vegp(filter_index)
          g=veg_pp%gridcell(p)
@@ -514,7 +515,7 @@ contains
          call alm_fates%prep_canopyfluxes( bounds )
       end if
       
-      !$acc parallel loop independent gang vector default(present) present(rb1(:))
+      !$acc parallel loop independent gang vector default(present) present(rb1(:)) if(elm_device_ready) copyin(bounds)
       do p = begp, endp
          rb1(p) = 0._r8
       end do
@@ -562,7 +563,7 @@ contains
       ! values require knowledge of the belowground root structure.
       ! --------------------------------------------------------------------------
       if(use_fates)then
-         !$acc parallel loop gang vector default(present)
+         !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
          do fp = 1, fn
             filterc_tmp(fp) = veg_pp%column(filter_nolu_vegp(fp))
          end do
@@ -586,7 +587,7 @@ contains
 
       ! Modify aerodynamic parameters for sparse/dense canopy (X. Zeng)
       !$acc parallel loop independent gang vector default(present) private(p,c,egvf,lt) &
-      !$acc present(z0qv(:),forc_hgt_u_patch(:),elai(:),displa(:),esai(:),z0hv(:),z0mg(:),z0mv(:))
+      !$acc present(z0qv(:),forc_hgt_u_patch(:),elai(:),displa(:),esai(:),z0hv(:),z0mg(:),z0mv(:)) if(elm_device_ready) copyin(bounds)
       do filter_index = 1, fn
          p = filter_nolu_vegp(filter_index)
          c = veg_pp%column(p)
@@ -609,7 +610,7 @@ contains
       !$acc  wind_speed0(:), wind_speed_adj(:), tau(:), tau_diff(:), &
       !$acc  prev_tau(:), prev_tau_diff(:))
 
-      !$acc parallel loop independent gang vector default(present) private(p,c,t,g,deldT,slope_rad) present(thm(:),emv(:))
+      !$acc parallel loop independent gang vector default(present) private(p,c,t,g,deldT,slope_rad) present(thm(:),emv(:)) if(elm_device_ready) copyin(bounds)
       do filter_index = 1, fn
          p = filter_nolu_vegp(filter_index)
          c = veg_pp%column(p)
@@ -670,7 +671,7 @@ contains
          end if
       end if
       
-      !$acc parallel loop independent gang vector default(present) private(p,c)
+      !$acc parallel loop independent gang vector default(present) private(p,c) if(elm_device_ready) copyin(bounds)
       do filter_index = 1, fn
          p = filter_nolu_vegp(filter_index)
          c = veg_pp%column(p)
@@ -699,7 +700,7 @@ contains
 
         !$acc parallel loop independent gang vector default(present) private(p,filter_index,c,t,g,&
         !$acc  cf, w,csoilb,ri, ricsoilc, csoilcn) present(ram1(:), rb1(:), rhaf(:),grnd_ch4_cond(:),t_veg(:),elai(:),btran(:),&
-        !$acc  esai(:), temp2(:), htop(:), dleaf_patch(:), rah(:,:))
+        !$acc  esai(:), temp2(:), htop(:), dleaf_patch(:), rah(:,:)) if(elm_device_ready) copyin(bounds)
         do active_index = 1, fn
            p = iter_filterp(active_index)
            filter_index = iter_filter_map(active_index)
@@ -808,7 +809,7 @@ contains
          else ! not use_fates
 
             if ( use_hydrstress ) then
-               !$acc data copy(bsha, bsun)
+               !$acc data copy(bsha, bsun) if(elm_device_ready)
                call PhotosynthesisHydraulicStress (bounds, fn, iter_filterp, &
                     svpts(begp:endp), eah(begp:endp), o2(begp:endp), co2(begp:endp), rb(begp:endp), bsun(begp:endp), &
                     bsha(begp:endp), btran(begp:endp), dayl_factor(begp:endp), &
@@ -829,7 +830,7 @@ contains
                      cnstate_vars, solarabs_vars, surfalb_vars, photosyns_vars, sunlit_phase)
             endif
 
-            !$acc parallel loop independent gang vector default(present) private(p,c)
+            !$acc parallel loop independent gang vector default(present) private(p,c) if(elm_device_ready) copyin(bounds)
             do active_index = 1, fn
                p = iter_filterp(active_index)
                c = veg_pp%column(p)
@@ -860,7 +861,7 @@ contains
          !$acc parallel loop independent gang vector default(present) private(p,filter_index,deldT,k) copy(fn_next) &
          !$acc  present(laisun(:),&
          !$acc  thm(:), canopy_cond(:),temp2(:), frac_veg_nosno(:), esai(:), fdry(:), wta0(:), h2ocan(:), &
-         !$acc  laisha(:),rssha(:),btran(:), fwet(:), qflx_evap_veg(:), qflx_tran_veg(:),sabv(:), eflx_sh_veg(:) )
+         !$acc  laisha(:),rssha(:),btran(:), fwet(:), qflx_evap_veg(:), qflx_tran_veg(:),sabv(:), eflx_sh_veg(:) ) if(elm_device_ready) copyin(bounds)
          do active_index = 1, fn
             p = iter_filterp(active_index)
             filter_index = iter_filter_map(active_index)
@@ -1100,7 +1101,7 @@ contains
          itlef = itlef+1
          if (itlef > itmin) then
             fn = fn_next
-            !$acc parallel loop gang vector default(present)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
             do active_index = 1, fn
                iter_filterp(active_index)    = next_filterp(active_index)
                iter_filter_map(active_index) = next_filter_map(active_index)
@@ -1110,7 +1111,7 @@ contains
 
       call t_stopf('can_iter')
       
-      !$acc parallel loop independent gang vector default(present) private(e_ref2m, de2mdT, qsat_ref2m, dqsat2mdT)
+      !$acc parallel loop independent gang vector default(present) private(e_ref2m, de2mdT, qsat_ref2m, dqsat2mdT) if(elm_device_ready) copyin(bounds)
       do filter_index = 1, num_nolu_vegp
          p = filter_nolu_vegp(filter_index)
          c = veg_pp%column(p)
@@ -1239,14 +1240,20 @@ contains
                cnstate_vars, canopystate_vars, photosyns_vars)
          ! Filter out patches which have small energy balance errors; report others
          ! NOTE: filter out patches for what? This is the end of the subroutine.
+         ! count on the device (a reduction: no shared counter, no writes in device code), report
+         ! the (rare) offending patches from the host
          fnold = num_nolu_vegp
          fn = 0
-         !$acc parallel loop independent gang vector default(present) 
+         !$acc parallel loop gang vector default(present) reduction(+:fn) if(elm_device_ready) copyin(bounds)
          do filter_index = 1, fnold
+            if (abs(err(filter_index)) > 0.1_r8) fn = fn + 1
+         end do
+         if (fn > 0) then
+          !$acc update self(err, air, bir, cir, tlbef, dt_veg, sabv, eflx_sh_veg, qflx_evap_veg, &
+          !$acc   filter_nolu_vegp) if(elm_device_ready)
+          do filter_index = 1, fnold
             p = filter_nolu_vegp(filter_index)
             if (abs(err(filter_index)) > 0.1_r8) then
-               fn = fn + 1
-               iter_filterp(fn) = p
                write(iulog,*) 'energy balance in canopy ',p,', err=',err(filter_index)
                write(iulog,*) "sabv  :", sabv(p) 
                write(iulog,*) "air   :",air(filter_index)
@@ -1257,7 +1264,8 @@ contains
                write(iulog,*) "eflx_sh_veg:",eflx_sh_veg(p) 
                write(iulog,*) "qflx_evap_veg:",qflx_evap_veg(p)
             end if
-         end do
+          end do
+         end if
 
       end if
       !$acc exit data delete(del(:), efeb(:), wtlq0(:),wtalq(:), &
@@ -1337,7 +1345,7 @@ contains
          ! n_irrig_steps_left(p) > 0 is ok even if irrig_rate(p) ends up = 0
          ! in this case, we'll irrigate by 0 for the given number of time steps
 
-         !$acc parallel loop independent gang vector default(present) present(btran(:),elai(:),n_irrig_steps_left(:), irrig_rate(:)) private(p,g,local_time,seconds_since_irrig_start_time)
+         !$acc parallel loop independent gang vector default(present) present(btran(:),elai(:),n_irrig_steps_left(:), irrig_rate(:)) private(p,g,local_time,seconds_since_irrig_start_time) if(elm_device_ready)
          do filter_index = 1, fn
             p = filterp(filter_index)
             g = veg_pp%gridcell(p)
@@ -1366,7 +1374,7 @@ contains
          ! soil is dry enough to warrant irrigation
          ! This should not be operating on FATES patches (see is_fates filter above, pushes
          ! check_for_irrig = false
-         !$acc parallel loop independent gang worker default(present) private(p,c,g,t,tpu_ind,jfrz,sum1)
+         !$acc parallel loop independent gang worker default(present) private(p,c,g,t,tpu_ind,jfrz,sum1) if(elm_device_ready)
          do filter_index = 1, fn
             p = filterp(filter_index)
             c = veg_pp%column(p)

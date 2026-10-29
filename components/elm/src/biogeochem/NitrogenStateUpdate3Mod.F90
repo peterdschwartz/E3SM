@@ -6,6 +6,7 @@ module NitrogenStateUpdate3Mod
   ! Also, sminn leaching flux.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only: r8 => shr_kind_r8
   use elm_varpar          , only: nlevdecomp, ndecomp_pools
   use elm_varctl          , only : iulog
@@ -49,7 +50,7 @@ contains
     integer :: c,p,j,l,k        ! indices
     integer :: fp,fc      ! lake filter indices
     !-----------------------------------------------------------------------
-      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = 1, nlevdecomp
          ! column loop
          do fc = 1,num_soilc
@@ -82,7 +83,7 @@ contains
       end do
 
       ! litter and CWD losses to fire
-      !$acc parallel loop gang vector collapse(3) default(present) private(c)
+      !$acc parallel loop gang vector collapse(3) default(present) private(c) if(elm_device_ready)
       do l = 1, ndecomp_pools
          do j = 1, nlevdecomp
             ! column loop
@@ -96,7 +97,7 @@ contains
 
       ! SOM N losses due to erosion
       if ( ero_ccycle ) then
-         !$acc parallel loop gang vector default(present) private(j, fc, c)
+         !$acc parallel loop gang vector default(present) private(j, fc, c) if(elm_device_ready)
          do l = 1, ndecomp_pools
             if ( decomp_cascade_con%is_soil(l) ) then
                !$acc loop seq
@@ -114,7 +115,7 @@ contains
       ! patch-level nitrogen fluxes
       if(.not.use_fates) then
 
-         !$acc parallel loop gang vector default(present) private(p)
+         !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
 

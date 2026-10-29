@@ -6,6 +6,7 @@ module DecompCascadeCNMod
   ! This uses the CN parameters as in CLMCN 4.0
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod           , only : r8 => shr_kind_r8
   use shr_const_mod          , only : SHR_CONST_TKFRZ
   use shr_log_mod            , only : errMsg => shr_log_errMsg
@@ -802,8 +803,8 @@ contains
           nlev_soildecomp_standard=5
           allocate(fr(bounds%begc:bounds%endc,nlev_soildecomp_standard))
           !$acc update device(nlev_soildecomp_standard) if_present
-          !$acc data copy(frw)
-          !$acc parallel loop gang vector default(present) private(fc, c)
+          !$acc data copy(frw) if(elm_device_ready)
+          !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready) copyin(bounds)
           do fc = 1,num_soilc
              !$acc loop seq
              do j=1,nlev_soildecomp_standard
@@ -812,8 +813,8 @@ contains
              end do
           end do
           !$acc end data
-          !$acc data copy(fr, frw)
-          !$acc parallel loop gang vector collapse(2) default(present) private(c)
+          !$acc data copy(fr, frw) if(elm_device_ready)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
           do j = 1,nlev_soildecomp_standard
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -834,8 +835,8 @@ contains
           ! as part of the modifications made to improve the seasonal cycle of
           ! atmospheric CO2 concentration in global simulations. This does not impact
           ! the base rates at 25 C, which are calibrated from microcosm studies.
-          !$acc data copy(fr)
-          !$acc parallel loop gang vector default(present) private(fc, c)
+          !$acc data copy(fr) if(elm_device_ready)
+          !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready) copyin(bounds)
           do fc = 1,num_soilc
              !$acc loop seq
              do j = 1,nlev_soildecomp_standard
@@ -862,8 +863,8 @@ contains
           ! Orchard, V.A., and F.J. Cook, 1983. Relationship between soil respiration
           ! and soil moisture. Soil Biol. Biochem., 15(4):447-453.
 
-          !$acc data copy(fr)
-          !$acc parallel loop gang vector default(present) private(fc, c, maxpsi, psi)
+          !$acc data copy(fr) if(elm_device_ready)
+          !$acc parallel loop gang vector default(present) private(fc, c, maxpsi, psi) if(elm_device_ready) copyin(bounds)
           do fc = 1,num_soilc
              !$acc loop seq
              do j = 1,nlev_soildecomp_standard
@@ -881,7 +882,7 @@ contains
 
           if (use_lch4) then
              if (anoxia_wtsat) then ! Adjust for saturated fraction if unfrozen.
-                !$acc parallel loop gang vector default(present) private(c)
+                !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
                 do fc = 1,num_soilc
                    c = filter_soilc(fc)
                    if (alt_indx(c) >= nlev_soildecomp_standard .and. t_soisno(c,1) > SHR_CONST_TKFRZ) then
@@ -896,8 +897,8 @@ contains
              if (anoxia) then
                 ! Check for anoxia w/o LCH4 now done in controlMod.
 
-                !$acc data copy(fr)
-                !$acc parallel loop gang vector default(present) private(fc, c)
+                !$acc data copy(fr) if(elm_device_ready)
+                !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready) copyin(bounds)
                 do fc = 1,num_soilc
                    !$acc loop seq
                    do j = 1,nlev_soildecomp_standard
@@ -917,13 +918,13 @@ contains
                 !$acc end data
              else
                 ! spel acc-sync: device data this host code uses
-                !$acc update self(col_cf%o_scalar) if_present
+                !$acc update self(col_cf%o_scalar) if_present if(elm_device_ready)
                 o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
                 !$acc update device(col_cf%o_scalar) if_present
              end if
           else
              ! spel acc-sync: device data this host code uses
-             !$acc update self(col_cf%o_scalar) if_present
+             !$acc update self(col_cf%o_scalar) if_present if(elm_device_ready)
              o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
              !$acc update device(col_cf%o_scalar) if_present
           end if
@@ -941,7 +942,7 @@ contains
           ! atmospheric CO2 concentration in global simulations. This does not impact
           ! the base rates at 25 C, which are calibrated from microcosm studies.
 
-          !$acc parallel loop gang vector collapse(2) default(present) private(c)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -964,7 +965,7 @@ contains
           ! Orchard, V.A., and F.J. Cook, 1983. Relationship between soil respiration
           ! and soil moisture. Soil Biol. Biochem., 15(4):447-453.
 
-          !$acc parallel loop gang vector collapse(2) default(present) private(c, maxpsi, psi)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c, maxpsi, psi) if(elm_device_ready) copyin(bounds)
           do j = 1,nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -991,7 +992,7 @@ contains
           ! Check for anoxia w/o LCH4 now done in controlMod.
 
           if (anoxia) then
-             !$acc parallel loop gang vector collapse(2) default(present) private(c)
+             !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
              do j = 1,nlevdecomp
                 do fc = 1,num_soilc
                    c = filter_soilc(fc)
@@ -1006,13 +1007,13 @@ contains
              end do
           else
              ! spel acc-sync: device data this host code uses
-             !$acc update self(col_cf%o_scalar) if_present
+             !$acc update self(col_cf%o_scalar) if_present if(elm_device_ready)
              o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
              !$acc update device(col_cf%o_scalar) if_present
           end if
        else
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_cf%o_scalar) if_present
+          !$acc update self(col_cf%o_scalar) if_present if(elm_device_ready)
           o_scalar(bounds%begc:bounds%endc,1:nlevdecomp) = 1._r8
           !$acc update device(col_cf%o_scalar) if_present
        end if
@@ -1020,7 +1021,7 @@ contains
        if (use_vertsoilc) then
           ! add a term to reduce decomposition rate at depth
           ! for now used a fixed e-folding depth
-          !$acc parallel loop gang vector collapse(2) default(present) private(c)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -1030,7 +1031,7 @@ contains
        end if
 
        !Calcluate location and depth-specific acceleration factors
-       !$acc parallel loop gang vector default(present) private(c)
+       !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
        do fc=1,num_soilc
            c = filter_soilc(fc)
            if (year < 20 .and. spinup_state == 1) then
@@ -1047,7 +1048,7 @@ contains
        end do
 
        if (use_vertsoilc) then
-          !$acc parallel loop gang vector collapse(2) default(present) private(c)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
           do j = 1,nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -1062,7 +1063,7 @@ contains
 
              end do
           end do
-          !$acc parallel loop gang vector collapse(2) default(present) private(c)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
           do j = 1,nlevdecomp
               do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -1070,7 +1071,7 @@ contains
               end do
           end do
        else
-          !$acc parallel loop gang vector collapse(2) default(present) private(c)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
           do j = 1,nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -1083,7 +1084,7 @@ contains
                 decomp_k(c,j,i_soil4) = k_s4 * t_scalar(c,j) * w_scalar(c,j) * o_scalar(c,j) / dt
              end do
           end do
-          !$acc parallel loop gang vector collapse(2) default(present) private(c)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
           do j = 1,nlevdecomp
               do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -1095,7 +1096,7 @@ contains
 
        if (spinup_state == 1 .and. year >= 40) then
          !adjust decomposition factors based on scalar factors from first 20 years of simulation
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
          do j=1,nlevdecomp
            do fc = 1, num_soilc
              c = filter_soilc(fc)

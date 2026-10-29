@@ -5,6 +5,7 @@ module SurfaceRadiationMod
   ! Calculate solar fluxes absorbed by vegetation and ground surface
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_log_mod       , only : errMsg => shr_log_errMsg
   use elm_varctl        , only : use_snicar_frc, use_fates, iulog
@@ -488,7 +489,7 @@ contains
 
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(top_af%solad, top_af%solad_pp, top_af%solai, top_af%solai_pp) if_present
+       !$acc update self(top_af%solad, top_af%solad_pp, top_af%solai, top_af%solai_pp) if_present if(elm_device_ready)
        if (.not. use_finetop_rad) then
           forc_solad_pp(:,:) = forc_solad(:,:)
           forc_solai_pp(:,:) = forc_solai(:,:)
@@ -496,7 +497,7 @@ contains
        !$acc update device(top_af%solad_pp, top_af%solai_pp) if_present
 
        ! Initialize fluxes
-       !$acc parallel loop independent gang vector default(present) private(p)
+       !$acc parallel loop independent gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
        do fp = 1,num_nourbanp
           p = filter_nourbanp(fp)
           sabg_lyr(p,:) = 0._r8
@@ -505,14 +506,14 @@ contains
        ! zero-out fsun for the urban patches
        ! the non-urban patches were set prior to this call
        ! and split into ed and non-ed specific functions
-       !$acc parallel loop independent gang vector default(present) private(p)
+       !$acc parallel loop independent gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
        do fp = 1,num_urbanp
           p = filter_urbanp(fp)
           fsun(p) = 0._r8
        end do
 
        ! Loop over nband wavebands
-       !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,p,l,t)
+       !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,p,l,t) if(elm_device_ready) copyin(bounds)
        do fp = 1,num_nourbanp
          p = filter_nourbanp(fp)
          l = veg_pp%landunit(p)
@@ -539,7 +540,7 @@ contains
          end if  
       end do  !
       
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(p,t)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(p,t) if(elm_device_ready) copyin(bounds)
       do ib = 1, nband
          do fp = 1,num_nourbanp
             p = filter_nourbanp(fp)
@@ -550,7 +551,7 @@ contains
          end do 
       end do 
 
-      !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,sum4,p,t,c,l)
+      !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,sum4,p,t,c,l) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nourbanp
          p = filter_nourbanp(fp)
          t = veg_pp%topounit(p)
@@ -594,7 +595,7 @@ contains
       end do
 
       if (use_snicar_frc) then
-         !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,sum4,p,c)
+         !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,sum4,p,c) if(elm_device_ready) copyin(bounds)
          do fp = 1,num_nourbanp
             p = filter_nourbanp(fp)
             c = veg_pp%column(p)
@@ -628,7 +629,7 @@ contains
 
        !   compute absorbed flux in each snow layer and top soil layer,
        !   based on flux factors computed in the radiative transfer portion of SNICAR.
-      !$acc parallel loop independent gang worker default(present) private(sabg_snl_sum,sum1,p,c,l,ssa)
+      !$acc parallel loop independent gang worker default(present) private(sabg_snl_sum,sum1,p,c,l,ssa) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nourbanp
          p = filter_nourbanp(fp)
          c = veg_pp%column(p)
@@ -782,7 +783,7 @@ contains
       enddo
 
        ! Radiation diagnostics
-      !$acc parallel loop independent gang vector default(present) private(p,t,g,rvis,rnir,local_secp1)
+      !$acc parallel loop independent gang vector default(present) private(p,t,g,rvis,rnir,local_secp1) if(elm_device_ready) copyin(bounds)
        do fp = 1,num_nourbanp
           p = filter_nourbanp(fp)
           t = veg_pp%topounit(p)
@@ -850,7 +851,7 @@ contains
           endif
        end do
 
-       !$acc parallel loop independent gang vector default(present) private(p,t,g,local_secp1)
+       !$acc parallel loop independent gang vector default(present) private(p,t,g,local_secp1) if(elm_device_ready) copyin(bounds)
        do fp = 1,num_urbanp
           p = filter_urbanp(fp)
           t = veg_pp%topounit(p)
@@ -989,7 +990,7 @@ contains
             laisha_z    => canopystate_vars%laisha_z_patch, & ! shaded leaf area for canopy layer
             fsun        => canopystate_vars%fsun_patch  )       ! sunlit fraction of canopy
 
-         !$acc parallel loop independent gang worker default(present) private(sum1,sum2,p,t)
+         !$acc parallel loop independent gang worker default(present) private(sum1,sum2,p,t) if(elm_device_ready)
          do fp = 1,num_nourbanp
 
            p = filter_nourbanp(fp)

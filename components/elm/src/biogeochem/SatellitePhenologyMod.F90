@@ -7,6 +7,7 @@ module SatellitePhenologyMod
   ! so that DryDeposition code can get estimates of LAI differences between months.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_strdata_mod , only : shr_strdata_type, shr_strdata_create
   use shr_strdata_mod , only : shr_strdata_print, shr_strdata_advance
   use shr_kind_mod    , only : r8 => shr_kind_r8

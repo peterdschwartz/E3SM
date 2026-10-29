@@ -64,6 +64,8 @@ module soilorder_varcon
   !$acc declare create(r_mort_soilorder)
   ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(ks_sorption, smax)
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(k_s1_biochem, r_adsorp, r_desorp, r_occlude, r_weather)
 contains
 
   !-----------------------------------------------------------------------

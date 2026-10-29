@@ -7,6 +7,7 @@ module lnd2iacMod
   ! couple grid values; so our fields will be allocated (ngrid,npft)
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod    , only : r8 => shr_kind_r8
   use decompMod       , only : bounds_type
   use domainMod       , only : ldomain
@@ -95,7 +96,7 @@ contains
     integer :: c,p,g,pft
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_cf%hr, veg_cf%npp) if_present
+    !$acc update self(col_cf%hr, veg_cf%npp) if_present if(elm_device_ready)
     begg = bounds%begg; endg = bounds%endg
     begp = bounds%begp; endp = bounds%endp
 
@@ -120,7 +121,7 @@ contains
     end do
     !$acc update device(this%hr, this%npp, this%pftwgt) if_present
 
-    !$acc parallel loop gang vector default(present)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do g = begg, endg
       ! Estimate heating and cooling degree days
       this%hdd(g) = max(t_base_K - lnd2atm_vars%t_ref2m_grc(g), 0.0_r8)

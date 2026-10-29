@@ -252,6 +252,10 @@ module elm_varcon
   !$acc declare create(betads, betais, omegas)
   ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(dzsoi, h2osno_max, kh_theta, watmin)
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(c_h_inv, kh_tbase, nlvic)
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(ac_wasteheat_factor, ht_wasteheat_factor, wasteheat_limit)
 contains
 
   !------------------------------------------------------------------------------

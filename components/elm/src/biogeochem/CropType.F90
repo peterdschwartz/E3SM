@@ -6,6 +6,7 @@ module CropType
   ! TODO(wjs, 2014-08-05) Move more crop-specific variables into here
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use shr_log_mod         , only : errMsg => shr_log_errMsg
   use spmdMod             , only : masterproc
@@ -683,8 +684,8 @@ contains
 
     ! Accumulate and extract GDDPLANT
     
-    !$acc data copy(rbufslp)
-    !$acc parallel loop gang vector default(present) private(ivt)
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(ivt) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        if (this%croplive_patch(p)) then ! relative to planting date
           ivt = veg_pp%itype(p)
@@ -707,8 +708,8 @@ contains
     ! In agroibis this variable is calculated
     ! to 0.05 m, so here we use the top two soil layers
 
-    !$acc data copy(rbufslp)
-    !$acc parallel loop gang vector default(present) private(ivt, c)
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(ivt, c) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        if (this%croplive_patch(p)) then ! relative to planting date
           ivt = veg_pp%itype(p)
@@ -765,14 +766,14 @@ contains
     ! then it was
     ! active for the whole year.
     if ((kmo == 1 .and. kda == 1 .and. mcsec == 0) .and. .not. is_first_step()) then
-       !$acc parallel loop gang vector default(present) private(p)
+       !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
        do fp = 1, num_pcropp
           p = filter_pcropp(fp)
 
           this%nyrs_crop_active_patch(p) = this%nyrs_crop_active_patch(p) + 1
        end do
 
-       !$acc parallel loop gang vector default(present) private(p)
+       !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
        do fp = 1, num_ppercropp
           p = filter_ppercropp(fp)
 

@@ -8,6 +8,7 @@ module FrictionVelocityMod
   ! temperature and humidity profiles of surface boundary layer.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod         , only : r8 => shr_kind_r8
   use shr_log_mod          , only : errMsg => shr_log_errMsg
   use FrictionVelocityType , only : frictionvel_type
@@ -31,6 +32,8 @@ module FrictionVelocityMod
   private :: StabilityFunc1        ! Stability function for rib < 0.
   private :: StabilityFunc2        ! Stability function for rib < 0.
   !------------------------------------------------------------------------------
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(atm_gustiness, force_land_gustiness, implicit_stress)
 contains
 
   !------------------------------------------------------------------------------
@@ -108,7 +111,7 @@ associate(                                                   &
   is_landunit_index = present(landunit_index)
   ! (is_landunit_index reaches the kernel by value: no device copy)
 
-  !$acc parallel loop independent gang vector default(present) 
+  !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
    do index = 1, fn
       active_index = filter_map(index)
       n = filtern(index)

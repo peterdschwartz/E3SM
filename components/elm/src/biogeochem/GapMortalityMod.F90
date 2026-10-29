@@ -7,6 +7,7 @@ module GapMortalityMod
   ! add phosphorus fluxes - X.YANG
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use abortutils          , only : endrun
   use shr_log_mod         , only : errMsg => shr_log_errMsg
@@ -124,7 +125,7 @@ contains
 
 
       ! patch loop
-      !$acc parallel loop gang vector default(present) private(p, am, m)
+      !$acc parallel loop gang vector default(present) private(p, am, m) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -392,7 +393,7 @@ contains
 
          )
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
+      !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p) if(elm_device_ready)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             !$acc loop seq
@@ -582,7 +583,7 @@ contains
        r_mort_cal     =>    cnstate_vars%r_mort_cal_patch )
 
        ! loop over the patches
-       !$acc parallel loop gang vector default(present) private(p, c)
+       !$acc parallel loop gang vector default(present) private(p, c) if(elm_device_ready)
        do fp = 1,num_soilp
           p = filter_soilp(fp)
           c = veg_pp%column(p)

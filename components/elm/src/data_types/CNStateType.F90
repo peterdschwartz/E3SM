@@ -1,5 +1,6 @@
 module CNStateType
 
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod   , only : r8 => shr_kind_r8
   use shr_log_mod    , only : errMsg => shr_log_errMsg
   use decompMod      , only : bounds_type
@@ -1616,24 +1617,24 @@ contains
     endif
 
     ! Accumulate and extract
-    !$acc data copy(rbufslp)
-    !$acc parallel loop gang vector default(present)
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        rbufslp(p) = this%cn_scalar(p)
     end do
     !$acc end data
     call update_accum_field  ('nlim_m' , rbufslp             , nstep)
     call extract_accum_field ('nlim_m' , this%cn_scalar_runmean  , nstep)
-    !$acc data copy(rbufslp)
-    !$acc parallel loop gang vector default(present)
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        rbufslp(p) = this%cp_scalar(p)
     end do
     !$acc end data
     call update_accum_field  ('plim_m' , rbufslp             , nstep)
     call extract_accum_field ('plim_m' , this%cp_scalar_runmean  , nstep)
-    !$acc data copy(rbufslp)
-    !$acc parallel loop gang vector default(present)
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        rbufslp(p) = this%water_scalar(p)
     end do

@@ -5,6 +5,7 @@ module CarbonStateUpdate3Mod
   ! Module for carbon state variable update, mortality fluxes.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use shr_log_mod      , only : errMsg => shr_log_errMsg
   use abortutils       , only : endrun
@@ -55,7 +56,7 @@ contains
 
       ! column level carbon fluxes from fire
       if (.not.(use_pflotran .and. pf_cmode)) then
-          !$acc parallel loop gang vector collapse(2) default(present) private(c)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -75,7 +76,7 @@ contains
       end if !(.not.(use_pflotran .and. pf_cmode))
 
       ! litter and CWD losses to fire
-      !$acc parallel loop gang vector collapse(3) default(present) private(c)
+      !$acc parallel loop gang vector collapse(3) default(present) private(c) if(elm_device_ready)
       do l = 1, ndecomp_pools
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
@@ -87,7 +88,7 @@ contains
 
       ! SOM C losses due to erosion
       if ( ero_ccycle ) then
-         !$acc parallel loop gang vector default(present) private(j, fc, c)
+         !$acc parallel loop gang vector default(present) private(j, fc, c) if(elm_device_ready)
          do l = 1, ndecomp_pools
             if ( decomp_cascade_con%is_soil(l) ) then
                !$acc loop seq
@@ -104,7 +105,7 @@ contains
 
 
       ! patch loop
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

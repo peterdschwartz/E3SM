@@ -8,6 +8,7 @@ module NitrogenDynamicsMod
   ! for coupled carbon-nitrogen code.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use decompMod           , only : bounds_type
   use elm_varcon          , only : dzsoi_decomp, zisoi
@@ -142,7 +143,7 @@ contains
       ! Loop through columns
       ! Note: why loop through all columns? adjusting to filter is nonBFB due to averaging, but ndep_to_sminn is only needed
       ! for active soil columns
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do c = begc, endc 
          g = col_pp%gridcell(c)
          ndep_to_sminn(c) = forc_ndep(g)
@@ -196,7 +197,7 @@ contains
       if (do_et_bnf) then
          secspyr = dayspyr * 86400._r8
 
-         !$acc parallel loop gang vector default(present) private(c, t)
+         !$acc parallel loop gang vector default(present) private(c, t) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_soilc
             c =filter_soilc(fc)
             !use the cleveland equation
@@ -206,7 +207,7 @@ contains
       else
          if(use_fates)then
             ic = bounds%clump_index
-            !$acc parallel loop gang vector default(present) private(c)
+            !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
                s = alm_fates%f2hmap(ic)%hsites(c)
@@ -222,7 +223,7 @@ contains
          if ( nfix_timeconst > 0._r8 .and. nfix_timeconst < 500._r8 ) then
             ! use exponential relaxation with time constant nfix_timeconst for NPP - NFIX relation
             ! Loop through columns
-            !$acc parallel loop gang vector default(present) private(c, t)
+            !$acc parallel loop gang vector default(present) private(c, t) if(elm_device_ready) copyin(bounds)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
 
@@ -236,7 +237,7 @@ contains
             end do
          else
             ! use annual-mean values for NPP-NFIX relation
-            !$acc parallel loop gang vector default(present) private(c, t)
+            !$acc parallel loop gang vector default(present) private(c, t) if(elm_device_ready) copyin(bounds)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
 
@@ -290,7 +291,7 @@ contains
 
      !$acc enter data create(sum_var, surface_water(:num_soilc), tot_water(:num_soilc) )
      ! for runoff calculation; calculate total water to a given depth
-     !$acc parallel loop independent gang worker default(present) private(sum_var,c,nlevbed) present(surface_water(:num_soilc))
+     !$acc parallel loop independent gang worker default(present) private(sum_var,c,nlevbed) present(surface_water(:num_soilc)) if(elm_device_ready)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         nlevbed = nlev2bed(c)
@@ -307,7 +308,7 @@ contains
      end do
 
       ! calculate the total soil water
-      !$acc parallel loop independent gang worker default(present) private(sum_var,c,nlevbed) present(tot_water(:num_soilc)) 
+      !$acc parallel loop independent gang worker default(present) private(sum_var,c,nlevbed) present(tot_water(:num_soilc)) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          nlevbed = col_pp%nlevbed(c)
@@ -320,7 +321,7 @@ contains
       end do
 
 
-     !$acc parallel loop independent gang vector collapse(2) default(present) present(tot_water(:num_soilc),surface_water(:num_soilc)) 
+     !$acc parallel loop independent gang vector collapse(2) default(present) present(tot_water(:num_soilc),surface_water(:num_soilc)) if(elm_device_ready)
      do j = 1,nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -440,7 +441,7 @@ contains
            manure(begp:endp),  manure_col(begc:endc) )
 
          ! Add the manure N processed above:
-         !$acc parallel loop independent gang vector default(present)
+         !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_soilc
             c = filter_soilc(fc)
             fert_to_sminn(c) = fert_to_sminn(c) + manure_col(c)
@@ -448,12 +449,12 @@ contains
 
          ! Add up synthetic fertilizer and manure to the nfertilization output
          ! variable.
-         !$acc parallel loop independent gang vector default(present)
+         !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
          do fp = 1, num_pcropp
             p = filter_pcropp(fp)
             totalfert(p) = synthfert(p) + manure(p)
          end do
-         !$acc parallel loop gang vector default(present) private(p)
+         !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
          do fp = 1, num_ppercropp
             p = filter_ppercropp(fp)
             totalfert(p) = synthfert(p) + manure(p)
@@ -520,7 +521,7 @@ contains
      endc = bounds%endc
      begp = bounds%begp
      endp = bounds%endp
-      !$acc parallel loop independent gang vector default(present) private(p,c)
+      !$acc parallel loop independent gang vector default(present) private(p,c) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          c = veg_pp%column(p)
@@ -647,7 +648,7 @@ contains
          )
 
       !$acc enter data create(sminn_sum,ecosysn_sum)
-      !$acc parallel loop independent gang worker default(present) private(sminn_sum,ecosysn_sum)
+      !$acc parallel loop independent gang worker default(present) private(sminn_sum,ecosysn_sum) if(elm_device_ready)
       do fc=1,num_soilc
           c = filter_soilc(fc)
           sminn_sum = 0.0_r8

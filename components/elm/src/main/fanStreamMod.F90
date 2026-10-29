@@ -6,6 +6,7 @@ module FanStreamMod
   ! Also includes functions for dynamic ndep2 file handling and interpolation.
   !
   ! !USES
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only: r8 => shr_kind_r8, CL => shr_kind_cl
   use shr_strdata_mod
   use shr_stream_mod
@@ -298,47 +299,52 @@ contains
    call shr_strdata_advance(sdat_past, mcdate, sec, mpicom, 'clmfanpasture')
 
    ig = 0
-   !$acc parallel loop gang vector default(present) reduction(+:ig)
+   ! host loop: the stream data (sdat%avs) lives on the host; ig is a running index
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_ndep_past_grc(g) = sdat_past%avs(1)%rAttr(1,ig) / (secspday * dayspyr)
    end do
+   !$acc update device(atm2lnd_vars%forc_ndep_past_grc) if(elm_device_ready)
 
    call shr_strdata_advance(sdat_mix, mcdate, sec, mpicom, 'clmfanmixed')
 
    ig = 0
-   !$acc parallel loop gang vector default(present) reduction(+:ig)
+   ! host loop: the stream data (sdat%avs) lives on the host; ig is a running index
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_ndep_mgrz_grc(g) = sdat_mix%avs(1)%rAttr(1,ig) / (secspday * dayspyr)
    end do
+   !$acc update device(atm2lnd_vars%forc_ndep_mgrz_grc) if(elm_device_ready)
 
    call shr_strdata_advance(sdat_urea, mcdate, sec, mpicom, 'clmfanurea')
 
    ig = 0
-   !$acc parallel loop gang vector default(present) reduction(+:ig)
+   ! host loop: the stream data (sdat%avs) lives on the host; ig is a running index
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_ndep_urea_grc(g) = sdat_urea%avs(1)%rAttr(1,ig)
    end do
+   !$acc update device(atm2lnd_vars%forc_ndep_urea_grc) if(elm_device_ready)
 
    call shr_strdata_advance(sdat_nitr, mcdate, sec, mpicom, 'clmfannitr')
 
    ig = 0
-   !$acc parallel loop gang vector default(present) reduction(+:ig)
+   ! host loop: the stream data (sdat%avs) lives on the host; ig is a running index
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_ndep_nitr_grc(g) = sdat_nitr%avs(1)%rAttr(1,ig)
    end do
+   !$acc update device(atm2lnd_vars%forc_ndep_nitr_grc) if(elm_device_ready)
 
    call shr_strdata_advance(sdat_soilph, mcdate, sec, mpicom, 'clmfanph')
 
    ig = 0
-   !$acc parallel loop gang vector default(present) reduction(+:ig)
+   ! host loop: the stream data (sdat%avs) lives on the host; ig is a running index
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_soilph_grc(g) = sdat_soilph%avs(1)%rAttr(1,ig)
    end do
+   !$acc update device(atm2lnd_vars%forc_soilph_grc) if(elm_device_ready)
 
    
  end subroutine fanstream_interp

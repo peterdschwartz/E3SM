@@ -382,6 +382,10 @@ module elm_varctl
 
   logical, public :: use_nofire          = .false.
   logical, public :: use_lch4            = .false.
+  ! OpenACC: the state is on the device (set by elm_device_copyin); until then the compute
+  ! constructs (if(elm_device_ready)) run on the host, e.g. during the instance initialization
+  logical, public :: elm_device_ready = .false.
+  !$acc declare copyin(elm_device_ready)
   logical, public :: use_vertsoilc       = .false.
   logical, public :: use_extralakelayers = .false.
   logical, public :: use_vichydro        = .false.
@@ -587,6 +591,8 @@ module elm_varctl
   !$acc declare create(use_extrasnowlayers)
   ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(extra_gw_irr, irrigate)
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(iulog, lnd_rof_coupling_nstep, use_dust_snow_internal_mixing, use_im2_hillslope_hydrology, use_lnd_rof_two_way, use_modified_infil, use_ocn_lnd_one_way)
 contains
 
   !---------------------------------------------------------------------------

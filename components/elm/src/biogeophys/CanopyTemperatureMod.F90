@@ -10,6 +10,7 @@ module CanopyTemperatureMod
 
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod         , only : r8 => shr_kind_r8
   use shr_const_mod        , only : SHR_CONST_PI
   use decompMod            , only : bounds_type
@@ -205,7 +206,7 @@ contains
       deg2rad = SHR_CONST_PI/180._r8
       begp = bounds%begp 
       endp = bounds%endp 
-      !$acc parallel loop independent gang vector collapse(2) default(present) 
+      !$acc parallel loop independent gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
       do j = -nlevsno+1, nlevgrnd
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -223,7 +224,7 @@ contains
       ! calculate moisture stress/resistance for soil evaporation
       call calc_soilevap_stress(bounds, num_nolakec, filter_nolakec, soilstate_vars)
       
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)
@@ -402,7 +403,7 @@ contains
       if(use_fates) then
          call alm_fates%TransferZ0mDisp(bounds,frictionvel_vars,canopystate_vars)
       end if
-      !$acc parallel loop independent gang vector default(present) 
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          if( .not.(veg_pp%is_fates(p))) then
@@ -413,7 +414,7 @@ contains
 
       ! Initialization
 
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          g = veg_pp%gridcell(p)
@@ -462,7 +463,7 @@ contains
 
       ! Make forcing height a pft-level quantity that is the atmospheric forcing
       ! height plus each pft's z0m+displa
-      !$acc parallel loop independent gang vector default(present) 
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do p = begp,endp
          if (veg_pp%active(p)) then
             g = veg_pp%gridcell(p)
@@ -497,7 +498,7 @@ contains
          end if
       end do
 
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          c = veg_pp%column(p)

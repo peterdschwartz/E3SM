@@ -4,6 +4,7 @@ module WoodProductsMod
   ! Calculate loss fluxes from wood products pools, and update product pool state variables
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use decompMod           , only : get_proc_bounds
   use spmdMod             , only : masterproc
@@ -54,7 +55,7 @@ contains
     kprod10 = 7.2e-9
     kprod100 = 7.2e-10
 
-    !$acc parallel loop gang vector default(present) private(c)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 
@@ -81,7 +82,7 @@ contains
 
 
     ! update wood product state variables
-    !$acc parallel loop gang vector default(present) private(c)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
 

@@ -4,6 +4,7 @@ module NitrogenStateUpdate1Mod
   ! Module for nitrogen state variable updates, non-mortality fluxes.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod           , only: r8 => shr_kind_r8
   use elm_varpar             , only : nlevdecomp, ndecomp_pools, ndecomp_cascade_transitions
   use elm_varpar             , only : crop_prog, i_met_lit, i_cel_lit, i_lig_lit, i_cwd
@@ -140,7 +141,7 @@ contains
 
       if (.not.(use_pflotran .and. pf_cmode)) then
 
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -166,7 +167,7 @@ contains
 
          ! repeating N dep and fixation for crops
          if ( crop_prog )then
-            !$acc parallel loop gang vector collapse(2) default(present) private(c)
+            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
             do j = 1, nlevdecomp
 
                ! column loop
@@ -182,7 +183,7 @@ contains
          ! decomposition fluxes
          ! one thread per level and column; the transitions in order (as in the loops over
          ! transitions outside): bit-for-bit
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -207,7 +208,7 @@ contains
             end do
          end do
 
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1, nlevdecomp
             ! column loop
             do fc = 1,num_soilc
@@ -248,7 +249,7 @@ contains
       ! forest fertilization
       call get_curr_date(kyr, kmo, kda, mcsec)
       if (forest_fert_exp) then
-         !$acc parallel loop gang vector default(present) private(c, j)
+         !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             if ( ((fert_continue(c) == 1 .and. kyr > fert_start(c) .and. kyr <= fert_end(c)) .or.  kyr == fert_start(c)) &
@@ -267,7 +268,7 @@ contains
 
       ! patch loop (veg)
       if(.not.use_fates) then
-          !$acc parallel loop gang vector default(present) private(p)
+          !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
           do fp = 1,num_soilp
               p = filter_soilp(fp)
 

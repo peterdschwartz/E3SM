@@ -9,6 +9,7 @@ module filterMod
   ! naturally-vegetated patches.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod   , only : r8 => shr_kind_r8
   use shr_log_mod    , only : errMsg => shr_log_errMsg
   use abortutils     , only : endrun
@@ -827,7 +828,7 @@ contains
 
     fbare = 0
     fveg  = 0
-    !$acc parallel loop independent gang vector default(present) private(p) reduction(+:fbare,fveg) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) private(p) reduction(+:fbare,fveg) copyin(bounds) if(elm_device_ready)
     do f = 1, this_filter(nc)%num_nolakeurbanp
        p = this_filter(nc)%nolakeurbanp(f)
        if (frac_veg_nosno(p) == 0) then
@@ -843,7 +844,7 @@ contains
     fveg  = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fbare,fveg) copyin(bounds)
+    !$acc serial default(present) copy(fbare,fveg) copyin(bounds) if(elm_device_ready)
     do f = 1, this_filter(nc)%num_nolakeurbanp
        p = this_filter(nc)%nolakeurbanp(f)
        if (frac_veg_nosno(p) == 0) then

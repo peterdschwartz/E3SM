@@ -9,6 +9,7 @@ module dynConsBiogeophysMod
   ! cover.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_log_mod       , only : errMsg => shr_log_errMsg
   use decompMod         , only : bounds_type
@@ -223,14 +224,14 @@ contains
     !-----------------------------------------------------------------------
     ! spel acc-locals: device storage of the local work arrays
     !$acc enter data create(liquid_mass_col, ice_mass_col)
-    !$acc data copy(ice_mass_col, liquid_mass_col)
+    !$acc data copy(ice_mass_col, liquid_mass_col) if(elm_device_ready)
     call ComputeLiqIceMassNonLake(bounds, num_nolakec, filter_nolakec, &
          soilhydrology_vars,  &
          liquid_mass_col(bounds%begc:bounds%endc), &
          ice_mass_col(bounds%begc:bounds%endc))
 
     !$acc end data
-    !$acc data copy(ice_mass_col, liquid_mass_col)
+    !$acc data copy(ice_mass_col, liquid_mass_col) if(elm_device_ready)
     call ComputeLiqIceMassLake(bounds, num_lakec, filter_lakec, &
          lakestate_vars, &
          liquid_mass_col(bounds%begc:bounds%endc), &
@@ -301,7 +302,7 @@ contains
     heat_liquid_col(bounds%begc:bounds%endc) = spval
     cv_liquid_col(bounds%begc:bounds%endc)   = spval
 
-    !$acc data copy(cv_liquid_col, heat_col, heat_liquid_col)
+    !$acc data copy(cv_liquid_col, heat_col, heat_liquid_col) if(elm_device_ready)
     call ComputeHeatNonLake(bounds, num_nolakec, filter_nolakec, &
          urbanparams_vars, soilstate_vars, soilhydrology_vars, &
          heat = heat_col(bounds%begc:bounds%endc), &
@@ -309,7 +310,7 @@ contains
          cv_liquid = cv_liquid_col(bounds%begc:bounds%endc))
 
     !$acc end data
-    !$acc data copy(cv_liquid_col, heat_col, heat_liquid_col)
+    !$acc data copy(cv_liquid_col, heat_col, heat_liquid_col) if(elm_device_ready)
     call ComputeHeatLake(bounds, num_lakec, filter_lakec, &
          soilstate_vars, &
          heat = heat_col(bounds%begc:bounds%endc), &
@@ -317,7 +318,7 @@ contains
          cv_liquid = cv_liquid_col(bounds%begc:bounds%endc))
 
     !$acc end data
-    !$acc data copy(heat_col)
+    !$acc data copy(heat_col) if(elm_device_ready)
     call c2g(bounds, &
          carr = heat_col(bounds%begc:bounds%endc), &
          garr = heat_grc(bounds%begg:bounds%endg), &
@@ -325,7 +326,7 @@ contains
          l2g_scale_type = unity)
 
     !$acc end data
-    !$acc data copy(heat_liquid_col, heat_liquid_grc)
+    !$acc data copy(heat_liquid_col, heat_liquid_grc) if(elm_device_ready)
     call c2g(bounds, &
          carr = heat_liquid_col(bounds%begc:bounds%endc), &
          garr = heat_liquid_grc(bounds%begg:bounds%endg), &
@@ -333,7 +334,7 @@ contains
          l2g_scale_type = unity)
 
     !$acc end data
-    !$acc data copy(cv_liquid_col, cv_liquid_grc)
+    !$acc data copy(cv_liquid_col, cv_liquid_grc) if(elm_device_ready)
     call c2g(bounds, &
          carr = cv_liquid_col(bounds%begc:bounds%endc), &
          garr = cv_liquid_grc(bounds%begg:bounds%endg), &

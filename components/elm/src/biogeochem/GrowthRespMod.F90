@@ -6,6 +6,7 @@ module GrowthRespMod
   ! for coupled carbon-nitrogen code.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use pftvarcon        , only : grperc, grpnow, iscft
   use VegetationPropertiesType   , only : veg_vp
@@ -98,7 +99,7 @@ contains
 
       ! Loop through patches
       ! start pft loop
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
 
         p = filter_soilp(fp)

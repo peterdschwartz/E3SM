@@ -7,6 +7,7 @@ module UrbanRadiationMod
   ! Calculate solar and longwave radiation, and turbulent fluxes for urban landunit
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_sys_mod       , only : shr_sys_flush
   use shr_log_mod       , only : errMsg => shr_log_errMsg
@@ -149,7 +150,7 @@ contains
 
       ! spel acc-sync: device data this host code uses
       !$acc update self(top_af%lwrad, top_af%lwrad_pp, top_af%solad, top_af%solad_pp, top_af%solai, &
-      !$acc&   top_af%solai_pp, top_af%solar, top_af%solar_pp) if_present
+      !$acc&   top_af%solai_pp, top_af%solar, top_af%solar_pp) if_present if(elm_device_ready)
       if (.not. use_finetop_rad) then
          forc_solad(:,:) = top_af%solad(:,:)
          forc_solai(:,:) = top_af%solai(:,:)
@@ -160,7 +161,7 @@ contains
 
       ! Define fields that appear on the restart file for non-urban landunits
 
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do fl = 1,num_nourbanl
          l = filter_nourbanl(fl)
          sabs_roof_dir(l,:)      = spval
@@ -182,7 +183,7 @@ contains
       !$acc private(l, t, g, c, p, t_roof, t_sunwall, t_shadewall, t_improad, t_perroad, &
       !$acc    em_roof_s, em_improad_s, em_perroad_s, lwdown, &
       !$acc    lwnet_roof, lwnet_improad, lwnet_perroad, lwnet_sunwall, lwnet_shadewall, lwnet_canyon, &
-      !$acc    lwup_roof, lwup_improad, lwup_perroad, lwup_sunwall, lwup_shadewall, lwup_canyon)
+      !$acc    lwup_roof, lwup_improad, lwup_perroad, lwup_sunwall, lwup_shadewall, lwup_canyon) if(elm_device_ready)
       do fl = 1,num_urbanl
          l = filter_urbanl(fl)
          t = lun_pp%topounit(l)

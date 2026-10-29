@@ -36,6 +36,7 @@ module FanUpdateMod
   ! fan_to_sminn which couples to the soil biogeochemistry when that flag is
   ! turned on.
 
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use FanMod
   use shr_kind_mod, only : r8 => shr_kind_r8, CL => shr_kind_cl
   use decompMod                       , only : bounds_type
@@ -256,7 +257,7 @@ contains
     !$acc&   col_nf%fert_no3_to_soil, col_nf%manure_n_appl, col_nf%manure_n_barns, col_nf%manure_n_grz, &
     !$acc&   col_nf%manure_n_mix, col_nf%manure_n_transf, col_nf%manure_nh4_runoff, &
     !$acc&   col_nf%manure_nh4_to_soil, col_nf%manure_no3_to_soil, col_nf%nh3_barns, col_nf%nh3_fert, &
-    !$acc&   col_nf%nh3_grz, col_nf%nh3_manure_app, col_nf%nh3_stores) if_present
+    !$acc&   col_nf%nh3_grz, col_nf%nh3_manure_app, col_nf%nh3_stores) if_present if(elm_device_ready)
     if (do_balance_checks) then
        nstored_old = get_total_n('pools_storage')
        nsoilman_old = get_total_n('pools_manure')
@@ -326,7 +327,7 @@ contains
     !$acc&   col_nf%nh3_manure_app, col_nf%nh3_otherfert, col_nf%nh3_stores, col_nf%nh3_total, &
     !$acc&   col_nf%otherfert_n_appl, col_wf%qflx_evap_grnd, col_wf%qflx_infl, col_wf%qflx_surf, &
     !$acc&   col_ws%h2osoi_tend_tsl_col, col_ws%h2osoi_vol, frictionvel_vars%ram1_patch, &
-    !$acc&   frictionvel_vars%rb1_patch, soilstate_vars%soilpsi_col) if_present
+    !$acc&   frictionvel_vars%rb1_patch, soilstate_vars%soilpsi_col) if_present if(elm_device_ready)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        l = col_pp%landunit(c)
@@ -786,7 +787,7 @@ contains
     totalinput = 0.0_r8
     cumflux = 0.0_r8
 
-    !$acc parallel loop gang vector default(present) private(c)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
     do fc = 1, num_soilc
        ! Zero the manure N spread arrays because the nat veg columns receive N additively (see below)
        c = filter_soilc(fc)
@@ -797,7 +798,7 @@ contains
     ! spel acc-sync: device data this host code uses
     !$acc update self(frictionvel_vars%u10_patch, manure_n_barns, manure_n_transf, n_manure_graze, &
     !$acc&   n_manure_mixed, n_manure_spread, nh3_flux_barns, nh3_flux_stores, tan_manure_spread, &
-    !$acc&   veg_es%t_ref2m) if_present
+    !$acc&   veg_es%t_ref2m) if_present if(elm_device_ready)
     do g = begg, endg
        ! First find out if there are grasslands in this cell. If yes, a fraction of manure
        ! can be diverted to them before storage. At this time, we assume that the
@@ -921,7 +922,7 @@ contains
     real(r8) :: total, fluxout, fluxin, flux_loss    
 
     !$acc parallel loop gang vector default(present) &
-    !$acc   private(c, l, total, fluxin, flux_loss, fluxout)
+    !$acc   private(c, l, total, fluxin, flux_loss, fluxout) if(elm_device_ready)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        l = col_pp%landunit(c)
@@ -981,7 +982,7 @@ contains
     if (.not. (fan_to_bgc_veg .or. fan_to_bgc_crop)) return
 
     !$acc parallel loop gang vector default(present) &
-    !$acc   private(c, l, flux_manure, flux_fert, manure_prod, included, p)
+    !$acc   private(c, l, flux_manure, flux_fert, manure_prod, included, p) if(elm_device_ready) copyin(bounds)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        l = col_pp%landunit(c)

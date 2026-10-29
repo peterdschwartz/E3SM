@@ -9,6 +9,7 @@ module PhenologyMod
   !!Adding phosphorus -X.YANG
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use shr_log_mod         , only : errMsg => shr_log_errMsg
   use shr_sys_mod         , only : shr_sys_flush
@@ -468,7 +469,7 @@ contains
       kmo = mon_curr
       mcsec = secs_curr
 
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          tempavg_t2m(p) = tempavg_t2m(p) + t_ref2m(p) * (fracday/dayspyr)
@@ -482,7 +483,7 @@ contains
       ! gdd SUMMATIONS ARE RELATIVE TO THE PLANTING DATE (see subr. updateAccFlds)
 
 
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_pcropp
          p = filter_pcropp(fp)
          if (kmo == 1 .and. kda == 1 .and. nyrs_crop_active(p) == 0) then ! YR 1:
@@ -541,7 +542,7 @@ contains
 
       dayspyr = dayspyr_mod
 
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          if (evergreen(ivt(p)) == 1._r8) then
@@ -693,7 +694,7 @@ contains
          dt = dtime_mod
       ! start pft loop
       !$acc parallel loop gang vector default(present) &
-      !$acc   private(p, c, g, crit_onset_gdd, ws_flag, soilt)
+      !$acc   private(p, c, g, crit_onset_gdd, ws_flag, soilt) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          c = veg_pp%column(p)
@@ -1051,7 +1052,7 @@ contains
 
 
       !$acc parallel loop gang vector default(present) &
-      !$acc   private(p, c, t, g, soilt, psi, crit_onset_gdd)
+      !$acc   private(p, c, t, g, soilt, psi, crit_onset_gdd) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          c = veg_pp%column(p)
@@ -1517,7 +1518,7 @@ contains
       ndays_on = 20._r8 ! number of days to fertilize
 
       !$acc parallel loop gang vector default(present) &
-      !$acc   private(p, c, g, t, h, t_season, p_season, no_season, crmcorn, idpp)
+      !$acc   private(p, c, g, t, h, t_season, p_season, no_season, crmcorn, idpp) if(elm_device_ready)
       do fp = 1, num_pcropp
          p = filter_pcropp(fp)
          c = veg_pp%column(p)
@@ -2069,7 +2070,7 @@ contains
 
       ndays_on = 20._r8 ! number of days to fertilize
 
-      !$acc parallel loop gang vector default(present) private(p, c, g, t, h, soilt)
+      !$acc parallel loop gang vector default(present) private(p, c, g, t, h, soilt) if(elm_device_ready)
       do fp = 1, num_ppercropp     ! prognostic perennial crops loop
          p = filter_ppercropp(fp)
          c = veg_pp%column(p)
@@ -2603,7 +2604,7 @@ contains
 
       !$acc parallel loop gang vector default(present) &
       !$acc   private(p, c, t, h, mu_t, mu_p, m, sigmasum_t, sigmasum_p, sigma_t) &
-      !$acc   private(sigma_p, n, netrad, etout) private(xt_bar_p, p2e_rm_p)
+      !$acc   private(sigma_p, n, netrad, etout) private(xt_bar_p, p2e_rm_p) if(elm_device_ready)
       do fp = 1,num_pcropp
          p = filter_pcropp(fp)
          c = veg_pp%column(p)
@@ -2798,7 +2799,7 @@ contains
 
       ! patch loop
       dt = dtime_mod
-      !$acc parallel loop gang vector default(present) private(p, t1)
+      !$acc parallel loop gang vector default(present) private(p, t1) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -2939,7 +2940,7 @@ contains
 
    dt = dtime_mod
    cgrain = 0.50_r8
-   !$acc parallel loop gang vector default(present) private(p, t1)
+   !$acc parallel loop gang vector default(present) private(p, t1) if(elm_device_ready)
    do fp = 1,num_pcropp
       p = filter_pcropp(fp)
       ! only calculate during the offset period
@@ -3052,7 +3053,7 @@ contains
 
    dt = dtime_mod
    cgrain = 0.447_r8 ! Source: Zeri et al., 2013
-   !$acc parallel loop gang vector default(present) private(p, t1)
+   !$acc parallel loop gang vector default(present) private(p, t1) if(elm_device_ready)
    do fp = 1, num_ppercropp
       p = filter_ppercropp(fp)
       ! only calculate during the offset period
@@ -3198,7 +3199,7 @@ contains
       ! The litterfall transfer rate starts at 0.0 and increases linearly
       ! over time, with displayed growth going to 0.0 on the last day of litterfall
       dt = dtime_mod
-      !$acc parallel loop gang vector default(present) private(p, t1)
+      !$acc parallel loop gang vector default(present) private(p, t1) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -3356,7 +3357,7 @@ contains
 
 
       ! patch loop
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -3455,7 +3456,7 @@ contains
          )
 
       ! patch loop
-      !$acc parallel loop gang vector default(present) private(p, ctovr, ntovr, ptovr)
+      !$acc parallel loop gang vector default(present) private(p, ctovr, ntovr, ptovr) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -3585,7 +3586,7 @@ contains
       ! One element per level and soil column, the column's active patches in order inside: they
       ! are the soil-filter patches of the column (filterMod; the filters are ascending), so each
       ! column sum adds the same terms in the same order as the loop over the patch filter did.
-      !$acc parallel loop gang vector collapse(2) default(present) private(c, p, wt_col)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, p, wt_col) if(elm_device_ready)
       do j = 1, nlevdecomp
          do fc = 1, num_soilc
             c = filter_soilc(fc)
@@ -3721,7 +3722,7 @@ contains
    chrv_cropp_to_prod1p                =>   col_pf%core%hrv_crop_to_prod1      & ! InOut:  [real(r8) (:)] column level crop phosphorus harvested
    )
 
-   !$acc parallel loop gang vector default(present) private(fc, c, p)
+   !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready)
    do fc = 1,num_soilc
       !$acc loop seq
       do pi = 1,maxpatch_pft

@@ -1,4 +1,5 @@
 module TridiagonalMod
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
 
   !-----------------------------------------------------------------------
   ! !DESCRIPTION:
@@ -132,7 +133,7 @@ contains
     !$acc gam(:))
 
    !$acc parallel loop independent gang vector default(present) &
-   !$acc present(a(:,:),b(:,:),c(:,:),r(:,:),u(:,:)) private(bet,gam(:)) 
+   !$acc present(a(:,:),b(:,:),c(:,:),r(:,:),u(:,:)) private(bet,gam(:)) if(elm_device_ready)
    do ci = 1,numf
       bet = b(ci,jtop)
 

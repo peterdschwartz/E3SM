@@ -9,6 +9,7 @@ module PhosphorusDynamicsMod
   ! X.YANG
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use decompMod           , only : bounds_type
   use elm_varcon          , only : dzsoi_decomp, zisoi
@@ -75,7 +76,7 @@ contains
       begc = bounds%begc
       endc = bounds%endc
       ! Loop through columns
-      !$acc parallel loop independent gang vector private(c,g) default(present)
+      !$acc parallel loop independent gang vector private(c,g) default(present) if(elm_device_ready) copyin(bounds)
       do c = begc, endc
          g = col_pp%gridcell(c)
          pdep_to_sminp(c) = forc_pdep(g)
@@ -116,7 +117,7 @@ contains
          )
 
       ! set time steps
-      !$acc parallel loop independent gang vector default(present) collapse(2)
+      !$acc parallel loop independent gang vector default(present) collapse(2) if(elm_device_ready)
       do j = 1,nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -164,7 +165,7 @@ contains
          )
 
       ! set time steps
-      !$acc parallel loop independent gang vector default(present) collapse(2) 
+      !$acc parallel loop independent gang vector default(present) collapse(2) if(elm_device_ready)
       do j = 1,nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -216,7 +217,7 @@ contains
 
 
       ! set time steps
-      !$acc parallel loop independent gang vector default(present) collapse(2) 
+      !$acc parallel loop independent gang vector default(present) collapse(2) if(elm_device_ready)
       do j = 1,nlevdecomp
         do fc = 1,num_soilc
            c = filter_soilc(fc)
@@ -272,7 +273,7 @@ contains
          secondp_to_occlp => col_pf%secondp_to_occlp_vr &
          )
 
-      !$acc parallel loop independent gang vector default(present) collapse(2) 
+      !$acc parallel loop independent gang vector default(present) collapse(2) if(elm_device_ready)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             dtd = dt/(30._r8*secspday)
@@ -330,11 +331,11 @@ contains
          sminp_leached_vr    => col_pf%mineral%smin_leached_vr     & !Output: [real(r8) (:,:) ]  rate of mineral N leaching (gP/m3/s)
          )
    
-      !$acc data create(tot_water(:), sum1)  
+      !$acc data create(tot_water(:), sum1) if(elm_device_ready)
 
          
       ! calculate the total soil water
-      !$acc parallel loop independent gang worker  private(sum1,c,nlevbed) default(present) 
+      !$acc parallel loop independent gang worker  private(sum1,c,nlevbed) default(present) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          nlevbed = nlev2bed(c)
@@ -346,7 +347,7 @@ contains
          tot_water(fc) = sum1
       end do
          
-      !$acc parallel loop independent gang vector collapse(2) default(present) 
+      !$acc parallel loop independent gang vector collapse(2) default(present) if(elm_device_ready)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -426,10 +427,10 @@ contains
          fpi_p_vr_col         => cnstate_vars%fpi_p_vr_col                   &
          )
 
-      !$acc enter data create(sum) 
+      !$acc enter data create(sum)
       ! set initial values for potential C and N fluxes
 
-      !$acc parallel loop independent gang vector collapse(3) default(present)
+      !$acc parallel loop independent gang vector collapse(3) default(present) if(elm_device_ready)
       do l = 1, ndecomp_pools
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
@@ -452,7 +453,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop independent gang worker collapse(2) default(present) private(sum,c)
+      !$acc parallel loop independent gang worker collapse(2) default(present) private(sum,c) if(elm_device_ready)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -464,7 +465,7 @@ contains
             biochem_pmin_vr_col(c,j) = sum
          enddo
       enddo
-      !$acc exit data delete(sum) 
+      !$acc exit data delete(sum)
 
 
     end associate
@@ -532,8 +533,9 @@ contains
 
     ! set initial values for potential C and N fluxes
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_pf%biochem_pmin_ppools_vr, veg_pf%biochem_pmin_to_plant) if_present
+    !$acc update self(col_pf%biochem_pmin_ppools_vr) if_present if(elm_device_ready)
     biochem_pmin_ppools_vr_col(bounds%begc : bounds%endc, :, :) = 0._r8
+    !$acc update device(col_pf%biochem_pmin_ppools_vr) if_present
 
     if(use_fates) then
         ci = bounds%clump_index
@@ -541,15 +543,17 @@ contains
         allocate(biochem_pmin_to_plant_vr_patch(max_comps,nlevdecomp))
     else
       !!TODO:  Try to get rid of the allocate statement
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(veg_pf%biochem_pmin_to_plant) if_present if(elm_device_ready)
        allocate(biochem_pmin_to_plant_vr_patch(bounds%begp:bounds%endp,1:nlevdecomp))
        biochem_pmin_to_plant_patch(bounds%begp:bounds%endp) = 0._r8
+       !$acc update device(veg_pf%biochem_pmin_to_plant) if_present
     end if
     biochem_pmin_to_plant_vr_patch(:,:) = 0._r8
-    !$acc update device(col_pf%biochem_pmin_ppools_vr, veg_pf%biochem_pmin_to_plant) if_present
 
     do fc = 1,num_soilc
         ! spel acc-sync: device data this host code uses
-        !$acc update self(col_pf%biochem_pmin_to_plant, col_pf%biochem_pmin_vr) if_present
+        !$acc update self(col_pf%biochem_pmin_to_plant, col_pf%biochem_pmin_vr) if_present if(elm_device_ready)
         c = filter_soilc(fc)
 
 
@@ -560,7 +564,7 @@ contains
 
         if(use_fates) then
            s = alm_fates%f2hmap(ci)%hsites(c)
-           !$acc parallel loop gang vector default(present)
+           !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
            do j = 1,nlevdecomp
 
               do p = 1, alm_fates%fates(ci)%bc_out(s)%num_plant_comps
@@ -586,8 +590,8 @@ contains
            end do
         else
 
-           !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot, biochem_pmin_to_plant_vr_patch)
-           !$acc parallel loop gang vector default(present) private(p, lamda_up, ptase_tmp)
+           !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot, biochem_pmin_to_plant_vr_patch) if(elm_device_ready)
+           !$acc parallel loop gang vector default(present) private(p, lamda_up, ptase_tmp) if(elm_device_ready) copyin(bounds)
            do j = 1,nlevdecomp
               !$acc loop seq
               do p = col_pp%pfti(c), col_pp%pftf(c)
@@ -617,7 +621,7 @@ contains
         do j = 1,nlevdecomp
             ! sum total
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_ps%core%decomp_pools_vr) if_present
+            !$acc update self(col_ps%core%decomp_pools_vr) if_present if(elm_device_ready)
             sop_tot = 0._r8
             do l = 1,ndecomp_pools
                 if (is_soil(l)) then
@@ -625,7 +629,7 @@ contains
                 end if
             end do
             ! get profile
-            !$acc parallel loop gang vector default(present)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
             do l = 1,ndecomp_pools
                 if (is_soil(l)) then
                     if (sop_tot > 1e-12) then
@@ -636,8 +640,8 @@ contains
                 end if
             end do
             ! cauculation actual biochem_pmin_ppool
-            !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot)
-            !$acc parallel loop gang vector default(present)
+            !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
             do l = 1,ndecomp_pools
                 if (is_soil(l)) then
                     biochem_pmin_ppools_vr_col(c,j,l) = &
@@ -649,7 +653,7 @@ contains
         end do
 
         ! update biochem_pmin_to_ecosysp_vr_col,biochem_pmin_vr,biochem_pmin_to_plant_vr
-        !$acc parallel loop gang vector default(present) private(l)
+        !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready) copyin(bounds)
         do j = 1,nlevdecomp
             biochem_pmin_to_ecosysp_vr_col(c,j)=0._r8
             !$acc loop seq
@@ -663,8 +667,8 @@ contains
 
         ! rescale biochem_pmin_vr, biochem_pmin_to_plant_vr if necessary
         if(use_fates)then
-            !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot)
-            !$acc parallel loop gang vector default(present)
+            !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
             do j = 1,nlevdecomp
                 if ( (biochem_pmin_to_ecosysp_vr_col_pot(c,j) > biochem_pmin_to_ecosysp_vr_col(c,j)) ) then
                     if ( biochem_pmin_to_ecosysp_vr_col_pot(c,j) > 0.0_r8 ) then
@@ -697,8 +701,8 @@ contains
          else
 
             if (NFIX_PTASE_plant) then
-                !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot, biochem_pmin_to_plant_vr_patch)
-                !$acc parallel loop gang vector default(present) private(p)
+                !$acc data copy(biochem_pmin_to_ecosysp_vr_col_pot, biochem_pmin_to_plant_vr_patch) if(elm_device_ready)
+                !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
                 do j = 1,nlevdecomp
                     if ( (biochem_pmin_to_ecosysp_vr_col_pot(c,j) > biochem_pmin_to_ecosysp_vr_col(c,j)) ) then
                         if ( biochem_pmin_to_ecosysp_vr_col_pot(c,j) > 0.0_r8 ) then
@@ -723,7 +727,7 @@ contains
                 ! sum up biochem_pmin_to_plant
                 ! spel acc-sync: device data this host code uses
                 !$acc update self(col_pf%biochem_pmin_to_plant, col_pp%dz, &
-                !$acc&   veg_pf%biochem_pmin_to_plant) if_present
+                !$acc&   veg_pf%biochem_pmin_to_plant) if_present if(elm_device_ready)
                 do p = col_pp%pfti(c), col_pp%pftf(c)
                     if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
                         !biochem_pmin_to_plant_patch(p) = 0._r8
@@ -737,7 +741,7 @@ contains
                 end do
                 !$acc update device(col_pf%biochem_pmin_to_plant, veg_pf%biochem_pmin_to_plant) if_present
             else
-                !$acc parallel loop gang vector default(present)
+                !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                 do j = 1,nlevdecomp
                     biochem_pmin_vr(c,j) = biochem_pmin_to_ecosysp_vr_col(c,j)
                 enddo
@@ -745,7 +749,7 @@ contains
          end if
     end do
 
-    !$acc parallel loop gang vector collapse(2) default(present) private(c, l)
+    !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready) copyin(bounds)
     do j = 1, nlevdecomp
        do fc = 1,num_soilc
           c = filter_soilc(fc)

@@ -7,6 +7,7 @@ module UrbanAlbedoMod
   ! Calculate solar and longwave radiation, and turbulent fluxes for urban landunit
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_sys_mod       , only : shr_sys_flush 
   use shr_log_mod       , only : errMsg => shr_log_errMsg
@@ -167,7 +168,7 @@ contains
       ! next time step
       ! ----------------------------------------------------------------------------
       
-      !$acc parallel loop gang vector default(present) private(l, g)
+      !$acc parallel loop gang vector default(present) private(l, g) if(elm_device_ready) copyin(bounds)
       do fl = 1,num_urbanl
          l = filter_urbanl(fl)
          g = lun_pp%gridcell(l)
@@ -177,7 +178,7 @@ contains
 
        ! Initialize output because solar radiation only done if coszen > 0
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c, l)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready) copyin(bounds)
       do ib = 1,numrad
          do fc = 1,num_urbanc
             c = filter_urbanc(fc)
@@ -186,7 +187,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(p, c, l)
+      !$acc parallel loop gang vector collapse(2) default(present) private(p, c, l) if(elm_device_ready) copyin(bounds)
       do ib = 1,numrad
          do fp = 1,num_urbanp
             p = filter_urbanp(fp)
@@ -234,13 +235,13 @@ contains
       ! ----------------------------------------------------------------------------
 
       num_solar = 0
-      !$acc parallel loop gang vector default(present) private(l) reduction(+:num_solar)
+      !$acc parallel loop gang vector default(present) private(l) reduction(+:num_solar) if(elm_device_ready) copyin(bounds)
       do fl = 1,num_urbanl
          l = filter_urbanl(fl)
          if (coszen(l) > 0._r8) num_solar = num_solar + 1
       end do
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(l)
+      !$acc parallel loop gang vector collapse(2) default(present) private(l) if(elm_device_ready) copyin(bounds)
       do ib = 1,numrad
          do fl = 1,num_urbanl
             l = filter_urbanl(fl)
@@ -288,7 +289,7 @@ contains
 
          ! Set constants - solar fluxes are per unit incoming flux
 
-         !$acc parallel loop gang vector collapse(2) default(present) private(l)
+         !$acc parallel loop gang vector collapse(2) default(present) private(l) if(elm_device_ready) copyin(bounds)
          do ib = 1,numrad
             do fl = 1,num_urbanl
                l = filter_urbanl(fl)
@@ -348,7 +349,7 @@ contains
          end if
 
          ! Combine snow-free and snow albedos
-         !$acc parallel loop gang vector collapse(2) default(present) private(c, l)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready) copyin(bounds)
          do ib = 1,numrad
             do fc = 1,num_urbanc
                c = filter_urbanc(fc)
@@ -417,7 +418,7 @@ contains
 
          !  Set albgrd and albgri (ground albedos) and albd and albi (surface albedos)
 
-         !$acc parallel loop gang vector collapse(2) default(present) private(c, l)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready) copyin(bounds)
          do ib = 1,numrad
             do fc = 1,num_urbanc
                c = filter_urbanc(fc)
@@ -440,7 +441,7 @@ contains
                endif
             end do
          end do
-         !$acc parallel loop gang vector collapse(2) default(present) private(p, c, l)
+         !$acc parallel loop gang vector collapse(2) default(present) private(p, c, l) if(elm_device_ready) copyin(bounds)
          do ib = 1,numrad
             do fp = 1,num_urbanp
                p = filter_urbanp(fp)
@@ -500,7 +501,7 @@ contains
          h2osno =>  col_ws%h2osno & ! Input:  [real(r8) (:) ]  snow water (mm H2O)                               
          )
       
-      !$acc parallel loop gang vector default(present) private(c, l)
+      !$acc parallel loop gang vector default(present) private(c, l) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_urbanc
          c = filter_urbanc(fc)
          l = col_pp%landunit(c)
@@ -606,7 +607,7 @@ contains
     bad1 = 0; bad2 = 0; bad3 = 0; err_max = 0._r8
     !$acc parallel loop gang vector collapse(2) default(present) &
     !$acc&   private(l, swall_projected, theta0, tanzen, err1, err2, err3, sumr, sumw, num, i, theta, zen0) &
-    !$acc&   reduction(max:bad1, bad2, bad3, err_max)
+    !$acc&   reduction(max:bad1, bad2, bad3, err_max) if(elm_device_ready) copyin(bounds)
     do ib = 1,numrad
        do fl = 1,num_urbanl
           l = filter_urbanl(fl)
@@ -726,7 +727,7 @@ contains
       ! one thread per (band, landunit); errors are reported after the kernel
       bad = 0; err_max = 0._r8
       !$acc parallel loop gang vector collapse(2) default(present) private(l, swall_projected, err) &
-      !$acc&   reduction(max:bad, err_max)
+      !$acc&   reduction(max:bad, err_max) if(elm_device_ready) copyin(bounds)
       do ib = 1, numrad
          do fl = 1,num_urbanl
             l = filter_urbanl(fl)
@@ -921,7 +922,7 @@ contains
       !$acc&   shadewall_a_dif, shadewall_r_dir, shadewall_r_dif, shadewall_r_sky_dir, shadewall_r_road_dir, &
       !$acc&   shadewall_r_sunwall_dir, shadewall_r_sky_dif, shadewall_r_road_dif, shadewall_r_sunwall_dif, &
       !$acc&   canyon_alb_dir, canyon_alb_dif, stot, stot_dir, stot_dif) &
-      !$acc&   reduction(max:bad_dir, bad_dif, bad_err, err_max)
+      !$acc&   reduction(max:bad_dir, bad_dif, bad_err, err_max) if(elm_device_ready) copyin(bounds)
       do ib = 1,numrad
          do fl = 1,num_urbanl
             l = filter_urbanl(fl)

@@ -6,6 +6,7 @@ module LakeFluxesMod
   ! Created by Zack Subin, 2009
   !
   ! !USES
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod         , only : r8 => shr_kind_r8
   use shr_log_mod          , only : errMsg => shr_log_errMsg
   use decompMod            , only : bounds_type
@@ -256,7 +257,7 @@ contains
       kva0temp = 20._r8 + tfrz
 
       ! Lake columns have one patch, so these patch loops write each column once
-      !$acc parallel loop gang vector default(present) private(p, c, t, g, kva, sqre0, sabg_nir, eg, degdT)
+      !$acc parallel loop gang vector default(present) private(p, c, t, g, kva, sqre0, sabg_nir, eg, degdT) if(elm_device_ready) copyin(bounds)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -341,7 +342,7 @@ contains
 
 
 
-      !$acc parallel loop gang vector default(present) private(p, c, t, g, dthv)
+      !$acc parallel loop gang vector default(present) private(p, c, t, g, dthv) if(elm_device_ready) copyin(bounds)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -389,7 +390,7 @@ contains
       iter = 1
       fncopy = num_lakep
       p0 = begp
-      !$acc parallel loop gang vector default(present)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
       do fp = 1, num_lakep
          fpcopy(fp) = filter_lakep(fp)
          fpmap(fp) = filter_lakep(fp) - p0 + 1
@@ -415,7 +416,7 @@ contains
               fm(begp:endp), frictionvel_vars)
 
          !$acc parallel loop gang vector default(present) private(p, c, t, g, bw, ax, bx, eg, degdT, &
-         !$acc&   tstar, qstar, thvstar, zeta, wc, cur, kva, sqre0)
+         !$acc&   tstar, qstar, thvstar, zeta, wc, cur, kva, sqre0) if(elm_device_ready) copyin(bounds)
          do fp = 1, fncopy
             p = fpcopy(fp)
             c = veg_pp%column(p)
@@ -575,7 +576,7 @@ contains
 
             ! in order, on one device thread: only fncopy comes back for the do while test
             fnold = fncopy
-            !$acc serial default(present) copy(fncopy) copyin(fnold)
+            !$acc serial default(present) copy(fncopy) copyin(fnold) if(elm_device_ready) copyin(bounds)
             fncopy = 0
             !$acc loop seq
             do fp = 1, fnold
@@ -594,7 +595,7 @@ contains
       spel_dc_1 = 0  ! spel defer-checks
       check_stress = get_nstep() > 0
       !$acc parallel loop gang vector default(present) private(p, c, t, g, t_grnd_temp, e_ref2m, de2mdT, &
-      !$acc&   qsat_ref2m, dqsat2mdT, u2m) reduction(max:spel_dc_1)
+      !$acc&   qsat_ref2m, dqsat2mdT, u2m) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -706,7 +707,7 @@ contains
       if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
          fp = 1 + spel_dc_1 - 1
          p = filter_lakep(fp)
-         !$acc update self(prev_tau_diff, tau_diff, tau, wind_speed_adj)
+         !$acc update self(prev_tau_diff, tau_diff, tau, wind_speed_adj) if(elm_device_ready)
                write(iulog,*)'WARNING: Stress did not converge for lake ',&
                     ' nstep = ',get_nstep(),' p= ',p,' prev_tau_diff= ',prev_tau_diff(p),&
                     ' tau_diff= ',tau_diff(p),' tau= ',tau(p),&
@@ -715,7 +716,7 @@ contains
 
       ! The following are needed for global average on history tape.
 
-      !$acc parallel loop gang vector default(present) private(p, c, t)
+      !$acc parallel loop gang vector default(present) private(p, c, t) if(elm_device_ready) copyin(bounds)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)

@@ -61,5 +61,5 @@ module elm_varsur
   !-----------------------------------------------------------------------
 
   ! spel acc-apply: module data read in device code (updated by the device data layer)
-  !$acc declare create(f_grd, f_surf, wt_lunit)
+  !$acc declare create(f_grd, f_surf, wt_lunit, firrig)
 end module elm_varsur

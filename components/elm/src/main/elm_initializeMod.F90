@@ -3,6 +3,7 @@ module elm_initializeMod
   !-----------------------------------------------------------------------
   ! Performs land model initialization
   !
+  use ElmDeviceDataMod, only : elm_device_init, elm_device_copyin, elm_device_update  ! spel device-data
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use spmdMod          , only : masterproc, iam
   use shr_sys_mod      , only : shr_sys_flush
@@ -129,6 +130,9 @@ contains
     ! Initialize run control variables, timestep
     ! ------------------------------------------------------------------------
 
+#ifdef _OPENACC
+    call elm_device_init()  ! spel device-data
+#endif
     if ( masterproc )then
        write(iulog,*) trim(version)
        write(iulog,*)
@@ -1005,6 +1009,13 @@ contains
     ! Determine gridcell averaged properties to send to atm
     !------------------------------------------------------------
 
+#ifdef _OPENACC
+    ! spel device-data: the whole state to the device (after the restart reads), before the
+    ! kernels that compute the initial export state
+    call t_startf('device_copyin')
+    call elm_device_copyin()
+    call t_stopf('device_copyin')
+#endif
     if (nsrest == nsrStartup) then
        call t_startf('init_map2gc')
        call lnd2atm_minimal(bounds_proc, surfalb_vars, solarabs_vars, energyflux_vars, atm2lnd_vars, lnd2atm_vars)
@@ -1034,6 +1045,9 @@ contains
        end do
        !$OMP END PARALLEL DO
     end if
+#ifdef _OPENACC
+    call elm_device_update(to_device=.false.)  ! spel device-data: the step starts on the host
+#endif
 
     !------------------------------------------------------------
     ! Deallocate wt_nat_patch

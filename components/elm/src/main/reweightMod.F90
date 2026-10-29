@@ -37,6 +37,11 @@ contains
     !
     ! !USES:
     use filterMod         , only : setFilters
+#ifdef _OPENACC
+    use openacc           , only : acc_is_present  ! spel device-data
+    use filterMod         , only : filter
+    use DeepCopySubgridMod, only : subgrid_update
+#endif
     use subgridWeightsMod , only : set_active, check_weights
     use decompMod         , only : bounds_type, BOUNDS_LEVEL_CLUMP
     !
@@ -52,6 +57,11 @@ contains
     call check_weights(bounds, active_only=.true.)
     call setFilters(bounds, icemask_grc(bounds%begg:bounds%endg))
 
+#ifdef _OPENACC
+    ! spel device-data: the filters are built on the host; once the state is on the device
+    ! (after elm_device_copyin) send the rebuilt filters and subgrid data there
+    if (acc_is_present(filter)) call subgrid_update(to_device=.true.)
+#endif
   end subroutine reweight_wrapup
 
 end module reweightMod

@@ -4,6 +4,7 @@ module AnnualUpdateMod
   ! Module for updating annual summation variables
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use decompMod        , only : bounds_type
   use CNStateType      , only : cnstate_type
@@ -66,7 +67,7 @@ contains
       )
       dt = dtime_mod 
     ! column loop
-    !$acc parallel loop gang vector default(present) private(c)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        annsum_counter_col(c) = annsum_counter_col(c) + dt
@@ -74,10 +75,10 @@ contains
 
     if (num_soilc > 0) then
       ! spel acc-sync: device data this host code uses
-      !$acc update self(cnstate_vars%annsum_counter_col) if_present
+      !$acc update self(cnstate_vars%annsum_counter_col) if_present if(elm_device_ready)
       if (annsum_counter_col(filter_soilc(1)) >= dayspyr_mod * secspday) then
           ! patch loop
-          !$acc parallel loop gang vector default(present) private(p)
+          !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
           do fp = 1,num_soilp
              p = filter_soilp(fp)
 
@@ -116,7 +117,7 @@ contains
     end if
 
     ! column loop
-    !$acc parallel loop gang vector default(present) private(c)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        if (annsum_counter_col(c) >= dayspyr_mod * secspday) then

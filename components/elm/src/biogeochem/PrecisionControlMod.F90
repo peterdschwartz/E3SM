@@ -5,6 +5,7 @@ module PrecisionControlMod
   ! controls on very low values in critical state variables
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use shr_log_mod         , only : errMsg => shr_log_errMsg
   use abortutils          , only : endrun
@@ -86,7 +87,7 @@ contains
 
       ! patch loop
       if (.not.use_fates) then
-         !$acc parallel loop gang vector default(present) private(p, k, pc, pn, pp, pc13, pc14, small, small_iso)
+         !$acc parallel loop gang vector default(present) private(p, k, pc, pn, pp, pc13, pc14, small, small_iso) if(elm_device_ready)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
 
@@ -210,7 +211,7 @@ contains
 
 
          ! column loop
-         !$acc parallel loop gang vector default(present) private(c, j, cc, cc13, cc14, cn, k)
+         !$acc parallel loop gang vector default(present) private(c, j, cc, cc13, cc14, cn, k) if(elm_device_ready)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
 
@@ -266,7 +267,7 @@ contains
          ! remove small negative perturbations for stability purposes, if any should arise.
          ! (one thread per column and level; the number of resets is reported after the kernel)
          nreset = 0
-         !$acc parallel loop gang vector collapse(2) default(present) private(c) reduction(+:nreset)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) reduction(+:nreset) if(elm_device_ready)
          do fc = 1,num_soilc
             do j = 1,nlevdecomp_full
                c = filter_soilc(fc)
@@ -306,7 +307,7 @@ contains
             !end do
 
             ! fix soil CN ratio drift (normally < 0.01% drift)
-            !$acc parallel loop gang vector default(present) private(c, j, cn_eca, l)
+            !$acc parallel loop gang vector default(present) private(c, j, cn_eca, l) if(elm_device_ready)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
                !$acc loop seq
@@ -331,7 +332,7 @@ contains
             ! for floating CN, CP ratio pools
             ! spel acc-sync: device data this host code uses
             !$acc update self(col_ns%core%decomp_pools_vr, col_ns%core%trunc_sink_vr, &
-            !$acc&   col_ps%core%decomp_pools_vr, col_ps%core%trunc_sink_vr) if_present
+            !$acc&   col_ps%core%decomp_pools_vr, col_ps%core%trunc_sink_vr) if_present if(elm_device_ready)
             do fc = 1,num_soilc
                c = filter_soilc(fc)
                do j = 1,nlevdecomp_full
@@ -378,7 +379,7 @@ contains
             spel_dc_3 = 0  ! spel defer-checks
             spel_dc_4 = 0  ! spel defer-checks
             !$acc parallel loop gang vector default(present) private(p) reduction(max:spel_dc_1) &
-            !$acc   reduction(max:spel_dc_2) reduction(max:spel_dc_3) reduction(max:spel_dc_4)
+            !$acc   reduction(max:spel_dc_2) reduction(max:spel_dc_3) reduction(max:spel_dc_4) if(elm_device_ready)
             do fp = 1,num_soilp
                p = filter_soilp(fp)
 #ifndef _OPENACC
@@ -390,7 +391,7 @@ contains
             end do
             if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ns%retrans%pool) if_present
+               !$acc update self(veg_ns%retrans%pool) if_present if(elm_device_ready)
                fp = 1 + spel_dc_1 - 1
                p = filter_soilp(fp)
 
@@ -400,7 +401,7 @@ contains
             end if
             if (spel_dc_2 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ns%core%pool) if_present
+               !$acc update self(veg_ns%core%pool) if_present if(elm_device_ready)
                fp = 1 + spel_dc_2 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error npool_patch is negative: ',p
@@ -409,7 +410,7 @@ contains
             end if
             if (spel_dc_3 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ps%retrans%pool) if_present
+               !$acc update self(veg_ps%retrans%pool) if_present if(elm_device_ready)
                fp = 1 + spel_dc_3 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error retransp_patch is negative: ',p
@@ -418,7 +419,7 @@ contains
             end if
             if (spel_dc_4 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ps%core%pool) if_present
+               !$acc update self(veg_ps%core%pool) if_present if(elm_device_ready)
                fp = 1 + spel_dc_4 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error ppool_patch is negative: ',p

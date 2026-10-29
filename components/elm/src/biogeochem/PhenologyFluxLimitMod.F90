@@ -5,6 +5,7 @@ module PhenologyFLuxLimitMod
 ! calculation to avoid negative state varaibles for
 ! carbon, nitrogen and phosphours.
 
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use LSparseMatMod               , only : sparseMat_type, flux_correction,spm_list_type
   use shr_kind_mod                , only : r8 => shr_kind_r8
   use VegetationType              , only : veg_pp
@@ -649,7 +650,7 @@ contains
     !$acc&   veg_cs%core%grain_xfer, veg_cs%core%leaf, veg_cs%core%leaf_storage, veg_cs%core%leaf_xfer, &
     !$acc&   veg_cs%core%livecroot, veg_cs%core%livecroot_storage, veg_cs%core%livecroot_xfer, &
     !$acc&   veg_cs%core%livestem, veg_cs%core%livestem_storage, veg_cs%core%livestem_xfer, veg_cs%core%pool, &
-    !$acc&   veg_cs%gresp_storage, veg_cs%gresp_xfer) if_present
+    !$acc&   veg_cs%gresp_storage, veg_cs%gresp_xfer) if_present if(elm_device_ready)
     p = filter_soilp(fp)
     !assemble state variables
     ystates(:)=0._r8
@@ -764,13 +765,12 @@ contains
 
     !obtain the limiting factor
 
-    !$acc data copy(rfluxes, ystates)
+    !$acc data copy(rfluxes, ystates) if(elm_device_ready)
     call flux_correction(spm_carbon_d%szrow, spm_carbon_d%szcol, spm_carbon_p, &
        spm_carbon_d, dt, ystates, rfluxes)
 
     !correct the fluxes
 
-    !$acc end data
     ! spel acc-sync: device data this host code uses
     !$acc update self(veg_cf%core%deadcroot_storage_to_xfer, veg_cf%core%deadcroot_xfer_to_deadcroot, &
     !$acc&   veg_cf%core%deadstem_storage_to_xfer, veg_cf%core%deadstem_xfer_to_deadstem, &
@@ -793,7 +793,8 @@ contains
     !$acc&   veg_cf%cpool_livecroot_gr, veg_cf%cpool_livecroot_storage_gr, veg_cf%cpool_livestem_gr, &
     !$acc&   veg_cf%cpool_livestem_storage_gr, veg_cf%cpool_to_gresp_storage, veg_cf%cpool_to_xsmrpool, &
     !$acc&   veg_cf%froot_curmr, veg_cf%grain_curmr, veg_cf%gresp_storage_to_xfer, veg_cf%leaf_curmr, &
-    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr) if_present
+    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr) if_present if(elm_device_ready)
+    !$acc end data
     call fpmax(rfluxes(f_cpool_to_leafc)               , veg_cf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_cpool_to_leafc_storage)       , veg_cf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_cpool_to_frootc)              , veg_cf%core%pool_to_froot(p))
@@ -956,7 +957,7 @@ contains
     !$acc&   veg_ns%core%leaf_storage, veg_ns%core%leaf_xfer, veg_ns%core%livecroot, &
     !$acc&   veg_ns%core%livecroot_storage, veg_ns%core%livecroot_xfer, veg_ns%core%livestem, &
     !$acc&   veg_ns%core%livestem_storage, veg_ns%core%livestem_xfer, veg_ns%core%pool, &
-    !$acc&   veg_ns%retrans%pool) if_present
+    !$acc&   veg_ns%retrans%pool) if_present if(elm_device_ready)
     p = filter_soilp(fp)
     ystates(:) = 0._r8
     !assemble state variables
@@ -1045,12 +1046,11 @@ contains
     rfluxes(f_retransn_to_npool)             = veg_nf%retrans%retrans_to_pool(p)
     rfluxes(f_supplement_to_plantn)          = veg_nf%uptake%supplement_to_plant(p)
 
-    !$acc data copy(rfluxes, ystates)
+    !$acc data copy(rfluxes, ystates) if(elm_device_ready)
     call flux_correction(spm_nutrient_d%szrow, spm_nutrient_d%szcol, spm_nutrient_p, &
       spm_nutrient_d, dt, ystates, rfluxes)
 
     !correct the fluxes
-    !$acc end data
     ! spel acc-sync: device data this host code uses
     !$acc update self(veg_nf%core%deadcroot_storage_to_xfer, veg_nf%core%deadcroot_xfer_to_deadcroot, &
     !$acc&   veg_nf%core%deadstem_storage_to_xfer, veg_nf%core%deadstem_xfer_to_deadstem, &
@@ -1069,7 +1069,8 @@ contains
     !$acc&   veg_nf%core%pool_to_livestem_storage, veg_nf%retrans%froot_to_retrans, &
     !$acc&   veg_nf%retrans%leaf_to_retrans, veg_nf%retrans%livecroot_to_retrans, &
     !$acc&   veg_nf%retrans%livestem_to_retrans, veg_nf%retrans%retrans_to_pool, &
-    !$acc&   veg_nf%uptake%supplement_to_plant) if_present
+    !$acc&   veg_nf%uptake%supplement_to_plant) if_present if(elm_device_ready)
+    !$acc end data
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_nf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_nf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_npool_to_frootn)               , veg_nf%core%pool_to_froot(p))
@@ -1201,7 +1202,7 @@ contains
     !$acc&   veg_ps%core%leaf_storage, veg_ps%core%leaf_xfer, veg_ps%core%livecroot, &
     !$acc&   veg_ps%core%livecroot_storage, veg_ps%core%livecroot_xfer, veg_ps%core%livestem, &
     !$acc&   veg_ps%core%livestem_storage, veg_ps%core%livestem_xfer, veg_ps%core%pool, &
-    !$acc&   veg_ps%retrans%pool) if_present
+    !$acc&   veg_ps%retrans%pool) if_present if(elm_device_ready)
     p = filter_soilp(fp)
     ystates(:) = 0._r8
     !assemble state variables
@@ -1291,11 +1292,10 @@ contains
     !assemble stoichiometry matrix
 
     !obtain the limiting factor
-    !$acc data copy(rfluxes, ystates)
+    !$acc data copy(rfluxes, ystates) if(elm_device_ready)
     call flux_correction(spm_nutrient_d%szrow, spm_nutrient_d%szcol, spm_nutrient_p, &
       spm_nutrient_d, dt, ystates, rfluxes)
     !correct the fluxes
-    !$acc end data
     ! spel acc-sync: device data this host code uses
     !$acc update self(veg_pf%core%deadcroot_storage_to_xfer, veg_pf%core%deadcroot_xfer_to_deadcroot, &
     !$acc&   veg_pf%core%deadstem_storage_to_xfer, veg_pf%core%deadstem_xfer_to_deadstem, &
@@ -1313,7 +1313,8 @@ contains
     !$acc&   veg_pf%core%pool_to_livestem_storage, veg_pf%retrans%froot_to_retrans, &
     !$acc&   veg_pf%retrans%leaf_to_retrans, veg_pf%retrans%livecroot_to_retrans, &
     !$acc&   veg_pf%retrans%livestem_to_retrans, veg_pf%retrans%retrans_to_pool, &
-    !$acc&   veg_pf%uptake%supplement_to_plant) if_present
+    !$acc&   veg_pf%uptake%supplement_to_plant) if_present if(elm_device_ready)
+    !$acc end data
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_pf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_pf%core%pool_to_leaf_storage(p))
     call fpmax(rfluxes(f_npool_to_frootn)               , veg_pf%core%pool_to_froot(p))

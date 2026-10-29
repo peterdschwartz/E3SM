@@ -1,4 +1,5 @@
 module RootBiophysMod
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
 
 #include "shr_assert.h"
   !-------------------------------------------------------------------------------------- 

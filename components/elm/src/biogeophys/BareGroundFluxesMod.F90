@@ -6,6 +6,7 @@ module BareGroundFluxesMod
   ! to ground temperature using ground temperatures from previous time step.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod         , only : r8 => shr_kind_r8
   use Ch4TypeMod               , only : ch4_type
   use CanopyStateType      , only : canopystate_type
@@ -224,7 +225,7 @@ contains
 
       ! Compute sensible and latent fluxes and their derivatives with respect
       ! to ground temperature using ground temperatures from previous time step
-      !$acc parallel loop independent gang vector default(present) private(p,c,t,dthv)
+      !$acc parallel loop independent gang vector default(present) private(p,c,t,dthv) if(elm_device_ready) copyin(bounds)
       do f = 1, num_nolu_barep
          p = filter_nolu_barep(f)
          c = veg_pp%column(p)
@@ -287,7 +288,7 @@ contains
               frictionvel_vars)
 
          !$acc parallel loop independent gang vector default(present) &
-         !$acc    private(p,f,c,t,ram,tstar,qstar,thvstar,zeta,wc)
+         !$acc    private(p,f,c,t,ram,tstar,qstar,thvstar,zeta,wc) if(elm_device_ready) copyin(bounds)
          do fa = 1, fn
             p = iter_filterp(fa)
             f = iter_filter_map(fa)
@@ -334,7 +335,7 @@ contains
          if (iter >= itmin) then
             fnold = fn
             fn = 0
-            !$acc parallel loop seq default(present) private(p,f) copy(fn)
+            !$acc parallel loop seq default(present) private(p,f) copy(fn) if(elm_device_ready) copyin(bounds)
             do fa = 1, fnold
                p = iter_filterp(fa)
                f = iter_filter_map(fa)
@@ -351,7 +352,7 @@ contains
       end do ITERATION ! end stability iteration
 
       !$acc parallel loop independent gang vector default(present) &
-      !$acc    private(p,c,t,ram,rah,raw,raih,raiw,www,e_ref2m,de2mdT,qsat_ref2m,dqsat2mdT)
+      !$acc    private(p,c,t,ram,rah,raw,raih,raiw,www,e_ref2m,de2mdT,qsat_ref2m,dqsat2mdT) if(elm_device_ready) copyin(bounds)
       do f = 1, num_nolu_barep
          p = filter_nolu_barep(f)
          c = veg_pp%column(p)
@@ -435,7 +436,7 @@ contains
       ! Check for convergence of stress.
       if (implicit_stress .and. get_nstep() > 0) then ! Suppress common warnings on the first time step.
          spel_dc_1 = 0  ! spel defer-checks
-         !$acc parallel loop gang vector default(present) private(p) reduction(max:spel_dc_1)
+         !$acc parallel loop gang vector default(present) private(p) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
          do f = 1, num_nolu_barep
             p = filter_nolu_barep(f)
             if (abs(tau_diff(f)) > dtaumin) spel_dc_1 = max(spel_dc_1, f - (1) + 1)  ! spel defer-checks

@@ -21,10 +21,16 @@ module accumulMod
   ! Inactive / zero-weight subgrid elements are skipped during update,
   ! following the CLM (ctsm5.4.042) active-element accumulator fix.
   !
+  ! The fields and their per-step update/extraction are in accumComputeMod (device
+  ! kernels when the state is on the device: elm_device_ready); this module keeps the field
+  ! list, the lookup by name, the initialization and the restart.
+  !
   ! !USES:
   use shr_kind_mod, only: r8 => shr_kind_r8
   use shr_sys_mod , only: shr_sys_abort
-  use elm_varctl  , only: iulog
+  use elm_varctl  , only: iulog, elm_device_ready
+  use accumComputeMod, only : accum_field, accumResetVal, accum_type_code, accum_update, accum_extract, &
+       accum_host_values, accum_device_values
   use TopounitType   , only : top_pp
   use LandunitType   , only : lun_pp
   use ColumnType     , only : col_pp
@@ -40,6 +46,7 @@ module accumulMod
   public :: print_accum_fields   ! Print info about accumulator fields
   public :: extract_accum_field  ! Extracts the current value of an accumulator field
   public :: update_accum_field   ! Update the current value of an accumulator field
+  public :: accumResetVal        ! (accumComputeMod) the runaccum reset trigger
 
   interface extract_accum_field
      module procedure extract_accum_field_sl ! Extract current val of single-level accumulator field
@@ -51,27 +58,6 @@ module accumulMod
   end interface
   private
   !
-  ! !PRIVATE TYPES:
-  type accum_field
-     character(len=  8) :: name     !field name
-     character(len=128) :: desc     !field description
-     character(len=  8) :: units    !field units
-     character(len=  8) :: acctype  !accumulation type: ["timeavg","runmean","runaccum"]
-     character(len=  8) :: type1d   !subgrid type: ["gridcell","topounit","landunit","column" or "pft"]
-     character(len=  8) :: type2d   !type2d ('','levsoi','numrad',..etc. )
-     integer            :: beg1d    !subgrid type beginning index
-     integer            :: end1d    !subgrid type ending index
-     integer            :: num1d    !total subgrid points
-     integer            :: numlev   !number of vertical levels in field
-     logical, pointer   :: active(:) => null() ! whether each point is active (null => all active)
-     logical, pointer   :: active_storage(:) => null() ! owned storage when no type-level active flag exists
-     real(r8)           :: initval  !initial value of accumulated field
-     real(r8), pointer  :: val(:,:) => null() !accumulated field
-     integer , pointer  :: nsteps(:,:) => null() ! active accumulation step counts since last reset
-     integer            :: period   !field accumulation period (in model time steps)
-  end type accum_field
-
-  real(r8), parameter, public :: accumResetVal = -99999._r8 ! used to do an annual reset ( put in for bug 1858)
 
   integer, parameter :: max_accum = 100    !maximum number of accumulated fields
   type (accum_field) :: accum(max_accum)   !array accumulated fields
@@ -153,6 +139,12 @@ contains
     accum(nf)%units   = trim(units)
     accum(nf)%desc    = trim(desc)
     accum(nf)%acctype = trim(accum_type)
+    accum(nf)%acctype_code = accum_type_code(accum_type)
+    if (accum(nf)%acctype_code == 0) then
+       write(iulog,*) 'ACCUMULINIT error: incorrect accumulation type ', trim(accum_type), ' for field ', &
+            trim(name), '; only [timeavg, runmean, runaccum] are currently acceptable'
+       call shr_sys_abort()
+    end if
     accum(nf)%initval = init_value
     accum(nf)%period  = accum_period
     if (accum(nf)%period < 0) then
@@ -280,7 +272,7 @@ contains
     integer , intent(in) :: nstep            !timestep index
     !
     ! !LOCAL VARIABLES:
-    integer :: i,k,nf        !indices
+    integer :: i,nf          !indices
     integer :: beg,end         !subgrid beginning,ending indices
     !------------------------------------------------------------------------
 
@@ -306,18 +298,9 @@ contains
        call shr_sys_abort
     endif
 
-    ! extract field
+    ! extract field (spval when a time average is not ready)
 
-    if (accum(nf)%acctype == 'timeavg' .and. &
-         mod(nstep,accum(nf)%period) /= 0) then
-       do k = beg,end
-          field(k) = spval  !assign absurd value when avg not ready
-       end do
-    else
-       do k = beg,end
-          field(k) = accum(nf)%val(k,1)
-       end do
-    end if
+    call accum_extract(accum(nf), field(beg:end), nstep, spval, elm_device_ready)
 
   end subroutine extract_accum_field_sl
 
@@ -341,7 +324,7 @@ contains
     integer, intent(in) :: nstep               !timestep index
     !
     ! !LOCAL VARIABLES:
-    integer :: i,j,k,nf        !indices
+    integer :: i,nf            !indices
     integer :: beg,end         !subgrid beginning,ending indices
     integer :: numlev          !number of vertical levels
     !------------------------------------------------------------------------
@@ -374,22 +357,9 @@ contains
        call shr_sys_abort
     endif
 
-    !extract field
+    !extract field (spval when a time average is not ready)
 
-    if (accum(nf)%acctype == 'timeavg' .and. &
-         mod(nstep,accum(nf)%period) /= 0) then
-       do j = 1,numlev
-          do k = beg,end
-             field(k,j) = spval  !assign absurd value when avg not ready
-          end do
-       end do
-    else
-       do j = 1,numlev
-          do k = beg,end
-             field(k,j) = accum(nf)%val(k,j)
-          end do
-       end do
-    end if
+    call accum_extract(accum(nf), field(beg:end, 1:numlev), nstep, spval, elm_device_ready)
 
   end subroutine extract_accum_field_ml
 
@@ -408,10 +378,8 @@ contains
     integer , intent(in) :: nstep            !time step index
     !
     ! !LOCAL VARIABLES:
-    integer :: i,k,nf              !indices
-    integer :: accper              !temporary accumulation period
+    integer :: i,nf                !indices
     integer :: beg,end             !subgrid beginning,ending indices
-    logical :: time_to_reset
     !------------------------------------------------------------------------
 
     ! find field index. return if "name" is not on list
@@ -436,75 +404,12 @@ contains
        call shr_sys_abort
     endif
 
-    ! accumulate field
+    ! accumulate field (the accumulation type was checked by init_accum_field)
 
-    if (accum(nf)%acctype /= 'timeavg' .AND. &
-        accum(nf)%acctype /= 'runmean' .AND. &
-        accum(nf)%acctype /= 'runaccum') then
-       write(iulog,*) 'UPDATE_ACCUM_FIELD_SL error: incorrect accumulation type'
-       write(iulog,*) ' was specified for field ',name
-       write(iulog,*)' accumulation type specified is ',accum(nf)%acctype
-       write(iulog,*)' only [timeavg, runmean, runaccum] are currently acceptable'
-       call shr_sys_abort()
-    end if
-
-
-    ! reset accumulated field value if necessary and  update
-    ! accumulation field
-    ! running mean never reset
-
-    if (accum(nf)%acctype == 'timeavg') then
-
-       !time average field reset every accumulation period
-       !normalize at end of accumulation period using active-point nsteps
-
-       time_to_reset = (mod(nstep,accum(nf)%period) == 1 .or. accum(nf)%period == 1) .and. (nstep /= 0)
-       do k = beg,end
-          if (accum(nf)%active(k)) then
-             if (time_to_reset) then
-                accum(nf)%val(k,1) = 0._r8
-                accum(nf)%nsteps(k,1) = 0
-             end if
-             accum(nf)%val(k,1) = accum(nf)%val(k,1) + field(k)
-             accum(nf)%nsteps(k,1) = accum(nf)%nsteps(k,1) + 1
-             if (mod(nstep,accum(nf)%period) == 0) then
-                if (accum(nf)%nsteps(k,1) > 0) then
-                   accum(nf)%val(k,1) = accum(nf)%val(k,1) / real(accum(nf)%nsteps(k,1),r8)
-                else
-                   accum(nf)%val(k,1) = accum(nf)%initval
-                end if
-             end if
-          end if
-       end do
-
-    else if (accum(nf)%acctype == 'runmean') then
-
-       !running mean - only update active points; cap nsteps at period
-
-       do k = beg,end
-          if (accum(nf)%active(k)) then
-             accum(nf)%nsteps(k,1) = min(accum(nf)%nsteps(k,1) + 1, accum(nf)%period)
-             accper = accum(nf)%nsteps(k,1)
-             accum(nf)%val(k,1) = ((accper-1)*accum(nf)%val(k,1) + field(k)) / real(accper,r8)
-          end if
-       end do
-
-    else if (accum(nf)%acctype == 'runaccum') then
-
-       !running accumulation field reset at trigger -99999
-
-       do k = beg,end
-          if (accum(nf)%active(k)) then
-             if (nint(field(k)) == -99999) then
-                accum(nf)%val(k,1) = 0._r8
-                accum(nf)%nsteps(k,1) = 0
-             else
-                accum(nf)%val(k,1) = min(max(accum(nf)%val(k,1) + field(k), 0._r8), 99999._r8)
-                accum(nf)%nsteps(k,1) = accum(nf)%nsteps(k,1) + 1
-             end if
-          end if
-       end do
-
+    if (accum_check_on()) then
+       call accum_check_1d(accum(nf), field(beg:end), nstep)
+    else
+       call accum_update(accum(nf), field(beg:end), nstep, elm_device_ready)
     end if
 
   end subroutine update_accum_field_sl
@@ -523,11 +428,9 @@ contains
     integer , intent(in) :: nstep              !time step index
     !
     ! !LOCAL VARIABLES:
-    integer :: i,j,k,nf            !indices
-    integer :: accper              !temporary accumulation period
+    integer :: i,nf                !indices
     integer :: beg,end             !subgrid beginning,ending indices
     integer :: numlev              !number of vertical levels
-    logical :: time_to_reset
     !------------------------------------------------------------------------
 
     ! find field index. return if "name" is not on list
@@ -558,78 +461,68 @@ contains
        call shr_sys_abort
     endif
 
-    ! accumulate field
+    ! accumulate field (the accumulation type was checked by init_accum_field)
 
-    if (accum(nf)%acctype /= 'timeavg' .AND. &
-        accum(nf)%acctype /= 'runmean' .AND. &
-        accum(nf)%acctype /= 'runaccum') then
-       write(iulog,*) 'UPDATE_ACCUM_FIELD_ML error: incorrect accumulation type'
-       write(iulog,*) ' was specified for field ',name
-       write(iulog,*)' accumulation type specified is ',accum(nf)%acctype
-       write(iulog,*)' only [timeavg, runmean, runaccum] are currently acceptable'
-       call shr_sys_abort()
-    end if
-
-    ! accumulate field
-
-    ! reset accumulated field value if necessary and  update
-    ! accumulation field
-    ! running mean never reset
-
-    if (accum(nf)%acctype == 'timeavg') then
-
-       time_to_reset = (mod(nstep,accum(nf)%period) == 1 .or. accum(nf)%period == 1) .and. (nstep /= 0)
-       do j = 1,numlev
-          do k = beg,end
-             if (accum(nf)%active(k)) then
-                if (time_to_reset) then
-                   accum(nf)%val(k,j) = 0._r8
-                   accum(nf)%nsteps(k,j) = 0
-                end if
-                accum(nf)%val(k,j) = accum(nf)%val(k,j) + field(k,j)
-                accum(nf)%nsteps(k,j) = accum(nf)%nsteps(k,j) + 1
-                if (mod(nstep,accum(nf)%period) == 0) then
-                   if (accum(nf)%nsteps(k,j) > 0) then
-                      accum(nf)%val(k,j) = accum(nf)%val(k,j) / real(accum(nf)%nsteps(k,j),r8)
-                   else
-                      accum(nf)%val(k,j) = accum(nf)%initval
-                   end if
-                end if
-             end if
-          end do
-       end do
-
-    else if (accum(nf)%acctype == 'runmean') then
-
-       do j = 1,numlev
-          do k = beg,end
-             if (accum(nf)%active(k)) then
-                accum(nf)%nsteps(k,j) = min(accum(nf)%nsteps(k,j) + 1, accum(nf)%period)
-                accper = accum(nf)%nsteps(k,j)
-                accum(nf)%val(k,j) = ((accper-1)*accum(nf)%val(k,j) + field(k,j)) / real(accper,r8)
-             end if
-          end do
-       end do
-
-    else if (accum(nf)%acctype == 'runaccum') then
-
-       do j = 1,numlev
-          do k = beg,end
-             if (accum(nf)%active(k)) then
-                if (nint(field(k,j)) == -99999) then
-                   accum(nf)%val(k,j) = 0._r8
-                   accum(nf)%nsteps(k,j) = 0
-                else
-                   accum(nf)%val(k,j) = min(max(accum(nf)%val(k,j) + field(k,j), 0._r8), 99999._r8)
-                   accum(nf)%nsteps(k,j) = accum(nf)%nsteps(k,j) + 1
-                end if
-             end if
-          end do
-       end do
-
-    end if
+    call accum_update(accum(nf), field(beg:end, 1:numlev), nstep, elm_device_ready)
 
   end subroutine update_accum_field_ml
+
+  !------------------------------------------------------------------------
+  logical function accum_check_on()
+    ! DEBUG (SPEL_ACCUM_CHECK=1): check every device update of a single-level field
+    logical, save :: first = .true., on = .false.
+    character(len=8) :: s
+    integer :: ios
+    if (first) then
+       s = ' '
+#ifdef _OPENACC
+       call get_environment_variable('SPEL_ACCUM_CHECK', s, status=ios)
+#endif
+       on = trim(s) == '1'
+       first = .false.
+    end if
+    accum_check_on = on .and. elm_device_ready
+  end function accum_check_on
+
+  subroutine accum_check_1d(f, field, nstep)
+    ! DEBUG: the input's device copy against its host copy, and the device update against the
+    ! same update on the host from the device's state and inputs; mismatches go to iulog
+#ifdef _OPENACC
+    use openacc, only : acc_is_present
+#endif
+    type(accum_field), intent(inout) :: f
+    real(r8), intent(in) :: field(f%beg1d:)
+    integer , intent(in) :: nstep
+    type(accum_field) :: r
+    real(r8), allocatable :: dev(:)
+    integer :: k, nin, nval, nn
+#ifdef _OPENACC
+    allocate(dev(f%beg1d:f%end1d))
+    dev = field(f%beg1d:f%end1d)
+    nin = 0
+    if (acc_is_present(field)) then
+       !$acc parallel loop present(field) copyout(dev)
+       do k = f%beg1d, f%end1d
+          dev(k) = field(k)
+       end do
+       nin = count(dev /= field(f%beg1d:f%end1d))
+    end if
+    if (f%resident) call accum_host_values(f)
+    r = f
+    r%resident = .false.
+    allocate(r%val(f%beg1d:f%end1d, f%numlev), r%nsteps(f%beg1d:f%end1d, f%numlev))
+    r%val = f%val
+    r%nsteps = f%nsteps
+    call accum_update(r, dev, nstep, .false.)
+    call accum_update(f, field, nstep, .true.)
+    call accum_host_values(f)
+    nval = count(f%val /= r%val)
+    nn = count(f%nsteps /= r%nsteps)
+    if (nin + nval + nn > 0) write(iulog,'(a,a8,a,i6,a,l2,a,i8,a,i8,a,i8)') ' ACCUM_CHECK ', f%name, ' nstep', nstep, &
+         ' input present', acc_is_present(field), ' input dev/=host', nin, ' val differ', nval, ' nsteps differ', nn
+    deallocate(r%val, r%nsteps, dev)
+#endif
+  end subroutine accum_check_1d
 
   !------------------------------------------------------------------------
   subroutine accumulRest( ncid, flag )
@@ -655,6 +548,9 @@ contains
     !------------------------------------------------------------------------
 
     do nf = 1,naccflds
+
+       ! fields that live on the device: their current values for the restart file
+       if (flag == 'write') call accum_host_values(accum(nf))
 
        ! Note = below need to allocate rbuf for single level variables, since
        ! accum(nf)%val is always 2d
@@ -700,6 +596,9 @@ contains
             imissing_value=ispval, ifill_value=huge(1), &
             interpinic_flag='copy', &
             data=accum(nf)%period, readvar=readvar)
+
+       ! a restart read after the fields moved to the device (none in a normal run)
+       if (flag == 'read') call accum_device_values(accum(nf))
 
     end do
 

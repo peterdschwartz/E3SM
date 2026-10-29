@@ -10,6 +10,7 @@ module HeatBudgetMod
   ! residual rather than computed directly from physical processes.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_log_mod       , only : errMsg => shr_log_errMsg
   use shr_sys_mod       , only : shr_sys_abort
@@ -430,7 +431,7 @@ contains
 
     ! spel acc-locals: device storage of the local work arrays
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno) if_present
+    !$acc update self(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno) if_present if(elm_device_ready)
     !$acc enter data create(phase_col)
     call c2g(bounds, col_es%hc_soisno(bounds%begc:bounds%endc), &
          grc_es%end_hc(bounds%begg:bounds%endg), &
@@ -450,8 +451,8 @@ contains
     !$acc update device(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno, grc_es%end_hc, &
     !$acc&   grc_es%end_hc_lake, grc_es%end_hc_soi, grc_es%errsoi) if_present
 
-    !$acc data copy(grnd_patch)
-    !$acc parallel loop gang vector default(present) private(c, l)
+    !$acc data copy(grnd_patch) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(c, l) if(elm_device_ready) copyin(bounds)
     do p = bounds%begp, bounds%endp
        c = veg_pp%column(p)
        l = col_pp%landunit(c)
@@ -479,7 +480,7 @@ contains
          c_h2osfc     => col_es%c_h2osfc             &
          )
 
-      !$acc parallel loop gang vector default(present) private(l)
+      !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready) copyin(bounds)
       do c = bounds%begc, bounds%endc
          l = col_pp%landunit(c)
          if (lun_pp%urbpoi(l)) then
@@ -503,7 +504,7 @@ contains
 
     end associate
 
-    !$acc data copy(phase_col)
+    !$acc data copy(phase_col) if(elm_device_ready)
     call c2g(bounds, phase_col(bounds%begc:bounds%endc), &
          grc_ef%heat_phase_corr(bounds%begg:bounds%endg), &
          c2l_scale_type='unity', l2g_scale_type='unity')
@@ -512,7 +513,7 @@ contains
     ! Doing this at gridcell level gives every term identical spatial
     ! support and also handles snow layers that appear or disappear.
     !$acc end data
-    !$acc parallel loop gang vector default(present)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do c = bounds%begg, bounds%endg
        if (grc_es%beg_hc(c) /= spval .and. grc_es%end_hc(c) /= spval &
             .and. grc_ef%heat_into_grnd(c) /= spval .and. grc_ef%heat_phase_corr(c) /= spval) then
@@ -558,7 +559,7 @@ contains
 
     ! spel acc-sync: device data this host code uses
     !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc, grc_ef%heat_phase_corr, &
-    !$acc&   grc_ef%heat_state_adj, grc_es%beg_hc, grc_es%beg_hc_lake, grc_es%beg_hc_soi) if_present
+    !$acc&   grc_ef%heat_state_adj, grc_es%beg_hc, grc_es%beg_hc_lake, grc_es%beg_hc_soi) if_present if(elm_device_ready)
     associate(                                                              &
          forc_lwdn   => atm2lnd_vars%forc_lwrad_not_downscaled_grc        , &
          forc_snow   => atm2lnd_vars%forc_snow_not_downscaled_grc         , &

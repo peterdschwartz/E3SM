@@ -5,6 +5,7 @@ module BalanceCheckMod
   ! Water and energy balance check.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod       , only : r8 => shr_kind_r8
   use shr_log_mod        , only : errMsg => shr_log_errMsg
   use decompMod          , only : bounds_type
@@ -93,14 +94,14 @@ contains
             h2ocan_col(bounds%begc:bounds%endc))
 
       if (use_var_soil_thick) then
-	       !$acc parallel loop gang vector default(present) private(c)
+	       !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
 	       do f = 1, num_hydrologyc
             c = filter_hydrologyc(f)
       	    wa(c) = 0._r8                ! Made 0 for variable soil thickness
 	       end do
       end if
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do f = 1, num_nolakec
          c = filter_nolakec(f)
          if (col_pp%itype(c) == icol_roof .or. col_pp%itype(c) == icol_sunwall &
@@ -112,7 +113,7 @@ contains
 
       end do
 
-      !$acc parallel loop gang vector default(present) private(f, c)
+      !$acc parallel loop gang vector default(present) private(f, c) if(elm_device_ready) copyin(bounds)
       do f = 1, num_nolakec
          !$acc loop seq
          do j = 1, nlevgrnd
@@ -132,13 +133,13 @@ contains
       ! and it should be zero in all other cases and all other columns.
       ! (rgk 02-02-2017)
       ! ---------------------------------------------------------------------------------
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do f = 1, num_nolakec
          c = filter_nolakec(f)
          begwb(c) = begwb(c) + total_plant_stored_h2o(c)
       end do
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do f = 1, num_lakec
          c = filter_lakec(f)
          begwb(c) = h2osno(c)
@@ -300,7 +301,7 @@ contains
        ! Get step size and time step
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(col_wf%qflx_from_uphill, top_ws%from_uphill) if_present
+       !$acc update self(col_wf%qflx_from_uphill, top_ws%from_uphill) if_present if(elm_device_ready)
        nstep = nstep_mod
        dtime = dtime_mod !get_step_size()
 
@@ -336,8 +337,8 @@ contains
 
        ! Water balance check
 
-       !$acc data copy(forc_rain_col, forc_snow_col)
-       !$acc parallel loop gang vector default(present)
+       !$acc data copy(forc_rain_col, forc_snow_col) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
        do c = bounds%begc, bounds%endc
 
           ! add qflx_drain_perched and qflx_flood
@@ -372,8 +373,7 @@ contains
        !     has to be added back to the column, as far as the error correction is concerned, by
        !     adding back the equivalent flux*timestep.
 
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(col_wf%qflx_glcice_frz, col_wf%qflx_glcice_melt, col_ws%errh2o) if_present
+       !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready) copyin(bounds)
        do fc = 1,num_do_smb_c
           c = filter_do_smb_c(fc)
           g = col_pp%gridcell(c)
@@ -385,8 +385,7 @@ contains
        
        found = .false.
        spel_dc_1 = 0  ! spel defer-checks
-       !$acc update device(col_ws%errh2o) if_present
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
        do c = bounds%begc, bounds%endc
           
           if (abs(errh2o(c)) > 1.e-7_r8) spel_dc_1 = max(spel_dc_1, c - (bounds%begc) + 1)  ! spel defer-checks
@@ -400,7 +399,7 @@ contains
        if ( found ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ws%errh2o) if_present
+          !$acc update self(col_ws%errh2o) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:  water balance error ',&
                ' nstep= ',nstep, &
                ' local indexc= ',indexc,&
@@ -408,7 +407,7 @@ contains
                ' errh2o= ',errh2o(indexc)             
 
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ws%errh2o) if_present
+          !$acc update self(col_ws%errh2o) if_present if(elm_device_ready)
           if ((col_pp%itype(indexc) == icol_roof .or. &
                col_pp%itype(indexc) == icol_road_imperv .or. &
                col_pp%itype(indexc) == icol_road_perv) .and. &
@@ -418,7 +417,7 @@ contains
              !$acc update self(col_wf%qflx_drain, col_wf%qflx_evap_tot, col_wf%qflx_h2oocn_drain, &
              !$acc&   col_wf%qflx_h2orof_drain, col_wf%qflx_ice_runoff_xs, col_wf%qflx_irrig, &
              !$acc&   col_wf%qflx_lnd2ocn, col_wf%qflx_qrgwl, col_wf%qflx_snwcp_ice, col_wf%qflx_surf, &
-             !$acc&   col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present
+             !$acc&   col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present if(elm_device_ready)
              write(iulog,*)'clm urban model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'nstep                      = ',nstep
              write(iulog,*)'errh2o                     = ',errh2o(indexc)
@@ -450,7 +449,7 @@ contains
              !$acc&   col_wf%qflx_h2oocn_drain, col_wf%qflx_h2orof_drain, col_wf%qflx_h2osfc_surf, &
              !$acc&   col_wf%qflx_ice_runoff_xs, col_wf%qflx_irrig, col_wf%qflx_lnd2ocn, &
              !$acc&   col_wf%qflx_over_supply, col_wf%qflx_qrgwl, col_wf%qflx_snwcp_ice, col_wf%qflx_surf, &
-             !$acc&   col_wf%qflx_surf_irrig, col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present
+             !$acc&   col_wf%qflx_surf_irrig, col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'colum number               = ',col_pp%gridcell(indexc)
              write(iulog,*)'nstep                      = ',nstep
@@ -487,12 +486,8 @@ contains
 
        ! Snow balance check
 
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(col_pp%snl, col_wf%qflx_dew_grnd, col_wf%qflx_dew_snow, col_wf%qflx_evap_grnd, &
-       !$acc&   col_wf%qflx_glcice_frz, col_wf%qflx_h2osfc_to_ice, col_wf%qflx_prec_grnd, &
-       !$acc&   col_wf%qflx_rain_grnd, col_wf%qflx_sl_top_soil, col_wf%qflx_snow_grnd, col_wf%qflx_snow_melt, &
-       !$acc&   col_wf%qflx_snwcp_ice, col_wf%qflx_snwcp_liq, col_wf%qflx_sub_snow, col_ws%do_capsnow, &
-       !$acc&   col_ws%frac_sno_eff, col_ws%h2osno, col_ws%h2osno_old) if_present
+       ! snow balance: one column per iteration (g and l are not used after the loop on the device)
+       !$acc parallel loop gang vector default(present) private(g, l) if(elm_device_ready) copyin(bounds)
        do c = bounds%begc,bounds%endc
           if (col_pp%active(c)) then
              g = col_pp%gridcell(c)
@@ -603,8 +598,7 @@ contains
 
        found = .false.
        spel_dc_2 = 0  ! spel defer-checks
-       !$acc update device(col_wf%snow_sinks, col_wf%snow_sources, col_ws%errh2osno) if_present
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_2)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_2) if(elm_device_ready) copyin(bounds)
        do c = bounds%begc,bounds%endc
           if (col_pp%active(c)) then
              if (abs(errh2osno(c)) > 1.0e-7_r8) spel_dc_2 = max(spel_dc_2, c - (bounds%begc) + 1)  ! spel defer-checks
@@ -617,6 +611,8 @@ contains
        end if
        if ( found ) then
 #ifndef _OPENACC
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(col_ws%errh2osno) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:  snow balance error '
           write(iulog,*)'nstep= ',nstep, &
                ' local indexc= ',indexc, &
@@ -625,14 +621,17 @@ contains
                ' lun_pp%itype= ',lun_pp%itype(col_pp%landunit(indexc)), &
                ' errh2osno= ',errh2osno(indexc)
 
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(col_ws%errh2osno) if_present if(elm_device_ready)
           if (abs(errh2osno(indexc)) > 1.e-4_r8 .and. (nstep > 2) ) then
              ! spel acc-sync: device data this host code uses
              !$acc update self(col_pp%snl, col_wf%qflx_dew_grnd, col_wf%qflx_dew_snow, col_wf%qflx_evap_grnd, &
              !$acc&   col_wf%qflx_glcice_frz, col_wf%qflx_h2osfc_to_ice, col_wf%qflx_prec_grnd, &
              !$acc&   col_wf%qflx_rain_grnd, col_wf%qflx_sl_top_soil, col_wf%qflx_snow_grnd, &
-             !$acc&   col_wf%qflx_snow_melt, col_wf%qflx_snwcp_ice, col_wf%qflx_snwcp_liq, &
-             !$acc&   col_wf%qflx_sub_snow, col_wf%qflx_top_soil, col_ws%frac_sno_eff, col_ws%h2osno, &
-             !$acc&   col_ws%h2osno_old) if_present
+             !$acc&   col_wf%qflx_snow_h2osfc, col_wf%qflx_snow_melt, col_wf%qflx_snwcp_ice, &
+             !$acc&   col_wf%qflx_snwcp_liq, col_wf%qflx_sub_snow, col_wf%qflx_top_soil, col_wf%snow_sinks, &
+             !$acc&   col_wf%snow_sources, col_ws%errh2osno, col_ws%frac_sno_eff, col_ws%h2osno, &
+             !$acc&   col_ws%h2osno_old) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'nstep            = ',nstep
              write(iulog,*)'errh2osno        = ',errh2osno(indexc)
@@ -669,7 +668,7 @@ contains
 
        ! Energy balance checks
 
-       !$acc parallel loop gang vector default(present) private(c, l, t, g)
+       !$acc parallel loop gang vector default(present) private(c, l, t, g) if(elm_device_ready) copyin(bounds)
        do p = bounds%begp, bounds%endp
           if (veg_pp%active(p)) then
              c = veg_pp%column(p)
@@ -722,7 +721,7 @@ contains
 
        found = .false.
        spel_dc_3 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) private(sol_err_th) reduction(max:spel_dc_3)
+       !$acc parallel loop gang vector default(present) private(sol_err_th) reduction(max:spel_dc_3) if(elm_device_ready) copyin(bounds)
        do p = bounds%begp, bounds%endp
           if (veg_pp%active(p)) then
              ! solar radiation balance error is high when running FATES
@@ -750,16 +749,16 @@ contains
        if ( found  .and. (nstep > 2) ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errsol) if_present
+          !$acc update self(veg_ef%errsol) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:: BalanceCheck, solar radiation balance error (W/m2)'
           write(iulog,*)'nstep         = ',nstep
           write(iulog,*)'errsol        = ',errsol(indexp)
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errsol) if_present
+          !$acc update self(veg_ef%errsol) if_present if(elm_device_ready)
           if (abs(errsol(indexp)) > 1.e-5_r8 ) then
              ! spel acc-sync: device data this host code uses
              !$acc update self(solarabs_vars%fsa_patch, solarabs_vars%fsr_patch, top_af%solad, &
-             !$acc&   top_af%solai) if_present
+             !$acc&   top_af%solai) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-5 (W/m2)'
              write(iulog,*)'fsa           = ',fsa(indexp)
              write(iulog,*)'fsr           = ',fsr(indexp)
@@ -779,7 +778,7 @@ contains
 
        found = .false.
        spel_dc_4 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_4)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_4) if(elm_device_ready) copyin(bounds)
        do p = bounds%begp, bounds%endp
           if (veg_pp%active(p)) then
              if ((errlon(p) /= spval) .and. (abs(errlon(p)) > 1.e-7_r8)) spel_dc_4 = max(spel_dc_4, p - (bounds%begp) + 1)  ! spel defer-checks
@@ -794,7 +793,7 @@ contains
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
           !$acc update self(top_af%lwrad, veg_ef%eflx_lwrad_net, veg_ef%eflx_lwrad_out, &
-          !$acc&   veg_ef%errlon) if_present
+          !$acc&   veg_ef%errlon) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: longwave energy balance error (W/m2)'
           write(iulog,*)'nstep        = ',nstep
           write(iulog,*)'errlon       = ',errlon(indexp)
@@ -802,7 +801,7 @@ contains
           write(iulog,*) "lwrad_net: ",eflx_lwrad_net(indexp)
           write(iulog,*) "forc_lwrad:", forc_lwrad(veg_pp%topounit(indexp))
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errlon) if_present
+          !$acc update self(veg_ef%errlon) if_present if(elm_device_ready)
           if (abs(errlon(indexp)) > 1.e-5_r8 ) then
              write(iulog,*)'elm model is stopping - error is greater than 1e-5 (W/m2)'
              call endrun(decomp_index=indexp, elmlevel=namep, msg=errmsg(__FILE__, __LINE__))
@@ -814,7 +813,7 @@ contains
 
        found = .false.
        spel_dc_5 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_5)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_5) if(elm_device_ready) copyin(bounds)
        do p = bounds%begp, bounds%endp
           if (veg_pp%active(p)) then
              if (abs(errseb(p)) > 1.e-7_r8) spel_dc_5 = max(spel_dc_5, p - (bounds%begp) + 1)  ! spel defer-checks
@@ -830,12 +829,12 @@ contains
        if ( found  .and. (nstep > 2) ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errseb) if_present
+          !$acc update self(veg_ef%errseb) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: surface flux energy balance error (W/m2)'
           write(iulog,*)'nstep          = ' ,nstep
           write(iulog,*)'errseb         = ' ,errseb(indexp)
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errseb) if_present
+          !$acc update self(veg_ef%errseb) if_present if(elm_device_ready)
           if (abs(errseb(indexp)) > 1.e-5_r8 ) then
              ! spel acc-sync: device data this host code uses
              !$acc update self(canopystate_vars%elai_patch, canopystate_vars%esai_patch, col_ws%frac_sno, &
@@ -845,7 +844,7 @@ contains
              !$acc&   surfalb_vars%fabd_patch, surfalb_vars%fabi_patch, surfalb_vars%ftdd_patch, &
              !$acc&   surfalb_vars%ftid_patch, surfalb_vars%ftii_patch, top_af%solad, top_af%solai, &
              !$acc&   veg_ef%eflx_lh_tot, veg_ef%eflx_lwrad_net, veg_ef%eflx_sh_tot, &
-             !$acc&   veg_ef%eflx_soil_grnd) if_present
+             !$acc&   veg_ef%eflx_soil_grnd) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-5 (W/m2)'
              write(iulog,*)'sabv           = ' ,sabv(indexp)
 
@@ -874,7 +873,7 @@ contains
 
        found = .false.
        spel_dc_6 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_6)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_6) if(elm_device_ready) copyin(bounds)
        do c = bounds%begc,bounds%endc
           if (col_pp%active(c)) then
              if (abs(errsoi_col(c)) > 1.0e-5_r8) spel_dc_6 = max(spel_dc_6, c - (bounds%begc) + 1)  ! spel defer-checks
@@ -887,14 +886,14 @@ contains
        end if
        if ( found ) then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ef%errsoi) if_present
+          !$acc update self(col_ef%errsoi) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: soil balance error (W/m2)'
           write(iulog,*)'nstep         = ',nstep
           write(iulog,*)'errsoi_col    = ',errsoi_col(indexc)
           write(iulog,*)'gridcell number  = ',col_pp%gridcell(indexc)
           write(iulog,*)'itype         = ',col_pp%itype(indexc)
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ef%errsoi) if_present
+          !$acc update self(col_ef%errsoi) if_present if(elm_device_ready)
           if (abs(errsoi_col(indexc)) > 1.e-4_r8  .and. (nstep > 2) ) then
              write(iulog,*)'elm model is stopping'
              call endrun(decomp_index=indexc, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
@@ -975,7 +974,7 @@ contains
       endc = bounds%endc
       begp = bounds%begp
       endp = bounds%endp 
-      !$acc parallel loop independent gang vector default(present) 
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do c = begc, endc
          begwb_col(c) = 0._r8
          h2ocan_col(c) = 0._r8
@@ -992,7 +991,7 @@ contains
             h2ocan_patch(begp:endp), &
             h2ocan_col(begc:endc))
 
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do f = 1, num_nolakec
          c = filter_nolakec(f)
          g = col_pp%gridcell(c)
@@ -1006,7 +1005,7 @@ contains
          begwb_col(c) = begwb_col(c) + total_plant_stored_h2o(c)
       end do
 
-      !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2)
+      !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2) if(elm_device_ready) copyin(bounds)
       do f = 1, num_nolakec
          sum1 = 0._r8
          sum2 = 0._r8 
@@ -1025,7 +1024,7 @@ contains
          h2osoi_ice_depth_intg(c) = sum2 
       end do
       
-      !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2)
+      !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2) if(elm_device_ready) copyin(bounds)
       do f = 1, num_lakec
          c = filter_lakec(f)
          sum1 = 0._r8 ; sum2 = 0._r8
@@ -1179,12 +1178,12 @@ contains
 
        dtime = dtime_mod
 
-       !$acc parallel loop gang vector default(present)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
        do c = bounds%begc, bounds%endc
           wa_local_col(c) = wa(c)
        end do
 
-       !$acc parallel loop gang vector default(present) private(g, l)
+       !$acc parallel loop gang vector default(present) private(g, l) if(elm_device_ready) copyin(bounds)
        do c = bounds%begc,bounds%endc
           g = col_pp%gridcell(c)
           l = col_pp%landunit(c)
@@ -1202,7 +1201,7 @@ contains
           end if
        end do
 
-      !$acc parallel loop gang vector default(present)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
       do c = bounds%begc, bounds%endc
 
          ! add qflx_drain_perched and qflx_flood

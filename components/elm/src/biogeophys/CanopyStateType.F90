@@ -1,6 +1,7 @@
 module CanopyStateType
 
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod    , only : r8 => shr_kind_r8
   use shr_infnan_mod  , only : shr_infnan_isnan,nan => shr_infnan_nan, assignment(=)
   use shr_log_mod     , only : errMsg => shr_log_errMsg
@@ -472,8 +473,8 @@ contains
        call endrun(msg=errMsg(__FILE__, __LINE__))
     endif
     ! Accumulate and extract fsun24 & fsun240
-    !$acc data copy(rbufslp)
-    !$acc parallel loop gang vector default(present)
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        rbufslp(p) = this%fsun_patch(p)
     end do
@@ -484,8 +485,8 @@ contains
     call extract_accum_field ('FSUN240', this%fsun240_patch   , nstep)
 
     ! Accumulate and extract elai240
-    !$acc data copy(rbufslp)
-    !$acc parallel loop gang vector default(present)
+    !$acc data copy(rbufslp) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do p = begp,endp
        rbufslp(p) = this%elai_patch(p)
     end do

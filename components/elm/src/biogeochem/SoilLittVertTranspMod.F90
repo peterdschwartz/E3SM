@@ -3,6 +3,7 @@ module SoilLittVertTranspMod
   !-----------------------------------------------------------------------
   ! calculate vertical mixing of all decomposing C and N pools
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod           , only : r8 => shr_kind_r8
   use shr_log_mod            , only : errMsg => shr_log_errMsg
   use elm_varctl             , only : iulog, use_c13, use_c14, spinup_state, use_vertsoilc
@@ -265,7 +266,7 @@ contains
       if (use_vertsoilc) then
          !------ first get diffusivity / advection terms -------!
          ! use different mixing rates for bioturbation and cryoturbation, with fixed bioturbation and cryoturbation set to a maximum depth
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1,nlevdecomp+1
             do fc = 1, num_soilc
                c = filter_soilc (fc)
@@ -304,8 +305,8 @@ contains
          ! the matrix separately for every tracer type and pool.
          if ( spinup_state .eq. 1 ) then
             ncoef = ndecomp_pools
-            !$acc data copy(icoef)
-            !$acc parallel loop gang vector default(present)
+            !$acc data copy(icoef) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do s = 1, ndecomp_pools
                icoef(s) = s
             end do
@@ -342,7 +343,7 @@ contains
                spinup_term = 1.
             endif
 
-            !$acc parallel loop gang vector default(present)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do fc = 1, num_soilc
                a_coef(fc,0,l) = 0._r8
                bet_coef(fc,0,l) = 1._r8   ! b at j = 0
@@ -355,7 +356,7 @@ contains
 
             !$acc parallel loop gang vector collapse(2) default(present) &
             !$acc&   private(c, adv_flux_j, diffus_j, adv_flux_jp1, diffus_jp1, adv_flux_jm1, diffus_jm1, &
-            !$acc&   dz_node, dz_nodep1, w_m1, w_p1, d_m1, d_p1, d_m1_zm1, d_p1_zp1, pe_m1, pe_p1, a_p_0)
+            !$acc&   dz_node, dz_nodep1, w_m1, w_p1, d_m1, d_p1, d_m1_zm1, d_p1_zp1, pe_m1, pe_p1, a_p_0) if(elm_device_ready)
             do j = 1,nlevdecomp
                do fc = 1, num_soilc
                   c = filter_soilc (fc)
@@ -429,7 +430,7 @@ contains
 
             ! Forward elimination factors, which depend only on the matrix:
             ! gam(j) = c(j-1) / bet(j-1) and bet(j) = b(j) - a(j) * gam(j), with bet(0) = b(0)
-            !$acc parallel loop gang vector default(present)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do fc = 1, num_soilc
                !$acc loop seq
                do j = 1, nlevdecomp+1
@@ -448,7 +449,7 @@ contains
             do s = 1, ndecomp_pools
                if ( is_cwd(s) ) then
                   ! for CWD pools, just add
-                  !$acc parallel loop gang vector collapse(2) default(present) private(c)
+                  !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
                   do j = 1,nlevdecomp
                      do fc = 1, num_soilc
                         c = filter_soilc (fc)
@@ -464,11 +465,11 @@ contains
                ! Build the right-hand side, store the initial concentration and
                ! source terms for the tendency calculation, and eliminate forward.
                ! The top boundary row has r = 0 and b = 1.
-               !$acc parallel loop gang vector default(present)
+               !$acc parallel loop gang vector default(present) if(elm_device_ready)
                do fc = 1, num_soilc
                   conc_trcr(fc,0) = 0._r8 / bet_coef(fc,0,l)
                end do
-               !$acc parallel loop gang vector default(present) private(c, conc_old, r_tri)
+               !$acc parallel loop gang vector default(present) private(c, conc_old, r_tri) if(elm_device_ready)
                do fc = 1, num_soilc
                   c = filter_soilc (fc)
                   !$acc loop seq
@@ -481,7 +482,7 @@ contains
                   end do
                end do
                ! The bottom boundary row has r = 0.
-               !$acc parallel loop gang vector default(present)
+               !$acc parallel loop gang vector default(present) if(elm_device_ready)
                do fc = 1, num_soilc
                   conc_trcr(fc,nlevdecomp+1) = (0._r8 - a_coef(fc,nlevdecomp+1,l)*conc_trcr(fc,nlevdecomp)) &
                                                / bet_coef(fc,nlevdecomp+1,l)
@@ -489,7 +490,7 @@ contains
 
                ! Back substitution. Level j is final once it is reached, so add the
                ! post-transport concentration to the tendency term and store it.
-               !$acc parallel loop gang vector default(present) private(c)
+               !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
                do fc = 1, num_soilc
                   c = filter_soilc (fc)
                   !$acc loop seq
@@ -505,7 +506,7 @@ contains
          else !use_vertsoilc?
 
             !! for single level case, no transport; just update the fluxes calculated in the StateUpdate1 subroutines
-            !$acc parallel loop gang vector collapse(3) default(present) private(c)
+            !$acc parallel loop gang vector collapse(3) default(present) private(c) if(elm_device_ready)
             do l = 1, ndecomp_pools
                do j = 1,nlevdecomp
                   do fc = 1, num_soilc

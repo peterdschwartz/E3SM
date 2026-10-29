@@ -14,6 +14,7 @@ module  PhotosynthesisMod
   ! leaves simultaneously, lives in PhotosynthesisHydraulicStressMod.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use shr_log_mod         , only : errMsg => shr_log_errMsg
   use abortutils          , only : endrun
@@ -301,7 +302,7 @@ contains
       !$acc parallel loop independent gang vector default(present) private(p,og,t,i_type,kc25,ko25,sco,cp25,&
       !$acc iv,lnc,total_lai,sum_nscaler,vcmax25top,jmax25top,tpu25top,kp25top,lmr25top,laican,nscaler,&
       !$acc lmr25,vcmax25,jmax25,tpu25,kp25,vcmaxse,jmaxse,cf,ceair,qabs,r1,r2,niter,ciold,cs,gs,hs,&
-      !$acc gs_mol_err,leaf,psncan,psncan_wc,psncan_wj,psncan_wp,lmrcan,gscan)
+      !$acc gs_mol_err,leaf,psncan,psncan_wc,psncan_wj,psncan_wp,lmrcan,gscan) if(elm_device_ready) copyin(bounds)
       do f = 1, fn
          p = filterp(f)
          og = filter_map(f)
@@ -776,7 +777,7 @@ contains
          fpsn_wp     => photosyns_vars%fpsn_wp_patch       & ! Output: [real(r8) (:) ]  product-limited photosynthesis (umol CO2 /m**2 /s)
          )
 
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do f = 1, fn
          p = filterp(f)
          g = veg_pp%gridcell(p)
@@ -858,7 +859,7 @@ contains
          )
 
       if (phase == sunlit_phase) then
-         !$acc parallel loop independent gang vector collapse(2) default(present)
+         !$acc parallel loop independent gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
          do iv = 1,nrad(p)
             do f = 1, fn
                p = filterp(f)
@@ -880,7 +881,7 @@ contains
             end do
          end do
       else if (phase == shaded_phase) then
-         !$acc parallel loop independent gang vector collapse(2) default(present)
+         !$acc parallel loop independent gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
          do iv = 1,nrad(p)
             do f = 1, fn
                p = filterp(f)

@@ -8,6 +8,7 @@ module SnowSnicarMod
   ! and the evolution of snow effective radius
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod    , only : r8 => shr_kind_r8
   use shr_sys_mod     , only : shr_sys_flush
   use shr_log_mod     , only : errMsg => shr_log_errMsg
@@ -291,7 +292,7 @@ contains
     !   I am aware.
     !
     ! !USES:
-    use elm_varpar       , only : nlevsno
+    use elm_varpar       , only : nlevsno, nlevsno_max
     use elm_varcon       , only : spval
     use shr_const_mod    , only : SHR_CONST_RHOICE, SHR_CONST_PI
     !
@@ -330,7 +331,7 @@ contains
     real(r8)  :: dtime                       ! land model time step [sec]
     real(r8) :: rhos                        ! snow density [kg m-3]
     real(r8) :: h2osno_lyr                  ! liquid + solid H2O in snow layer [kg m-2]
-    real(r8) :: cdz(-nlevsno+1:0)           ! column average layer thickness [m]
+    real(r8) :: cdz(-nlevsno_max+1:0)       ! column average layer thickness [m] (private per thread: fixed size)
     !--------------------------------------------------------------------------!
 
     associate(                                                      &
@@ -358,14 +359,21 @@ contains
 
 
       ! set timestep and step interval
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(col_es%dtdz_top, col_es%snot_top, col_es%t_soisno, col_pp%dz, col_pp%snl, &
-      !$acc&   col_wf%qflx_snofrz_lyr, col_wf%qflx_snow_grnd, col_wf%qflx_snwcp_ice, col_ws%do_capsnow, &
-      !$acc&   col_ws%frac_sno_eff, col_ws%h2osoi_ice, col_ws%h2osoi_liq, col_ws%sno_liq_top, col_ws%snw_rds, &
-      !$acc&   col_ws%snw_rds_top) if_present
       dtime = dtime_mod
 
-      ! loop over columns that have at least one snow layer
+      if (use_firn_percolation_and_compaction) then
+          snw_rds_refrz   = 1500._r8
+      else
+          snw_rds_refrz   = 1000._r8
+      endif
+      !$acc update device(snw_rds_refrz) if_present
+      !$acc update device(snw_rds_refrz)
+
+      ! loop over columns that have at least one snow layer (each writes its own column)
+      !$acc enter data create(dTdz)
+      !$acc parallel loop gang vector default(present) private(c_idx, snl_btm, snl_top, i, h2osno_lyr, &
+      !$acc&   t_snotop, t_snobtm, rhos, T_idx, Tgrd_idx, rhos_idx, bst_tau, bst_kappa, bst_drdt0, dr_fresh, &
+      !$acc&   dr, frc_liq, dr_wet, newsnow, refrzsnow, frc_refrz, frc_newsnow, frc_oldsnow, cdz) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_snowc
          c_idx = filter_snowc(fc)
 
@@ -375,6 +383,7 @@ contains
          cdz(snl_top:snl_btm)=frac_sno(c_idx)*dz(c_idx,snl_top:snl_btm)
 
          ! loop over snow layers
+         !$acc loop seq
          do i=snl_top,snl_btm,1
             !
             !**********  1. DRY SNOW AGING  ***********
@@ -489,12 +498,6 @@ contains
                newsnow = max(0._r8, (qflx_snow_grnd_col(c_idx)*dtime))
             endif
 
-            if (use_firn_percolation_and_compaction) then
-                snw_rds_refrz   = 1500._r8
-            else
-                snw_rds_refrz   = 1000._r8 
-            endif
-
             ! snow that has re-frozen [kg/m2]
             refrzsnow = max(0._r8, (qflx_snofrz_lyr(c_idx,i)*dtime))
 
@@ -540,12 +543,11 @@ contains
 
          enddo
       enddo
-      !$acc update device(col_es%dtdz_top, col_es%snot_top, col_ws%sno_liq_top, col_ws%snw_rds, &
-      !$acc&   col_ws%snw_rds_top, snw_rds_refrz) if_present
+      !$acc exit data delete(dTdz)
 
       ! Special case: snow on ground, but not enough to have defined a snow layer:
       !   set snw_rds to fresh snow grain size:
-      !$acc parallel loop gang vector default(present) private(c_idx)
+      !$acc parallel loop gang vector default(present) private(c_idx) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_nosnowc
          c_idx = filter_nosnowc(fc)
          if (h2osno(c_idx) > 0._r8) then
@@ -1212,7 +1214,7 @@ contains
        endif
 	  
        exp_min = exp(-argmax)
-       !$acc enter data create(alb_w, abs_w, err_w, errv_w)   ! device-only work arrays (filter-sized)
+       !$acc enter data create(alb_w, abs_w, err_w, errv_w)  ! device-only work arrays (filter-sized)
 
        ! Each (case, column, band) is an independent radiative transfer problem: the column
        ! set-up below is repeated per band, and the bands are combined in a second loop.
@@ -1230,7 +1232,7 @@ contains
        !$acc&   rds_bcint_lcl, rds_idx, refk, refkm1, refkp1, rupdif, rupdir, sfctype, slope_rad, &
        !$acc&   smr, smt, snl_btm, snl_btm_itf, snl_lcl, snl_top, snw_rds_lcl, ss_alb_aer_lcl, &
        !$acc&   ss_alb_snw_lcl, swt, t1, tau, tau_aer, tau_snw, tau_star, tau_sum, tdif_a, tdif_b, &
-       !$acc&   tdir, tdndif, tdr, tdrrdir, tmp1, trn, trndif, trndir, trnlay, trntdr, ts, ue, ws)
+       !$acc&   tdir, tdndif, tdr, tdrrdir, tmp1, trn, trndif, trndir, trnlay, trntdr, ts, ue, ws) if(elm_device_ready) copyin(bounds)
        do k = 1, ncall
        do fc = 1,num_nourbanc
        do bnd_idx = 1,numrad_snw
@@ -1909,7 +1911,7 @@ contains
 
        ! Errors found above: the first in (case, column, band) order, then abort
        nbad = 0
-       !$acc parallel loop gang vector collapse(3) default(present) reduction(+:nbad)
+       !$acc parallel loop gang vector collapse(3) default(present) reduction(+:nbad) if(elm_device_ready) copyin(bounds)
        do k = 1, ncall
        do fc = 1,num_nourbanc
        do bnd_idx = 1,numrad_snw
@@ -1919,8 +1921,8 @@ contains
        enddo
        if (nbad > 0) then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_pp%snl, col_ws%h2osno, col_ws%snw_rds) if_present
-          !$acc update self(err_w, errv_w)
+          !$acc update self(col_pp%snl, col_ws%h2osno, col_ws%snw_rds) if_present if(elm_device_ready)
+          !$acc update self(err_w, errv_w) if(elm_device_ready)
           call snicar_ad_report(num_nourbanc, filter_nourbanc, ncall, call_slr, err_w, errv_w, nbad)
           call endrun(msg="SNICAR_AD_RT: "//errmsg(__FILE__, __LINE__))
        endif
@@ -1929,7 +1931,7 @@ contains
        !$acc parallel loop gang vector collapse(2) default(present) &
        !$acc   private(fc, flg_slr_in, c_idx, h2osno_lcl, snl_top, rds_top, mu_not) &
        !$acc   private(slr_zen, flx_sum, bnd_idx, i, sza_c1, sza_c0, sza_factor) &
-       !$acc   private(flx_sza_adjust) private(flx_wgt)
+       !$acc   private(flx_sza_adjust) private(flx_wgt) if(elm_device_ready) copyin(bounds)
        do k = 1, ncall
        do fc = 1,num_nourbanc
           flg_slr_in = call_slr(k)

@@ -9,6 +9,7 @@ module CH4Mod
   ! Sources, sinks, "competition" for CH4 & O2, & transport are resolved in ch4_tran.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod       , only : r8 => shr_kind_r8
   use perf_mod            , only : t_startf, t_stopf
   use shr_infnan_mod     , only : nan => shr_infnan_nan
@@ -514,7 +515,7 @@ contains
          )
 
       ! spel acc-sync: device data this host code uses
-      !$acc update self(ch4_vars%ch4_surf_flux_tot_col) if_present
+      !$acc update self(ch4_vars%ch4_surf_flux_tot_col) if_present if(elm_device_ready)
       redoxlag          = CH4ParamsInst%redoxlag
       redoxlag_vertical = CH4ParamsInst%redoxlag_vertical
       atmch4            = CH4ParamsInst%atmch4
@@ -545,7 +546,7 @@ contains
 
       if (.not. ch4offline) then
          spel_dc_1 = 0  ! spel defer-checks
-         !$acc parallel loop gang vector default(present) private(t) reduction(max:spel_dc_1)
+         !$acc parallel loop gang vector default(present) private(t) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
          do g= begg, endg
             t = grc_pp%topi(g)
             if (forc_pch4(t) == 0._r8) spel_dc_1 = max(spel_dc_1, g - (begg) + 1)  ! spel defer-checks
@@ -559,7 +560,7 @@ contains
                      errMsg(__FILE__, __LINE__))
          end if
       end if
-      !$acc parallel loop independent gang vector default(present) private(t)
+      !$acc parallel loop independent gang vector default(present) private(t) if(elm_device_ready) copyin(bounds)
       do g= begg, endg
          ! using the first topounit on this gridcell for access to atmospheric forcing
          ! PET 8/10/2018 - replace this later once gas concentrations (c_atm) are also being tracked at
@@ -574,7 +575,7 @@ contains
       end do
 
       ! Initialize CH4 balance and calculate finundated
-      !$acc parallel loop independent gang vector default(present) private(c, g, qflxlags, zwt_actual)
+      !$acc parallel loop independent gang vector default(present) private(c, g, qflxlags, zwt_actual) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
          g = col_pp%gridcell(c)
@@ -619,7 +620,7 @@ contains
 
       end do
 
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_lakec
          c = filter_lakec(fc)
 
@@ -630,7 +631,7 @@ contains
       ! Check to see if finundated changed since the last timestep.  If it increased, then reduce conc_ch4_sat
       ! proportionally.  If it decreased, then add flux to atm.
 
-      !$acc parallel loop independent gang vector default(present) private(c, j, dfsat)
+      !$acc parallel loop independent gang vector default(present) private(c, j, dfsat) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
          ch4_dfsat_flux(c) = 0._r8
@@ -667,8 +668,8 @@ contains
          ! Set rootfraction to spval for non-veg points, unless veg_pp%wtcol > 0.99,
          ! in which case set it equal to uniform dist.
 
-         !$acc data copy(rootfraction)
-         !$acc parallel loop gang vector default(present) private(p, c, j, pf)
+         !$acc data copy(rootfraction) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) private(p, c, j, pf) if(elm_device_ready) copyin(bounds)
          do fp = 1, num_soilp
             p = filter_soilp(fp)
             c = veg_pp%column(p)
@@ -695,14 +696,14 @@ contains
          !$acc end data
 
          
-         !$acc data copy(rootfraction)
+         !$acc data copy(rootfraction) if(elm_device_ready)
          call p2c (bounds, nlevgrnd, &
               rootfraction(bounds%begp:bounds%endp, :), &
               rootfr_col(bounds%begc:bounds%endc, :), &
               unity)
 
          !$acc end data
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
          do j=1, nlevsoi
             do fc = 1, num_soilc
                c = filter_soilc(fc)
@@ -732,7 +733,7 @@ contains
             call get_jwt (bounds, num_soilc, filter_soilc, jwt(begc:endc), &
                  soilstate_vars )
 
-            !$acc parallel loop independent gang vector default(present) private(c)
+            !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
             do fc = 1, num_soilc
                c = filter_soilc(fc)
                zwt_ch4_unsat(c) = zi(c,jwt(c))
@@ -740,7 +741,7 @@ contains
             end do
 
             ! Update lagged saturation status of layer
-            !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
+            !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
             do j=1,nlevsoi
                do fc = 1, num_soilc
                   c = filter_soilc(fc)
@@ -759,7 +760,7 @@ contains
             end do
 
          else ! saturated
-            !$acc parallel loop independent gang vector default(present) private(c)
+            !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
             do fc = 1, num_soilc
                c = filter_soilc(fc)
                jwt(c) = 0
@@ -824,7 +825,7 @@ contains
       if (allowlakeprod) then
          lake = .true.
          sat = 1
-         !$acc parallel loop independent gang vector default(present) private(c)
+         !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_lakec
             c = filter_lakec(fc)
             jwt(c) = 0
@@ -878,7 +879,7 @@ contains
       !-------------------------------------------------
 
       ! First weight the soil columns by finundated.
-      !$acc parallel loop independent gang vector default(present) private(c, j, totalsat, totalunsat)
+      !$acc parallel loop independent gang vector default(present) private(c, j, totalsat, totalunsat) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
                totalsat = ch4_surf_diff_sat(c) + ch4_surf_aere_sat(c) + ch4_surf_ebul_sat(c)
@@ -904,7 +905,7 @@ contains
 
       ! Correct for discrepancies in CH4 concentration from changing finundated
 
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
 
@@ -915,7 +916,7 @@ contains
       end do
 
       if (allowlakeprod) then
-         !$acc parallel loop independent gang vector default(present) private(c, j, totalsat)
+         !$acc parallel loop independent gang vector default(present) private(c, j, totalsat) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_lakec
             c = filter_lakec(fc)
                   ! ch4_oxid_tot and ch4_prod_tot are initialized to zero above
@@ -958,7 +959,7 @@ contains
 
       ! Finalize CH4 balance and check for errors
 
-      !$acc parallel loop independent gang vector default(present) private(c, j)
+      !$acc parallel loop independent gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
          ierr(c) = 0
@@ -975,9 +976,9 @@ contains
             if (abs(errch4_col(c)) > 1.e-7_r8) ierr(c) = 1 ! g C / m^2 / timestep; reported on the host below
          end if
       end do
-      !$acc update self(ierr)
+      !$acc update self(ierr) if(elm_device_ready)
       spel_dc_2 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_2)
+      !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_2) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
          if (ierr(c) /= 0) spel_dc_2 = max(spel_dc_2, fc - (1) + 1)  ! spel defer-checks
@@ -985,7 +986,7 @@ contains
       if (spel_dc_2 > 0) then  ! spel defer-checks: the last element where the check held
          fc = 1 + spel_dc_2 - 1
          c = filter_soilc(fc)
-            !$acc update self(errch4_col(c:c))
+            !$acc update self(errch4_col(c:c)) if(elm_device_ready)
             write(iulog, *) 'CH4 Conservation Error in CH4Mod driver, nstep, c, errch4 (gC /m^2.timestep)',&
                  nstep,c,errch4_col(c)
             g = col_pp%gridcell(c)
@@ -994,7 +995,7 @@ contains
       end if
 
       if (allowlakeprod) then
-         !$acc parallel loop independent gang vector default(present) private(c, j)
+         !$acc parallel loop independent gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_lakec
             c = filter_lakec(fc)
             ierr(c) = 0
@@ -1009,9 +1010,9 @@ contains
                if (abs(errch4_col(c)) > 1.e-7_r8) ierr(c) = 1 ! g C / m^2 / timestep; reported on the host below
             end if
          end do
-         !$acc update self(ierr)
+         !$acc update self(ierr) if(elm_device_ready)
          spel_dc_3 = 0  ! spel defer-checks
-         !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_3)
+         !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_3) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_lakec
             c = filter_lakec(fc)
             if (ierr(c) /= 0) spel_dc_3 = max(spel_dc_3, fc - (1) + 1)  ! spel defer-checks
@@ -1019,7 +1020,7 @@ contains
          if (spel_dc_3 > 0) then  ! spel defer-checks: the last element where the check held
             fc = 1 + spel_dc_3 - 1
             c = filter_lakec(fc)
-               !$acc update self(errch4_col(c:c))
+               !$acc update self(errch4_col(c:c)) if(elm_device_ready)
                write(iulog, *) 'CH4 Conservation Error in CH4Mod driver for lake column, nstep, c, errch4 (gC /m^2.timestep)',&
                     nstep,c,errch4_col(c)
                g = col_pp%gridcell(c)
@@ -1040,7 +1041,7 @@ contains
       call c2g( bounds, &
            nem_col(begc:endc), nem_grc(begg:endg),               &
            c2l_scale_type= unity, l2g_scale_type=unity )
-      !$acc update self(ch4_oxid_tot, ch4_prod_tot, nem_col)
+      !$acc update self(ch4_oxid_tot, ch4_prod_tot, nem_col) if(elm_device_ready)
       !$acc exit data delete(jwt, totcolch4_bef, ch4_prod_tot, ch4_oxid_tot, nem_col, errch4_col, ierr)
 
     end associate
@@ -1117,7 +1118,7 @@ contains
       ! an active column) in index order, i.e. in the order of the patch filter,
       ! so the sums match a loop over the patch filter bit for bit.
       !$acc enter data create(rr_vr)
-      !$acc parallel loop independent gang vector default(present) private(c, j, p)
+      !$acc parallel loop independent gang vector default(present) private(c, j, p) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc(fc)
          !$acc loop seq
@@ -1252,7 +1253,7 @@ contains
       mino2lim         = ParamsShareInst%mino2lim
 
       !$acc parallel loop independent gang vector default(present) &
-      !$acc   private(c, j, base_decomp, bd, seasonalfin, partition_z, f_ch4_adj, t_fact_ch4, pH_fact_ch4)
+      !$acc   private(c, j, base_decomp, bd, seasonalfin, partition_z, f_ch4_adj, t_fact_ch4, pH_fact_ch4) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc (fc)
 
@@ -1426,7 +1427,7 @@ contains
       oxinhib          = CH4ParamsInst%oxinhib
       q10lake = CH4ParamsInst%q10ch4 * 1.5_r8
 
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, base_decomp, f_ch4_adj)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, base_decomp, f_ch4_adj) if(elm_device_ready) copyin(bounds)
       do j=1,nlevsoi
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -1569,7 +1570,7 @@ contains
 
       ! Loop to determine oxidation in each layer
       !$acc parallel loop independent gang vector collapse(2) default(present) &
-      !$acc   private(c, k_m_eff, vmax_eff, porevol, h2osoi_vol_min, smp_fact, k_h_inv, k_h_cc, conc_ch4_rel, conc_o2_rel, oxid_a)
+      !$acc   private(c, k_m_eff, vmax_eff, porevol, h2osoi_vol_min, smp_fact, k_h_inv, k_h_cc, conc_ch4_rel, conc_o2_rel, oxid_a) if(elm_device_ready) copyin(bounds)
       do j=1,nlevsoi
          do fc = 1, num_methc
             c = filter_methc(fc)
@@ -1782,7 +1783,7 @@ contains
          )
 
       ! Initialize ch4_aere_depth
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
       do j=1,nlevsoi
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -1792,18 +1793,17 @@ contains
          end do
       end do
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(c_atm, ch4_aere_depth, ch4_prod_depth, ch4_tran_depth, col_es%t_soisno, col_pp%dz, &
-      !$acc&   col_pp%z, col_ws%h2osoi_vol, conc_ch4, conc_o2, elai, grnd_ch4_cond, jwt, o2_aere_depth, &
-      !$acc&   rootfr, rootr, veg_cf%annavg_agnpp, veg_cf%annavg_bgnpp, veg_cf%annsum_npp, veg_cs%core%froot, &
-      !$acc&   veg_wf%qflx_tran_veg) if_present
-      !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
       if (lake) return
 
       nc = bounds%clump_index
 
       if (use_fates) then
          ! point loop to partition aerenchyma flux into each soil layer
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(c_atm, ch4_aere_depth, ch4_prod_depth, ch4_tran_depth, col_es%t_soisno, col_pp%dz, &
+         !$acc&   col_pp%z, col_ws%h2osoi_vol, conc_ch4, conc_o2, elai, grnd_ch4_cond, jwt, o2_aere_depth, &
+         !$acc&   rootfr, rootr, veg_cf%annavg_agnpp, veg_cf%annavg_bgnpp, veg_cf%annsum_npp, &
+         !$acc&   veg_cs%core%froot, veg_wf%qflx_tran_veg) if_present if(elm_device_ready)
          do fp = 1, num_methp
             p = filter_methp (fp)
             c = veg_pp%column(p)
@@ -1873,6 +1873,7 @@ contains
          end do ! p filter
          !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
          return
+         !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
       end if
 
       nongrassporosratio = CH4ParamsInst%nongrassporosratio
@@ -1883,13 +1884,12 @@ contains
       diffus_aere = d_con_g(1,1)*1.e-4_r8  ! for CH4: m^2/s
       ! This parameter is poorly constrained and should be done on a PFT-specific basis...
       oxdiffus = diffus_aere * d_con_g(2,1) / d_con_g(1,1) ! adjust for O2:CH4 molecular diffusion
-      !$acc update device(ch4_aere_depth, ch4_tran_depth, o2_aere_depth) if_present
 
       ! Column loop; the patches of the column in the soil patch filter (active)
       ! partition the aerenchyma flux into each soil layer.
       !$acc parallel loop independent gang vector default(present) &
       !$acc   private(c, g, p, j, is_vegetated, poros_tiller, h2osoi_vol_min, k_h_inv, k_h_cc, conc_ch4_wat) &
-      !$acc   private(tranloss, aere, oxaere, aeretran, anpp, nppratio, m_tiller, n_tiller, area_tiller, aerecond)
+      !$acc   private(tranloss, aere, oxaere, aeretran, anpp, nppratio, m_tiller, n_tiller, area_tiller, aerecond) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc (fc)
          g = col_pp%gridcell(c)
@@ -2273,7 +2273,7 @@ contains
 
       ! column loop to estimate ebullition CH4 flux from each soil layer
       !$acc parallel loop independent gang vector collapse(2) default(present) &
-      !$acc   private(c, t, k_h_inv, k_h, k_h_cc, pressure, vgc)
+      !$acc   private(c, t, k_h_inv, k_h, k_h_cc, pressure, vgc) if(elm_device_ready) copyin(bounds)
       do j=1,nlevsoi
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -2522,8 +2522,8 @@ contains
       ! exceed that available. Assign to each process in proportion to the quantity demanded in the absense of
       ! the limitation.
       !$acc data copy(ch4_aere_depth, ch4_ebul_depth, ch4_oxid_depth, ch4_prod_depth, ch4stress, &
-      !$acc&   conc_ch4, conc_o2, o2_aere_depth, o2_decomp_depth, o2_oxid_depth, o2stress)
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, o2demand, ch4demand)
+      !$acc&   conc_ch4, conc_o2, o2_aere_depth, o2_decomp_depth, o2_oxid_depth, o2stress) if(elm_device_ready)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, o2demand, ch4demand) if(elm_device_ready) copyin(bounds)
       do j = 1,nlevsoi
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -2586,8 +2586,8 @@ contains
 
 
       ! Accumulate ebullition to place in first layer above water table, or directly to atmosphere
-      !$acc data copy(ch4_ebul_depth, ch4_ebul_total)
-      !$acc parallel loop independent gang vector default(present) private(c, j)
+      !$acc data copy(ch4_ebul_depth, ch4_ebul_total) if(elm_device_ready)
+      !$acc parallel loop independent gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc (fc)
          ch4_ebul_total(c) = 0._r8
@@ -2600,12 +2600,12 @@ contains
 
 
       ! Set the Henry's Law coefficients
-      !$acc parallel loop gang vector default(present)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
       do s = 1,2
          log_kh_theta(s) = log (kh_theta(s))
       end do
       !$acc enter data copyin(log_kh_theta)
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, s, k_h_inv)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, s, k_h_inv) if(elm_device_ready) copyin(bounds)
       do j = 0,nlevsoi
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -2631,15 +2631,15 @@ contains
       ! sources, occasionally negative concentration will result. In this case it is brought to zero and the
       ! surface flux is adjusted to conserve. This results in some inaccuracy as compared to a shorter timestep
       ! or iterative solution.
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          ierr(fc) = 0
          jerr(fc) = 0
       end do
       ! competition errors are flagged per column here and reported (endrun) on the host after the loop
       !$acc data copy(ch4_aere_depth, ch4_ebul_depth, ch4_oxid_depth, ch4_prod_depth, ch4stress, &
-      !$acc&   conc_ch4, conc_o2, o2_aere_depth, o2_decomp_depth, o2_oxid_depth, o2stress)
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
+      !$acc&   conc_ch4, conc_o2, o2_aere_depth, o2_decomp_depth, o2_oxid_depth, o2stress) if(elm_device_ready)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
       do j = 1,nlevsoi
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -2671,12 +2671,12 @@ contains
          enddo ! fc
       enddo ! j
       !$acc end data
-      !$acc update self(ierr, jerr)
+      !$acc update self(ierr, jerr) if(elm_device_ready)
       if (any(ierr(1:num_methc) /= 0)) then
          ! spel acc-sync: device data this host code uses
          !$acc update self(ch4_vars%conc_ch4_sat_col, ch4_vars%conc_ch4_unsat_col, ch4_vars%conc_o2_sat_col, &
-         !$acc&   ch4_vars%conc_o2_unsat_col) if_present
-         !$acc update self(source)
+         !$acc&   ch4_vars%conc_o2_unsat_col) if_present if(elm_device_ready)
+         !$acc update self(source) if(elm_device_ready)
          do fc = 1, num_methc
             if (ierr(fc) == 0) cycle
             c = filter_methc (fc)
@@ -2711,8 +2711,8 @@ contains
       end if
 
       ! Accumulate aerenchyma to add directly to atmospheric flux
-      !$acc data copy(ch4_aere_depth, ch4_surf_aere)
-      !$acc parallel loop independent gang vector default(present) private(c, j)
+      !$acc data copy(ch4_aere_depth, ch4_surf_aere) if(elm_device_ready)
+      !$acc parallel loop independent gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc (fc)
          ch4_surf_aere(c) = 0._r8
@@ -2724,8 +2724,8 @@ contains
       !$acc end data
 
       ! Add in ebullition to source at depth just above WT
-      !$acc data copy(ch4_ebul_total)
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc data copy(ch4_ebul_total) if(elm_device_ready)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc(fc)
          if (jwt(c) /= 0) then
@@ -2735,8 +2735,8 @@ contains
       !$acc end data
 
       ! Calculate concentration relative to m^3 of air or water: needed for the diffusion
-      !$acc data copy(conc_ch4, conc_o2)
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g, s)
+      !$acc data copy(conc_ch4, conc_o2) if(elm_device_ready)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g, s) if(elm_device_ready) copyin(bounds)
       do j = 0,nlevsoi
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -2774,7 +2774,7 @@ contains
 
 
       ! Parts of the snow and soil diffusivities that do not depend on the species
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, icefrac, waterfrac, airfrac, f_a, eps)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, icefrac, waterfrac, airfrac, f_a, eps) if(elm_device_ready) copyin(bounds)
       do j = -nlevsno + 1,0
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -2796,7 +2796,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, f_a, eps, om_frac)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, f_a, eps, om_frac) if(elm_device_ready) copyin(bounds)
       do j = 1,nlevsoi
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -2830,7 +2830,7 @@ contains
 
          ! Adjust the grnd_ch4_cond to keep it positive, and add the snow resistance & pond resistance
          !$acc parallel loop independent gang vector default(present) &
-         !$acc   private(c, j, t_soisno_c, snowdiff, pondres, ponddiff, pondz)
+         !$acc   private(c, j, t_soisno_c, snowdiff, pondres, ponddiff, pondz) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_methc
             c = filter_methc (fc)
 
@@ -2896,7 +2896,7 @@ contains
          end do ! fc
 
          ! Determine gas diffusion and fraction of open pore (f_a)
-         !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g, t_soisno_c)
+         !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g, t_soisno_c) if(elm_device_ready) copyin(bounds)
          do j = 1,nlevsoi
             do fc = 1, num_methc
                c = filter_methc (fc)
@@ -2923,7 +2923,7 @@ contains
             enddo ! fp
          enddo ! j
 
-         !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
          do j = 1,nlevsoi
             do fc = 1, num_methc
                c = filter_methc (fc)
@@ -2961,7 +2961,7 @@ contains
          end do ! j; nlevsoi
 
          ! Perform a second loop for the tridiagonal coefficients since need dp1_zp1 and dm1_z1 at each depth
-         !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g, dzj)
+         !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g, dzj) if(elm_device_ready) copyin(bounds)
          do j = 0,nlevsoi
             do fc = 1, num_methc
                c = filter_methc (fc)
@@ -3003,7 +3003,7 @@ contains
          if (s == 1) then  ! CH4
 
             ! Set rt, since it depends on conc
-            !$acc parallel loop independent gang vector collapse(2) default(present) private(c, dzj)
+            !$acc parallel loop independent gang vector collapse(2) default(present) private(c, dzj) if(elm_device_ready) copyin(bounds)
             do j = 1,nlevsoi
                do fc = 1, num_methc
                   c = filter_methc (fc)
@@ -3042,7 +3042,7 @@ contains
             enddo ! j; nlevsoi
 
             ! Solve the tridiagonal system (as Tridiagonal with jtop = 0)
-            !$acc parallel loop independent gang vector default(present) private(j)
+            !$acc parallel loop independent gang vector default(present) private(j) if(elm_device_ready) copyin(bounds)
             do fc = 1, num_methc
                bet(fc) = bt(fc,0)
                conc_ch4_rel(fc,0) = rt(fc,0) / bet(fc)
@@ -3059,8 +3059,8 @@ contains
             end do
 
             ! Calculate net ch4 flux to the atmosphere from the surface (+ to atm)
-            !$acc data copy(ch4_ebul_total, ch4_surf_diff, ch4_surf_ebul)
-            !$acc parallel loop independent gang vector default(present) private(c, g)
+            !$acc data copy(ch4_ebul_total, ch4_surf_diff, ch4_surf_ebul) if(elm_device_ready)
+            !$acc parallel loop independent gang vector default(present) private(c, g) if(elm_device_ready) copyin(bounds)
             do fc = 1, num_methc
                c = filter_methc (fc)
                g = col_pp%gridcell(c)
@@ -3081,8 +3081,8 @@ contains
 
             ! Ensure that concentrations stay above 0
             ! This should be done after the flux, so that the flux calculation is consistent.
-            !$acc data copy(ch4_surf_diff)
-            !$acc parallel loop independent gang vector default(present) private(c, j, deficit)
+            !$acc data copy(ch4_surf_diff) if(elm_device_ready)
+            !$acc parallel loop independent gang vector default(present) private(c, j, deficit) if(elm_device_ready) copyin(bounds)
             do fc = 1, num_methc
                c = filter_methc (fc)
                ierr(fc) = 0
@@ -3100,7 +3100,7 @@ contains
                enddo
             enddo
             !$acc end data
-            !$acc update self(ierr)
+            !$acc update self(ierr) if(elm_device_ready)
             do fc = 1, num_methc
                if (ierr(fc) /= 0) then
                   c = filter_methc (fc)
@@ -3117,7 +3117,7 @@ contains
          elseif (s == 2) then  ! O2
 
             ! Set rt, since it depends on conc
-            !$acc parallel loop independent gang vector collapse(2) default(present) private(c, dzj)
+            !$acc parallel loop independent gang vector collapse(2) default(present) private(c, dzj) if(elm_device_ready) copyin(bounds)
             do j = 1,nlevsoi
                do fc = 1, num_methc
                   c = filter_methc (fc)
@@ -3156,7 +3156,7 @@ contains
             enddo ! j; nlevsoi
 
             ! Solve the tridiagonal system (as Tridiagonal with jtop = 0)
-            !$acc parallel loop independent gang vector default(present) private(j)
+            !$acc parallel loop independent gang vector default(present) private(j) if(elm_device_ready) copyin(bounds)
             do fc = 1, num_methc
                bet(fc) = bt(fc,0)
                conc_o2_rel(fc,0) = rt(fc,0) / bet(fc)
@@ -3173,7 +3173,7 @@ contains
             end do
 
             ! Ensure that concentrations stay above 0
-            !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g)
+            !$acc parallel loop independent gang vector collapse(2) default(present) private(c, g) if(elm_device_ready) copyin(bounds)
             do j = 1,nlevsoi
                do fc = 1, num_methc
                   c = filter_methc (fc)
@@ -3191,8 +3191,8 @@ contains
       enddo  ! species
 
       ! Update absolute concentrations per unit volume
-      !$acc data copy(conc_ch4, conc_o2)
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c)
+      !$acc data copy(conc_ch4, conc_o2) if(elm_device_ready)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
       do j = 1,nlevsoi ! No need to update the atm. level concentrations
          do fc = 1, num_methc
             c = filter_methc (fc)
@@ -3204,8 +3204,8 @@ contains
 
       ! Do Balance Check and absorb small
       !    discrepancy into surface flux.
-      !$acc data copy(ch4_oxid_depth, ch4_prod_depth, conc_ch4)
-      !$acc parallel loop independent gang vector default(present) private(c, j)
+      !$acc data copy(ch4_oxid_depth, ch4_prod_depth, conc_ch4) if(elm_device_ready)
+      !$acc parallel loop independent gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc (fc)
          errch4(fc) = 0._r8
@@ -3218,8 +3218,8 @@ contains
       end do
       !$acc end data
 
-      !$acc data copy(ch4_surf_aere, ch4_surf_diff, ch4_surf_ebul)
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc data copy(ch4_surf_aere, ch4_surf_diff, ch4_surf_ebul) if(elm_device_ready)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc (fc)
 
@@ -3234,9 +3234,9 @@ contains
          end if
       end do
       !$acc end data
-      !$acc update self(ierr)
+      !$acc update self(ierr) if(elm_device_ready)
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
+      !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          if (ierr(fc) /= 0) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
       end do
@@ -3286,7 +3286,7 @@ contains
 
       ! The layer index of the first unsaturated layer, i.e., the layer right above
       ! the water table. Column-parallel; the level searches run in order.
-      !$acc parallel loop independent gang vector default(present) private(c, j, perch)
+      !$acc parallel loop independent gang vector default(present) private(c, j, perch) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_methc
          c = filter_methc(fc)
 
@@ -3369,7 +3369,7 @@ contains
       ! set time steps
       ! spel acc-sync: device data this host code uses
       !$acc update self(ch4_vars%annsum_counter_col, ch4_vars%tempavg_finrw_col, &
-      !$acc&   ch4_vars%tempavg_somhr_col) if_present
+      !$acc&   ch4_vars%tempavg_somhr_col) if_present if(elm_device_ready)
       secsperyear = real( dayspyr * secspday, r8)
 
       newrun = .false.
@@ -3393,7 +3393,7 @@ contains
       !$acc&   ch4_vars%tempavg_somhr_col) if_present
 
       ! patch loop
-      !$acc parallel loop gang vector default(present) private(p, c)
+      !$acc parallel loop gang vector default(present) private(p, c) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_methp
          p = filter_methp(fp)
          c = veg_pp%column(p)
@@ -3405,7 +3405,7 @@ contains
          end if
       end do
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_methc
          c = filter_methc(fc)
          
@@ -3428,7 +3428,7 @@ contains
          end if
       end do
 
-      !$acc parallel loop gang vector default(present) private(p, c)
+      !$acc parallel loop gang vector default(present) private(p, c) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_methp
          p = filter_methp(fp)
          c = veg_pp%column(p)
@@ -3449,7 +3449,7 @@ contains
       end do
 
       ! column loop
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_methc
          c = filter_methc(fc)
          if (annsum_counter(c) >= secsperyear) annsum_counter(c) = 0._r8

@@ -6,6 +6,7 @@ module pftvarcon
   ! read and initialize vegetation (PFT) constants.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only : r8 => shr_kind_r8
   use shr_log_mod , only : errMsg => shr_log_errMsg
   use abortutils  , only : endrun
@@ -351,6 +352,8 @@ module pftvarcon
   !$acc declare create(mxtmp, nonvascular)
   ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(irrigated)
+  ! spel acc-apply: module data read in device code (updated by the device data layer)
+  !$acc declare create(aleaff, allconsl, allconss, arootf, arooti, astemf, bfact, declfact, fleafi, fr_fcel, fr_flab, fr_flig, lf_fcel, lf_flab, lf_flig, nfixer, rsub_top_globalmax)
 contains
 
   !-----------------------------------------------------------------------

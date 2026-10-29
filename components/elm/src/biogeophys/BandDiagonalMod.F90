@@ -7,6 +7,7 @@ module BandDiagonalMod
   ! Band Diagonal matrix solution
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod   , only : r8 => shr_kind_r8
   use elm_varctl     , only : iulog
   !
@@ -64,9 +65,9 @@ contains
     integer :: spel_dc_1  ! spel defer-checks: elements recorded by deferred checks
     nmax = ubj - lbj + 1
 
-    !$acc data create(nlev, info, ipiv, ab, rhs)
+    !$acc data create(nlev, info, ipiv, ab, rhs) if(elm_device_ready)
 
-    !$acc parallel loop gang vector collapse(3) default(present)
+    !$acc parallel loop gang vector collapse(3) default(present) if(elm_device_ready)
     do j = 1, nmax
        do k = 1, m
           do fc = 1, numf
@@ -75,7 +76,7 @@ contains
        end do
     end do
 
-    !$acc parallel loop gang vector default(present) private(n)
+    !$acc parallel loop gang vector default(present) private(n) if(elm_device_ready)
     do fc = 1, numf
        ! n is the number of levels (snow/soil)
        n = jbot(fc)-jtop(fc)+1
@@ -113,15 +114,15 @@ contains
     call dgbsv_batch(numf, nmax, kl, ku, 1, nlev, ab, rhs, ipiv, info)
 
     ierr = 0
-    !$acc parallel loop gang vector default(present) reduction(max:ierr)
+    !$acc parallel loop gang vector default(present) reduction(max:ierr) if(elm_device_ready)
     do fc = 1, numf
        ierr = max(ierr, abs(info(fc)))
     end do
 
     if (ierr /= 0) then
-       !$acc update self(info, nlev)
+       !$acc update self(info, nlev) if(elm_device_ready)
        spel_dc_1 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready)
        do fc = 1, numf
           if (info(fc) /= 0) spel_dc_1 = max(spel_dc_1, fc - (1) + 1)  ! spel defer-checks
        end do
@@ -134,7 +135,7 @@ contains
        stop
     end if
 
-    !$acc parallel loop gang vector default(present)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do fc = 1, numf
        !$acc loop seq
        do j = 1, nlev(fc)

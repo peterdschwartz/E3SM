@@ -7,6 +7,7 @@
   ! created by Jinyun Tang, Mar 12, 2014
   ! added variable DTB option for Zeng-Decker, Michael A. Brunke, Aug. 25, 2016
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use ColumnDataType    , only : col_es, col_ws, col_wf
   use VegetationDataType, only : veg_wf
   use shr_log_mod         , only : errMsg => shr_log_errMsg
@@ -21,6 +22,9 @@
   implicit none
   save
   private
+  ! upper bound of nlevsoi+1 for the tridiagonal solve's per-thread work array (private
+  ! arrays need compile-time bounds on the GPU)
+  integer, parameter :: maxlev_tridiag = 64
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: SoilWater            ! Calculate soil hydrology
@@ -260,7 +264,7 @@ contains
     real(r8) :: dhkds                                        !temporary variable
     real(r8) :: hktmp                                        !temporary variable
     real(r8) :: sum1 
-    real(r8) :: gam(1:nlevsoi+1),bet
+    real(r8) :: gam(1:maxlev_tridiag),bet
     !-----------------------------------------------------------------------
 
     associate(&
@@ -333,7 +337,7 @@ contains
       ! Because the depths in this routine are in mm, use local
       ! variable arrays instead of pointers
 
-      !$acc parallel loop independent gang vector default(present) private(c, nlevbed)
+      !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
         c = filter_hydrologyc(fc)
         nlevbed = nlev2bed(c)
@@ -350,7 +354,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          zimm(fc,0) = 0.0_r8
@@ -361,13 +365,14 @@ contains
       ! The layer index of the first unsaturated layer, i.e., the layer right above
       ! the water table
       !$acc parallel loop independent gang worker default(present) present(zwt(:),zi(:,:),vwc_liq(:,:),&
-      !$acc  h2osoi_vol(:,:),watsat(:,:),sucsat(:,:),bsw(:,:)) private(c, nlevbed, smp1)
+      !$acc  h2osoi_vol(:,:),watsat(:,:),sucsat(:,:),bsw(:,:)) private(c, nlevbed, smp1) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
          jwt(fc) = nlevbed
          ! allow jwt to equal zero when zwt is in top layer
-         !$acc loop vector independent 
+         ! (a first-match search: in order, on one thread)
+         !$acc loop seq
          do j = 1,nlevbed
             if (use_var_soil_thick) then
                if (zwt(c) <= zi(c,j) .and. zwt(c) < zi(c,nlevbed)) then
@@ -404,7 +409,7 @@ contains
 
       ! calculate the equilibrium water content based on the water table depth
 
-      !$acc parallel loop independent gang vector default(present) private(nlevbed, c, tempi, temp0, voleq1)
+      !$acc parallel loop independent gang vector default(present) private(nlevbed, c, tempi, temp0, voleq1) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -437,7 +442,7 @@ contains
       end do
 
       ! If water table is below soil column calculate zq for the 11th layer
-      !$acc parallel loop independent gang vector default(present) private(c, j, tempi, temp0, delta_z_zwt)
+      !$acc parallel loop independent gang vector default(present) private(c, j, tempi, temp0, delta_z_zwt) if(elm_device_ready) copyin(bounds)
       do fc=1, num_hydrologyc
          c = filter_hydrologyc(fc)
          j = nlev2bed(c)
@@ -457,11 +462,11 @@ contains
       ! Hydraulic conductivity and soil matric potential and their derivatives
 
       sdamp = 0._r8
-      !$acc parallel loop independent gang vector default(present) private(c, nlevbed, s1, s2, s_node)
+      !$acc parallel loop independent gang vector default(present) private(c, nlevbed, s1, s2, s_node) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
-         !$acc loop vector independent 
+         !$acc loop vector independent private(s1, s2, s_node)
          do j = 1, nlevbed
             ! compute hydraulic conductivity based on liquid water content only
 
@@ -522,7 +527,7 @@ contains
       end do
 
       ! aquifer (11th) layer
-      !$acc parallel loop independent gang vector default(present) present(zmm(:,:),dzmm(:,:)) private(c, nlevbed)
+      !$acc parallel loop independent gang vector default(present) present(zmm(:,:),dzmm(:,:)) private(c, nlevbed) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -539,7 +544,7 @@ contains
       ! Node j=1 (top)
 
       j = 1
-      !$acc parallel loop independent gang vector default(present) private(c, den, dzq, num)
+      !$acc parallel loop independent gang vector default(present) private(c, den, dzq, num) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          qin(fc,j)    = qflx_infl(c)
@@ -557,7 +562,7 @@ contains
 
       ! Nodes j=2 to j=nlevsoi-1
 
-      !$acc parallel loop independent gang vector default(present) private(c, nlevbed, den, dzq, num)
+      !$acc parallel loop independent gang vector default(present) private(c, nlevbed, den, dzq, num) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -584,7 +589,7 @@ contains
 
       ! Node j=nlevsoi (bottom)
 
-      !$acc parallel loop independent gang vector default(present) private(c, nlevbed, j, den, dzq, num, s_node, smp1, dsmpdw1)
+      !$acc parallel loop independent gang vector default(present) private(c, nlevbed, j, den, dzq, num, s_node, smp1, dsmpdw1) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -699,7 +704,8 @@ contains
          !      rmx(1:num_hydrologyc, :), &
          !      dwat2(1:num_hydrologyc, :) )
 
-         !$acc parallel loop independent gang vector default(present) create(gam(:)) private(bet,gam(:))
+         if (nlevsoi+1 > maxlev_tridiag) call endrun('SoilWater: nlevsoi+1 > maxlev_tridiag')
+         !$acc parallel loop independent gang vector default(present) private(bet,gam) if(elm_device_ready) copyin(bounds)
          do fc = 1,num_hydrologyc
             bet = bmx(fc,jtop)
 
@@ -728,7 +734,7 @@ contains
       ! Renew the mass of liquid water
       ! also compute qcharge from dwat in aquifer layer
       ! update in drainage for case jwt < nlevsoi
-      !$acc parallel loop independent gang worker default(present) private(nlevbed, c)
+      !$acc parallel loop independent gang worker default(present) private(nlevbed, c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -740,7 +746,7 @@ contains
       
       ! calculate qcharge for case jwt < nlevsoi
       if (use_var_soil_thick) then
-         !$acc parallel loop independent gang vector default(present) private(c, nlevbed, wh_zwt, s_node, s1, ka, smp1, wh)
+         !$acc parallel loop independent gang vector default(present) private(c, nlevbed, wh_zwt, s_node, s1, ka, smp1, wh) if(elm_device_ready) copyin(bounds)
          do fc = 1,num_hydrologyc
             c = filter_hydrologyc(fc)
             nlevbed = nlev2bed(c)   ! as upstream (set in the same column loop there)
@@ -786,7 +792,7 @@ contains
       else !use_var_soil_thick
          !$acc parallel loop independent gang vector default(present) &
          !$acc  present(imped(:,:),hksat(:,:),h2osoi_vol(:,:),watsat(:,:),smp(:,:),zq(:,:),z(:,:),bsw(:,:)) private(c, &
-         !$acc   nlevbed, wh_zwt, s_node, s1, ka, smp1, wh)
+         !$acc   nlevbed, wh_zwt, s_node, s1, ka, smp1, wh) if(elm_device_ready) copyin(bounds)
          do fc = 1,num_hydrologyc
             c = filter_hydrologyc(fc)
             nlevbed = nlev2bed(c)   ! as upstream (set in the same column loop there)
@@ -831,7 +837,7 @@ contains
 
       ! compute the water deficit and reset negative liquid water content
       !  Jinyun Tang
-      !$acc parallel loop independent gang worker default(present) private(sum1, c, nlevbed) 
+      !$acc parallel loop independent gang worker default(present) private(sum1, c, nlevbed) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -1125,7 +1131,7 @@ contains
       num_filterc_tot = 0
       ! 1) pervious roads
       num_filterc = 0
-      !$acc parallel loop independent gang vector present(filterc(:)) private(c,fperv) copy(num_filterc)
+      !$acc parallel loop independent gang vector present(filterc(:)) private(c,fperv) copy(num_filterc) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          if (col_pp%itype(c) == icol_road_perv) then
@@ -1142,7 +1148,7 @@ contains
                num_filterc, filterc, soilstate_inst )
       
       num_filterc = 0
-      !$acc parallel loop independent gang vector default(present) present(filterc(:)) private(c,l,fimperv) copy(num_filterc)
+      !$acc parallel loop independent gang vector default(present) present(filterc(:)) private(c,l,fimperv) copy(num_filterc) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          l = col_pp%landunit(c)
@@ -1233,7 +1239,7 @@ contains
       ! weighting depends on both the per-unit-area transpiration
       ! of the PATCH and the PATCHEs area relative to all PATCHES.
       nlevbed_max = maxval(nlev2bed)
-      !$acc parallel loop independent gang worker collapse(2) default(present) private(sum1, c, nlevbed)
+      !$acc parallel loop independent gang worker collapse(2) default(present) private(sum1, c, nlevbed) if(elm_device_ready) copyin(bounds)
       do j = 1,nlevbed_max
          do fc = 1, num_filterc
             c = filterc(fc)
@@ -1252,7 +1258,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop independent gang worker default(present) private(sum1, c)
+      !$acc parallel loop independent gang worker default(present) private(sum1, c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_filterc
          c = filterc(fc)
          sum1 = 0._r8;
@@ -1265,7 +1271,7 @@ contains
          temp(fc) = sum1 
       end do
 
-      !$acc parallel loop independent gang vector default(present) private(c, nlevbed)
+      !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_filterc
          c = filterc(fc)
          nlevbed = nlev2bed(c)
@@ -1279,7 +1285,7 @@ contains
          end do
       end do
       
-      !$acc parallel loop independent gang worker collapse(2) default(present) private(c)
+      !$acc parallel loop independent gang worker collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
       do j = 1,nlevsoi
          do fc = 1, num_filterc
             c = filterc(fc)
@@ -1370,7 +1376,7 @@ contains
                                                                             ! matric potential (mm)
               )
 
-          !$acc parallel loop gang vector default(present) private(c, j, grav2, pi, p)
+          !$acc parallel loop gang vector default(present) private(c, j, grav2, pi, p) if(elm_device_ready) copyin(bounds)
           do fc = 1, num_filterc
              c = filterc(fc)
              !qflx_phs_neg_col(c) = 0._r8

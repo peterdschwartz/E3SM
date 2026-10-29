@@ -1,4 +1,5 @@
 module lapack_acc_seq
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only: r8 => shr_kind_r8
   implicit none
   !! This module contains the needed LAPACK/BLAS routines that need
@@ -903,7 +904,7 @@ subroutine dgbsv_batch(nbatch, nmax, kl, ku, nrhs, n, ab, b, ipiv, info)
   kd = kv + 1
 
   !$acc parallel loop gang vector default(present) &
-  !$acc private(ns, i, j, jj, k, km, jp, ju, l, lm, dmax, temp, recip)
+  !$acc private(ns, i, j, jj, k, km, jp, ju, l, lm, dmax, temp, recip) if(elm_device_ready)
   do s = 1, nbatch
      ns = n(s)
      info(s) = 0

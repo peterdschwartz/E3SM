@@ -4,6 +4,7 @@ module C14DecayMod
   ! Module for 14-carbon flux variable update, non-mortality fluxes.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod           , only : r8 => shr_kind_r8
   use elm_varpar             , only : ndecomp_cascade_transitions, nlevdecomp, ndecomp_pools
   use elm_varcon             , only : secspday
@@ -104,13 +105,13 @@ contains
       decay_const = - log(0.5_r8) / half_life
 
       ! column loop
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          seedc(c) = seedc(c) *  (1._r8 - decay_const * dt)
       end do ! end of columns loop
 
-      !$acc parallel loop gang vector default(present) private(spinup_term, j, fc, c)
+      !$acc parallel loop gang vector default(present) private(spinup_term, j, fc, c) if(elm_device_ready)
       do l = 1, ndecomp_pools
          if ( spinup_state .eq. 1) then
             ! speed up radioactive decay by the same factor as decomposition so tat SOM ages prematurely in all respects
@@ -134,7 +135,7 @@ contains
       end do ! end of columns loop
 
       ! patch loop
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -226,7 +227,7 @@ contains
         endif
 
         ! change delta units to ratio, put on pft loop
-        !$acc parallel loop gang vector default(present) private(p)
+        !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
         do fp = 1,num_soilp
            p = filter_soilp(fp)
            cnstate_vars%rc14_atm_patch(p) = (delc14o2_atm * 1.e-3_r8 + 1._r8) * c14ratio
@@ -235,7 +236,7 @@ contains
      else
 
         ! for constant 14c concentration
-        !$acc parallel loop gang vector default(present) private(p)
+        !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
         do fp = 1,num_soilp
            p = filter_soilp(fp)
            cnstate_vars%rc14_atm_patch(p) = c14ratio

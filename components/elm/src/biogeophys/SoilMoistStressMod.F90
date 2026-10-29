@@ -13,6 +13,7 @@ module SoilMoistStressMod
   ! during the long-term maintenance
   ! Created by Jinyun Tang, Feb., 2014
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use ColumnDataType   , only : col_es, col_ws
   !
   implicit none
@@ -61,7 +62,7 @@ subroutine normalize_test( lbj2, ubj2, numf, filter, arr2d_inout)
    real(r8) :: arr_sum(numf), sum1
 
    !$acc enter data create(arr_sum(1:numf))
-   !$acc parallel loop independent gang worker default(present) private(sum1)
+   !$acc parallel loop independent gang worker default(present) private(sum1) if(elm_device_ready)
    do f = 1, numf
      sum1 = 0._r8
      !$acc loop vector reduction(+:sum1)
@@ -73,7 +74,7 @@ subroutine normalize_test( lbj2, ubj2, numf, filter, arr2d_inout)
    enddo
 
      !normalize with the total if arr_sum is non-zero
-   !$acc parallel loop independent gang default(present)
+   !$acc parallel loop independent gang default(present) if(elm_device_ready)
    do j2 = lbj2, ubj2
      !$acc loop vector independent
      do f = 1, numf
@@ -147,7 +148,7 @@ end subroutine normalize_test
     !------------------------------------------------------------------------------
     !main calculation loop
     !it assumes the soil layers start from 1
-    !$acc parallel loop independent gang default(present)
+    !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
     do j = 1, ubj
       !$acc loop vector independent private(p,c,vol_ice)
        do fp = 1, numf
@@ -241,7 +242,7 @@ end subroutine normalize_test
     integer, parameter :: jtop = 1
     !------------------------------------------------------------------------------
     !main calculation loop
-    !$acc parallel loop independent gang default(present)
+    !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
     do j = lbj, ubj
       !$acc loop vector independent private(p,c)
        do fp = 1, numf
@@ -307,7 +308,7 @@ end subroutine normalize_test
       ! if (perchroot .or. perchroot_alt) then
          if (perchroot_alt) then
             ! use total active layer (defined ass max thaw depth for current and prior year)
-            !$acc parallel loop independent gang default(present)
+            !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
             do j = 1, ubj
                !$acc loop vector independent private(p,c)
                do f = 1, fn
@@ -323,7 +324,7 @@ end subroutine normalize_test
             end do
          else
             ! use instantaneous temperature
-            !$acc parallel loop independent gang default(present)
+            !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
             do j = 1, ubj
                !$acc loop vector independent private(p,c)
                do f = 1, fn
@@ -345,7 +346,7 @@ end subroutine normalize_test
       !      fn, filterp, rootfr_unf(:, :))
       ! !!!
       !$acc enter data create(arr_sum(1:fn))
-      !$acc parallel loop independent gang worker default(present) private(sum1)
+      !$acc parallel loop independent gang worker default(present) private(sum1) if(elm_device_ready) copyin(bounds)
       do f = 1, fn
         sum1 = 0._r8
         !$acc loop vector reduction(+:sum1)
@@ -357,7 +358,7 @@ end subroutine normalize_test
       enddo
 
         !normalize with the total if arr_sum is non-zero
-      !$acc parallel loop independent gang default(present)
+      !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
       do j = 1, ubj
         !$acc loop vector independent
         do f = 1, fn
@@ -429,7 +430,7 @@ end subroutine normalize_test
          h2osoi_liqvol => col_ws%h2osoi_liqvol   & ! Output: [real(r8) (:,:) ]  liquid volumetric moisture
          )
 
-      !$acc parallel loop independent gang default(present)
+      !$acc parallel loop independent gang default(present) if(elm_device_ready)
       do j = 1,nlevgrnd
          !$acc loop vector independent private(p,c,l,s_node,smp_node )
          do f = 1, fn
@@ -463,7 +464,7 @@ end subroutine normalize_test
 
       !calculate btran and btran2
       if(.not. use_hydrstress) then
-         !$acc parallel loop independent gang worker default(present) private(p,c,sum1)
+         !$acc parallel loop independent gang worker default(present) private(p,c,sum1) if(elm_device_ready)
          do f = 1, fn
             p = filterp(f)
             c = veg_pp%column(p)
@@ -478,7 +479,7 @@ end subroutine normalize_test
          end do
       end if
 
-      !$acc parallel loop independent gang worker default(present) private(p,c,sum2)
+      !$acc parallel loop independent gang worker default(present) private(p,c,sum2) if(elm_device_ready)
       do f = 1, fn
          p = filterp(f)
          c = veg_pp%column(p)
@@ -501,7 +502,7 @@ end subroutine normalize_test
       !$acc wait
 
       ! Normalize root resistances to get layer contribution to ET
-      !$acc parallel loop independent gang default(present)
+      !$acc parallel loop independent gang default(present) if(elm_device_ready)
       do j = 1,nlevgrnd
          !$acc loop vector independent private(p)
          do f = 1, fn

@@ -3,6 +3,7 @@ module CH4varcon
   !-----------------------------------------------------------------------
   ! Module containing CH4 parameters and logical switches and routine to read constants from CLM namelist.
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only : r8 => shr_kind_r8
   use abortutils  , only : endrun
   use elm_varctl  , only : iulog

@@ -1,4 +1,5 @@
 module SimpleMathMod
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
 
 #include "shr_assert.h"
   !------------------------------------------------------------------------------
@@ -244,8 +245,8 @@ subroutine array_normalization_2d_filter(lbj1, ubj1, lbj2, ubj2, numf, filter, a
 
       transA = transpose(A)
 
-      !$acc data copy(transa)
-      !$acc parallel loop gang vector default(present)
+      !$acc data copy(transa) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       DO COL = START, END_
 
         RES(COL) = DOT_PRODUCT(transA(start:end_,col),X(start:end_))

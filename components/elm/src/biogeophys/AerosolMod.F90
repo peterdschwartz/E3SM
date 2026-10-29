@@ -1,6 +1,7 @@
 module AerosolMod
 
   !-----------------------------------------------------------------------
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use shr_log_mod      , only : errMsg => shr_log_errMsg
   use decompMod        , only : bounds_type
@@ -93,7 +94,7 @@ contains
 
       !$acc enter data create(sum_bc,sum_oc,sum_dst)
       if (.not. use_firn_percolation_and_compaction) then
-         !$acc parallel loop independent gang vector collapse(2) default(present) 
+         !$acc parallel loop independent gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
          do j = -nlevsno+1, 0
             do fc = 1, num_on 
                c = filter_on(fc)
@@ -123,7 +124,7 @@ contains
          end do 
       endif
       
-      !$acc parallel loop independent gang vector collapse(2) default(present) 
+      !$acc parallel loop independent gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
       do j = -nlevsno+1, 0
          do fc = 1, num_on
             c = filter_on(fc)
@@ -175,7 +176,7 @@ contains
          enddo
       enddo
 
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_on
          c = filter_on(fc)
          snl_idx = snl(c)+1
@@ -186,7 +187,7 @@ contains
          mss_dst_top(c) = mss_dsttot(c,snl_idx)
       end do
 
-      !$acc parallel loop gang worker independent default(present) private(sum_bc,sum_oc,sum_dst)
+      !$acc parallel loop gang worker independent default(present) private(sum_bc,sum_oc,sum_dst) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_on
          c = filter_on(fc)
          sum_bc = 0._r8
@@ -206,7 +207,7 @@ contains
       end do 
 
       ! Zero mass variables in columns without snow
-      !$acc parallel loop independent gang vector default(present) 
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_off
          c = filter_off(fc)
          mss_bc_top(c)      = 0._r8
@@ -219,7 +220,7 @@ contains
          mss_dst_col(c)     = 0._r8
       enddo
 
-      !$acc parallel loop independent gang vector collapse(2) default(present)
+      !$acc parallel loop independent gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
       do j=-nlevsno+1,0
          do fc = 1, num_off
             c = filter_off(fc)
@@ -315,7 +316,7 @@ contains
     ! aerosol. "wet" and "dry" fluxes of BC and OC specified here are
     ! purely diagnostic
 
-    !$acc parallel loop independent gang vector default(present)
+    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
     do c = bounds%begc,bounds%endc
        g = col_pp%gridcell(c)
 
@@ -354,7 +355,7 @@ contains
 
       !$acc parallel loop independent gang vector default(present) &
       !$acc present(mss_bcphi(:,:),mss_bcpho(:,:),mss_ocphi(:,:),mss_ocpho(:,:), &
-      !$acc  mss_dst1(:,:),mss_dst2(:,:),mss_dst3(:,:),mss_dst4(:,:))
+      !$acc  mss_dst1(:,:),mss_dst2(:,:),mss_dst3(:,:),mss_dst4(:,:)) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_snowc
          c = filter_snowc(fc)
          mss_bcphi(c,snl(c)+1) = mss_bcphi(c,snl(c)+1) + (flx_bc_dep_phi(c)*dtime_mod)

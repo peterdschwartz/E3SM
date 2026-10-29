@@ -7,6 +7,7 @@ module pdepStreamMod
   ! interpolation.
   ! X.SHI
   ! !USES
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only: r8 => shr_kind_r8, CL => shr_kind_cl
   use shr_strdata_mod
   use shr_stream_mod
@@ -176,11 +177,12 @@ contains
 
    ig = 0
    dayspyr = get_days_per_year( )
-   !$acc parallel loop gang vector default(present) reduction(+:ig)
+   ! host loop: the stream data (sdat%avs) lives on the host; ig is a running index
    do g = bounds%begg,bounds%endg
       ig = ig+1
       atm2lnd_vars%forc_pdep_grc(g) = sdat%avs(1)%rAttr(1,ig) / (secspday * dayspyr)
    end do
+   !$acc update device(atm2lnd_vars%forc_pdep_grc) if(elm_device_ready)
    
  end subroutine pdep_interp
 

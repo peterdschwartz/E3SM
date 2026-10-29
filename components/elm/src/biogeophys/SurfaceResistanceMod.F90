@@ -8,6 +8,7 @@ module SurfaceResistanceMod
   ! The surface here refers to water and soil, not including canopy
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod  , only : r8 => shr_kind_r8
   use shr_const_mod , only : SHR_CONST_TKFRZ
   use elm_varctl    , only : iulog
@@ -130,7 +131,7 @@ contains
          frac_h2osfc =>  col_ws%frac_h2osfc  & ! Input: [real(r8) (:)] fraction of ground covered by surface water (0 to 1)
          )
 
-       !$acc parallel loop independent gang vector default(present)
+       !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
        do fc = 1,num_nolakec
           c = filter_nolakec(fc)
           l = col_pp%landunit(c)

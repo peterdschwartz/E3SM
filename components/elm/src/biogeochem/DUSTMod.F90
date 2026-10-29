@@ -12,6 +12,7 @@ module DUSTMod
   ! the dust dry deposition flux to the surface.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod         , only : r8 => shr_kind_r8
   use shr_log_mod          , only : errMsg => shr_log_errMsg
   use shr_infnan_mod       , only : nan => shr_infnan_nan, assignment(=)
@@ -302,8 +303,8 @@ contains
 
       ttlai(bounds%begp : bounds%endp) = 0._r8
       ! make lai average at landunit level
-      !$acc data copy(ttlai)
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc data copy(ttlai) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          ttlai(p) = tlai(p)+tsai(p)
@@ -342,12 +343,12 @@ contains
 
       ! initialize variables which get passed to the atmosphere
       ! spel acc-sync: device data this host code uses
-      !$acc update self(dust_vars%flx_mss_vrt_dst_patch) if_present
+      !$acc update self(dust_vars%flx_mss_vrt_dst_patch) if_present if(elm_device_ready)
       flx_mss_vrt_dst(bounds%begp:bounds%endp,:)=0._r8
       !$acc update device(dust_vars%flx_mss_vrt_dst_patch) if_present
 
-      !$acc data copy(tlai_lu)
-      !$acc parallel loop gang vector default(present) private(p, c, l)
+      !$acc data copy(tlai_lu) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) private(p, c, l) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          c = veg_pp%column(p)
@@ -375,14 +376,14 @@ contains
 
 #ifndef _OPENACC
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(p) reduction(max:spel_dc_1)
+      !$acc parallel loop gang vector default(present) private(p) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          if (lnd_frc_mbl(p)>1.0_r8 .or. lnd_frc_mbl(p)<0.0_r8) spel_dc_1 = max(spel_dc_1, fp - (1) + 1)  ! spel defer-checks
       end do
       if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
          ! spel acc-sync: device data this host code uses
-         !$acc update self(dust_vars%lnd_frc_mbl_patch) if_present
+         !$acc update self(dust_vars%lnd_frc_mbl_patch) if_present if(elm_device_ready)
          fp = 1 + spel_dc_1 - 1
          p = filter_nolakep(fp)
             write(iulog,*)'Error dstmbl: pft= ',p,' lnd_frc_mbl(p)= ',lnd_frc_mbl(p)
@@ -392,12 +393,12 @@ contains
 
       ! reset history output variables before next if-statement to avoid output = inf
 
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          flx_mss_vrt_dst_tot(p) = 0.0_r8
       end do
-      !$acc parallel loop gang vector collapse(2) default(present) private(p)
+      !$acc parallel loop gang vector collapse(2) default(present) private(p) if(elm_device_ready) copyin(bounds)
       do n = 1, ndst
          do fp = 1,num_nolakep
             p = filter_nolakep(fp)
@@ -408,7 +409,7 @@ contains
       !$acc parallel loop gang vector default(present) &
       !$acc   private(p, c, l, t, g, frc_thr_rgh_fct, bd, gwc_sfc, frc_thr_wet_fct) &
       !$acc   private(liqfrac, wnd_frc_thr_slt, wnd_frc_slt, flx_mss_hrz_slt_ttl) &
-      !$acc   private(wnd_rfr_thr_slt, wnd_rfr_dlt, wnd_frc_slt_dlt)
+      !$acc   private(wnd_rfr_thr_slt, wnd_rfr_dlt, wnd_frc_slt_dlt) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          c = veg_pp%column(p)
@@ -535,7 +536,7 @@ contains
       ! the following comes from subr. flx_mss_vrt_dst_prt in C. Zender's code
       ! purpose: partition total vertical mass flux of dust into transport bins
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(m, fp, p)
+      !$acc parallel loop gang vector collapse(2) default(present) private(m, fp, p) if(elm_device_ready) copyin(bounds)
       do n = 1, ndst
          do fp = 1,num_nolakep
             !$acc loop seq
@@ -548,7 +549,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop gang vector default(present) private(fp, p)
+      !$acc parallel loop gang vector default(present) private(fp, p) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_nolakep
          !$acc loop seq
          do n = 1, ndst
@@ -626,7 +627,7 @@ contains
          vlc_trb_4 =>    dust_vars%vlc_trb_4_patch               & ! Output:  [real(r8) (:)   ]  Turbulent deposition velocity 4
          )
 
-      !$acc parallel loop gang vector default(present) private(g, t, c, mfp_atm, m)
+      !$acc parallel loop gang vector default(present) private(g, t, c, mfp_atm, m) if(elm_device_ready) copyin(bounds)
       do p = bounds%begp,bounds%endp
          if (veg_pp%active(p)) then
             g = veg_pp%gridcell(p)
@@ -659,7 +660,7 @@ contains
       end do
 
       !$acc parallel loop gang vector collapse(2) default(present) &
-      !$acc   private(g, t, c, stk_nbr, dff_aer, shm_nbr, shm_nbr_xpn, tmp)
+      !$acc   private(g, t, c, stk_nbr, dff_aer, shm_nbr, shm_nbr_xpn, tmp) if(elm_device_ready) copyin(bounds)
       do m = 1, ndst
          do p = bounds%begp,bounds%endp
             if (veg_pp%active(p)) then
@@ -688,7 +689,7 @@ contains
 
       ! Lowest layer: Turbulent deposition (CAM will calc. gravitational dep)
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(rss_trb)
+      !$acc parallel loop gang vector collapse(2) default(present) private(rss_trb) if(elm_device_ready) copyin(bounds)
       do m = 1, ndst
          do p = bounds%begp,bounds%endp
             if (veg_pp%active(p)) then
@@ -698,7 +699,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop gang vector default(present)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
       do p = bounds%begp,bounds%endp
          if (veg_pp%active(p)) then
             vlc_trb_1(p) = vlc_trb(p,1)

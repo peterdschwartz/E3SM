@@ -7,6 +7,7 @@ module atm2lndMod
   ! Handle atm2lnd forcing
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod   , only : r8 => shr_kind_r8
   use shr_infnan_mod , only : nan => shr_infnan_nan, assignment(=)
   use shr_log_mod    , only : errMsg => shr_log_errMsg
@@ -99,7 +100,7 @@ contains
          )
       
       ! Initialize column forcing (needs to be done for ALL active columns)
-      !$acc parallel loop gang vector default(present) private(g)
+      !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
       do c = bounds%begc,bounds%endc
          if (col_pp%active(c)) then
             g = col_pp%gridcell(c)
@@ -120,7 +121,7 @@ contains
       !$acc parallel loop gang vector default(present) &
       !$acc   private(c, l, g, hsurf_g, hsurf_c, tbot_g, thbot_g, qbot_g, pbot_g) &
       !$acc   private(zbot_g, zbot_c, tbot_c, hbot, pbot_c, thbot_c, dum1, dum2) &
-      !$acc   private(es_g, qs_g, es_c, qs_c, qbot_c, egcm_c, rhos_c)
+      !$acc   private(es_g, qs_g, es_c, qs_c, qbot_c, egcm_c, rhos_c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_do_smb_c
          c = filter_do_smb_c(fc)
          l = col_pp%landunit(c)
@@ -241,7 +242,7 @@ contains
          )
     
       ! Initialize column forcing (needs to be done for ALL active columns)
-      !$acc parallel loop gang vector default(present) private(g)
+      !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
       do c = bounds%begc, bounds%endc
          if (col_pp%active(c)) then
             g = col_pp%gridcell(c)
@@ -253,8 +254,8 @@ contains
       if (glcmec_downscale_longwave) then
 
          ! Initialize variables related to normalization
-         !$acc data copy(newsum_lwrad_g, sum_lwrad_g, sum_wts_g)
-         !$acc parallel loop gang vector default(present)
+         !$acc data copy(newsum_lwrad_g, sum_lwrad_g, sum_wts_g) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
          do g = bounds%begg, bounds%endg
             sum_lwrad_g(g) = 0._r8
             sum_wts_g(g) = 0._r8
@@ -265,7 +266,7 @@ contains
          ! Do the downscaling
          ! spel acc-sync: device data this host code uses
          !$acc update self(atm2lnd_vars%forc_lwrad_downscaled_col, &
-         !$acc&   atm2lnd_vars%forc_lwrad_not_downscaled_grc, atm2lnd_vars%forc_t_downscaled_col) if_present
+         !$acc&   atm2lnd_vars%forc_lwrad_not_downscaled_grc, atm2lnd_vars%forc_t_downscaled_col) if_present if(elm_device_ready)
          do fc = 1, num_do_smb_c
             c = filter_do_smb_c(fc)
             l = col_pp%landunit(c)
@@ -314,9 +315,9 @@ contains
          ! Make sure that, after normalization, the grid cell mean is conserved
 
          spel_dc_1 = 0  ! spel defer-checks
-         !$acc update device(atm2lnd_vars%forc_lwrad_downscaled_col) if_present
-         !$acc data copy(newsum_lwrad_g, sum_wts_g)
-         !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
+         !$acc update device(atm2lnd_vars%forc_lwrad_downscaled_col) if_present if(elm_device_ready)
+         !$acc data copy(newsum_lwrad_g, sum_wts_g) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
          do g = bounds%begg, bounds%endg
             if (sum_wts_g(g) > 0._r8) then
                if (abs((newsum_lwrad_g(g) / sum_wts_g(g)) - forc_lwrad_g(g)) > 1.e-8_r8) spel_dc_1 = max(spel_dc_1, g - (bounds%begg) + 1)  ! spel defer-checks
@@ -325,7 +326,7 @@ contains
          !$acc end data
          if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
             ! spel acc-sync: device data this host code uses
-            !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc) if_present
+            !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc) if_present if(elm_device_ready)
             g = bounds%begg + spel_dc_1 - 1
                   write(iulog,*) 'g, newsum_lwrad_g, sum_wts_g, forc_lwrad_g: ', &
                        g, newsum_lwrad_g(g), sum_wts_g(g), forc_lwrad_g(g)
@@ -449,7 +450,7 @@ contains
       ! refactor to change this to use column-level fields).
       
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(l, g) reduction(max:spel_dc_1)
+      !$acc parallel loop gang vector default(present) private(l, g) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
       do c = bounds%begc, bounds%endc
          if (col_pp%active(c)) then
             l = col_pp%landunit(c)
@@ -538,7 +539,7 @@ contains
 
       ! Initialize column forcing (needs to be done for ALL active columns)
      !$acc parallel loop gang vector default(present) &
-     !$acc   private(topo, cossza, slope_rad, aspect_rad, dd) private(horizon_angle_twd_sun_rad, ib)
+     !$acc   private(topo, cossza, slope_rad, aspect_rad, dd) private(horizon_angle_twd_sun_rad, ib) if(elm_device_ready) copyin(bounds)
      do g = bounds%begg, bounds%endg
 
          forc_solad_pp_grc(g,:) = forc_solad_grc(g,:)

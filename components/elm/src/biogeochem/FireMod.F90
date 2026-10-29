@@ -12,6 +12,7 @@ module FireMod
   ! climatological lightning data.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod           , only : r8 => shr_kind_r8, CL => shr_kind_CL
   use shr_const_mod          , only : SHR_CONST_PI,SHR_CONST_TKFRZ
   use shr_strdata_mod        , only : shr_strdata_type, shr_strdata_create, shr_strdata_print
@@ -281,7 +282,7 @@ contains
      ! On first time-step, just set area burned to zero and exit
      !
      if ( nstep == 0 )then
-        !$acc parallel loop gang vector default(present) private(c)
+        !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
         do fc = 1,num_soilc
            c = filter_soilc(fc)
            farea_burned(c) = 0._r8
@@ -298,13 +299,13 @@ contains
      ! Calculate fraction of crop (cropf_col) and non-crop and non-bare-soil
      ! vegetation (lfwt) in vegetated column
      !
-     !$acc parallel loop gang vector default(present) private(c)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         cropf_col(c) = 0._r8
         lfwt(c)      = 0._r8
      end do
-     !$acc parallel loop gang vector default(present) private(fc, c, p)
+     !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready) copyin(bounds)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,max_patch_per_col
@@ -326,12 +327,12 @@ contains
      !
      ! Calculate crop fuel
      !
-     !$acc parallel loop gang vector default(present) private(c)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         fuelc_crop(c)=0._r8
      end do
-     !$acc parallel loop gang vector default(present) private(fc, c, p)
+     !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready) copyin(bounds)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,max_patch_per_col
@@ -356,7 +357,7 @@ contains
      ! 5/22/2018, PET: switched the use of column-weight-on-gridcell, to column-weight-on-topounit
      ! in the calculation of summed weight for tropical trees
      !
-     !$acc parallel loop gang vector default(present) private(c)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         fsr_col(c)   = 0._r8
@@ -373,7 +374,7 @@ contains
            dtrotr_col(c)=0._r8
         end if
      end do
-     !$acc parallel loop gang vector default(present) private(fc, c, g, p, hdmlf)
+     !$acc parallel loop gang vector default(present) private(fc, c, g, p, hdmlf) if(elm_device_ready) copyin(bounds)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,max_patch_per_col
@@ -484,7 +485,7 @@ contains
      ! land cover conversion in CLM4.5 is the same for each timestep except for the beginning
 
      if (transient_landcover) then    !true when landuse data is used
-        !$acc parallel loop gang vector default(present) private(c)
+        !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
         do fc = 1,num_soilc
            c = filter_soilc(fc)
            if( dtrotr_col(c)  >  0._r8 )then
@@ -502,13 +503,13 @@ contains
      !
      ! calculate burned area fraction in cropland
      !
-     !$acc parallel loop gang vector default(present) private(c)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         baf_crop(c)=0._r8
      end do
 
-     !$acc parallel loop gang vector default(present) private(p)
+     !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
      do fp = 1,num_soilp
         p = filter_soilp(fp)
         if( kmo == 1 .and. kda == 1 .and. mcsec == 0 )then
@@ -516,7 +517,7 @@ contains
         end if
      end do
 
-     !$acc parallel loop gang vector default(present) private(fc, c, g, t, hdmlf, p, fhd, fgdp, fb)
+     !$acc parallel loop gang vector default(present) private(fc, c, g, t, hdmlf, p, fhd, fgdp, fb) if(elm_device_ready) copyin(bounds)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,max_patch_per_col
@@ -554,7 +555,7 @@ contains
      !
      ! calculate peatland fire
      !
-     !$acc parallel loop gang vector default(present) private(c, t, g)
+     !$acc parallel loop gang vector default(present) private(c, t, g) if(elm_device_ready) copyin(bounds)
      do fc = 1, num_soilc
         c = filter_soilc(fc)
         t = col_pp%topounit(c)
@@ -580,7 +581,7 @@ contains
      ! find which pool is the cwd pool
      i_cwd = 0
      spel_dc_1 = 0  ! spel defer-checks
-     !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
+     !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
      do l = 1, ndecomp_pools
         if (is_cwd(l)) spel_dc_1 = max(spel_dc_1, l - (1) + 1)  ! spel defer-checks
      end do
@@ -594,7 +595,7 @@ contains
      !
      !$acc parallel loop gang vector default(present) &
      !$acc   private(c, g, t, hdmlf, j, fb, m, fire_m, lh, fs, ig, lb_lf) &
-     !$acc   private(spread_m, cri, cli)
+     !$acc   private(spread_m, cri, cli) if(elm_device_ready) copyin(bounds)
      do fc = 1, num_soilc
         c = filter_soilc(fc)
         g = col_pp%gridcell(c)
@@ -1005,7 +1006,7 @@ contains
      m_veg = 1.0_r8
      if (spinup_state == 1) m_veg = spinup_mortality_factor
 
-     !$acc parallel loop gang vector default(present) private(p, c, itype, f, cc_other_sc)
+     !$acc parallel loop gang vector default(present) private(p, c, itype, f, cc_other_sc) if(elm_device_ready)
      do fp = 1,num_soilp
         p = filter_soilp(fp)
         c = veg_pp%column(p)
@@ -1288,7 +1289,7 @@ contains
      ! patches of filter_soilp in a column of filter_soilc are its active patches (filterMod,
      ! both filters ascending), so each column sum adds the same terms in the same order.
      !$acc parallel loop gang vector collapse(2) default(present) &
-     !$acc&   private(c, p, wt_col, itype, lprof_pj, fr_prof_pj, cr_prof_pj, st_prof_pj)
+     !$acc&   private(c, p, wt_col, itype, lprof_pj, fr_prof_pj, cr_prof_pj, st_prof_pj) if(elm_device_ready)
      do j = 1,nlevdecomp
        do fc = 1,num_soilc
          c = filter_soilc(fc)
@@ -1411,7 +1412,7 @@ contains
      ! vertically-resolved decomposing C/N fire loss
      ! column loop
      ! add phosphorus
-     !$acc parallel loop gang vector default(present) private(c, baf_crop_sc, f, j, l)
+     !$acc parallel loop gang vector default(present) private(c, baf_crop_sc, f, j, l) if(elm_device_ready)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
 
@@ -1480,7 +1481,7 @@ contains
      ! carbon loss due to deforestation fires
 
      if (transient_landcover) then    !true when landuse data is used
-        !$acc parallel loop gang vector default(present) private(c)
+        !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
         do fc = 1,num_soilc
            c = filter_soilc(fc)
            lfc2(c)=0._r8
@@ -1501,7 +1502,7 @@ contains
      ! somc_fire is not connected to clm45 soil carbon pool, ie does not decrease
      ! soil carbon b/c clm45 soil carbon was very low in several peatland grids
      !
-     !$acc parallel loop gang vector default(present) private(c, g)
+     !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         g = col_pp%gridcell(c)
@@ -1664,11 +1665,12 @@ subroutine hdm_interp(bounds)
    call shr_strdata_advance(sdat_hdm, mcdate, sec, mpicom, 'hdmdyn')
 
    ig = 0
-   !$acc parallel loop gang vector default(present) reduction(+:ig)
+   ! host loop: the stream data (sdat%avs) lives on the host; ig is a running index
    do g = bounds%begg,bounds%endg
       ig = ig+1
       forc_hdm(g) = sdat_hdm%avs(1)%rAttr(1,ig)
    end do
+   !$acc update device(forc_hdm) if(elm_device_ready)
 end subroutine hdm_interp
 
 !-----------------------------------------------------------------------
@@ -1815,11 +1817,14 @@ subroutine lnfm_interp(bounds )
    call shr_strdata_advance(sdat_lnfm, mcdate, sec, mpicom, 'lnfmdyn')
 
    ig = 0
-   !$acc parallel loop gang vector default(present) reduction(+:ig)
+   ! host loop: the stream data (sdat%avs) lives on the host; ig is a running index
    do g = bounds%begg,bounds%endg
       ig = ig+1
       forc_lnfm(g) = sdat_lnfm%avs(1)%rAttr(1,ig)
    end do
+   ! unconditional: forc_lnfm is private to FireMod, so the whole-state transitions (DeepCopyGlobalsMod)
+   ! cannot carry it, and this interp runs in a host segment (flag off)
+   !$acc update device(forc_lnfm)
 
 end subroutine lnfm_interp
 

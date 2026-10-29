@@ -5,6 +5,7 @@ module ActiveLayerMod
   ! Module holding routines for calculation of active layer dynamics
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod    , only : r8 => shr_kind_r8
   use shr_const_mod   , only : SHR_CONST_TKFRZ
   use elm_varctl      , only : iulog, spinup_state, use_polygonal_tundra
@@ -100,7 +101,7 @@ contains
       day = day_curr 
       sec = secs_curr
       if ( (mon .eq. 1) .and. (day .eq. 1) .and. ( sec / int(dtime) .eq. 1) ) then
-         !$acc parallel loop gang vector default(present) private(c, g)
+         !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             g = col_pp%gridcell(c)
@@ -114,7 +115,7 @@ contains
          end do
       endif
       if ( (mon .eq. 7) .and. (day .eq. 1) .and. ( sec / dtime .eq. 1) ) then
-         !$acc parallel loop gang vector default(present) private(c, g)
+         !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             g = col_pp%gridcell(c)
@@ -130,7 +131,7 @@ contains
       do fc = 1,num_soilc
          ! spel acc-sync: device data this host code uses
          !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col, &
-         !$acc&   col_es%t_soisno) if_present
+         !$acc&   col_es%t_soisno) if_present if(elm_device_ready)
          c = filter_soilc(fc)
 
          ! calculate alt for a given timestep
@@ -187,7 +188,7 @@ contains
             ! special case for year = 1989. For now it is the assumed baseline year for 
             ! changes in polygonal ground
             ! spel acc-sync: device data this host code uses
-            !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col) if_present
+            !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col) if_present if(elm_device_ready)
             if (year .eq. 1989) then
                altmax_1989(c) = altmax(c)
                altmax_1989_indx(c) = altmax_indx(c)
@@ -204,8 +205,8 @@ contains
             !$acc update device(canopystate_vars%altmax_1989_col, &
             !$acc&   canopystate_vars%altmax_1989_indx_col) if_present
 
-           !$acc data copy(melt_profile)
-           !$acc parallel loop gang vector default(present) private(orig_excess, old_mfrac)
+           !$acc data copy(melt_profile) if(elm_device_ready)
+           !$acc parallel loop gang vector default(present) private(orig_excess, old_mfrac) if(elm_device_ready)
            do j = nlevgrnd,1,-1 ! note, this will go from bottom to top
               if (j .gt. k_frz + 1) then ! all layers below k_frz + 1 remain frozen
                 melt_profile(j) = 0.0_r8

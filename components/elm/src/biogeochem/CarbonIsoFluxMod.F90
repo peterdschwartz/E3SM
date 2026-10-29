@@ -4,6 +4,7 @@ module CarbonIsoFluxMod
   ! Module for carbon isotopic flux variable update, non-mortality fluxes.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod           , only : r8 => shr_kind_r8
   use shr_log_mod            , only : errMsg => shr_log_errMsg
   use elm_varpar             , only : ndecomp_cascade_transitions, nlevdecomp, ndecomp_pools
@@ -380,7 +381,7 @@ contains
 
       ! column-level non-mortality fluxes
 
-      !$acc parallel loop gang vector default(present) private(cc, j, l)
+      !$acc parallel loop gang vector default(present) private(cc, j, l) if(elm_device_ready)
       do fc = 1,num_soilc
          cc = filter_soilc(fc)
          !$acc loop seq
@@ -399,7 +400,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop gang vector default(present) private(cc, j, l)
+      !$acc parallel loop gang vector default(present) private(cc, j, l) if(elm_device_ready)
       do fc = 1,num_soilc
          cc = filter_soilc(fc)
          !$acc loop seq
@@ -858,7 +859,7 @@ contains
 
       ! calculate the column-level flux of deadstem and deadcrootc to cwdc as the result of fire mortality.
 
-      !$acc parallel loop gang vector default(present) private(fc, cc, pp, j)
+      !$acc parallel loop gang vector default(present) private(fc, cc, pp, j) if(elm_device_ready)
       do fc = 1,num_soilc
          !$acc loop seq
          do pi = 1,max_patch_per_col
@@ -885,7 +886,7 @@ contains
       end do
 
 
-      !$acc parallel loop gang vector default(present) private(cc, j, l)
+      !$acc parallel loop gang vector default(present) private(cc, j, l) if(elm_device_ready)
       do fc = 1,num_soilc
          cc = filter_soilc(fc)
          !$acc loop seq
@@ -945,7 +946,7 @@ contains
          phenology_c_to_litr_lig_c =>    col_cf%core%phenology_to_litr_lig   & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with phenology (litterfall and crop) to litter lignin pool (gC/m3/s)
          )
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
+      !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p) if(elm_device_ready)
       do j = 1, nlevdecomp
          do fc = 1,num_soilc
             !$acc loop seq
@@ -1044,7 +1045,7 @@ contains
           gap_mortality_c_to_cwdc        =>    col_cf%core%gap_mortality_to_cwd            & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with gap mortality to CWD pool (gC/m3/s)
           )
 
-       !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
+       !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p) if(elm_device_ready)
        do j = 1, nlevdecomp
           do fc = 1,num_soilc
              !$acc loop seq
@@ -1197,7 +1198,7 @@ contains
           harvest_c_to_cwdc                =>    col_cf%core%harvest_to_cwd                    & ! InOut:  [real(r8) (:,:) ]  C fluxes associated with harvest to CWD pool (gC/m3/s)
           )
 
-       !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
+       !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p) if(elm_device_ready)
        do j = 1, nlevdecomp
           do fc = 1,num_soilc
              !$acc loop seq
@@ -1275,7 +1276,7 @@ contains
           end do
        end do
 
-       !$acc parallel loop gang vector default(present) private(fc, c, p)
+       !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready)
        do fc = 1,num_soilc
           !$acc loop seq
           do pi = 1,maxpatch_pft
@@ -1338,7 +1339,7 @@ contains
      end select
 
      ! loop over the supplied filter
-     !$acc parallel loop gang vector default(present) private(i)
+     !$acc parallel loop gang vector default(present) private(i) if(elm_device_ready)
      do f = 1,num
         i = filter(f)
         if (ctot_state(i) /= 0._r8) then

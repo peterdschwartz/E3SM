@@ -12,6 +12,7 @@ module dynHarvestMod
   ! pftdyn data, allowing them to differ in the years over which they apply.
   
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod          , only : r8 => shr_kind_r8
   use shr_log_mod           , only : errMsg => shr_log_errMsg
   use decompMod             , only : bounds_type, BOUNDS_LEVEL_PROC
@@ -370,7 +371,7 @@ contains
    days_per_year = get_days_per_year()
 
    ! patch loop
-   !$acc parallel loop gang vector default(present) private(p, g, t, topi, ti, am, varnum, m)
+   !$acc parallel loop gang vector default(present) private(p, g, t, topi, ti, am, varnum, m) if(elm_device_ready)
    do fp = 1,num_soilp
       p = filter_soilp(fp)
       g = pgridcell(p)
@@ -623,7 +624,7 @@ contains
 
         )
 
-     !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p)
+     !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p) if(elm_device_ready)
      do j = 1, nlevdecomp
         do fc = 1,num_soilc
            !$acc loop seq
@@ -819,7 +820,7 @@ contains
         end do
      end do
    
-     !$acc parallel loop gang vector default(present) private(fc, c, p)
+     !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,maxpatch_pft

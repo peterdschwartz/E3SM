@@ -1,5 +1,6 @@
 module CNPBudgetMod
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use shr_log_mod         , only : errMsg => shr_log_errMsg
   use shr_sys_mod         , only : shr_sys_abort
@@ -379,7 +380,7 @@ contains
        call get_curr_date(year, mon, day, sec)
        call get_prev_date(year, mon, day, sec)
 
-       !$acc parallel loop gang vector default(present)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do ip = 1,p_size
           if (ip == p_inst) then
              budg_fluxL(:,ip)  = 0.0_r8
@@ -572,14 +573,14 @@ contains
        !$acc update device(budg_fluxl) if_present
 
        if (update_state_beg) then
-          !$acc parallel loop gang vector default(present)
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
           do is = 1, s_size/2 - 1
              budg_stateL(is,ip) = budg_stateL(is, p_inst)
           end do
        endif
 
        if (update_state_end) then
-          !$acc parallel loop gang vector default(present)
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
           do is = s_size/2 + 1, s_size-1
              budg_stateL(is,ip) = budg_stateL(is, p_inst)
           end do
@@ -619,7 +620,7 @@ contains
     !$acc&   grc_cs%beg_cwdc, grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, grc_cs%beg_totprodc, &
     !$acc&   grc_cs%beg_totsomc, grc_cs%core%balance_err, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, &
     !$acc&   grc_cs%end_cwdc, grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
-    !$acc&   grc_cs%end_totsomc) if_present
+    !$acc&   grc_cs%end_totsomc) if_present if(elm_device_ready)
     call CBudget_Run(bounds, atm2lnd_vars, lnd2atm_vars, grc_cs, grc_cf, c_budg_fluxL, c_budg_stateL)
     !$acc update device(c_budg_fluxl, c_budg_statel) if_present
 

@@ -7,6 +7,7 @@ module SurfaceAlbedoMod
   ! Performs surface albedo calculations
   !
   ! !PUBLIC TYPES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_log_mod       , only : errMsg => shr_log_errMsg
   use abortutils        , only : endrun
@@ -236,13 +237,13 @@ contains
     ! Cosine solar zenith angle for next time step
 
     if (.not. use_finetop_rad) then
-       !$acc parallel loop gang vector default(present)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
        do g = bounds%begg,bounds%endg
           coszen_gcell(g) = shr_orb_cosz (nextsw_cday, grc_pp%lat(g), grc_pp%lon(g), declinp1)
           cosinc_gcell(g) = coszen_gcell(g)
        end do
     else
-       !$acc parallel loop gang vector default(present) private(sza, saa, slope_rad, aspect_rad)
+       !$acc parallel loop gang vector default(present) private(sza, saa, slope_rad, aspect_rad) if(elm_device_ready) copyin(bounds)
        do g = bounds%begg,bounds%endg
           coszen_gcell(g) = shr_orb_cosz (nextsw_cday, grc_pp%lat(g), grc_pp%lon(g), declinp1)
           sza = acos(coszen_gcell(g)) ! solar zenith angle
@@ -258,13 +259,13 @@ contains
        end do
     endif
 
-    !$acc parallel loop gang vector default(present) private(g)
+    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
     do c = bounds%begc,bounds%endc
        g = col_pp%gridcell(c)
        coszen_col(c) = coszen_gcell(g)
        cosinc_col(c) = cosinc_gcell(g)
     end do
-    !$acc parallel loop gang vector default(present) private(p, g)
+    !$acc parallel loop gang vector default(present) private(p, g) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
        g = veg_pp%gridcell(p)
@@ -274,7 +275,7 @@ contains
 
     ! Initialize output because solar radiation only done if coszen > 0
 
-    !$acc parallel loop gang vector collapse(2) default(present) private(c)
+    !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
     do ib = 1, numrad
        do fc = 1,num_nourbanc
           c = filter_nourbanc(fc)
@@ -293,7 +294,7 @@ contains
        end do
     end do
 
-    !$acc parallel loop gang vector collapse(2) default(present) private(c)
+    !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
     do fc = 1,num_nourbanc
        do i=-nlevsno+1,1,1
           c = filter_nourbanc(fc)
@@ -304,7 +305,7 @@ contains
        enddo
     end do
 
-    !$acc parallel loop gang vector collapse(2) default(present) private(p)
+    !$acc parallel loop gang vector collapse(2) default(present) private(p) if(elm_device_ready) copyin(bounds)
     do ib = 1, numrad
        do fp = 1,num_nourbanp
           p = filter_nourbanp(fp)
@@ -363,12 +364,12 @@ contains
        call add_case(1, aer_none, kd_pur);  call add_case(2, aer_none, ki_pur)   ! pure snow
     end if
 
-    !$acc update device(case_slr, case_aer)   ! set on the host by add_case
+    !$acc update device(case_slr, case_aer)  ! set on the host by add_case
     call SNICAR_AD_RT(bounds, num_nourbanc, filter_nourbanc, cosinc_col(bounds%begc:bounds%endc), &
          ncase, case_slr, case_aer, 2, aerosol_vars, albsoi(bounds%begc:bounds%endc, :), alb_snw, abs_snw)
 
     ! ground albedos and snow-fraction weighting of snow absorption factors
-    !$acc parallel loop gang vector default(present) private(fc, c, l, i)
+    !$acc parallel loop gang vector default(present) private(fc, c, l, i) if(elm_device_ready) copyin(bounds)
     do fc = 1,num_nourbanc
        !$acc loop seq
        do ib = 1, nband
@@ -436,7 +437,7 @@ contains
        ! so that it is not averaged in history buffer (OPTIONAL)
        ! TODO - this is set to 0 not spval - seems wrong since it will be averaged in
 
-    !$acc parallel loop gang vector collapse(2) default(present) private(c)
+    !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
     do ib = 1, nband
        do fc = 1,num_nourbanc
           c = filter_nourbanc(fc)
@@ -455,7 +456,7 @@ contains
     ! (built on the device; their order is arbitrary, which the per-patch loops below allow)
     num_vegsol = 0
     num_novegsol = 0
-    !$acc parallel loop gang vector default(present) copy(num_vegsol, num_novegsol) private(p, ip)
+    !$acc parallel loop gang vector default(present) copy(num_vegsol, num_novegsol) private(p, ip) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
           if (coszen_patch(p) > 0._r8) then
@@ -480,7 +481,7 @@ contains
     ! Weight reflectance/transmittance by lai and sai
        ! Only perform on vegetated patches where coszen > 0
 
-    !$acc parallel loop gang vector default(present) private(p)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_vegsol
        p = filter_vegsol(fp)
        wl(p) = elai(p) / max( elai(p)+esai(p), mpe )
@@ -489,7 +490,7 @@ contains
 
     ! rho and tau are not needed if fates is on 
     if (.not. use_fates) then
-       !$acc parallel loop gang vector collapse(2) default(present) private(p)
+       !$acc parallel loop gang vector collapse(2) default(present) private(p) if(elm_device_ready) copyin(bounds)
        do ib = 1, numrad
           do fp = 1,num_vegsol
              p = filter_vegsol(fp)
@@ -525,7 +526,7 @@ contains
 
     dincmax = 0.25_r8
     !$acc parallel loop gang vector default(present) &
-    !$acc   private(p, dincmax_sum, iv, dinc, laisum, saisum)
+    !$acc   private(p, dincmax_sum, iv, dinc, laisum, saisum) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
        err_can(fp) = 0
@@ -628,7 +629,7 @@ contains
 
     ! Canopy layer errors found above: the first in filter order, then abort
     nbad = 0
-    !$acc parallel loop gang vector default(present) reduction(+:nbad)
+    !$acc parallel loop gang vector default(present) reduction(+:nbad) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_nourbanp
        if (err_can(fp) /= 0) nbad = nbad + 1
     end do
@@ -636,8 +637,8 @@ contains
        ! spel acc-sync: device data this host code uses
        !$acc update self(canopystate_vars%elai_patch, canopystate_vars%esai_patch, &
        !$acc&   canopystate_vars%tlai_patch, canopystate_vars%tsai_patch, surfalb_vars%ncan_patch, &
-       !$acc&   surfalb_vars%nrad_patch) if_present
-       !$acc update self(err_can)
+       !$acc&   surfalb_vars%nrad_patch) if_present if(elm_device_ready)
+       !$acc update self(err_can) if(elm_device_ready)
        do fp = 1,num_nourbanp
           if (err_can(fp) /= 0) then
              p = filter_nourbanp(fp)
@@ -651,7 +652,7 @@ contains
 
     ! Zero fluxes for active canopy layers
 
-    !$acc parallel loop gang vector default(present) private(p, iv)
+    !$acc parallel loop gang vector default(present) private(p, iv) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
        !$acc loop seq
@@ -671,7 +672,7 @@ contains
     ! TwoStream for coszen > 0. So kn must be set here and in TwoStream.
 
     extkn = 0.30_r8
-    !$acc parallel loop gang vector default(present) private(p)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_nourbanp
        p = filter_nourbanp(fp)
        if (nlevcan == 1) then
@@ -712,7 +713,7 @@ contains
 
        ! Determine values for non-vegetated patches where coszen > 0
 
-    !$acc parallel loop gang vector collapse(2) default(present) private(p, c)
+    !$acc parallel loop gang vector collapse(2) default(present) private(p, c) if(elm_device_ready) copyin(bounds)
     do ib = 1,numrad
        do fp = 1,num_novegsol
           p = filter_novegsol(fp)
@@ -811,7 +812,7 @@ contains
     ! Compute soil albedos
 
     !$acc parallel loop gang vector collapse(2) default(present) &
-    !$acc   private(c, g, t, gi, mi, pi, l, inc, soilcol, sicefr)
+    !$acc   private(c, g, t, gi, mi, pi, l, inc, soilcol, sicefr) if(elm_device_ready) copyin(bounds)
     do ib = 1, nband
        do fc = 1,num_nourbanc
           c = filter_nourbanc(fc)
@@ -1015,7 +1016,7 @@ contains
     ! chil, gdir, twostext, avmu, and temp0 and temp2 (used for asu)
 
     !$acc parallel loop gang vector default(present) &
-    !$acc   private(p, g, slope_rad, cosz, phi1, phi2, temp1)
+    !$acc   private(p, g, slope_rad, cosz, phi1, phi2, temp1) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_vegsol
        p = filter_vegsol(fp)
        g = veg_pp%gridcell(p)
@@ -1083,7 +1084,7 @@ contains
     !$acc   private(a1, a2, h7, h8, h9, h10, fi_prime, albi_adjust, laisum) &
     !$acc   private(extkn, extkb, iv, v, dv, u, du, dh2, dh3, dh5, dh6, da1, da2) &
     !$acc   private(d_ftid, d_fabd, d_fabd_sun, d_fabd_sha, dh7, dh8, dh9, dh10) &
-    !$acc   private(d_ftii, d_fabi, d_fabi_sun, d_fabi_sha)
+    !$acc   private(d_ftii, d_fabi, d_fabi_sun, d_fabi_sha) if(elm_device_ready) copyin(bounds)
     do fp = 1,num_vegsol
        !$acc loop seq
        do ib = 1, numrad
@@ -1599,11 +1600,11 @@ contains
 
      next_tod = 86400._r8 * (nextsw_cday - int(nextsw_cday))
 
-     !$acc data copy(coeff_dif, coeff_dir, coeff_rdif, coeff_rdir)
+     !$acc data copy(coeff_dif, coeff_dir, coeff_rdif, coeff_rdir) if(elm_device_ready)
      !$acc parallel loop gang vector default(present) &
      !$acc   private(p, g, cosz, lon_180, local_timeofday, azi_angle, sinz) &
      !$acc   private(solar_inc, izen, dzen1, dzen2, ftemp1, ftemp2, ib, fd_prime) &
-     !$acc   private(fi_prime, albd_adjust, albi_adjust)
+     !$acc   private(fi_prime, albd_adjust, albi_adjust) if(elm_device_ready) copyin(bounds)
      do fp = 1,num_pft
         p = filter_pft(fp)
         g = pgridcell(p)

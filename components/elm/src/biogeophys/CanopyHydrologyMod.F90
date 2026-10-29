@@ -10,6 +10,7 @@ module CanopyHydrologyMod
   ! (4) snow layer initialization if the snow accumulation exceeds 10 mm.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_log_mod       , only : errMsg => shr_log_errMsg
   use shr_infnan_mod    , only : isnan => shr_infnan_isnan                                                        
@@ -94,7 +95,7 @@ contains
     end if
     ! Broadcast namelist variables read in
     call shr_mpi_bcast(oldfflag, mpicom)
-    !$acc update device(oldfflag) 
+    !$acc update device(oldfflag)
 
    end subroutine CanopyHydrology_readnl
 
@@ -259,12 +260,12 @@ contains
        dtime = dtime_mod
 
        !$acc enter data create(irrigated_ppg, bifall, newsnow, snowmelt)
-       !$acc parallel loop gang vector default(present)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
        do gg = bounds%begg,bounds%endg
           irrigated_ppg(gg) = 0
        end do
          
-       !$acc parallel loop gang vector default(present) private(p, g)
+       !$acc parallel loop gang vector default(present) private(p, g) if(elm_device_ready) copyin(bounds)
        do f = 1, num_nolakep
           p = filter_nolakep(f)
           g = pgridcell(p)
@@ -276,7 +277,7 @@ contains
        ! Start pft loop
 
        !$acc parallel loop gang vector default(present) &
-       !$acc   private(p, g, t, tpu_ind, l, c, h2ocanmx, fpi, xrun)
+       !$acc   private(p, g, t, tpu_ind, l, c, h2ocanmx, fpi, xrun) if(elm_device_ready) copyin(bounds)
        do f = 1, num_nolakep
           p = filter_nolakep(f)
           g = pgridcell(p)
@@ -488,7 +489,7 @@ contains
             qflx_grnd_irrig_col(bounds%begc:bounds%endc))
 
        ! apply gridcell flood water flux to non-lake columns
-       !$acc parallel loop gang vector default(present) private(c, g)
+       !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready) copyin(bounds)
        do f = 1, num_nolakec
           c = filter_nolakec(f)
           g = cgridcell(c)
@@ -502,14 +503,14 @@ contains
        ! Determine snow height and snow water
        
        if (use_firn_percolation_and_compaction) then
-          !$acc data copy(bifall)
+          !$acc data copy(bifall) if(elm_device_ready)
           call NewSnowBulkDensity(bounds, num_nolakec, filter_nolakec, &
                                   top_as, bifall(bounds%begc:bounds%endc))
           !$acc end data
        end if
 
        !$acc parallel loop gang vector default(present) private(c, l, t, g, j, temp_snow_depth, &
-       !$acc&   dz_snowf, smr, fsno_new, temp_intsnow, z_avg, fmelt, accum_factor, newnode)
+       !$acc&   dz_snowf, smr, fsno_new, temp_intsnow, z_avg, fmelt, accum_factor, newnode) if(elm_device_ready) copyin(bounds)
        do f = 1, num_nolakec
           c = filter_nolakec(f)
           l = clandunit(c)
@@ -772,7 +773,7 @@ contains
           fdry           => veg_ws%fdry              & ! Output: [real(r8) (:) ]  fraction of foliage that is green and dry [-] (new)
           )
 
-       !$acc parallel loop gang vector default(present) private(p, vegt, dewmxi)
+       !$acc parallel loop gang vector default(present) private(p, vegt, dewmxi) if(elm_device_ready)
        do fp = 1,numf
           p = filter(fp)
           if (frac_veg_nosno(p) == 1) then
@@ -848,7 +849,7 @@ contains
        nclose = 0
 
        !$acc parallel loop gang vector default(present) private(c, l, k, d, fd, dfdd, sigma, swc) &
-       !$acc&   reduction(+:nclose)
+       !$acc&   reduction(+:nclose) if(elm_device_ready) copyin(bounds)
        do f = 1, num_h2osfc
           c = filter_h2osfc(f)
           l = col_pp%landunit(c)

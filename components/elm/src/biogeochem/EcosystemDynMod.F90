@@ -4,6 +4,7 @@ module EcosystemDynMod
   ! Ecosystem dynamics: phenology, vegetation
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use dynSubgridControlMod, only : get_do_harvest, get_subgrid_weights_updated
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use shr_sys_mod         , only : shr_sys_flush
@@ -498,7 +499,7 @@ contains
     ! be activated.
     !-------------------------------------------------------------------------------------------------
     ! spel acc-sync: device data this host code uses
-    !$acc update self(carbon_only) if_present
+    !$acc update self(carbon_only) if_present if(elm_device_ready)
     call EvaluateSupplStatus()
     !$acc update device(carbon_only, carbonnitrogen_only, carbonphosphorus_only, crop_supln, &
     !$acc&   do_eval_suppstat, nu_com_leaf_physiology, nu_com_nfix, nu_com_phosphatase, &

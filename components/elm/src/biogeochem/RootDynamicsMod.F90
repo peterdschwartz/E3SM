@@ -6,6 +6,7 @@ module RootDynamicsMod
   ! Includes dynamic root depth for crops
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use elm_varpar          , only : nlevsoi, nlevgrnd
   use elm_varctl          , only : use_vertsoilc
@@ -115,7 +116,7 @@ contains
 
       !initialize to 0
       ! spel acc-sync: device data this host code uses
-      !$acc update self(soilstate_vars%root_depth_patch) if_present
+      !$acc update self(soilstate_vars%root_depth_patch) if_present if(elm_device_ready)
       w_limit(bounds%begp:bounds%endp)              = 0._r8
       sumrswa(bounds%begp:bounds%endp)              = 0._r8
       sumrsmn(bounds%begp:bounds%endp)              = 0._r8
@@ -131,7 +132,7 @@ contains
       ! Set root depth, dynamic for crops, fixed for other vegetation
       !---------------------------------------------------------------
 
-      !$acc parallel loop gang vector default(present) private(p, c)
+      !$acc parallel loop gang vector default(present) private(p, c) if(elm_device_ready) copyin(bounds)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
@@ -155,8 +156,8 @@ contains
       ! This will be used to weight the temperature and water potential scalars
       ! for decomposition control.
 
-      !$acc data copy(rsmn, rswa, sumrsmn, sumrswa, w_limit)
-      !$acc parallel loop gang vector default(present) private(p, c, j, maxpsi, psi)
+      !$acc data copy(rsmn, rswa, sumrsmn, sumrswa, w_limit) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) private(p, c, j, maxpsi, psi) if(elm_device_ready) copyin(bounds)
       do f = 1,num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
@@ -201,7 +202,7 @@ contains
       !------------------------------------------------------------------
 
       ! spel acc-sync: device data this host code uses
-      !$acc update self(col_pp%zi) if_present
+      !$acc update self(col_pp%zi) if_present if(elm_device_ready)
       call init_vegrootfr(bounds, nlevsoi, nlevgrnd, &
                    nlevbed(bounds%begc:bounds%endc), &
                    rootfr_coarse(bounds%begp:bounds%endp,1:nlevgrnd))
@@ -211,9 +212,9 @@ contains
       ! based on this timesteps growth
       !--------------------------------------------------------------------
 
-      !$acc data copy(frootc_dz, rootfr_coarse, rsmn, rswa, sumfrootc, sumrsmn, sumrswa, w_limit)
+      !$acc data copy(frootc_dz, rootfr_coarse, rsmn, rswa, sumfrootc, sumrsmn, sumrswa, w_limit) if(elm_device_ready)
       !$acc parallel loop gang vector default(present) &
-      !$acc   private(p, c, new_growth, new_croot_growth, lev)
+      !$acc   private(p, c, new_growth, new_croot_growth, lev) if(elm_device_ready) copyin(bounds)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
@@ -252,8 +253,8 @@ contains
 
       ! normalize the root fraction for each pft
 
-      !$acc data copy(frootc_dz, sumfrootc)
-      !$acc parallel loop gang vector default(present) private(p, c, lev)
+      !$acc data copy(frootc_dz, sumfrootc) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) private(p, c, lev) if(elm_device_ready) copyin(bounds)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)

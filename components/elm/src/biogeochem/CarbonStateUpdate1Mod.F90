@@ -4,6 +4,7 @@ module CarbonStateUpdate1Mod
   ! Module for carbon state variable update, non-mortality fluxes.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod            , only : r8 => shr_kind_r8
   use decompMod               , only : bounds_type
   use elm_varpar              , only : ndecomp_cascade_transitions, nlevdecomp
@@ -157,7 +158,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! patch loop
-    !$acc parallel loop gang vector default(present) private(p)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
        ! gross photosynthesis fluxes
@@ -210,7 +211,7 @@ contains
 
       ! column level fluxes
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -222,7 +223,7 @@ contains
 
          ! plant to litter fluxes
          if(.not.use_fates)then
-            !$acc parallel loop gang vector collapse(2) default(present) private(c)
+            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
             do j = 1,nlevdecomp
                ! column loop
                do fc = 1,num_soilc
@@ -241,7 +242,7 @@ contains
          ! litter and SOM HR fluxes
          ! one thread per level and column; the transitions in order (as in the loops over
          ! transitions outside): bit-for-bit
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -267,7 +268,7 @@ contains
       if (.not.use_fates) then
 
       ! patch loop
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

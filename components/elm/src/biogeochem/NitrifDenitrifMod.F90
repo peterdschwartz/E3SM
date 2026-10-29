@@ -3,6 +3,7 @@ module NitrifDenitrifMod
   !-----------------------------------------------------------------------
   ! Calculate nitrification and denitrification rates
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use shr_const_mod       , only : SHR_CONST_TKFRZ
   use shr_log_mod         , only : errMsg => shr_log_errMsg
@@ -220,7 +221,7 @@ contains
       !$acc   private(c, f_a, eps, om_frac, r_min, r_max) &
       !$acc   private(ratio_diffusivity_water_gas, r_min_sat, r_psi_sat) &
       !$acc   private(anaerobic_frac_sat, soil_hr_vr, g_per_m3__to__ug_per_gsoil) &
-      !$acc   private(g_per_m3_sec__to__ug_per_gsoil_day)
+      !$acc   private(g_per_m3_sec__to__ug_per_gsoil_day) if(elm_device_ready) copyin(bounds)
       do j = 1, nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)

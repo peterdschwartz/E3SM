@@ -4,6 +4,7 @@ module VegStructUpdateMod
   ! Module for vegetation structure updates (LAI, SAI, htop, hbot)
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod         , only: r8 => shr_kind_r8
   use shr_sys_mod          , only : shr_sys_flush
   use shr_const_mod        , only : SHR_CONST_PI
@@ -117,7 +118,7 @@ contains
 
       ! patch loop
       !$acc parallel loop gang vector default(present) &
-      !$acc   private(p, c, g, tlai_old, tsai_old, tsai_alpha, tsai_min, ol, fb)
+      !$acc   private(p, c, g, tlai_old, tsai_old, tsai_alpha, tsai_min, ol, fb) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          c = veg_pp%column(p)

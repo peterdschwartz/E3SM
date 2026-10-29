@@ -5,6 +5,7 @@ module NitrogenStateUpdate2Mod
   ! Module for nitrogen state variable update, mortality fluxes.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use elm_varpar          , only : nlevsoi, nlevdecomp
   use elm_varpar          , only : i_met_lit, i_cel_lit, i_lig_lit, i_cwd
@@ -51,7 +52,7 @@ contains
       
     ! column-level nitrogen fluxes from gap-phase mortality
       if (.not.(use_pflotran .and. pf_cmode)) then
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -71,7 +72,7 @@ contains
 
       ! patch -level nitrogen fluxes from gap-phase mortality
 
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 
@@ -134,7 +135,7 @@ contains
       if (.not.(use_pflotran .and. pf_cmode)) then
          ! column-level nitrogen fluxes from harvest mortality
 
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -153,7 +154,7 @@ contains
 
       ! patch-level nitrogen fluxes from harvest mortality
 
-      !$acc parallel loop gang vector default(present) private(p)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

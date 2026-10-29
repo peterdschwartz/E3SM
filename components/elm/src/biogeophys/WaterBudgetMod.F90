@@ -1,5 +1,6 @@
 module WaterBudgetMod
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_log_mod       , only : errMsg => shr_log_errMsg
   use shr_sys_mod       , only : shr_sys_abort
@@ -302,7 +303,7 @@ contains
     !$acc update self(grc_ws%beg_h2ocan, grc_ws%beg_h2osfc, grc_ws%beg_h2osno, grc_ws%beg_h2osoi_ice, &
     !$acc&   grc_ws%beg_h2osoi_liq, grc_ws%begwb, grc_ws%end_h2ocan, grc_ws%end_h2osfc, grc_ws%end_h2osno, &
     !$acc&   grc_ws%end_h2osoi_ice, grc_ws%end_h2osoi_liq, grc_ws%endwb, grc_ws%errh2o, &
-    !$acc&   soilhydrology_vars%beg_wa_grc, soilhydrology_vars%end_wa_grc) if_present
+    !$acc&   soilhydrology_vars%beg_wa_grc, soilhydrology_vars%end_wa_grc) if_present if(elm_device_ready)
     associate(                                                             &
          forc_rain          => atm2lnd_vars%forc_rain_not_downscaled_grc , &
          forc_snow          => atm2lnd_vars%forc_snow_not_downscaled_grc , &
@@ -764,7 +765,7 @@ contains
               c2l_scale_type= 'urbanf', l2g_scale_type='unity')
       else
          ! spel acc-sync: device data this host code uses
-         !$acc update self(grc_ws%tws_month_end) if_present
+         !$acc update self(grc_ws%tws_month_end) if_present if(elm_device_ready)
          tws_month_end_grc(bounds%begg:bounds%endg) = spval
          !$acc update device(grc_ws%tws_month_end) if_present
       end if

@@ -11,6 +11,7 @@ module SoilTemperatureMod
   ! Column-level state (col_pp, col_es, ...) is still indexed by c = filter(fc).
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_log_mod       , only : errMsg => shr_log_errMsg
   use shr_infnan_mod    , only : nan => shr_infnan_nan
@@ -186,11 +187,11 @@ contains
       dtime = dtime_mod !get_step_size()
 
       !$acc data create(jtop, jbot, cv, tk, fn, fn1, sabg_lyr_col, tvector, hs_top, &
-      !$acc    dz_h2osfc, tk_h2osfc, dhsdT, hs_soil, hs_top_snow, hs_h2osfc, cool_on, heat_on)
+      !$acc    dz_h2osfc, tk_h2osfc, dhsdT, hs_soil, hs_top_snow, hs_h2osfc, cool_on, heat_on) if(elm_device_ready)
 
       ! Restrict internal building temperature to between min and max
       ! and determine if heating or air conditioning is on
-      !$acc parallel loop gang vector default(present) private(l)
+      !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready) copyin(bounds)
       do fl = 1,num_urbanl
          l = filter_urbanl(fl)
          if (lun_pp%urbpoi(l)) then
@@ -210,7 +211,7 @@ contains
 
       ! set up compact matrix for band diagonal solver, requires additional
       !     sub/super diagonals (1 each), and one additional row for t_h2osfc
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          jtop(fc) = snl(c)
@@ -254,7 +255,7 @@ contains
 
       ! compute thermal properties of h2osfc
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          if ( (h2osfc(c) > thin_sfclayer) .and. (frac_h2osfc(c) > thin_sfclayer) ) then
@@ -269,7 +270,7 @@ contains
       ! initialize initial temperature vector
 
       call t_startf('SoilTempInit')
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          !$acc loop seq
@@ -299,7 +300,7 @@ contains
 
       ! return temperatures to original array
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          !$acc loop seq
@@ -321,7 +322,7 @@ contains
       call t_startf('SoilTempFn1')
       ! Melting or Freezing
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c,l)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c,l) if(elm_device_ready) copyin(bounds)
       do j = -nlevsno+1,nlevgrnd
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -353,7 +354,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop gang vector default(present) private(c,l)
+      !$acc parallel loop gang vector default(present) private(c,l) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)
@@ -380,7 +381,7 @@ contains
 
       ! compute phase change of h2osfc
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          xmf_h2osfc(c) = 0.
@@ -392,7 +393,7 @@ contains
 
       call Phasechange_beta (num_nolakec, filter_nolakec, dhsdT, soilstate_vars, dtime)
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          ! this expression will (should) work whether there is snow or not
@@ -419,7 +420,7 @@ contains
       ! plus snow heat content. The layer sums run sequentially within each
       ! column so they accumulate in the same order as a serial build.
 
-      !$acc parallel loop gang vector default(present) private(c,l)
+      !$acc parallel loop gang vector default(present) private(c,l) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)
@@ -494,16 +495,16 @@ contains
     real(r8) :: rvector(num_filter,-nlevsno:nlevgrnd)                    ! RHS vector for numerical solution of temperature
     !-----------------------------------------------------------------------
 
-    !$acc data create(bmatrix, rvector)
+    !$acc data create(bmatrix, rvector) if(elm_device_ready)
 
-    !$acc parallel loop gang vector collapse(2) default(present)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do j = -nlevsno, nlevgrnd
        do fc = 1, num_filter
           rvector(fc,j) = spval
        end do
     end do
 
-    !$acc parallel loop gang vector collapse(3) default(present)
+    !$acc parallel loop gang vector collapse(3) default(present) if(elm_device_ready)
     do j = -nlevsno, nlevgrnd
        do k = 1, nband
           do fc = 1, num_filter
@@ -625,7 +626,7 @@ contains
       ! 41, 1011-1026.
 
       !$acc parallel loop gang vector collapse(2) default(present) &
-      !$acc    private(c, l, nlevbed, satw, dke, fl, dksat)
+      !$acc    private(c, l, nlevbed, satw, dke, fl, dksat) if(elm_device_ready)
       do j = 1,nlevgrnd
          do fc = 1, num_nolakec
             c = filter_nolakec(fc)
@@ -673,7 +674,7 @@ contains
 
       ! Thermal conductivity of snow
       if (use_T_rho_dependent_snowthk) then ! choose which snow thermal conductivity to use
-         !$acc parallel loop gang vector collapse(2) default(present) private(c, i, k_snw_vals)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c, i, k_snw_vals) if(elm_device_ready)
          do j = -nlevsno+1,0
             do fc = 1, num_nolakec
                c = filter_nolakec(fc)
@@ -702,7 +703,7 @@ contains
             end do
          end do
       else
-         !$acc parallel loop gang vector collapse(2) default(present) private(c)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = -nlevsno+1,0
             do fc = 1, num_nolakec
                c = filter_nolakec(fc)
@@ -718,7 +719,7 @@ contains
 
       ! Thermal conductivity at the layer interface
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = -nlevsno+1,nlevgrnd
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -748,7 +749,7 @@ contains
 
       ! calculate thermal conductivity of h2osfc
 
-      !$acc parallel loop gang vector default(present) private(c, zh2osfc)
+      !$acc parallel loop gang vector default(present) private(c, zh2osfc) if(elm_device_ready)
       do fc = 1, num_nolakec
          c = filter_nolakec(fc)
          zh2osfc=1.0e-3*(0.5*h2osfc(c)) !convert to [m] from [mm]
@@ -761,7 +762,7 @@ contains
       ! scheme with direct measurements from dry districts in two cities, J. Appl. Meteorol.,
       ! 41, 1011-1026.
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c, l, nlevbed)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, l, nlevbed) if(elm_device_ready)
       do j = 1, nlevgrnd
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -797,7 +798,7 @@ contains
 
       ! Snow heat capacity
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = -nlevsno+1,0
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -871,7 +872,7 @@ contains
       ! Freezing identification
 
       !$acc parallel loop gang vector default(present) &
-      !$acc    private(c, temp1, hm, xm, tinc, rho_avg, z_avg, c1, c2)
+      !$acc    private(c, temp1, hm, xm, tinc, rho_avg, z_avg, c1, c2) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
 
@@ -1094,11 +1095,11 @@ contains
          t_soisno         =>    col_es%t_soisno             & ! Output: [real(r8) (:,:) ] soil temperature (Kelvin)
          )
 
-      !$acc data create(supercool, tinc)
+      !$acc data create(supercool, tinc) if(elm_device_ready)
 
       ! Initialization
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
 
@@ -1115,7 +1116,7 @@ contains
          qflx_snow_melt(c) = 0._r8
       end do
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = -nlevsno+1,nlevgrnd       ! all layers
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -1127,7 +1128,7 @@ contains
 
       !--  snow layers  ---------------------------------------------------
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = -nlevsno+1,0
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -1156,7 +1157,7 @@ contains
 
       !-- soil layers   ---------------------------------------------------
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c, smp)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, smp) if(elm_device_ready)
       do j = 1,nlevgrnd
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -1208,7 +1209,7 @@ contains
       ! column fluxes (xmf, qflx_snomelt, qflx_glcice, ...) accumulate in layer order.
 
       !$acc parallel loop gang vector default(present) &
-      !$acc    private(c, l, j, hm, xm, wmass0, wice0, temp1, propor, heatr)
+      !$acc    private(c, l, j, hm, xm, wmass0, wice0, temp1, propor, heatr) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)
@@ -1391,7 +1392,7 @@ contains
 
       ! Needed for history file output
 
-      !$acc parallel loop gang vector default(present) private(c, l)
+      !$acc parallel loop gang vector default(present) private(c, l) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          eflx_snomelt(c) = qflx_snomelt(c) * hfus
@@ -1515,7 +1516,7 @@ contains
       !$acc parallel loop gang vector default(present) &
       !$acc    private(c, p, l, t, g, j, lyr_top, lwrad_emit, dlwrad_emit, lwrad_emit_snow, &
       !$acc            lwrad_emit_soil, lwrad_emit_h2osfc, slope_rad, eflx_gnet_top, &
-      !$acc            eflx_gnet_snow, eflx_gnet_soil, eflx_gnet_h2osfc)
+      !$acc            eflx_gnet_snow, eflx_gnet_soil, eflx_gnet_h2osfc) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          g = col_pp%gridcell(c)
@@ -1697,7 +1698,7 @@ contains
       ! tridiagonal matrix and set up vector r and vectors a, b, c that define tridiagonal
       ! matrix and solve system
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c,l)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c,l) if(elm_device_ready)
       do j = -nlevsno+1,nlevgrnd
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -1822,7 +1823,7 @@ contains
          fact     => col_es%fact          & ! Input:  [real(r8) (:,:) ] used in computing tridiagonal matrix
          )
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c, hs_top_lev)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, hs_top_lev) if(elm_device_ready)
       do j = -nlevsno+1,0
          do fc = 1,num_filter
             c = filter(fc)
@@ -1884,7 +1885,7 @@ contains
          frac_h2osfc => col_ws%frac_h2osfc  & ! Input:  [real(r8) (:)   ] fraction of ground covered by surface water (0 to 1)
          )
 
-      !$acc parallel loop gang vector default(present) private(c, dzm, fn_h2osfc)
+      !$acc parallel loop gang vector default(present) private(c, dzm, fn_h2osfc) if(elm_device_ready)
       do fc = 1,num_filter
          c = filter(fc)
 
@@ -1941,7 +1942,7 @@ contains
       !
       ! urban sunwall, shadewall, and roof columns -------------------------------------
       !
-      !$acc parallel loop gang vector collapse(2) default(present) private(c)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = 1,nlevurb
          do fc = 1,num_filter
             c = filter(fc)
@@ -1971,7 +1972,7 @@ contains
       !
       ! non-urban columns and urban road columns ---------------------------------------
       !
-      !$acc parallel loop gang vector collapse(2) default(present) private(c,l)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c,l) if(elm_device_ready)
       do j = 1,nlevgrnd
          do fc = 1,num_filter
             c = filter(fc)
@@ -2108,7 +2109,7 @@ contains
          fact => col_es%fact       & ! Input:  [real(r8) (:,:)]  used in computing tridiagonal matrix
          )
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c, dzm, dzp)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, dzm, dzp) if(elm_device_ready)
       do j = -nlevsno+1,0
          do fc = 1,num_filter
             c = filter(fc)
@@ -2176,7 +2177,7 @@ contains
       !
       ! urban sunwall, shadewall, and roof columns -------------------------------------
       !
-      !$acc parallel loop gang vector collapse(2) default(present) private(c, dzm, dzp)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, dzm, dzp) if(elm_device_ready)
       do j = 1,nlevurb
          do fc = 1,num_filter
             c = filter(fc)
@@ -2218,7 +2219,7 @@ contains
       !
       ! non-urban columns and urban road columns ---------------------------------------
       !
-      !$acc parallel loop gang vector collapse(2) default(present) private(c, l, dzm, dzp)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c, l, dzm, dzp) if(elm_device_ready)
       do j = 1,nlevgrnd
          do fc = 1,num_filter
             c = filter(fc)
@@ -2263,7 +2264,7 @@ contains
       !
       ! diagonal element correction for presence of h2osfc -----------------------------
       !
-      !$acc parallel loop gang vector default(present) private(c, dzm)
+      !$acc parallel loop gang vector default(present) private(c, dzm) if(elm_device_ready)
       do fc = 1,num_filter
          c = filter(fc)
 
@@ -2312,7 +2313,7 @@ contains
          frac_h2osfc => col_ws%frac_h2osfc   & ! Input:  [real(r8) (:)  ]  fraction of ground covered by surface water (0 to 1)
          )
 
-      !$acc parallel loop gang vector default(present) private(c, dzm)
+      !$acc parallel loop gang vector default(present) private(c, dzm) if(elm_device_ready)
       do fc = 1,num_filter
          c = filter(fc)
 

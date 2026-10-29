@@ -4,6 +4,7 @@ module DaylengthMod
   ! !DESCRIPTION:
   ! Computes daylength
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod , only : r8 => shr_kind_r8
   use decompMod    , only : bounds_type
   use GridcellType , only : grc_pp                

@@ -250,11 +250,8 @@ CONTAINS
 
       spel_dc_1 = 0  ! spel defer-checks
       spel_dc_2 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) &
-      !$acc   private(l, c, t, g, pg, spec_hum, rain, sfc_temp, solar_flux, lat) &
-      !$acc   private(lon, elmveg, soilw, wesveg, minlai, maxlai, index_season, es) &
-      !$acc   private(ws, qs, has_dew, has_rain, dewm, crs, tc, rdc, rds) reduction(max:spel_dc_1) &
-      !$acc   reduction(max:spel_dc_2)
+      ! host loop: seq_drydep_setHCoeff has no device version (only runs with dry deposition
+      ! species, n_drydep > 0; the routine returns above otherwise)
       pft_loop: do pi = bounds%begp,bounds%endp
          l = veg_pp%landunit(pi)
 

@@ -5,6 +5,7 @@ module EcosystemBalanceCheckMod
   ! Module for carbon mass balance checking.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod        , only : r8 => shr_kind_r8
   use shr_infnan_mod      , only : nan => shr_infnan_nan, assignment(=)
   use shr_log_mod         , only : errMsg => shr_log_errMsg
@@ -101,7 +102,7 @@ contains
          )
 
       ! calculate beginning column-level carbon balance, for mass conservation check
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begcb(c) = totcolc(c)
@@ -136,7 +137,7 @@ contains
          )
 
       ! calculate beginning column-level nitrogen balance, for mass conservation check
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begnb(c) = totcoln(c)
@@ -176,7 +177,7 @@ contains
          )
 
       ! calculate beginning column-level phosphorus balance, for mass conservation check
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begpb(c) = totcolp(c)
@@ -239,7 +240,7 @@ contains
       err_found = .false.
       ! column loop
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_1)
+      !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
 
@@ -306,10 +307,10 @@ contains
 #ifndef _OPENACC
        if (err_found .and. nstep > 1) then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_cf%core%external_to_decomp_delta, col_cf%core%fire_loss, col_cf%core%inputs, &
-          !$acc&   col_cf%core%outputs, col_cf%core%som_leached, col_cf%core%som_yield, col_cf%er, col_cf%hr, &
-          !$acc&   col_cf%hrv_xsmrpool_to_atm, col_cs%core%balance_beg, col_cs%core%balance_end, &
-          !$acc&   col_cs%core%balance_err, col_cs%core%totsom) if_present
+          !$acc update self(col_cf%core%fire_loss, col_cf%core%inputs, col_cf%core%outputs, &
+          !$acc&   col_cf%core%som_leached, col_cf%er, col_cf%hr, col_cf%hrv_xsmrpool_to_atm, &
+          !$acc&   col_cs%core%balance_beg, col_cs%core%balance_end, col_cs%core%balance_err, &
+          !$acc&   col_cs%core%totsom) if_present if(elm_device_ready)
           c = err_index
           write(iulog,*)'column cbalance error = ', col_errcb(c), c
           write(iulog,*)'Latdeg,Londeg         = ',grc_pp%latdeg(col_pp%gridcell(c)),grc_pp%londeg(col_pp%gridcell(c))
@@ -325,14 +326,20 @@ contains
           write(iulog,*)'delta store           = ',col_endcb(c)-col_begcb(c)
 
           if (ero_ccycle) then
+             ! spel acc-sync: device data this host code uses
+             !$acc update self(col_cf%core%som_yield) if_present if(elm_device_ready)
              write(iulog,*)'erosion               = ',som_c_yield(c)*dt
           end if
 
           if (use_pflotran .and. pf_cmode) then
+             ! spel acc-sync: device data this host code uses
+             !$acc update self(col_cf%core%external_to_decomp_delta) if_present if(elm_device_ready)
              write(iulog,*)'pf_delta_decompc      = ',col_decompc_delta(c)*dt
           end if
 
           if (use_pflotran .and. pf_cmode) then
+             ! spel acc-sync: device data this host code uses
+             !$acc update self(col_cf%core%external_to_decomp_delta) if_present if(elm_device_ready)
              write(iulog,*)'pf_delta_decompc      = ',col_decompc_delta(c)*dt
           end if
 
@@ -420,7 +427,7 @@ contains
       err_found = .false.
       ! column loop
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c, p) reduction(max:spel_dc_1)
+      !$acc parallel loop gang vector default(present) private(c, p) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -530,12 +537,12 @@ contains
       if (err_found .and. nstep > 1) then
 #ifndef _OPENACC
          ! spel acc-sync: device data this host code uses
-         !$acc update self(col_nf%core%external_to_decomp_delta, col_nf%core%fire_loss, col_nf%core%inputs, &
-         !$acc&   col_nf%core%outputs, col_nf%core%plant_to_litter_flux, col_nf%core%som_yield, col_nf%denit, &
-         !$acc&   col_nf%f_n2o_nit, col_nf%fert_to_sminn, col_nf%mineral%dep_to_smin, &
-         !$acc&   col_nf%mineral%supplement_to_smin, col_nf%nfix_to_sminn, col_nf%smin_no3_leached, &
-         !$acc&   col_nf%smin_no3_runoff, col_nf%soyfixn_to_sminn, col_nf%uptake%smin_to_plant, &
-         !$acc&   col_ns%core%balance_beg, col_ns%core%balance_end, col_ns%core%balance_err) if_present
+         !$acc update self(col_nf%core%fire_loss, col_nf%core%inputs, col_nf%core%outputs, &
+         !$acc&   col_nf%core%plant_to_litter_flux, col_nf%denit, col_nf%f_n2o_nit, col_nf%fert_to_sminn, &
+         !$acc&   col_nf%mineral%dep_to_smin, col_nf%mineral%supplement_to_smin, col_nf%nfix_to_sminn, &
+         !$acc&   col_nf%smin_no3_leached, col_nf%smin_no3_runoff, col_nf%soyfixn_to_sminn, &
+         !$acc&   col_nf%uptake%smin_to_plant, col_ns%core%balance_beg, col_ns%core%balance_end, &
+         !$acc&   col_ns%core%balance_err) if_present if(elm_device_ready)
          c = err_index
          write(iulog,*)'column nbalance error = ',col_errnb(c), c, get_nstep()
          write(iulog,*)'Latdeg,Londeg         = ',grc_pp%latdeg(col_pp%gridcell(c)),grc_pp%londeg(col_pp%gridcell(c))
@@ -561,10 +568,14 @@ contains
          write(iulog,*)'fire                  = ',col_fire_nloss(c)*dt
 
          if (ero_ccycle) then
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_nf%core%som_yield) if_present if(elm_device_ready)
             write(iulog,*)'erosion               = ',som_n_yield(c)*dt
          end if
 
          if (use_pflotran .and. pf_cmode) then
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_nf%core%external_to_decomp_delta) if_present if(elm_device_ready)
             write(iulog,*)'pf_delta_decompn      = ',col_decompn_delta(c)*dt
          end if
          call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -669,7 +680,7 @@ contains
 
       !! immobilization/mineralization in litter-to-SOM and SOM-to-SOM fluxes
       ! column loop
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          flux_mineralization_col(c) = 0._r8
@@ -678,7 +689,7 @@ contains
       do k = 1, ndecomp_cascade_transitions
          if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
                ! column loop
-               !$acc parallel loop gang vector default(present) private(c)
+               !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                   flux_mineralization_col(c) = flux_mineralization_col(c) - &
@@ -686,7 +697,7 @@ contains
                end do
          else
                ! column loop
-               !$acc parallel loop gang vector default(present) private(c)
+               !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                     flux_mineralization_col(c) = flux_mineralization_col(c) + &
@@ -697,7 +708,7 @@ contains
       end do
 
       ! column loop
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          flux_mineralization_col(c) = flux_mineralization_col(c) + &
@@ -707,7 +718,7 @@ contains
 
       ! column loop
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c, p, j) reduction(max:spel_dc_1)
+      !$acc parallel loop gang vector default(present) private(c, p, j) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -787,12 +798,10 @@ contains
       if (err_found .and. nstep>1) then
 #ifndef _OPENACC
          ! spel acc-sync: device data this host code uses
-         !$acc update self(col_pf%biochem_pmin_to_plant, col_pf%core%inputs, col_pf%core%outputs, &
-         !$acc&   col_pf%core%plant_to_litter_flux, col_pf%core%som_yield, col_pf%fert_p_to_sminp, &
-         !$acc&   col_pf%labilep_yield, col_pf%mineral%smin_leached, col_pf%mineral%supplement_to_smin, &
-         !$acc&   col_pf%occlp_yield, col_pf%primp_to_labilep, col_pf%primp_yield, col_pf%secondp_to_occlp, &
-         !$acc&   col_pf%secondp_yield, col_pf%uptake%smin_to_plant, col_ps%core%balance_beg, &
-         !$acc&   col_ps%core%balance_end, col_ps%core%balance_err) if_present
+         !$acc update self(col_pf%core%inputs, col_pf%core%outputs, col_pf%core%plant_to_litter_flux, &
+         !$acc&   col_pf%fert_p_to_sminp, col_pf%mineral%smin_leached, col_pf%mineral%supplement_to_smin, &
+         !$acc&   col_pf%primp_to_labilep, col_pf%secondp_to_occlp, col_pf%uptake%smin_to_plant, &
+         !$acc&   col_ps%core%balance_beg, col_ps%core%balance_end, col_ps%core%balance_err) if_present if(elm_device_ready)
          c = err_index
          write(iulog,*)'column pbalance error = ', col_errpb(c), c
          write(iulog,*)'Latdeg,Londeg=',grc_pp%latdeg(col_pp%gridcell(c)),grc_pp%londeg(col_pp%gridcell(c))
@@ -812,10 +821,15 @@ contains
             write(iulog,*)'fertp              = ',fert_p_to_sminp(c)*dt
          endif
          if(use_fates)then
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_pf%biochem_pmin_to_plant, col_pf%core%plant_to_litter_flux) if_present if(elm_device_ready)
             write(iulog,*) 'plant_to_litter_flux = ',plant_to_litter_pflux(c)*dt
             write(iulog,*) 'biochem_pmin_to_plant = ',biochem_pmin_to_plant(c)*dt
          end if
          if (ero_ccycle) then
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(col_pf%core%som_yield, col_pf%labilep_yield, col_pf%occlp_yield, &
+            !$acc&   col_pf%primp_yield, col_pf%secondp_yield) if_present if(elm_device_ready)
             write(iulog,*)'SOP erosion = ',som_p_yield(c)*dt
             write(iulog,*)'SIP erosion = ',(labilep_yield(c)+secondp_yield(c)+occlp_yield(c)+primp_yield(c))*dt
          end if
@@ -1023,7 +1037,7 @@ contains
       nstep = get_nstep()
 
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1)
+      !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
       do g = bounds%begg, bounds%endg
 
          if (.not. use_fates) then 
@@ -1048,11 +1062,7 @@ contains
          ! spel acc-sync: device data this host code uses
          !$acc update self(grc_cf%core%inputs, grc_cf%core%outputs, grc_cf%er, grc_cf%fire_closs, &
          !$acc&   grc_cf%hrv_xsmrpool_to_atm, grc_cf%prod100_loss, grc_cf%prod10_loss, grc_cf%prod1_loss, &
-         !$acc&   grc_cf%som_c_leached, grc_cf%somc_yield, grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, &
-         !$acc&   grc_cs%beg_cwdc, grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, &
-         !$acc&   grc_cs%beg_totprodc, grc_cs%beg_totsomc, grc_cs%core%balance_err, &
-         !$acc&   grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, grc_cs%end_cwdc, grc_cs%end_totc, &
-         !$acc&   grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, grc_cs%end_totsomc) if_present
+         !$acc&   grc_cf%som_c_leached, grc_cs%core%balance_err) if_present if(elm_device_ready)
          g = bounds%begg + spel_dc_1 - 1
             write(iulog,*)'grid cbalance error = ', grc_errcb(g), g
             write(iulog,*)'Latdeg,Londeg       = ', grc_pp%latdeg(g), grc_pp%londeg(g)
@@ -1069,9 +1079,17 @@ contains
             write(iulog,*)'dwt_conv_cflux      = ', grc_dwt_conv_cflux(g)*dt
 
             if (ero_ccycle) then
+               ! spel acc-sync: device data this host code uses
+               !$acc update self(grc_cf%somc_yield) if_present if(elm_device_ready)
                write(iulog,*)'erosion             = ',grc_som_c_yield(g)*dt
             end if
 
+            ! spel acc-sync: device data this host code uses
+            !$acc update self(grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, grc_cs%beg_cwdc, &
+            !$acc&   grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, grc_cs%beg_totprodc, &
+            !$acc&   grc_cs%beg_totsomc, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, grc_cs%end_cwdc, &
+            !$acc&   grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
+            !$acc&   grc_cs%end_totsomc) if_present if(elm_device_ready)
             write(iulog,*)'begcb               = ', beg_totc(g)
             write(iulog,*)'endcb               = ', end_totc(g)
             write(iulog,*)'delta store         = ', end_totc(g) - beg_totc(g)

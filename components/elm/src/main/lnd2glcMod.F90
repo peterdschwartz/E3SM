@@ -14,6 +14,7 @@ module lnd2glcMod
   ! 'ice' refers to sea ice, not land ice.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod    , only : r8 => shr_kind_r8
   use shr_infnan_mod  , only : nan => shr_infnan_nan, assignment(=)
   use shr_log_mod     , only : errMsg => shr_log_errMsg
@@ -165,7 +166,7 @@ contains
     ! Initialize to reasonable defaults
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_es%t_soisno, col_wf%qflx_glcice) if_present
+    !$acc update self(col_es%t_soisno, col_wf%qflx_glcice) if_present if(elm_device_ready)
     this%qice_grc(bounds%begg : bounds%endg, :) = 0._r8
     this%tsrf_grc(bounds%begg : bounds%endg, :) = tfrz
     this%topo_grc(bounds%begg : bounds%endg, :) = 0._r8

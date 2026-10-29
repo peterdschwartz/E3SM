@@ -4,6 +4,7 @@ module ErosionMod
   ! !DESCRIPTION:
   ! Calculate erosion induced soil particulate C, N and P fluxes
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use decompMod         , only : bounds_type
   use elm_varcon        , only : dzsoi_decomp
@@ -122,7 +123,7 @@ contains
             !$acc&   col_pf%occlp_yield_vr, col_pf%primp_deposit, col_pf%primp_erode, col_pf%primp_yield_vr, &
             !$acc&   col_pf%secondp_deposit, col_pf%secondp_erode, col_pf%secondp_yield_vr, &
             !$acc&   col_ps%core%decomp_pools_vr, col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, &
-            !$acc&   col_ps%secondp_vr) if_present
+            !$acc&   col_ps%secondp_vr) if_present if(elm_device_ready)
             c = filter_soilc(fc)
 
             ! initialization
@@ -266,7 +267,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
-                     !$acc parallel loop gang vector default(present)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_cpools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -279,7 +280,7 @@ contains
                         end if
                      end do
                   else
-                     !$acc parallel loop gang vector default(present)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_cpools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -293,7 +294,7 @@ contains
                         end if
                      end do
                   end if
-                  !$acc parallel loop gang vector default(present)
+                  !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         cpools_yield_vr(c,j,l) = (decomp_cpools_vr(c,j,l)-decomp_cpools_vr_new(l))/dt
@@ -322,7 +323,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
-                     !$acc parallel loop gang vector default(present)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_npools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -335,7 +336,7 @@ contains
                         end if
                      end do
                   else
-                     !$acc parallel loop gang vector default(present)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_npools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -349,7 +350,7 @@ contains
                         end if
                      end do
                   end if
-                  !$acc parallel loop gang vector default(present)
+                  !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         npools_yield_vr(c,j,l) = (decomp_npools_vr(c,j,l)-decomp_npools_vr_new(l))/dt
@@ -378,7 +379,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
-                     !$acc parallel loop gang vector default(present)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_ppools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -392,7 +393,7 @@ contains
                      end do
                      ! spel acc-sync: device data this host code uses
                      !$acc update self(col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, &
-                     !$acc&   col_ps%secondp_vr) if_present
+                     !$acc&   col_ps%secondp_vr) if_present if(elm_device_ready)
                      if ( all(labilep_vr(c,:)>=0._r8) ) then
                         if (k1<=nlevdecomp) then
                            labilep_vr_new = labilep_vr(c,k1)
@@ -430,7 +431,7 @@ contains
                         primp_vr_new = primp_vr(c,j)
                      end if
                   else
-                     !$acc parallel loop gang vector default(present)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_ppools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -445,7 +446,7 @@ contains
                      end do
                      ! spel acc-sync: device data this host code uses
                      !$acc update self(col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, &
-                     !$acc&   col_ps%secondp_vr) if_present
+                     !$acc&   col_ps%secondp_vr) if_present if(elm_device_ready)
                      if ( all(labilep_vr(c,:)>=0._r8) ) then
                         if (k2<=nlevdecomp) then
                            labilep_vr_new = labilep_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j) + &
@@ -488,7 +489,7 @@ contains
                         primp_vr_new = primp_vr(c,j)
                      end if
                   end if
-                  !$acc parallel loop gang vector default(present)
+                  !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         ppools_yield_vr(c,j,l) = (decomp_ppools_vr(c,j,l)-decomp_ppools_vr_new(l))/dt
@@ -503,7 +504,7 @@ contains
                   !$acc&   col_pf%occlp_deposit, col_pf%occlp_erode, col_pf%occlp_yield_vr, &
                   !$acc&   col_pf%primp_deposit, col_pf%primp_erode, col_pf%primp_yield_vr, &
                   !$acc&   col_pf%secondp_deposit, col_pf%secondp_erode, col_pf%secondp_yield_vr, &
-                  !$acc&   col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present
+                  !$acc&   col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present if(elm_device_ready)
                   labilep_yield_vr(c,j) = (labilep_vr(c,j)-labilep_vr_new)/dt
                   labilep_erode(c) = labilep_erode(c) + labilep_yield_vr(c,j)* &
                      dzsoi_decomp(j)*dm_ero/dm_yld

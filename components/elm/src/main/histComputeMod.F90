@@ -50,6 +50,7 @@ module histComputeMod
   ! before hist_compute_build (OpenACC builds); see subgrid_ave_view_attach.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use subgridAveViewMod, only : subgrid_ave_view, spval
   use subgridAveViewMod, only : p2g_range, c2g_range, l2g_range, t2g_range
@@ -424,7 +425,7 @@ contains
     !-----------------------------------------------------------------------
 
     ! snow fields: fill in the absent layers (the averages read plain value arrays)
-    !$acc parallel loop gang collapse(2) default(present) private(f)
+    !$acc parallel loop gang collapse(2) default(present) private(f) if(elm_device_ready)
     do s = 1, size(snow_fields)
        do lev = 1, max_levels
           f = snow_fields(s)
@@ -438,7 +439,7 @@ contains
     end do
 
     ! every field: one gang per field, its levels in turn
-    !$acc parallel loop gang default(present) private(f)
+    !$acc parallel loop gang default(present) private(f) if(elm_device_ready)
     do n = 1, num_fields
        f = process_order(n)
        !$acc loop seq
@@ -957,7 +958,7 @@ contains
     integer :: f, n, first, last
     !-----------------------------------------------------------------------
 
-    !$acc parallel loop gang default(present) private(first, last)
+    !$acc parallel loop gang default(present) private(first, last) if(elm_device_ready)
     do f = tape_first_field(t), tape_first_field(t+1) - 1
        if (fields(f)%time_op /= time_mean) cycle
        first = fields(f)%buffer_offset + 1
@@ -984,11 +985,17 @@ contains
     !-----------------------------------------------------------------------
 
     call tape_range(t, first, last)
-    !$acc parallel loop default(present)
+    !$acc parallel loop default(present) if(elm_device_ready)
     do n = first, last
        hbuf_pool(n) = 0._r8
        nacs_pool(n) = 0
     end do
+    ! hist_htapes_wrapup (a host segment, flag off) zeroes the host copy; the buffers accumulate
+    ! on the device (hist_compute_update), and the whole-state transitions don't carry these
+    ! private pools, so push the zeros there
+    if (.not. elm_device_ready .and. last >= first) then
+       !$acc update device(hbuf_pool(first:last), nacs_pool(first:last))
+    end if
 
   end subroutine hist_compute_zero
 

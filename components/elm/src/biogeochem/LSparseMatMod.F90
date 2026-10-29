@@ -3,6 +3,7 @@ module LSparseMatMod
 
   ! !USES:
   ! sparse matrix capability
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod  , only : r8 => shr_kind_r8
   use shr_log_mod   , only : errMsg => shr_log_errMsg
   use elm_varctl    , only : iulog
@@ -159,7 +160,7 @@ contains
     return
   endif
 
-  !$acc parallel loop gang vector default(present) private(dy, jj, id)
+  !$acc parallel loop gang vector default(present) private(dy, jj, id) if(elm_device_ready)
   do ii = 1, spm%szrow
     dy = 0._r8
     !$acc loop seq
@@ -370,7 +371,7 @@ contains
     ! !LOCAL VARIABLES:
     integer :: j
 
-    !$acc parallel loop gang vector default(present)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do j = 1, nr
        reaction_rates(j) = reaction_rates(j)*rscal(j)
     enddo
@@ -408,7 +409,7 @@ contains
   do
     !obtain the destruction fluxes
     d_dt(:)=0._r8
-    !$acc data copy(d_dt)
+    !$acc data copy(d_dt) if(elm_device_ready)
     call spm_axpy(spm_d%szrow, spm_d%szcol, 1._r8, rfluxes, spm_d, d_dt, errinfo)
 
     !$acc end data
@@ -417,7 +418,7 @@ contains
     endif
     !obtain the production fluxes
     p_dt(:)=0._r8
-    !$acc data copy(p_dt)
+    !$acc data copy(p_dt) if(elm_device_ready)
     call spm_axpy(spm_p%szrow, spm_d%szcol, 1._r8, rfluxes, spm_p, p_dt, errinfo)
 
     !$acc end data
@@ -436,7 +437,7 @@ contains
       call lom%calc_reaction_rscal(spm_d%szrow, spm_d%szcol,  pscal, &
         spm_d,rscal)
 
-      !$acc data copy(rscal)
+      !$acc data copy(rscal) if(elm_device_ready)
       call lom%apply_reaction_rscal(spm_d%szcol, rscal, rfluxes)
       !$acc end data
     else

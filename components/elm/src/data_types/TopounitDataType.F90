@@ -5,6 +5,7 @@ module TopounitDataType
   ! Topounit data type allocation and initialization
   ! --------------------------------------------------------
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod   , only : r8 => shr_kind_r8
   use shr_infnan_mod , only : nan => shr_infnan_nan, assignment(=)
   use shr_log_mod    , only : errMsg => shr_log_errMsg
@@ -338,8 +339,8 @@ module TopounitDataType
      endif
 
      ! Accumulate 24-hour running mean of relative humidity
-     !$acc data copy(rbufslt)
-     !$acc parallel loop gang vector default(present)
+     !$acc data copy(rbufslt) if(elm_device_ready)
+     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
      do t = begt,endt
         rbufslt(t) = this%rhbot(t)
      end do
@@ -350,8 +351,8 @@ module TopounitDataType
      end if
 
      ! Accumulate 24-hour running mean of wind speed
-     !$acc data copy(rbufslt)
-     !$acc parallel loop gang vector default(present)
+     !$acc data copy(rbufslt) if(elm_device_ready)
+     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
      do t = begt,endt
         rbufslt(t) = this%windbot(t)
      end do
@@ -592,8 +593,8 @@ module TopounitDataType
     endif
 
     ! Accumulate and extract forc_solad24 & forc_solad240
-    !$acc data copy(rbufslt)
-    !$acc parallel loop gang vector default(present)
+    !$acc data copy(rbufslt) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do t = begt,endt
        rbufslt(t) = this%solad(t,1)
     end do
@@ -604,8 +605,8 @@ module TopounitDataType
     call extract_accum_field ('FSD24H' , this%fsd24h          , nstep)
 
     ! Accumulate and extract forc_solai24 & forc_solai240
-    !$acc data copy(rbufslt)
-    !$acc parallel loop gang vector default(present)
+    !$acc data copy(rbufslt) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do t = begt,endt
        rbufslt(t) = this%solai(t,1)
     end do
@@ -616,8 +617,8 @@ module TopounitDataType
     call extract_accum_field ('FSI240H', this%fsi240h         , nstep)
 
     ! Accumulate and extract total precip
-    !$acc data copy(rbufslt)
-    !$acc parallel loop gang vector default(present)
+    !$acc data copy(rbufslt) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
     do t = begt,endt
        rbufslt(t) = this%rain(t) + this%snow(t)
     end do

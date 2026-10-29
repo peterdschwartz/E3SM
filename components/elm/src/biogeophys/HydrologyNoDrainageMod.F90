@@ -4,6 +4,7 @@ Module HydrologyNoDrainageMod
   ! !DESCRIPTION:
   ! Calculate snow and soil temperatures including phase change
   !
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod      , only : r8 => shr_kind_r8
   use shr_log_mod       , only : errMsg => shr_log_errMsg
   use decompMod         , only : bounds_type
@@ -211,10 +212,10 @@ contains
            filter_hydrologyc, soilstate_vars, canopystate_vars)
       
 
-      ! spel acc-sync: device data this host code uses
-      !$acc update self(col_ws%h2osoi_liq) if_present
       if ( use_fan ) then 
          ! save the h2osoi_liq in top layer before evaluating the soilwater movement
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(col_ws%h2osoi_liq) if_present if(elm_device_ready)
          call store_tsl_moisture(filter_hydrologyc, num_hydrologyc) 
       end if
  
@@ -286,7 +287,7 @@ contains
       endif
       
       ! Set empty snow layers to zero
-      !$acc parallel loop independent gang vector default(present) collapse(2) private(c)
+      !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready) copyin(bounds)
       do j = -nlevsno+1,0
          do fc = 1, num_snowc
             c = filter_snowc(fc)
@@ -309,12 +310,12 @@ contains
       ! For columns where snow exists, accumulate 'time-covered-by-snow' counters.
       ! Otherwise, re-zero counter, since it is bareland
 
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_snowc
          c = filter_snowc(fc)
          snow_persistence(c) = snow_persistence(c) + dtime_mod
       end do
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_nosnowc
          c = filter_nosnowc(fc)
          snow_persistence(c) = 0._r8
@@ -322,13 +323,13 @@ contains
 
       ! Vertically average t_soisno and sum of h2osoi_liq and h2osoi_ice
       ! over all snow layers for history output
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_nolakec
          c = filter_nolakec(fc)
          snowice(c) = 0._r8
          snowliq(c) = 0._r8
       end do
-      !$acc parallel loop independent gang worker default(present) private(sum1, sum2, c)
+      !$acc parallel loop independent gang worker default(present) private(sum1, sum2, c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_snowc
          c = filter_snowc(fc)
          sum1 = 0._r8; sum2 = 0._r8;
@@ -344,7 +345,7 @@ contains
       end do
 
       ! Calculate column average snow depth
-      !$acc parallel loop independent gang vector default(present)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
       do c = bounds%begc,bounds%endc
          snowdp(c) = snow_depth(c) * frac_sno_eff(c)
       end do
@@ -354,14 +355,14 @@ contains
       ! Calculate soil temperature and total water (liq+ice) in top 17cm of soil
    
       !NOTE: Reductions in this Loop!!!
-      !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c, l, nlevbed, fracl) 
+      !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c, l, nlevbed, fracl) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)
          if (.not. lun_pp%urbpoi(l)) then
             sum1 = 0._r8; sum2 = 0._r8; sum3 = 0._r8
 	         nlevbed = nlev2bed(c)
-            !$acc loop vector reduction(+:sum1,sum2,sum3)
+            !$acc loop seq  ! fracl/watdry are per layer: sequential, no reduction (bit-for-bit with the CPU)
             do j = 1, nlevbed
                ! soil T at top 17 cm added by F. Li and S. Levis
                if (zi(c,j) <= 0.17_r8) then
@@ -396,7 +397,7 @@ contains
       ! TODO - if this block of code is moved out of here - the SoilHydrology
       ! will NOT effect t_grnd, t_grnd_u or t_grnd_r
 
-      !$acc parallel loop independent gang vector default(present) private(c, l)
+      !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_nolakec
 
          c = filter_nolakec(fc)
@@ -423,7 +424,7 @@ contains
 
       end do
 
-      !$acc parallel loop independent gang vector default(present) collapse(2) private(c)
+      !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready) copyin(bounds)
       do j = 1, nlevgrnd
          do fc = 1, num_nolakec
             c = filter_nolakec(fc)
@@ -444,7 +445,7 @@ contains
          .not.(use_pflotran .and. pf_hmode) ) then
          ! Update soilpsi.
          ! ZMS: Note this could be merged with the following loop updating smp_l in the future.
-         !$acc parallel loop independent gang vector default(present) collapse(2) private(c, vwc, fsattmp, psi)
+         !$acc parallel loop independent gang vector default(present) collapse(2) private(c, vwc, fsattmp, psi) if(elm_device_ready) copyin(bounds)
          do j = 1, nlevgrnd
             do fc = 1, num_hydrologyc
                c = filter_hydrologyc(fc)
@@ -473,13 +474,13 @@ contains
          ! Potentially available soil water (=whc) up to a depth of 0.05 m.
          ! Water content as fraction of whc up to a depth of 0.05 m.
          
-         !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c, watdry)
+         !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c, watdry) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_hydrologyc
             c = filter_hydrologyc(fc)
             sum1 = 0._r8; sum2 = 0.0_r8;
             sum3 = 0.0_r8 
 
-            !$acc loop vector reduction(+:sum1,sum2,sum3)
+            !$acc loop seq  ! fracl/watdry are per layer: sequential, no reduction (bit-for-bit with the CPU)
             do j = 1, nlevgrnd
                if (z(c,j)+0.5_r8*dz(c,j) <= 0.05_r8) then
                   watdry = watsat(c,j) * (316230._r8/sucsat(c,j)) ** (-1._r8/bsw(c,j))
@@ -494,7 +495,7 @@ contains
 
          end do
 
-         !$acc parallel loop independent gang vector default(present) private(c, tsw, stsw, watdry)
+         !$acc parallel loop independent gang vector default(present) private(c, tsw, stsw, watdry) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_hydrologyc
             c = filter_hydrologyc(fc)
             if (rz(fc) /= 0._r8) then
@@ -508,11 +509,11 @@ contains
             wf(c) = tsw/stsw
          end do
 
-         !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c, watdry)
+         !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c, watdry) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_hydrologyc
             c = filter_hydrologyc(fc)
             sum1 = 0._r8; sum2 = 0._r8; sum3=0._r8
-            !$acc loop vector reduction(+:sum1,sum2,sum3)
+            !$acc loop seq  ! fracl/watdry are per layer: sequential, no reduction (bit-for-bit with the CPU)
             do j = 1, nlevgrnd
                if (z(c,j)+0.5_r8*dz(c,j) <= 0.17_r8) then
                   watdry = watsat(c,j) * (316230._r8/sucsat(c,j)) ** (-1._r8/bsw(c,j))
@@ -526,7 +527,7 @@ contains
             rz(fc)   = rz(fc)   + sum3
          end do
 
-         !$acc parallel loop independent gang vector default(present) private(c, tsw, stsw, watdry)
+         !$acc parallel loop independent gang vector default(present) private(c, tsw, stsw, watdry) if(elm_device_ready) copyin(bounds)
          do fc = 1, num_hydrologyc
             c = filter_hydrologyc(fc)
             if (rz(fc) /= 0._r8) then
@@ -542,14 +543,14 @@ contains
       end if
 
       ! top-layer diagnostics
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_snowc
          c = filter_snowc(fc)
          h2osno_top(c)  = h2osoi_ice(c,snl(c)+1) + h2osoi_liq(c,snl(c)+1)
       enddo
 
       ! Zero variables in columns without snow
-      !$acc parallel loop independent gang vector default(present) private(c)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
       do fc = 1, num_nosnowc
          c = filter_nosnowc(fc)
 
@@ -605,7 +606,7 @@ contains
       associate(h2osoi_tend_tsl => col_ws%h2osoi_tend_tsl_col, &
            h2osoi_liq => col_ws%h2osoi_liq)
 
-      !$acc parallel loop gang vector default(present) private(c)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1, num_fc
          c = filter(fc)
          h2osoi_tend_tsl(c) = (h2osoi_liq(c,1) - h2osoi_liq_saved(c)) / dtime_mod
