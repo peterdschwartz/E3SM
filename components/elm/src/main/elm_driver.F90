@@ -1227,7 +1227,7 @@ contains
 
        ! Initialze variables needed for new driver time step
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before elm_drv_init
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before elm_drv_init
 #endif
        call elm_drv_init(bounds_clump, &
             filter(nc)%num_nolakec, filter(nc)%nolakec, &
@@ -2091,7 +2091,7 @@ contains
     !$acc update self(col_es%t_soisno, col_wf%qflx_glcice) if_present if(.not. elm_device_fullsync)
     call t_startf('lnd2atm')
 #ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before lnd2atm
+    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before lnd2atm
 #endif
     call lnd2atm(bounds_proc,                                   &
          atm2lnd_vars, surfalb_vars, frictionvel_vars,          &
