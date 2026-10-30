@@ -508,6 +508,7 @@ contains
     real(r8) :: ptase_tmp
     integer  :: max_comps
     integer :: spel_i1, spel_i2, spel_i3  ! spel section-loop indices
+    integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
     !-----------------------------------------------------------------------
 
     ! spel acc-locals: device storage of the local work arrays
@@ -535,9 +536,13 @@ contains
 
 
     ! set initial values for potential C and N fluxes
+    spel_lb1 = lbound(biochem_pmin_ppools_vr_col,3)  ! spel collapse-bounds
+    spel_ub1 = ubound(biochem_pmin_ppools_vr_col,3)  ! spel collapse-bounds
+    spel_lb2 = lbound(biochem_pmin_ppools_vr_col,2)  ! spel collapse-bounds
+    spel_ub2 = ubound(biochem_pmin_ppools_vr_col,2)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(3) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i3 = lbound(biochem_pmin_ppools_vr_col,3), ubound(biochem_pmin_ppools_vr_col,3)  ! spel section-loop
-       do spel_i2 = lbound(biochem_pmin_ppools_vr_col,2), ubound(biochem_pmin_ppools_vr_col,2)
+    do spel_i3 = spel_lb1, spel_ub1  ! spel section-loop
+       do spel_i2 = spel_lb2, spel_ub2
           do spel_i1 = bounds%begc, bounds%endc
              biochem_pmin_ppools_vr_col(spel_i1, spel_i2, spel_i3) = 0._r8
           end do
@@ -546,7 +551,7 @@ contains
 
     if(use_fates) then
         ! spel acc-sync: device data this host code uses
-        !$acc update self(biochem_pmin_to_plant_vr_patch) if_present
+        !$acc update self(biochem_pmin_to_plant_vr_patch) if_present if(elm_device_ready)
         ci = bounds%clump_index
          max_comps = size(alm_fates%fates(ci)%bc_out(1)%cp_scalar,dim=1)
         allocate(biochem_pmin_to_plant_vr_patch(max_comps,nlevdecomp))
@@ -554,7 +559,7 @@ contains
     else
       !!TODO:  Try to get rid of the allocate statement
        ! spel acc-sync: device data this host code uses
-       !$acc update self(biochem_pmin_to_plant_vr_patch) if_present
+       !$acc update self(biochem_pmin_to_plant_vr_patch) if_present if(elm_device_ready)
        allocate(biochem_pmin_to_plant_vr_patch(bounds%begp:bounds%endp,1:nlevdecomp))
        !$acc update device(biochem_pmin_to_plant_vr_patch) if_present
        !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
@@ -562,10 +567,14 @@ contains
           biochem_pmin_to_plant_patch(spel_i1) = 0._r8
        end do
     end if
-    !$acc data copy(biochem_pmin_to_plant_vr_patch)
+    !$acc data copy(biochem_pmin_to_plant_vr_patch) if(elm_device_ready)
+    spel_lb1 = lbound(biochem_pmin_to_plant_vr_patch,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(biochem_pmin_to_plant_vr_patch,2)  ! spel collapse-bounds
+    spel_lb2 = lbound(biochem_pmin_to_plant_vr_patch,1)  ! spel collapse-bounds
+    spel_ub2 = ubound(biochem_pmin_to_plant_vr_patch,1)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(biochem_pmin_to_plant_vr_patch,2), ubound(biochem_pmin_to_plant_vr_patch,2)  ! spel section-loop
-       do spel_i1 = lbound(biochem_pmin_to_plant_vr_patch,1), ubound(biochem_pmin_to_plant_vr_patch,1)
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+       do spel_i1 = spel_lb2, spel_ub2
           biochem_pmin_to_plant_vr_patch(spel_i1, spel_i2) = 0._r8
        end do
     end do
@@ -584,7 +593,7 @@ contains
            biochem_pmin_to_ecosysp_vr_col_pot(c, spel_i1) = 0._r8
         end do
         ! spel acc-sync: device data this host code uses
-        !$acc update self(col_pf%biochem_pmin_to_plant) if_present
+        !$acc update self(col_pf%biochem_pmin_to_plant) if_present if(elm_device_ready)
         biochem_pmin_to_plant(c) = 0._r8
         !$acc update device(col_pf%biochem_pmin_to_plant) if_present
 
@@ -647,7 +656,7 @@ contains
         do j = 1,nlevdecomp
             ! sum total
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_ps%core%decomp_pools_vr) if_present
+            !$acc update self(col_ps%core%decomp_pools_vr) if_present if(elm_device_ready)
             sop_tot = 0._r8
             do l = 1,ndecomp_pools
                 if (is_soil(l)) then
@@ -753,7 +762,7 @@ contains
                 ! sum up biochem_pmin_to_plant
                 ! spel acc-sync: device data this host code uses
                 !$acc update self(biochem_pmin_to_plant_vr_patch, col_pf%biochem_pmin_to_plant, col_pp%dz, &
-                !$acc&   veg_pf%biochem_pmin_to_plant) if_present
+                !$acc&   veg_pf%biochem_pmin_to_plant) if_present if(elm_device_ready)
                 do p = col_pp%pfti(c), col_pp%pftf(c)
                     if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
                         !biochem_pmin_to_plant_patch(p) = 0._r8
@@ -787,7 +796,7 @@ contains
     end do
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(biochem_pmin_to_plant_vr_patch) if_present
+    !$acc update self(biochem_pmin_to_plant_vr_patch) if_present if(elm_device_ready)
     deallocate(biochem_pmin_to_plant_vr_patch)
     !$acc update device(biochem_pmin_to_plant_vr_patch) if_present
 

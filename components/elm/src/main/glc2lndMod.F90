@@ -537,13 +537,13 @@ contains
                    call endrun()
                 end if
 
-                !$acc data copy(frac_assigned)
+                !$acc data copy(frac_assigned) if(elm_device_ready)
                 !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
                 do spel_i1 = 1, maxpatch_glcmec  ! spel section-loop
                    frac_assigned(spel_i1) = .false.
                 end do
                 ! spel acc-sync: device data this host code uses
-                !$acc update self(frac_assigned) if_present
+                !$acc update self(frac_assigned) if_present if(elm_device_ready)
                 !$acc end data
                 do c = lun_pp%coli(l_ice_mec), lun_pp%colf(l_ice_mec)
                    icemec_class = col_itype_to_icemec_class(col_pp%itype(c))
@@ -563,7 +563,7 @@ contains
                 !$acc update device(col_pp%wtlunit, frac_assigned) if_present
                 if (error) then
                    ! spel acc-sync: device data this host code uses
-                   !$acc update self(frac_assigned) if_present
+                   !$acc update self(frac_assigned) if_present if(elm_device_ready)
                    write(iulog,*) subname//' ERROR: at least one glc_mec column has non-zero area from the coupler,'
                    write(iulog,*) 'but there was no slot in memory for this column; g = ', g
                    write(iulog,*) 'this%frac_grc(g, 1:maxpatch_glcmec) = ', &

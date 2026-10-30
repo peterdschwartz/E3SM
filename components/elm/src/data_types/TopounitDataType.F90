@@ -327,7 +327,7 @@ module TopounitDataType
      !---------------------------------------------------------------------
 
      ! spel acc-sync: device data this host code uses
-     !$acc update self(rbufslt) if_present
+     !$acc update self(rbufslt) if_present if(elm_device_ready)
      begt = bounds%begt; endt = bounds%endt
 
       nstep = get_nstep()
@@ -366,7 +366,7 @@ module TopounitDataType
      end if
 
      ! spel acc-sync: device data this host code uses
-     !$acc update self(rbufslt) if_present
+     !$acc update self(rbufslt) if_present if(elm_device_ready)
      deallocate(rbufslt)
      !$acc update device(rbufslt) if_present
     end subroutine update_acc_vars_top_as
@@ -587,7 +587,7 @@ module TopounitDataType
     !---------------------------------------------------------------------
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslt) if_present
+    !$acc update self(rbufslt) if_present if(elm_device_ready)
     begt = bounds%begt; endt = bounds%endt
 
     nstep = get_nstep()
@@ -648,7 +648,7 @@ module TopounitDataType
     end if
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslt) if_present
+    !$acc update self(rbufslt) if_present if(elm_device_ready)
     deallocate(rbufslt)
     !$acc update device(rbufslt) if_present
 

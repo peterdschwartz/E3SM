@@ -456,7 +456,7 @@ contains
           write(iulog,*) 'nstep = ',get_nstep(),' month = ',kmo,' day = ',kda
        end if
        call t_startf('readMonthlyVeg')
-       !$acc data copy(months)
+       !$acc data copy(months) if(elm_device_ready)
        call readMonthlyVegetation (bounds, fsurdat, months, canopystate_vars)
        !$acc end data
        InterpMonths1 = months(1)

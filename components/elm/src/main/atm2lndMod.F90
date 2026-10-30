@@ -267,7 +267,7 @@ contains
          ! spel acc-sync: device data this host code uses
          !$acc update self(atm2lnd_vars%forc_lwrad_downscaled_col, &
          !$acc&   atm2lnd_vars%forc_lwrad_not_downscaled_grc, atm2lnd_vars%forc_t_downscaled_col, &
-         !$acc&   col_pp%glc_topo, col_pp%wtgcell, newsum_lwrad_g, sum_lwrad_g, sum_wts_g) if_present
+         !$acc&   col_pp%glc_topo, col_pp%wtgcell, newsum_lwrad_g, sum_lwrad_g, sum_wts_g) if_present if(elm_device_ready)
          do fc = 1, num_do_smb_c
             c = filter_do_smb_c(fc)
             l = col_pp%landunit(c)
@@ -329,7 +329,7 @@ contains
          if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
             ! spel acc-sync: device data this host code uses
             !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc, newsum_lwrad_g, &
-            !$acc&   sum_wts_g) if_present
+            !$acc&   sum_wts_g) if_present if(elm_device_ready)
             g = bounds%begg + spel_dc_1 - 1
                   write(iulog,*) 'g, newsum_lwrad_g, sum_wts_g, forc_lwrad_g: ', &
                        g, newsum_lwrad_g(g), sum_wts_g(g), forc_lwrad_g(g)

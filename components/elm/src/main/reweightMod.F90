@@ -56,9 +56,9 @@ contains
     SHR_ASSERT(bounds%level == BOUNDS_LEVEL_CLUMP, errMsg(__FILE__, __LINE__))
 
     call set_active(bounds)
-    !$acc update device(col_pp%active, lun_pp%active, veg_pp%active) if_present
     call check_weights(bounds, active_only=.false.)
     call check_weights(bounds, active_only=.true.)
+    !$acc update device(col_pp%active, lun_pp%active, veg_pp%active) if_present
     call setFilters(bounds, icemask_grc(bounds%begg:bounds%endg))
 
 #ifdef _OPENACC

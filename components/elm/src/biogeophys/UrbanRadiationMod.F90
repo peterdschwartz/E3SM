@@ -98,6 +98,7 @@ contains
     !-----------------------------------------------------------------------
 
     integer :: spel_i1, spel_i2  ! spel section-loop indices
+    integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
     associate(                                               &
          ctype              =>    col_pp%itype                   , & ! Input:  [integer (:)    ]  column type
          coli               =>    lun_pp%coli                    , & ! Input:  [integer (:)    ]  beginning column index for landunit
@@ -150,15 +151,23 @@ contains
          )
 
       if (.not. use_finetop_rad) then
+         spel_lb1 = lbound(forc_solad,2)  ! spel collapse-bounds
+         spel_ub1 = ubound(forc_solad,2)  ! spel collapse-bounds
+         spel_lb2 = lbound(forc_solad,1)  ! spel collapse-bounds
+         spel_ub2 = ubound(forc_solad,1)  ! spel collapse-bounds
          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-         do spel_i2 = lbound(forc_solad,2), ubound(forc_solad,2)  ! spel section-loop
-            do spel_i1 = lbound(forc_solad,1), ubound(forc_solad,1)
+         do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+            do spel_i1 = spel_lb2, spel_ub2
                forc_solad(spel_i1, spel_i2) = top_af%solad(spel_i1, spel_i2)
             end do
          end do
+         spel_lb1 = lbound(forc_solai,2)  ! spel collapse-bounds
+         spel_ub1 = ubound(forc_solai,2)  ! spel collapse-bounds
+         spel_lb2 = lbound(forc_solai,1)  ! spel collapse-bounds
+         spel_ub2 = ubound(forc_solai,1)  ! spel collapse-bounds
          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-         do spel_i2 = lbound(forc_solai,2), ubound(forc_solai,2)  ! spel section-loop
-            do spel_i1 = lbound(forc_solai,1), ubound(forc_solai,1)
+         do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+            do spel_i1 = spel_lb2, spel_ub2
                forc_solai(spel_i1, spel_i2) = top_af%solai(spel_i1, spel_i2)
             end do
          end do

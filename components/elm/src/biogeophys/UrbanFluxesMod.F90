@@ -421,7 +421,7 @@ contains
 
       if(erridx1 > 0) then
          ! spel acc-sync: device data this host code uses
-         !$acc update self(lun_pp%z_0_town, lun_pp%z_d_town) if_present
+         !$acc update self(lun_pp%z_0_town, lun_pp%z_d_town) if_present if(elm_device_ready)
          l = erridx1
          write (iulog,*) 'aerodynamic parameter error in UrbanFluxes'
          write (iulog,*) 'h_r - z_d <= z_0'
@@ -434,7 +434,7 @@ contains
 
       if(erridx2 > 0) then
          ! spel acc-sync: device data this host code uses
-         !$acc update self(frictionvel_vars%forc_hgt_u_patch, lun_pp%z_0_town, lun_pp%z_d_town) if_present
+         !$acc update self(frictionvel_vars%forc_hgt_u_patch, lun_pp%z_0_town, lun_pp%z_d_town) if_present if(elm_device_ready)
          l = erridx2
          write (iulog,*) 'aerodynamic parameter error in UrbanFluxes'
          write (iulog,*) 'h_u - z_d <= z_0'
@@ -1088,14 +1088,14 @@ contains
 
       if ( found ) then
          ! spel acc-sync: device data this host code uses
-         !$acc update self(eflx_err) if_present
+         !$acc update self(eflx_err) if_present if(elm_device_ready)
          write(iulog,*)'WARNING:  Total sensible heat does not equal sum of scaled heat fluxes for urban columns ',&
               ' nstep = ',nstep_mod,' indexl= ',indexl,' eflx_err= ',eflx_err(indexl)
          ! spel acc-sync: device data this host code uses
-         !$acc update self(eflx_err) if_present
+         !$acc update self(eflx_err) if_present if(elm_device_ready)
          if (abs(eflx_err(indexl)) > .01_r8) then
             ! spel acc-sync: device data this host code uses
-            !$acc update self(eflx, eflx_scale, eflx_sh_grnd_scale) if_present
+            !$acc update self(eflx, eflx_scale, eflx_sh_grnd_scale) if_present if(elm_device_ready)
             l = filter_urbanl(indexl)
             write(iulog,*)'elm model is stopping - error is greater than .01 W/m**2'
             write(iulog,*)'eflx_scale    = ',eflx_scale(indexl)
@@ -1118,16 +1118,16 @@ contains
 
       if ( erridx1 > 0 ) then
          ! spel acc-sync: device data this host code uses
-         !$acc update self(qflx_err) if_present
+         !$acc update self(qflx_err) if_present if(elm_device_ready)
          indexl = erridx1
          !$acc update self(qflx_err(:), qflx_scale(:), qflx(:)) if(elm_device_ready)
          write(iulog,*)'WARNING:  Total water vapor flux does not equal sum of scaled water vapor fluxes for urban columns ',&
               ' nstep = ',nstep_mod,' indexl= ',indexl,' qflx_err= ',qflx_err(indexl)
          ! spel acc-sync: device data this host code uses
-         !$acc update self(qflx_err) if_present
+         !$acc update self(qflx_err) if_present if(elm_device_ready)
          if (abs(qflx_err(indexl)) > 4.e-9_r8) then
             ! spel acc-sync: device data this host code uses
-            !$acc update self(qflx, qflx_scale) if_present
+            !$acc update self(qflx, qflx_scale) if_present if(elm_device_ready)
             write(iulog,*)'elm model is stopping - error is greater than 4.e-9 kg/m**2/s'
             write(iulog,*)'qflx_scale    = ',qflx_scale(indexl)
             write(iulog,*)'qflx          = ',qflx(indexl)
@@ -1147,7 +1147,7 @@ contains
          end do
          if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
             ! spel acc-sync: device data this host code uses
-            !$acc update self(prev_tau_diff, tau, tau_diff, wind_speed_adj) if_present
+            !$acc update self(prev_tau_diff, tau, tau_diff, wind_speed_adj) if_present if(elm_device_ready)
             fl = 1 + spel_dc_1 - 1
             l = filter_urbanl(fl)
                   write(iulog,*)'WARNING: Stress did not converge for urban columns ',&

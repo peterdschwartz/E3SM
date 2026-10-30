@@ -253,7 +253,7 @@ contains
          qflx_irr_demand(c) = 0._r8
       end do
       
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds) no_create(top_ws)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)

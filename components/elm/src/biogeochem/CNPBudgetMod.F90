@@ -377,6 +377,7 @@ contains
     character(*),parameter :: subName = '(Reset) '
 
     integer :: spel_i1, spel_i2  ! spel section-loop indices
+    integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
     if (.not.present(mode)) then
        call get_curr_date(year, mon, day, sec)
        call get_prev_date(year, mon, day, sec)
@@ -521,33 +522,53 @@ contains
              budg_stateG (spel_i1, p_inf)    = 0.0_r8
           end do
        elseif (trim(mode) == 'all') then
+          spel_lb1 = lbound(budg_fluxl,2)  ! spel collapse-bounds
+          spel_ub1 = ubound(budg_fluxl,2)  ! spel collapse-bounds
+          spel_lb2 = lbound(budg_fluxl,1)  ! spel collapse-bounds
+          spel_ub2 = ubound(budg_fluxl,1)  ! spel collapse-bounds
           !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-          do spel_i2 = lbound(budg_fluxL,2), ubound(budg_fluxL,2)  ! spel section-loop
-             do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)
+          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+             do spel_i1 = spel_lb2, spel_ub2
                 budg_fluxL  (spel_i1, spel_i2)        = 0.0_r8
              end do
           end do
+          spel_lb1 = lbound(budg_fluxg,2)  ! spel collapse-bounds
+          spel_ub1 = ubound(budg_fluxg,2)  ! spel collapse-bounds
+          spel_lb2 = lbound(budg_fluxg,1)  ! spel collapse-bounds
+          spel_ub2 = ubound(budg_fluxg,1)  ! spel collapse-bounds
           !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-          do spel_i2 = lbound(budg_fluxG,2), ubound(budg_fluxG,2)  ! spel section-loop
-             do spel_i1 = lbound(budg_fluxG,1), ubound(budg_fluxG,1)
+          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+             do spel_i1 = spel_lb2, spel_ub2
                 budg_fluxG  (spel_i1, spel_i2)        = 0.0_r8
              end do
           end do
+          spel_lb1 = lbound(budg_fluxn,2)  ! spel collapse-bounds
+          spel_ub1 = ubound(budg_fluxn,2)  ! spel collapse-bounds
+          spel_lb2 = lbound(budg_fluxn,1)  ! spel collapse-bounds
+          spel_ub2 = ubound(budg_fluxn,1)  ! spel collapse-bounds
           !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-          do spel_i2 = lbound(budg_fluxN,2), ubound(budg_fluxN,2)  ! spel section-loop
-             do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)
+          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+             do spel_i1 = spel_lb2, spel_ub2
                 budg_fluxN  (spel_i1, spel_i2)        = 0.0_r8
              end do
           end do
+          spel_lb1 = lbound(budg_statel,2)  ! spel collapse-bounds
+          spel_ub1 = ubound(budg_statel,2)  ! spel collapse-bounds
+          spel_lb2 = lbound(budg_statel,1)  ! spel collapse-bounds
+          spel_ub2 = ubound(budg_statel,1)  ! spel collapse-bounds
           !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-          do spel_i2 = lbound(budg_stateL,2), ubound(budg_stateL,2)  ! spel section-loop
-             do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)
+          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+             do spel_i1 = spel_lb2, spel_ub2
                 budg_stateL (spel_i1, spel_i2)        = 0.0_r8
              end do
           end do
+          spel_lb1 = lbound(budg_stateg,2)  ! spel collapse-bounds
+          spel_ub1 = ubound(budg_stateg,2)  ! spel collapse-bounds
+          spel_lb2 = lbound(budg_stateg,1)  ! spel collapse-bounds
+          spel_ub2 = ubound(budg_stateg,1)  ! spel collapse-bounds
           !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-          do spel_i2 = lbound(budg_stateG,2), ubound(budg_stateG,2)  ! spel section-loop
-             do spel_i1 = lbound(budg_stateG,1), ubound(budg_stateG,1)
+          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+             do spel_i1 = spel_lb2, spel_ub2
                 budg_stateG (spel_i1, spel_i2)        = 0.0_r8
              end do
           end do
@@ -628,6 +649,7 @@ contains
     logical                :: update_state_beg, update_state_end
 
     integer :: spel_i1, spel_i2  ! spel section-loop indices
+    integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
     call get_prev_date(year_prev, month_prev, day_prev, sec_prev)
     call get_curr_date(year_curr, month_curr, day_curr, sec_curr)
 
@@ -674,9 +696,13 @@ contains
        is= s_size; budg_stateL(is,ip) = budg_stateL(is,ip) + budg_stateL(is, p_inst)
        !$acc update device(budg_statel) if_present
     end do
+    spel_lb1 = lbound(budg_fluxn,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(budg_fluxn,2)  ! spel collapse-bounds
+    spel_lb2 = lbound(budg_fluxn,1)  ! spel collapse-bounds
+    spel_ub2 = ubound(budg_fluxn,1)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-    do spel_i2 = lbound(budg_fluxN,2), ubound(budg_fluxN,2)  ! spel section-loop
-       do spel_i1 = lbound(budg_fluxN,1), ubound(budg_fluxN,1)
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+       do spel_i1 = spel_lb2, spel_ub2
           budg_fluxN(spel_i1, spel_i2) = budg_fluxN(spel_i1, spel_i2) + 1._r8
        end do
     end do
@@ -846,6 +872,7 @@ contains
     character(*),parameter :: subName = '(Sum0)'
 
     integer :: spel_i1, spel_i2  ! spel section-loop indices
+    integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
     ! spel acc-sync: device data this host code uses
     !$acc update self(budg_fluxg, budg_stateg) if_present
     budg_fluxGtmp = 0._r8
@@ -859,9 +886,13 @@ contains
     budg_stateG = budg_stateGtmp
     !$acc update device(budg_fluxg, budg_fluxgtmp, budg_stateg, budg_stategtmp) if_present
 
+    spel_lb1 = lbound(budg_fluxl,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(budg_fluxl,2)  ! spel collapse-bounds
+    spel_lb2 = lbound(budg_fluxl,1)  ! spel collapse-bounds
+    spel_ub2 = ubound(budg_fluxl,1)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-    do spel_i2 = lbound(budg_fluxL,2), ubound(budg_fluxL,2)  ! spel section-loop
-       do spel_i1 = lbound(budg_fluxL,1), ubound(budg_fluxL,1)
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+       do spel_i1 = spel_lb2, spel_ub2
           budg_fluxL(spel_i1, spel_i2)       = 0._r8
        end do
     end do

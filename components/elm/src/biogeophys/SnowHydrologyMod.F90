@@ -979,10 +979,12 @@ contains
      !$acc mssi(:)    , &
      !$acc zwice(:)   , &
      !$acc zwliq(:)   , &
-     !$acc dzmin(:)   , &
      !$acc dzminloc(:), &
      !$acc dzminloc16(:), &
      !$acc sum1, sum2, sum3, sum4)
+     ! dzmin is set by its DATA statement: the device copy starts from the host values (spel acc-locals rule,
+     ! 2026-10-30: `create` left it unfilled and the device dzminloc = dzmin copy below read garbage)
+     !$acc enter data copyin(dzmin(:))
 
        ! Check the mass of ice lens of snow, when the total is less than a small value,
        ! combine it with the underlying neighbor.
@@ -1006,7 +1008,7 @@ contains
        ! Note: this assumes that this function is called separately with the lake-snow and non-lake-snow filters.
        if (num_snowc > 0) then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(filter_snowc) if_present
+          !$acc update self(filter_snowc) if_present if(elm_device_ready)
           c = filter_snowc(1)
           l = col_pp%landunit(c)
           if (col_pp%is_lake(c)) then ! Called from LakeHydrology
@@ -1023,8 +1025,6 @@ contains
             end if
           end if
        end if
-       ! dzminloc is set on the host; `enter data create` above only allocates its device copy
-       !$acc update device(dzminloc, dzminloc16) if(elm_device_ready)
 
        !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
        do fc = 1, num_snowc
@@ -2009,7 +2009,7 @@ contains
          end do
          if (nbad_lake > 0) then
             ! spel acc-sync: device data this host code uses
-            !$acc update self(dztot, filter_snowc, snwicetot, snwliqtot) if_present
+            !$acc update self(dztot, filter_snowc, snwicetot, snwliqtot) if_present if(elm_device_ready)
             !$acc update self(filter_snowc, dztot, snwicetot, snwliqtot) if(elm_device_ready)
             fc = nbad_lake
             c = filter_snowc(fc)
@@ -2392,7 +2392,7 @@ contains
           end do
           if (nbad > 0) then
              ! spel acc-sync: device data this host code uses
-             !$acc update self(dztot, filter_snowc, snwicetot, snwliqtot) if_present
+             !$acc update self(dztot, filter_snowc, snwicetot, snwliqtot) if_present if(elm_device_ready)
              !$acc update self(dztot, snwicetot, snwliqtot) if(elm_device_ready)
              do fc = 1, num_snowc
                 c = filter_snowc(fc)
@@ -2659,7 +2659,7 @@ contains
      end do loop_columns
      if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
         ! spel acc-sync: device data this host code uses
-        !$acc update self(col_ws%h2osoi_ice, col_ws%h2osoi_liq, filter_snowc) if_present
+        !$acc update self(col_ws%h2osoi_ice, col_ws%h2osoi_liq, filter_snowc) if_present if(elm_device_ready)
         fc = 1 + spel_dc_1 - 1
         c = filter_snowc(fc)
               write(iulog,*)'ERROR: capping procedure failed (negative mass remaining) c = ',c

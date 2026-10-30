@@ -372,9 +372,9 @@ contains
          ! spel acc-sync: device data this host code uses
          !$acc update self(canopystate_vars%altmax_lastyear_indx_col, cinput_rootfr, &
          !$acc&   cnstate_vars%ndep_prof_col, cnstate_vars%nfixation_prof_col, cnstate_vars%pdep_prof_col, &
-         !$acc&   col_cinput_rootfr, surface_prof) if_present
+         !$acc&   col_cinput_rootfr, surface_prof) if_present if(elm_device_ready)
          !$acc update self(cinput_rootfr, col_cinput_rootfr) if(elm_device_ready)
-         !$acc update self(surface_prof)
+         !$acc update self(surface_prof) if(elm_device_ready)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             ndep_prof_sum = 0._r8
@@ -427,7 +427,7 @@ contains
       end do
       if (nbad > 0) then  ! report on the host
          !$acc update self(cinput_rootfr, col_cinput_rootfr) if(elm_device_ready)
-         !$acc update self(surface_prof)
+         !$acc update self(surface_prof) if(elm_device_ready)
          spel_dc_1 = 0  ! spel defer-checks
          !$acc parallel loop gang vector default(present) &
          !$acc   private(p, froot_prof_sum, croot_prof_sum, leaf_prof_sum) private(stem_prof_sum, j) &
@@ -452,7 +452,7 @@ contains
             !$acc update self(canopystate_vars%altmax_lastyear_indx_col, cinput_rootfr, &
             !$acc&   cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
             !$acc&   cnstate_vars%leaf_prof_patch, cnstate_vars%stem_prof_patch, col_cinput_rootfr, &
-            !$acc&   surface_prof) if_present
+            !$acc&   surface_prof) if_present if(elm_device_ready)
             fp = 1 + spel_dc_1 - 1
             p = filter_soilp(fp)
             froot_prof_sum = 0._r8

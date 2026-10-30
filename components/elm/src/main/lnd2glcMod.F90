@@ -166,20 +166,27 @@ contains
     ! Initialize to reasonable defaults
 
     integer :: spel_i1, spel_i2  ! spel section-loop indices
+    integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
+    spel_lb1 = lbound(this%qice_grc,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(this%qice_grc,2)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(this%qice_grc,2), ubound(this%qice_grc,2)  ! spel section-loop
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = bounds%begg, bounds%endg
           this%qice_grc(spel_i1, spel_i2) = 0._r8
        end do
     end do
+    spel_lb1 = lbound(this%tsrf_grc,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(this%tsrf_grc,2)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(this%tsrf_grc,2), ubound(this%tsrf_grc,2)  ! spel section-loop
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = bounds%begg, bounds%endg
           this%tsrf_grc(spel_i1, spel_i2) = tfrz
        end do
     end do
+    spel_lb1 = lbound(this%topo_grc,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(this%topo_grc,2)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(this%topo_grc,2), ubound(this%topo_grc,2)  ! spel section-loop
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = bounds%begg, bounds%endg
           this%topo_grc(spel_i1, spel_i2) = 0._r8
        end do
@@ -188,13 +195,17 @@ contains
     ! Fill the lnd->glc data on the clm grid
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(fields_assigned) if_present
+    !$acc update self(fields_assigned) if_present if(elm_device_ready)
     allocate(fields_assigned(bounds%begg:bounds%endg, 0:maxpatch_glcmec))
     !$acc update device(fields_assigned) if_present
-    !$acc data copy(fields_assigned)
+    !$acc data copy(fields_assigned) if(elm_device_ready)
+    spel_lb1 = lbound(fields_assigned,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(fields_assigned,2)  ! spel collapse-bounds
+    spel_lb2 = lbound(fields_assigned,1)  ! spel collapse-bounds
+    spel_ub2 = ubound(fields_assigned,1)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(fields_assigned,2), ubound(fields_assigned,2)  ! spel section-loop
-       do spel_i1 = lbound(fields_assigned,1), ubound(fields_assigned,1)
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+       do spel_i1 = spel_lb2, spel_ub2
           fields_assigned(spel_i1, spel_i2) = .false.
        end do
     end do
@@ -202,7 +213,7 @@ contains
 
     ! spel acc-sync: device data this host code uses
     !$acc update self(col_es%t_soisno, col_pp%glc_topo, col_pp%wttopounit, col_wf%qflx_glcice, &
-    !$acc&   fields_assigned, this%qice_grc, this%topo_grc, this%tsrf_grc) if_present
+    !$acc&   fields_assigned, this%qice_grc, this%topo_grc, this%tsrf_grc) if_present if(elm_device_ready)
     do fc = 1, num_do_smb_c
       c = filter_do_smb_c(fc)
       l = col_pp%landunit(c)

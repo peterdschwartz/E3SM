@@ -807,7 +807,7 @@ contains
              frw(spel_i1) = 0._r8
           end do
           ! spel acc-sync: device data this host code uses
-          !$acc update self(fr) if_present
+          !$acc update self(fr) if_present if(elm_device_ready)
           nlev_soildecomp_standard=5
           allocate(fr(bounds%begc:bounds%endc,nlev_soildecomp_standard))
           !$acc update device(fr, nlev_soildecomp_standard) if_present
@@ -942,7 +942,7 @@ contains
           end if
 
           ! spel acc-sync: device data this host code uses
-          !$acc update self(fr) if_present
+          !$acc update self(fr) if_present if(elm_device_ready)
           deallocate(fr)
           !$acc update device(fr) if_present
 

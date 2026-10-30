@@ -435,7 +435,6 @@ contains
       if (use_hydrstress) then
         bsun                    => energyflux_vars%bsun_patch ! Output:[real(r8) (:)   ]  sunlit canopy transpiration wetness factor (0 to 1)
         bsha                    => energyflux_vars%bsha_patch ! Output:[real(r8) (:)   ]  sunlit canopy transpiration wetness factor (0 to 1)
-        !$acc update device(bsha, bsun) if_present
       end if
 
      
@@ -1249,8 +1248,10 @@ contains
          end do
          if (fn > 0) then
           ! spel acc-sync: device data this host code uses
+          !$acc update self(air, bir, cir, dt_veg, err, filter_nolu_vegp, solarabs_vars%sabv_patch, tlbef, &
+          !$acc&   veg_ef%eflx_sh_veg, veg_wf%qflx_evap_veg) if_present if(elm_device_ready)
           !$acc update self(air, bir, cir, dt_veg, err, solarabs_vars%sabv_patch, tlbef, veg_ef%eflx_sh_veg, &
-          !$acc&   veg_wf%qflx_evap_veg) if_present
+          !$acc&   veg_wf%qflx_evap_veg) if_present if(elm_device_ready)
           !$acc update self(err, air, bir, cir, tlbef, dt_veg, sabv, eflx_sh_veg, qflx_evap_veg, &
           !$acc   filter_nolu_vegp) if(elm_device_ready)
           do filter_index = 1, fnold

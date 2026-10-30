@@ -302,7 +302,7 @@ contains
       !$acc parallel loop independent gang vector default(present) private(p,og,t,i_type,kc25,ko25,sco,cp25,&
       !$acc iv,lnc,total_lai,sum_nscaler,vcmax25top,jmax25top,tpu25top,kp25top,lmr25top,laican,nscaler,&
       !$acc lmr25,vcmax25,jmax25,tpu25,kp25,vcmaxse,jmaxse,cf,ceair,qabs,r1,r2,niter,ciold,cs,gs,hs,&
-      !$acc gs_mol_err,leaf,psncan,psncan_wc,psncan_wj,psncan_wp,lmrcan,gscan) if(elm_device_ready) copyin(bounds)
+      !$acc gs_mol_err,leaf,psncan,psncan_wc,psncan_wj,psncan_wp,lmrcan,gscan) if(elm_device_ready) copyin(bounds) no_create(paramsshareinst)
       do f = 1, fn
          p = filterp(f)
          og = filter_map(f)

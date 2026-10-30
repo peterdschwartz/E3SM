@@ -729,7 +729,7 @@ contains
         )
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present
+    !$acc update self(rbufslp) if_present if(elm_device_ready)
     begp = bounds%begp; endp = bounds%endp
 
     dtime = get_step_size()
@@ -953,7 +953,7 @@ contains
     end if
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present
+    !$acc update self(rbufslp) if_present if(elm_device_ready)
     deallocate(rbufslp)
     !$acc update device(rbufslp) if_present
     end associate

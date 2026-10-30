@@ -465,7 +465,7 @@ contains
     real(r8), pointer :: rbufslp(:)      ! temporary single level - pft level
     !---------------------------------------------------------------------
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present
+    !$acc update self(rbufslp) if_present if(elm_device_ready)
     begp = bounds%begp; endp = bounds%endp
     nstep = get_nstep()
     ! Allocate needed dynamic memory for single level pft field
@@ -494,7 +494,7 @@ contains
        rbufslp(p) = this%elai_patch(p)
     end do
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present
+    !$acc update self(rbufslp) if_present if(elm_device_ready)
     !$acc end data
     call update_accum_field  ('LAI240', rbufslp                 , nstep)
     call extract_accum_field ('LAI240', this%elai240_patch       , nstep)

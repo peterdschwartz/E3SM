@@ -238,7 +238,8 @@ contains
       !------------------------------------------------------------------
 
       ! spel acc-sync: device data this host code uses
-      !$acc update self(rootfr_coarse) if_present
+      !$acc update self(col_pp%zi, rootfr_coarse) if_present if(elm_device_ready)
+      !$acc update self(rootfr_coarse) if_present if(elm_device_ready)
       call init_vegrootfr(bounds, nlevsoi, nlevgrnd, &
                    nlevbed(bounds%begc:bounds%endc), &
                    rootfr_coarse(bounds%begp:bounds%endp,1:nlevgrnd))

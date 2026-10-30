@@ -443,7 +443,9 @@ contains
          end do
          if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
             ! spel acc-sync: device data this host code uses
-            !$acc update self(prev_tau_diff, tau, tau_diff, wind_speed_adj) if_present
+            !$acc update self(filter_nolu_barep, prev_tau_diff, tau, tau_diff, &
+            !$acc&   wind_speed_adj) if_present if(elm_device_ready)
+            !$acc update self(prev_tau_diff, tau, tau_diff, wind_speed_adj) if_present if(elm_device_ready)
             f = 1 + spel_dc_1 - 1
             p = filter_nolu_barep(f)
                write(iulog,*)'WARNING: Stress did not converge for bare ground ',&

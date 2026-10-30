@@ -744,7 +744,7 @@ contains
     !---------------------------------------------------------------------
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present
+    !$acc update self(rbufslp) if_present if(elm_device_ready)
     begp = bounds%begp; endp = bounds%endp
 
     nstep = get_nstep()
@@ -806,7 +806,7 @@ contains
        call update_accum_field  ('PREC24', rbufslp, nstep)
        call extract_accum_field ('PREC24', this%prec24_patch, nstep)
 
-       !$acc data copy(rbufslp)
+       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) private(c, g) copyin(bounds) if(elm_device_ready)
        do p = bounds%begp,bounds%endp
           c = veg_pp%column(p)
@@ -817,7 +817,7 @@ contains
        call update_accum_field  ('WIND24', rbufslp, nstep)
        call extract_accum_field ('WIND24', this%wind24_patch, nstep)
 
-       !$acc data copy(rbufslp)
+       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) private(c, g) copyin(bounds) if(elm_device_ready)
        do p = bounds%begp,bounds%endp
           c = veg_pp%column(p)
@@ -830,7 +830,7 @@ contains
     end if
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present
+    !$acc update self(rbufslp) if_present if(elm_device_ready)
     deallocate(rbufslp)
     !$acc update device(rbufslp) if_present
 

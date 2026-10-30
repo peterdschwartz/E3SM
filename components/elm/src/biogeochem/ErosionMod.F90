@@ -65,6 +65,7 @@ contains
     real(r8) :: occlp_vr_new                             ! new occluded mineral P (gP/m3)
     real(r8) :: primp_vr_new                             ! new primary mineral P (gP/m3)
     integer :: spel_i1, spel_i2  ! spel section-loop indices
+    integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
     !character(len=32) :: subname = 'ErosionFluxes'       ! subroutine name
     !-----------------------------------------------------------------------
 
@@ -114,7 +115,7 @@ contains
          ! soil col filters
          do fc = 1, num_soilc
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_pf%labilep_deposit, col_pf%labilep_erode) if_present
+            !$acc update self(col_pf%labilep_deposit, col_pf%labilep_erode) if_present if(elm_device_ready)
             c = filter_soilc(fc)
 
             ! initialization
@@ -126,7 +127,7 @@ contains
                labilep_yield_vr(c, spel_i1)   = 0._r8
             end do
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_pf%secondp_deposit, col_pf%secondp_erode) if_present
+            !$acc update self(col_pf%secondp_deposit, col_pf%secondp_erode) if_present if(elm_device_ready)
             secondp_erode(c)        = 0._r8
             secondp_deposit(c)      = 0._r8
             !$acc update device(col_pf%secondp_deposit, col_pf%secondp_erode) if_present
@@ -135,7 +136,7 @@ contains
                secondp_yield_vr(c, spel_i1)   = 0._r8
             end do
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_pf%occlp_deposit, col_pf%occlp_erode) if_present
+            !$acc update self(col_pf%occlp_deposit, col_pf%occlp_erode) if_present if(elm_device_ready)
             occlp_erode(c)          = 0._r8
             occlp_deposit(c)        = 0._r8
             !$acc update device(col_pf%occlp_deposit, col_pf%occlp_erode) if_present
@@ -144,7 +145,7 @@ contains
                occlp_yield_vr(c, spel_i1)     = 0._r8
             end do
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_pf%primp_deposit, col_pf%primp_erode) if_present
+            !$acc update self(col_pf%primp_deposit, col_pf%primp_erode) if_present if(elm_device_ready)
             primp_erode(c)          = 0._r8
             primp_deposit(c)        = 0._r8
             !$acc update device(col_pf%primp_deposit, col_pf%primp_erode) if_present
@@ -161,9 +162,13 @@ contains
             do spel_i1 = lbound(cpools_deposit,2), ubound(cpools_deposit,2)  ! spel section-loop
                cpools_deposit(c, spel_i1)     = 0._r8
             end do
+            spel_lb1 = lbound(cpools_yield_vr,3)  ! spel collapse-bounds
+            spel_ub1 = ubound(cpools_yield_vr,3)  ! spel collapse-bounds
+            spel_lb2 = lbound(cpools_yield_vr,2)  ! spel collapse-bounds
+            spel_ub2 = ubound(cpools_yield_vr,2)  ! spel collapse-bounds
             !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-            do spel_i2 = lbound(cpools_yield_vr,3), ubound(cpools_yield_vr,3)  ! spel section-loop
-               do spel_i1 = lbound(cpools_yield_vr,2), ubound(cpools_yield_vr,2)
+            do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+               do spel_i1 = spel_lb2, spel_ub2
                   cpools_yield_vr(c, spel_i1, spel_i2)  = 0._r8
                end do
             end do
@@ -176,9 +181,13 @@ contains
             do spel_i1 = lbound(npools_deposit,2), ubound(npools_deposit,2)  ! spel section-loop
                npools_deposit(c, spel_i1)     = 0._r8
             end do
+            spel_lb1 = lbound(npools_yield_vr,3)  ! spel collapse-bounds
+            spel_ub1 = ubound(npools_yield_vr,3)  ! spel collapse-bounds
+            spel_lb2 = lbound(npools_yield_vr,2)  ! spel collapse-bounds
+            spel_ub2 = ubound(npools_yield_vr,2)  ! spel collapse-bounds
             !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-            do spel_i2 = lbound(npools_yield_vr,3), ubound(npools_yield_vr,3)  ! spel section-loop
-               do spel_i1 = lbound(npools_yield_vr,2), ubound(npools_yield_vr,2)
+            do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+               do spel_i1 = spel_lb2, spel_ub2
                   npools_yield_vr(c, spel_i1, spel_i2)  = 0._r8
                end do
             end do
@@ -191,15 +200,19 @@ contains
             do spel_i1 = lbound(ppools_deposit,2), ubound(ppools_deposit,2)  ! spel section-loop
                ppools_deposit(c, spel_i1)     = 0._r8
             end do
+            spel_lb1 = lbound(ppools_yield_vr,3)  ! spel collapse-bounds
+            spel_ub1 = ubound(ppools_yield_vr,3)  ! spel collapse-bounds
+            spel_lb2 = lbound(ppools_yield_vr,2)  ! spel collapse-bounds
+            spel_ub2 = ubound(ppools_yield_vr,2)  ! spel collapse-bounds
             !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-            do spel_i2 = lbound(ppools_yield_vr,3), ubound(ppools_yield_vr,3)  ! spel section-loop
-               do spel_i1 = lbound(ppools_yield_vr,2), ubound(ppools_yield_vr,2)
+            do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+               do spel_i1 = spel_lb2, spel_ub2
                   ppools_yield_vr(c, spel_i1, spel_i2)  = 0._r8
                end do
             end do
 
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_cs%core%decomp_pools_vr) if_present
+            !$acc update self(col_cs%core%decomp_pools_vr) if_present if(elm_device_ready)
             dm_ero = max(0._r8, flx_sed_ero(c)) * dt
             dm_yld = max(0._r8, flx_sed_yld(c)) * dt
             ! calculate erosion heights
@@ -241,7 +254,7 @@ contains
             end if
             ! spel acc-sync: device data this host code uses
             !$acc update self(col_ns%core%decomp_pools_vr, col_ps%core%decomp_pools_vr, col_ps%labilep_vr, &
-            !$acc&   col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present
+            !$acc&   col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present if(elm_device_ready)
             pp2poc = 1._r8 / 22_r8              ! Meybeck (1982)
 
             ! equivalent erosion heights for N and P
@@ -435,65 +448,65 @@ contains
                         end if
                      end do
                      ! spel acc-sync: device data this host code uses
-                     !$acc update self(col_ps%labilep_vr) if_present
+                     !$acc update self(col_ps%labilep_vr) if_present if(elm_device_ready)
                      if ( all(labilep_vr(c,:)>=0._r8) ) then
                         if (k1<=nlevdecomp) then
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%labilep_vr) if_present
+                           !$acc update self(col_ps%labilep_vr) if_present if(elm_device_ready)
                            labilep_vr_new = labilep_vr(c,k1)
                         else
                            labilep_vr_new = 0._r8
                         end if
                      else
                         ! spel acc-sync: device data this host code uses
-                        !$acc update self(col_ps%labilep_vr) if_present
+                        !$acc update self(col_ps%labilep_vr) if_present if(elm_device_ready)
                         labilep_vr_new = labilep_vr(c,j)
                      end if
                      ! spel acc-sync: device data this host code uses
-                     !$acc update self(col_ps%secondp_vr) if_present
+                     !$acc update self(col_ps%secondp_vr) if_present if(elm_device_ready)
                      if ( all(secondp_vr(c,:)>=0._r8) ) then
                         if (k1<=nlevdecomp) then
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%secondp_vr) if_present
+                           !$acc update self(col_ps%secondp_vr) if_present if(elm_device_ready)
                            secondp_vr_new = secondp_vr(c,k1)
                         else
                            secondp_vr_new = 0._r8
                         end if
                      else
                         ! spel acc-sync: device data this host code uses
-                        !$acc update self(col_ps%secondp_vr) if_present
+                        !$acc update self(col_ps%secondp_vr) if_present if(elm_device_ready)
                         secondp_vr_new = secondp_vr(c,j)
                      end if
                      ! spel acc-sync: device data this host code uses
-                     !$acc update self(col_ps%occlp_vr) if_present
+                     !$acc update self(col_ps%occlp_vr) if_present if(elm_device_ready)
                      if ( all(occlp_vr(c,:)>=0._r8) ) then
                         if (k1<=nlevdecomp) then
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%occlp_vr) if_present
+                           !$acc update self(col_ps%occlp_vr) if_present if(elm_device_ready)
                            occlp_vr_new = occlp_vr(c,k1)
                         else
                            occlp_vr_new = 0._r8
                         end if
                      else
                         ! spel acc-sync: device data this host code uses
-                        !$acc update self(col_ps%occlp_vr) if_present
+                        !$acc update self(col_ps%occlp_vr) if_present if(elm_device_ready)
                         occlp_vr_new = occlp_vr(c,j)
                      end if
                      ! spel acc-sync: device data this host code uses
-                     !$acc update self(col_ps%primp_vr) if_present
+                     !$acc update self(col_ps%primp_vr) if_present if(elm_device_ready)
                      if ( all(primp_vr(c,:)>=0._r8) ) then
                         if (k1<=nlevdecomp) then
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%primp_vr) if_present
+                           !$acc update self(col_ps%primp_vr) if_present if(elm_device_ready)
                            primp_vr_new = primp_vr(c,k1)
                         else
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%primp_vr) if_present
+                           !$acc update self(col_ps%primp_vr) if_present if(elm_device_ready)
                            primp_vr_new = primp_vr(c,nlevdecomp)
                         end if
                      else
                         ! spel acc-sync: device data this host code uses
-                        !$acc update self(col_ps%primp_vr) if_present
+                        !$acc update self(col_ps%primp_vr) if_present if(elm_device_ready)
                         primp_vr_new = primp_vr(c,j)
                      end if
                   else
@@ -511,76 +524,76 @@ contains
                         end if
                      end do
                      ! spel acc-sync: device data this host code uses
-                     !$acc update self(col_ps%labilep_vr) if_present
+                     !$acc update self(col_ps%labilep_vr) if_present if(elm_device_ready)
                      if ( all(labilep_vr(c,:)>=0._r8) ) then
                         if (k2<=nlevdecomp) then
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%labilep_vr) if_present
+                           !$acc update self(col_ps%labilep_vr) if_present if(elm_device_ready)
                            labilep_vr_new = labilep_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j) + &
                               labilep_vr(c,k2)*(1._r8-(zsoi_tot-zsoi_top)/dzsoi_decomp(j))
                         else
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%labilep_vr) if_present
+                           !$acc update self(col_ps%labilep_vr) if_present if(elm_device_ready)
                            labilep_vr_new = labilep_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j)
                         end if
                      else
                         ! spel acc-sync: device data this host code uses
-                        !$acc update self(col_ps%labilep_vr) if_present
+                        !$acc update self(col_ps%labilep_vr) if_present if(elm_device_ready)
                         labilep_vr_new = labilep_vr(c,j)
                      end if
                      ! spel acc-sync: device data this host code uses
-                     !$acc update self(col_ps%secondp_vr) if_present
+                     !$acc update self(col_ps%secondp_vr) if_present if(elm_device_ready)
                      if ( all(secondp_vr(c,:)>=0._r8) ) then
                         if (k2<=nlevdecomp) then
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%secondp_vr) if_present
+                           !$acc update self(col_ps%secondp_vr) if_present if(elm_device_ready)
                            secondp_vr_new = secondp_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j) + &
                               secondp_vr(c,k2)*(1._r8-(zsoi_tot-zsoi_top)/dzsoi_decomp(j))
                         else
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%secondp_vr) if_present
+                           !$acc update self(col_ps%secondp_vr) if_present if(elm_device_ready)
                            secondp_vr_new = secondp_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j)
                         end if
                      else
                         ! spel acc-sync: device data this host code uses
-                        !$acc update self(col_ps%secondp_vr) if_present
+                        !$acc update self(col_ps%secondp_vr) if_present if(elm_device_ready)
                         secondp_vr_new = secondp_vr(c,j)
                      end if
                      ! spel acc-sync: device data this host code uses
-                     !$acc update self(col_ps%occlp_vr) if_present
+                     !$acc update self(col_ps%occlp_vr) if_present if(elm_device_ready)
                      if ( all(occlp_vr(c,:)>=0._r8) ) then
                         if (k2<=nlevdecomp) then
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%occlp_vr) if_present
+                           !$acc update self(col_ps%occlp_vr) if_present if(elm_device_ready)
                            occlp_vr_new = occlp_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j) + &
                               occlp_vr(c,k2)*(1._r8-(zsoi_tot-zsoi_top)/dzsoi_decomp(j))
                         else
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%occlp_vr) if_present
+                           !$acc update self(col_ps%occlp_vr) if_present if(elm_device_ready)
                            occlp_vr_new = occlp_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j)
                         end if
                      else
                         ! spel acc-sync: device data this host code uses
-                        !$acc update self(col_ps%occlp_vr) if_present
+                        !$acc update self(col_ps%occlp_vr) if_present if(elm_device_ready)
                         occlp_vr_new = occlp_vr(c,j)
                      end if
                      ! spel acc-sync: device data this host code uses
-                     !$acc update self(col_ps%primp_vr) if_present
+                     !$acc update self(col_ps%primp_vr) if_present if(elm_device_ready)
                      if ( all(primp_vr(c,:)>=0._r8) ) then
                         if (k2<=nlevdecomp) then
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%primp_vr) if_present
+                           !$acc update self(col_ps%primp_vr) if_present if(elm_device_ready)
                            primp_vr_new = primp_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j) + &
                               primp_vr(c,k2)*(1._r8-(zsoi_tot-zsoi_top)/dzsoi_decomp(j))
                         else
                            ! spel acc-sync: device data this host code uses
-                           !$acc update self(col_ps%primp_vr) if_present
+                           !$acc update self(col_ps%primp_vr) if_present if(elm_device_ready)
                            primp_vr_new = primp_vr(c,k1)*(zsoi_tot-zsoi_top)/dzsoi_decomp(j) + &
                               primp_vr(c,nlevdecomp)*(1._r8-(zsoi_tot-zsoi_top)/dzsoi_decomp(j))
                         end if
                      else
                         ! spel acc-sync: device data this host code uses
-                        !$acc update self(col_ps%primp_vr) if_present
+                        !$acc update self(col_ps%primp_vr) if_present if(elm_device_ready)
                         primp_vr_new = primp_vr(c,j)
                      end if
                   end if
@@ -599,7 +612,7 @@ contains
                   !$acc&   col_pf%occlp_deposit, col_pf%occlp_erode, col_pf%occlp_yield_vr, &
                   !$acc&   col_pf%primp_deposit, col_pf%primp_erode, col_pf%primp_yield_vr, &
                   !$acc&   col_pf%secondp_deposit, col_pf%secondp_erode, col_pf%secondp_yield_vr, &
-                  !$acc&   col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present
+                  !$acc&   col_ps%labilep_vr, col_ps%occlp_vr, col_ps%primp_vr, col_ps%secondp_vr) if_present if(elm_device_ready)
                   labilep_yield_vr(c,j) = (labilep_vr(c,j)-labilep_vr_new)/dt
                   labilep_erode(c) = labilep_erode(c) + labilep_yield_vr(c,j)* &
                      dzsoi_decomp(j)*dm_ero/dm_yld

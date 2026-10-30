@@ -390,7 +390,7 @@ contains
             end do
             if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ns%retrans%pool) if_present
+               !$acc update self(veg_ns%retrans%pool) if_present if(elm_device_ready)
                fp = 1 + spel_dc_1 - 1
                p = filter_soilp(fp)
 
@@ -400,7 +400,7 @@ contains
             end if
             if (spel_dc_2 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ns%core%pool) if_present
+               !$acc update self(veg_ns%core%pool) if_present if(elm_device_ready)
                fp = 1 + spel_dc_2 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error npool_patch is negative: ',p
@@ -409,7 +409,7 @@ contains
             end if
             if (spel_dc_3 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ps%retrans%pool) if_present
+               !$acc update self(veg_ps%retrans%pool) if_present if(elm_device_ready)
                fp = 1 + spel_dc_3 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error retransp_patch is negative: ',p
@@ -418,7 +418,7 @@ contains
             end if
             if (spel_dc_4 > 0) then  ! spel defer-checks: the last element where the check held
                ! spel acc-sync: device data this host code uses
-               !$acc update self(veg_ps%core%pool) if_present
+               !$acc update self(veg_ps%core%pool) if_present if(elm_device_ready)
                fp = 1 + spel_dc_4 - 1
                p = filter_soilp(fp)
                   write(iulog, *) 'error ppool_patch is negative: ',p

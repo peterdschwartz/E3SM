@@ -422,7 +422,7 @@ contains
     !$acc update self(grc_ws%beg_h2ocan, grc_ws%beg_h2osfc, grc_ws%beg_h2osno, grc_ws%beg_h2osoi_ice, &
     !$acc&   grc_ws%beg_h2osoi_liq, grc_ws%begwb, grc_ws%end_h2ocan, grc_ws%end_h2osfc, grc_ws%end_h2osno, &
     !$acc&   grc_ws%end_h2osoi_ice, grc_ws%end_h2osoi_liq, grc_ws%endwb, grc_ws%errh2o, &
-    !$acc&   soilhydrology_vars%beg_wa_grc, soilhydrology_vars%end_wa_grc) if_present
+    !$acc&   soilhydrology_vars%beg_wa_grc, soilhydrology_vars%end_wa_grc) if_present if(elm_device_ready)
     associate(                                                             &
          forc_rain          => atm2lnd_vars%forc_rain_not_downscaled_grc , &
          forc_snow          => atm2lnd_vars%forc_snow_not_downscaled_grc , &

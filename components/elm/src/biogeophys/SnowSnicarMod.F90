@@ -1922,7 +1922,7 @@ contains
        enddo
        if (nbad > 0) then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_pp%snl, col_ws%h2osno, col_ws%snw_rds, err_w, errv_w) if_present
+          !$acc update self(col_pp%snl, col_ws%h2osno, col_ws%snw_rds, err_w, errv_w) if_present if(elm_device_ready)
           !$acc update self(err_w, errv_w) if(elm_device_ready)
           call snicar_ad_report(num_nourbanc, filter_nourbanc, ncall, call_slr, err_w, errv_w, nbad)
           call endrun(msg="SNICAR_AD_RT: "//errmsg(__FILE__, __LINE__))

@@ -27,6 +27,7 @@ module dyncropFileMod
   save
   public :: dyncrop_init     ! initialize information read from landuse.timeseries dataset
   public :: dyncrop_interp   ! get crop data for the current time step, if needed
+  public :: dyncrop_will_update ! whether dyncrop_interp applies data this step (known before it runs)
   
   ! ! PRIVATE TYPES
   type(dyn_file_type), target      :: dyncrop_file ! information for the file containing transient crop data
@@ -117,6 +118,25 @@ contains
          allow_nodata=.true.)
 
   end subroutine dyncrop_init
+
+  !-----------------------------------------------------------------------
+  logical function dyncrop_will_update()
+    !
+    ! !DESCRIPTION:
+    ! Whether the next dyncrop_interp call applies crop data: the same test it makes
+    ! itself (new annual data, or a configuration that reapplies every step). Lets
+    ! dynSubgrid_driver know that subgrid weights change this step before it runs the
+    ! weight bookkeeping that must precede the change.
+    !
+    ! !USES:
+    use elm_time_manager  , only : is_first_step, is_first_restart_step
+    use elm_varctl        , only : create_glacier_mec_landunit, iac_present, use_fates
+    !-----------------------------------------------------------------------
+    call dyncrop_file%time_info%set_current_year()
+    dyncrop_will_update = dyncrop_file%time_info%get_time_index_lower() /= last_applied_time_index &
+         .or. is_first_step() .or. is_first_restart_step() &
+         .or. create_glacier_mec_landunit .or. iac_present .or. use_fates
+  end function dyncrop_will_update
 
   !-----------------------------------------------------------------------
   subroutine dyncrop_interp(bounds,crop_vars, data_updated)

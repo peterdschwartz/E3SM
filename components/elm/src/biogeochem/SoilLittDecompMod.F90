@@ -583,6 +583,7 @@ contains
     real(r8):: hrsum(1:num_soilc,1:nlevdecomp) !sum of HR (gC/m2/s)
     real(r8):: sum1,sum2,sum3,sum4
     integer :: spel_i1, spel_i2  ! spel section-loop indices
+    integer :: spel_lb1, spel_ub1  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
 
     !-----------------------------------------------------------------------
 
@@ -639,17 +640,21 @@ contains
 
       ! MUST have already updated needed bgc variables from PFLOTRAN by this point
       if(use_elm_interface.and.use_pflotran.and.pf_cmode) then
-         !$acc data copy(smin_nh4_to_plant_vr_loc)
+         !$acc data copy(smin_nh4_to_plant_vr_loc) if(elm_device_ready)
+         spel_lb1 = lbound(smin_nh4_to_plant_vr_loc,2)  ! spel collapse-bounds
+         spel_ub1 = ubound(smin_nh4_to_plant_vr_loc,2)  ! spel collapse-bounds
          !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-         do spel_i2 = lbound(smin_nh4_to_plant_vr_loc,2), ubound(smin_nh4_to_plant_vr_loc,2)  ! spel section-loop
+         do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
             do spel_i1 = 1, num_soilc
                smin_nh4_to_plant_vr_loc(spel_i1, spel_i2) = 0._r8
             end do
          end do
          !$acc end data
-         !$acc data copy(smin_no3_to_plant_vr_loc)
+         !$acc data copy(smin_no3_to_plant_vr_loc) if(elm_device_ready)
+         spel_lb1 = lbound(smin_no3_to_plant_vr_loc,2)  ! spel collapse-bounds
+         spel_ub1 = ubound(smin_no3_to_plant_vr_loc,2)  ! spel collapse-bounds
          !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-         do spel_i2 = lbound(smin_no3_to_plant_vr_loc,2), ubound(smin_no3_to_plant_vr_loc,2)  ! spel section-loop
+         do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
             do spel_i1 = 1, num_soilc
                smin_no3_to_plant_vr_loc(spel_i1, spel_i2) = 0._r8
             end do
@@ -876,7 +881,7 @@ contains
 
    ! pflotran not yet support phosphous cycle
    ! spel acc-sync: device data this host code uses
-   !$acc update self(carbon_only) if_present
+   !$acc update self(carbon_only) if_present if(elm_device_ready)
    if ( carbon_only .or.  carbonnitrogen_only  ) then
       call veg_ps%SetValues(num_patch=num_soilp,  filter_patch=filter_soilp,  value_patch=0._r8)
       call col_ps%SetValues(num_column=num_soilc, filter_column=filter_soilc, value_column=0._r8)

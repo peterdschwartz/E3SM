@@ -301,7 +301,7 @@ contains
        ! Get step size and time step
 
        ! spel acc-sync: device data this host code uses
-       !$acc update self(col_wf%qflx_from_uphill, top_ws%from_uphill) if_present
+       !$acc update self(col_wf%qflx_from_uphill, top_ws%from_uphill) if_present if(elm_device_ready)
        nstep = nstep_mod
        dtime = dtime_mod !get_step_size()
 
@@ -399,7 +399,7 @@ contains
        if ( found ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ws%errh2o) if_present
+          !$acc update self(col_ws%errh2o) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:  water balance error ',&
                ' nstep= ',nstep, &
                ' local indexc= ',indexc,&
@@ -407,7 +407,7 @@ contains
                ' errh2o= ',errh2o(indexc)             
 
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ws%errh2o) if_present
+          !$acc update self(col_ws%errh2o) if_present if(elm_device_ready)
           if ((col_pp%itype(indexc) == icol_roof .or. &
                col_pp%itype(indexc) == icol_road_imperv .or. &
                col_pp%itype(indexc) == icol_road_perv) .and. &
@@ -417,7 +417,7 @@ contains
              !$acc update self(col_wf%qflx_drain, col_wf%qflx_evap_tot, col_wf%qflx_h2oocn_drain, &
              !$acc&   col_wf%qflx_h2orof_drain, col_wf%qflx_ice_runoff_xs, col_wf%qflx_irrig, &
              !$acc&   col_wf%qflx_lnd2ocn, col_wf%qflx_qrgwl, col_wf%qflx_snwcp_ice, col_wf%qflx_surf, &
-             !$acc&   col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present
+             !$acc&   col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present if(elm_device_ready)
              write(iulog,*)'clm urban model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'nstep                      = ',nstep
              write(iulog,*)'errh2o                     = ',errh2o(indexc)
@@ -449,7 +449,7 @@ contains
              !$acc&   col_wf%qflx_h2oocn_drain, col_wf%qflx_h2orof_drain, col_wf%qflx_h2osfc_surf, &
              !$acc&   col_wf%qflx_ice_runoff_xs, col_wf%qflx_irrig, col_wf%qflx_lnd2ocn, &
              !$acc&   col_wf%qflx_over_supply, col_wf%qflx_qrgwl, col_wf%qflx_snwcp_ice, col_wf%qflx_surf, &
-             !$acc&   col_wf%qflx_surf_irrig, col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present
+             !$acc&   col_wf%qflx_surf_irrig, col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'colum number               = ',col_pp%gridcell(indexc)
              write(iulog,*)'nstep                      = ',nstep
@@ -612,7 +612,7 @@ contains
        if ( found ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ws%errh2osno) if_present
+          !$acc update self(col_ws%errh2osno) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:  snow balance error '
           write(iulog,*)'nstep= ',nstep, &
                ' local indexc= ',indexc, &
@@ -622,7 +622,7 @@ contains
                ' errh2osno= ',errh2osno(indexc)
 
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ws%errh2osno) if_present
+          !$acc update self(col_ws%errh2osno) if_present if(elm_device_ready)
           if (abs(errh2osno(indexc)) > 1.e-4_r8 .and. (nstep > 2) ) then
              ! spel acc-sync: device data this host code uses
              !$acc update self(col_pp%snl, col_wf%qflx_dew_grnd, col_wf%qflx_dew_snow, col_wf%qflx_evap_grnd, &
@@ -631,7 +631,7 @@ contains
              !$acc&   col_wf%qflx_snow_melt, col_wf%qflx_snwcp_ice, col_wf%qflx_snwcp_liq, &
              !$acc&   col_wf%qflx_sub_snow, col_wf%qflx_top_soil, col_wf%snow_sinks, col_wf%snow_sources, &
              !$acc&   col_ws%errh2osno, col_ws%frac_sno_eff, col_ws%h2osno, col_ws%h2osno_old, &
-             !$acc&   glc2lnd_vars%glc_dyn_runoff_routing_grc) if_present
+             !$acc&   glc2lnd_vars%glc_dyn_runoff_routing_grc) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'nstep            = ',nstep
              write(iulog,*)'errh2osno        = ',errh2osno(indexc)
@@ -659,7 +659,7 @@ contains
 
              if (create_glacier_mec_landunit) then
                 ! spel acc-sync: device data this host code uses
-                !$acc update self(col_wf%qflx_glcice_frz) if_present
+                !$acc update self(col_wf%qflx_glcice_frz) if_present if(elm_device_ready)
                 write(iulog,*)'qflx_glcice_frz  = ',qflx_glcice_frz(indexc)*dtime
              end if
              write(iulog,*)'elm model is stopping'
@@ -751,16 +751,16 @@ contains
        if ( found  .and. (nstep > 2) ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errsol) if_present
+          !$acc update self(veg_ef%errsol) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:: BalanceCheck, solar radiation balance error (W/m2)'
           write(iulog,*)'nstep         = ',nstep
           write(iulog,*)'errsol        = ',errsol(indexp)
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errsol) if_present
+          !$acc update self(veg_ef%errsol) if_present if(elm_device_ready)
           if (abs(errsol(indexp)) > 1.e-5_r8 ) then
              ! spel acc-sync: device data this host code uses
              !$acc update self(solarabs_vars%fsa_patch, solarabs_vars%fsr_patch, top_af%solad, &
-             !$acc&   top_af%solai) if_present
+             !$acc&   top_af%solai) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-5 (W/m2)'
              write(iulog,*)'fsa           = ',fsa(indexp)
              write(iulog,*)'fsr           = ',fsr(indexp)
@@ -795,7 +795,7 @@ contains
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
           !$acc update self(top_af%lwrad, veg_ef%eflx_lwrad_net, veg_ef%eflx_lwrad_out, &
-          !$acc&   veg_ef%errlon) if_present
+          !$acc&   veg_ef%errlon) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: longwave energy balance error (W/m2)'
           write(iulog,*)'nstep        = ',nstep
           write(iulog,*)'errlon       = ',errlon(indexp)
@@ -803,7 +803,7 @@ contains
           write(iulog,*) "lwrad_net: ",eflx_lwrad_net(indexp)
           write(iulog,*) "forc_lwrad:", forc_lwrad(veg_pp%topounit(indexp))
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errlon) if_present
+          !$acc update self(veg_ef%errlon) if_present if(elm_device_ready)
           if (abs(errlon(indexp)) > 1.e-5_r8 ) then
              write(iulog,*)'elm model is stopping - error is greater than 1e-5 (W/m2)'
              call endrun(decomp_index=indexp, elmlevel=namep, msg=errmsg(__FILE__, __LINE__))
@@ -831,12 +831,12 @@ contains
        if ( found  .and. (nstep > 2) ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errseb) if_present
+          !$acc update self(veg_ef%errseb) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: surface flux energy balance error (W/m2)'
           write(iulog,*)'nstep          = ' ,nstep
           write(iulog,*)'errseb         = ' ,errseb(indexp)
           ! spel acc-sync: device data this host code uses
-          !$acc update self(veg_ef%errseb) if_present
+          !$acc update self(veg_ef%errseb) if_present if(elm_device_ready)
           if (abs(errseb(indexp)) > 1.e-5_r8 ) then
              ! spel acc-sync: device data this host code uses
              !$acc update self(canopystate_vars%elai_patch, canopystate_vars%esai_patch, col_ws%frac_sno, &
@@ -846,7 +846,7 @@ contains
              !$acc&   surfalb_vars%fabd_patch, surfalb_vars%fabi_patch, surfalb_vars%ftdd_patch, &
              !$acc&   surfalb_vars%ftid_patch, surfalb_vars%ftii_patch, top_af%solad, top_af%solai, &
              !$acc&   veg_ef%eflx_lh_tot, veg_ef%eflx_lwrad_net, veg_ef%eflx_sh_tot, &
-             !$acc&   veg_ef%eflx_soil_grnd) if_present
+             !$acc&   veg_ef%eflx_soil_grnd) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-5 (W/m2)'
              write(iulog,*)'sabv           = ' ,sabv(indexp)
 
@@ -888,14 +888,14 @@ contains
        end if
        if ( found ) then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ef%errsoi) if_present
+          !$acc update self(col_ef%errsoi) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: soil balance error (W/m2)'
           write(iulog,*)'nstep         = ',nstep
           write(iulog,*)'errsoi_col    = ',errsoi_col(indexc)
           write(iulog,*)'gridcell number  = ',col_pp%gridcell(indexc)
           write(iulog,*)'itype         = ',col_pp%itype(indexc)
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ef%errsoi) if_present
+          !$acc update self(col_ef%errsoi) if_present if(elm_device_ready)
           if (abs(errsoi_col(indexc)) > 1.e-4_r8  .and. (nstep > 2) ) then
              write(iulog,*)'elm model is stopping'
              call endrun(decomp_index=indexc, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))

@@ -624,7 +624,7 @@ contains
   do fp = 1,num_soilp
     p = filter_soilp(fp)
     !assemble state variables
-    !$acc data copy(ystates)
+    !$acc data copy(ystates) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = lbound(ystates,1), ubound(ystates,1)  ! spel section-loop
        ystates(spel_i1)=0._r8
@@ -637,7 +637,7 @@ contains
     !$acc&   veg_cs%core%leaf_xfer, veg_cs%core%livecroot, veg_cs%core%livecroot_storage, &
     !$acc&   veg_cs%core%livecroot_xfer, veg_cs%core%livestem, veg_cs%core%livestem_storage, &
     !$acc&   veg_cs%core%livestem_xfer, veg_cs%core%pool, veg_cs%gresp_storage, veg_cs%gresp_xfer, &
-    !$acc&   ystates) if_present
+    !$acc&   ystates) if_present if(elm_device_ready)
     !$acc end data
     ystates(s_cpool)              = veg_cs%core%pool(p)
     ystates(s_leafc)              = veg_cs%core%leaf(p)
@@ -672,7 +672,7 @@ contains
     ystates(s_gresp_storage)      = veg_cs%gresp_storage(p)
     !$acc update device(ystates) if_present
 
-    !$acc data copy(rfluxes)
+    !$acc data copy(rfluxes) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = lbound(rfluxes,1), ubound(rfluxes,1)  ! spel section-loop
        rfluxes(spel_i1) = 0._r8
@@ -700,7 +700,7 @@ contains
     !$acc&   veg_cf%cpool_livecroot_gr, veg_cf%cpool_livecroot_storage_gr, veg_cf%cpool_livestem_gr, &
     !$acc&   veg_cf%cpool_livestem_storage_gr, veg_cf%cpool_to_gresp_storage, veg_cf%cpool_to_xsmrpool, &
     !$acc&   veg_cf%froot_curmr, veg_cf%grain_curmr, veg_cf%gresp_storage_to_xfer, veg_cf%leaf_curmr, &
-    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr) if_present
+    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr) if_present if(elm_device_ready)
     !$acc end data
     ar_p = veg_cf%leaf_curmr(p)             &
          + veg_cf%froot_curmr(p)            &
@@ -810,7 +810,7 @@ contains
     !$acc&   veg_cf%cpool_livecroot_gr, veg_cf%cpool_livecroot_storage_gr, veg_cf%cpool_livestem_gr, &
     !$acc&   veg_cf%cpool_livestem_storage_gr, veg_cf%cpool_to_gresp_storage, veg_cf%cpool_to_xsmrpool, &
     !$acc&   veg_cf%froot_curmr, veg_cf%grain_curmr, veg_cf%gresp_storage_to_xfer, veg_cf%leaf_curmr, &
-    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr) if_present
+    !$acc&   veg_cf%livecroot_curmr, veg_cf%livestem_curmr) if_present if(elm_device_ready)
     !$acc end data
     call fpmax(rfluxes(f_cpool_to_leafc)               , veg_cf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_cpool_to_leafc_storage)       , veg_cf%core%pool_to_leaf_storage(p))
@@ -951,7 +951,7 @@ contains
   dt = real( get_step_size(), r8 )
   do fp = 1,num_soilp
     p = filter_soilp(fp)
-    !$acc data copy(ystates)
+    !$acc data copy(ystates) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = lbound(ystates,1), ubound(ystates,1)  ! spel section-loop
        ystates(spel_i1) = 0._r8
@@ -965,7 +965,7 @@ contains
     !$acc&   veg_ns%core%grain_storage, veg_ns%core%grain_xfer, veg_ns%core%leaf, veg_ns%core%leaf_storage, &
     !$acc&   veg_ns%core%leaf_xfer, veg_ns%core%livecroot, veg_ns%core%livecroot_storage, &
     !$acc&   veg_ns%core%livecroot_xfer, veg_ns%core%livestem, veg_ns%core%livestem_storage, &
-    !$acc&   veg_ns%core%livestem_xfer, veg_ns%core%pool, veg_ns%retrans%pool, ystates) if_present
+    !$acc&   veg_ns%core%livestem_xfer, veg_ns%core%pool, veg_ns%retrans%pool, ystates) if_present if(elm_device_ready)
     ystates(s_npool)               = veg_ns%core%pool(p)
     ystates(s_leafn)               = veg_ns%core%leaf(p)
     ystates(s_leafn_xfer)          = veg_ns%core%leaf_xfer(p)
@@ -998,7 +998,7 @@ contains
     ystates(s_retransn)            = veg_ns%retrans%pool(p)
     !$acc update device(ystates) if_present
 
-    !$acc data copy(rfluxes)
+    !$acc data copy(rfluxes) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = lbound(rfluxes,1), ubound(rfluxes,1)  ! spel section-loop
        rfluxes(spel_i1) = 0._r8
@@ -1023,7 +1023,7 @@ contains
     !$acc&   veg_nf%core%pool_to_livestem_storage, veg_nf%retrans%froot_to_retrans, &
     !$acc&   veg_nf%retrans%leaf_to_retrans, veg_nf%retrans%livecroot_to_retrans, &
     !$acc&   veg_nf%retrans%livestem_to_retrans, veg_nf%retrans%retrans_to_pool, &
-    !$acc&   veg_nf%uptake%supplement_to_plant) if_present
+    !$acc&   veg_nf%uptake%supplement_to_plant) if_present if(elm_device_ready)
     rfluxes(f_npool_to_leafn)                = veg_nf%core%pool_to_leaf(p)
     rfluxes(f_npool_to_leafn_storage)        = veg_nf%core%pool_to_leaf_storage(p)
     rfluxes(f_npool_to_frootn)               = veg_nf%core%pool_to_froot(p)
@@ -1100,7 +1100,7 @@ contains
     !$acc&   veg_nf%core%pool_to_livestem_storage, veg_nf%retrans%froot_to_retrans, &
     !$acc&   veg_nf%retrans%leaf_to_retrans, veg_nf%retrans%livecroot_to_retrans, &
     !$acc&   veg_nf%retrans%livestem_to_retrans, veg_nf%retrans%retrans_to_pool, &
-    !$acc&   veg_nf%uptake%supplement_to_plant) if_present
+    !$acc&   veg_nf%uptake%supplement_to_plant) if_present if(elm_device_ready)
     !$acc end data
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_nf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_nf%core%pool_to_leaf_storage(p))
@@ -1211,7 +1211,7 @@ contains
   dt = real( get_step_size(), r8 )
   do fp = 1,num_soilp
     p = filter_soilp(fp)
-    !$acc data copy(ystates)
+    !$acc data copy(ystates) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = lbound(ystates,1), ubound(ystates,1)  ! spel section-loop
        ystates(spel_i1) = 0._r8
@@ -1225,7 +1225,7 @@ contains
     !$acc&   veg_ps%core%grain_storage, veg_ps%core%grain_xfer, veg_ps%core%leaf, veg_ps%core%leaf_storage, &
     !$acc&   veg_ps%core%leaf_xfer, veg_ps%core%livecroot, veg_ps%core%livecroot_storage, &
     !$acc&   veg_ps%core%livecroot_xfer, veg_ps%core%livestem, veg_ps%core%livestem_storage, &
-    !$acc&   veg_ps%core%livestem_xfer, veg_ps%core%pool, veg_ps%retrans%pool, ystates) if_present
+    !$acc&   veg_ps%core%livestem_xfer, veg_ps%core%pool, veg_ps%retrans%pool, ystates) if_present if(elm_device_ready)
     ystates(s_npool)               = veg_ps%core%pool(p)
     ystates(s_leafn)               = veg_ps%core%leaf(p)
     ystates(s_leafn_xfer)          = veg_ps%core%leaf_xfer(p)
@@ -1258,7 +1258,7 @@ contains
     ystates(s_retransn)              = veg_ps%retrans%pool(p)
     !$acc update device(ystates) if_present
 
-    !$acc data copy(rfluxes)
+    !$acc data copy(rfluxes) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = lbound(rfluxes,1), ubound(rfluxes,1)  ! spel section-loop
        rfluxes(spel_i1) = 0._r8
@@ -1283,7 +1283,7 @@ contains
     !$acc&   veg_pf%core%pool_to_livestem_storage, veg_pf%retrans%froot_to_retrans, &
     !$acc&   veg_pf%retrans%leaf_to_retrans, veg_pf%retrans%livecroot_to_retrans, &
     !$acc&   veg_pf%retrans%livestem_to_retrans, veg_pf%retrans%retrans_to_pool, &
-    !$acc&   veg_pf%uptake%supplement_to_plant) if_present
+    !$acc&   veg_pf%uptake%supplement_to_plant) if_present if(elm_device_ready)
     rfluxes(f_npool_to_leafn)                = veg_pf%core%pool_to_leaf(p)
     rfluxes(f_npool_to_leafn_storage)        = veg_pf%core%pool_to_leaf_storage(p)
     rfluxes(f_npool_to_frootn)               = veg_pf%core%pool_to_froot(p)
@@ -1360,7 +1360,7 @@ contains
     !$acc&   veg_pf%core%pool_to_livestem_storage, veg_pf%retrans%froot_to_retrans, &
     !$acc&   veg_pf%retrans%leaf_to_retrans, veg_pf%retrans%livecroot_to_retrans, &
     !$acc&   veg_pf%retrans%livestem_to_retrans, veg_pf%retrans%retrans_to_pool, &
-    !$acc&   veg_pf%uptake%supplement_to_plant) if_present
+    !$acc&   veg_pf%uptake%supplement_to_plant) if_present if(elm_device_ready)
     !$acc end data
     call fpmax(rfluxes(f_npool_to_leafn)                , veg_pf%core%pool_to_leaf(p))
     call fpmax(rfluxes(f_npool_to_leafn_storage)        , veg_pf%core%pool_to_leaf_storage(p))

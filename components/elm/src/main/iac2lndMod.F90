@@ -199,8 +199,7 @@ contains
        ! land unit type 1 is vegetated land unit
        ! just need to make sure that the values are <= 1
 
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(col_pp%wtgcell) if_present
+       !$acc update self(col_pp%wtgcell) if_present if(elm_device_ready)
        do spel_i2 = begg, endg  ! spel section-loop
           do spel_i1 = lbound(harvest_rates,1), ubound(harvest_rates,1)
              harvest_rates(spel_i1, spel_i2) = 0._r8

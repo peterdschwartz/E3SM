@@ -5843,6 +5843,7 @@ contains
 
     ! set time steps
      integer :: spel_i1, spel_i2, spel_i3  ! spel section-loop indices
+     integer :: spel_lb1, spel_lb2, spel_lb3, spel_ub1, spel_ub2, spel_ub3  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
      dtime = real( get_step_size(), r8 )
     if (use_pflotran .and. pf_cmode) then
         ! TODO
@@ -5874,17 +5875,27 @@ contains
        end do
     end do
 
+    spel_lb1 = lbound(this%core%external_to_decomp_pools,3)  ! spel collapse-bounds
+    spel_ub1 = ubound(this%core%external_to_decomp_pools,3)  ! spel collapse-bounds
+    spel_lb2 = lbound(this%core%external_to_decomp_pools,2)  ! spel collapse-bounds
+    spel_ub2 = ubound(this%core%external_to_decomp_pools,2)  ! spel collapse-bounds
+    spel_lb3 = lbound(this%core%external_to_decomp_pools,1)  ! spel collapse-bounds
+    spel_ub3 = ubound(this%core%external_to_decomp_pools,1)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(3) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i3 = lbound(this%core%external_to_decomp_pools,3), ubound(this%core%external_to_decomp_pools,3)  ! spel section-loop
-       do spel_i2 = lbound(this%core%external_to_decomp_pools,2), ubound(this%core%external_to_decomp_pools,2)
-          do spel_i1 = lbound(this%core%external_to_decomp_pools,1), ubound(this%core%external_to_decomp_pools,1)
+    do spel_i3 = spel_lb1, spel_ub1  ! spel section-loop
+       do spel_i2 = spel_lb2, spel_ub2
+          do spel_i1 = spel_lb3, spel_ub3
              this%core%external_to_decomp_pools(spel_i1, spel_i2, spel_i3) = 0._r8
           end do
        end do
     end do
+    spel_lb1 = lbound(this%sminp_net_transport_vr,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(this%sminp_net_transport_vr,2)  ! spel collapse-bounds
+    spel_lb2 = lbound(this%sminp_net_transport_vr,1)  ! spel collapse-bounds
+    spel_ub2 = ubound(this%sminp_net_transport_vr,1)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(this%sminp_net_transport_vr,2), ubound(this%sminp_net_transport_vr,2)  ! spel section-loop
-       do spel_i1 = lbound(this%sminp_net_transport_vr,1), ubound(this%sminp_net_transport_vr,1)
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+       do spel_i1 = spel_lb2, spel_ub2
           this%sminp_net_transport_vr(spel_i1, spel_i2) = 0._r8
        end do
     end do

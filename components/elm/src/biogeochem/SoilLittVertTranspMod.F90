@@ -314,7 +314,7 @@ contains
             !$acc end data
          else
             ncoef = 1
-            !$acc data copy(icoef)
+            !$acc data copy(icoef) if(elm_device_ready)
             !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(icoef,1), ubound(icoef,1)  ! spel section-loop
                icoef(spel_i1) = 1
@@ -322,7 +322,7 @@ contains
             !$acc end data
          end if
          ! spel acc-sync: device data this host code uses
-         !$acc update self(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present
+         !$acc update self(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present if(elm_device_ready)
          s_rep = 0
          do s = 1, ndecomp_pools
             if ( .not. is_cwd(s) ) then
@@ -341,7 +341,7 @@ contains
 
          do s = 1, ndecomp_pools
             ! spel acc-sync: device data this host code uses
-            !$acc update self(icoef) if_present
+            !$acc update self(icoef) if_present if(elm_device_ready)
             if ( is_cwd(s) ) cycle
             l = icoef(s)
             ! when one matrix serves all pools, build it from the first non-CWD pool only
@@ -472,7 +472,7 @@ contains
                end if
 
                ! spel acc-sync: device data this host code uses
-               !$acc update self(icoef) if_present
+               !$acc update self(icoef) if_present if(elm_device_ready)
                l = icoef(s)
 
                ! Build the right-hand side, store the initial concentration and
@@ -537,7 +537,7 @@ contains
 
       if (use_vertsoilc) then
          ! spel acc-sync: device data this host code uses
-         !$acc update self(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present
+         !$acc update self(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present if(elm_device_ready)
          !$acc exit data delete(a_coef, c_coef, bet_coef, gam_coef, r_coef, conc_trcr)
          deallocate(a_coef, c_coef, bet_coef, gam_coef, r_coef)
          !$acc update device(a_coef, bet_coef, c_coef, gam_coef, r_coef) if_present

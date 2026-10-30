@@ -621,7 +621,7 @@ contains
 
     ! spel acc-locals: device storage of the local work arrays
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno) if_present
+    !$acc update self(col_ef%errsoi, col_es%hc_lake, col_es%hc_soi, col_es%hc_soisno) if_present if(elm_device_ready)
     !$acc enter data create(phase_col)
     call c2g(bounds, col_es%hc_soisno(bounds%begc:bounds%endc), &
          grc_es%end_hc(bounds%begg:bounds%endg), &
@@ -655,7 +655,7 @@ contains
     !$acc end data
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(grnd_patch) if_present
+    !$acc update self(grnd_patch) if_present if(elm_device_ready)
     call p2g(bounds, grnd_patch(bounds%begp:bounds%endp), &
          grc_ef%heat_into_grnd(bounds%begg:bounds%endg), &
          p2c_scale_type='unity', c2l_scale_type='unity', l2g_scale_type='unity')
@@ -752,7 +752,7 @@ contains
     integer :: spel_i1  ! spel section-loop indices
     ! spel acc-sync: device data this host code uses
     !$acc update self(atm2lnd_vars%forc_lwrad_not_downscaled_grc, grc_ef%heat_phase_corr, &
-    !$acc&   grc_ef%heat_state_adj, grc_es%beg_hc, grc_es%beg_hc_lake, grc_es%beg_hc_soi) if_present
+    !$acc&   grc_ef%heat_state_adj, grc_es%beg_hc, grc_es%beg_hc_lake, grc_es%beg_hc_soi) if_present if(elm_device_ready)
     associate(                                                              &
          forc_lwdn   => atm2lnd_vars%forc_lwrad_not_downscaled_grc        , &
          forc_snow   => atm2lnd_vars%forc_snow_not_downscaled_grc         , &

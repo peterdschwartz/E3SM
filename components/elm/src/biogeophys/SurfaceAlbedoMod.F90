@@ -353,30 +353,33 @@ contains
        aer_all(spel_i1) = .false.
     end do
     if (DO_SNO_AER) then
-       !$acc data copy(aer_all)
+       !$acc data copy(aer_all) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
        do spel_i1 = 1, 2  ! spel section-loop
           aer_all(spel_i1) = .true.
        end do
        !$acc end data
-       !$acc data copy(aer_all)
+       !$acc data copy(aer_all) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
        do spel_i1 = 3, 4  ! spel section-loop
           aer_all(spel_i1) = DO_SNO_OC
        end do
        !$acc end data
-       !$acc data copy(aer_all)
+       !$acc data copy(aer_all) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
        do spel_i1 = 5, 8  ! spel section-loop
           aer_all(spel_i1) = .true.
        end do
        !$acc end data
     endif
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(aer_bc, aer_dst, aer_oc) if_present if(elm_device_ready)
     aer_bc(:)  = (/ .false., .false., DO_SNO_OC, DO_SNO_OC, .true., .true., .true., .true. /)
     aer_oc(:)  = (/ .true., .true., .false., .false., .true., .true., .true., .true. /)
     aer_dst(:) = (/ .true., .true., DO_SNO_OC, DO_SNO_OC, .false., .false., .false., .false. /)
     ncase = 0
     kd_bc = 0; ki_bc = 0; kd_oc = 0; ki_oc = 0; kd_dst = 0; ki_dst = 0; kd_pur = 0; ki_pur = 0
+    !$acc update device(aer_bc, aer_dst, aer_oc) if_present
     ! climate feedback, all aerosols: cases 1 and 2, which also return the absorbed-flux profiles
     call add_case(1, aer_all, kd);  call add_case(2, aer_all, ki)
     if (use_snicar_frc) then
@@ -388,7 +391,9 @@ contains
        call add_case(1, aer_none, kd_pur);  call add_case(2, aer_none, ki_pur)   ! pure snow
     end if
 
-    !$acc update device(case_slr, case_aer)  ! set on the host by add_case
+    ! case_slr is set on the host by add_case; case_aer is set on the device there (section-loop kernel), so
+    ! it must NOT be pushed from the host (the host copy is never set: garbage aerosol cases, 2026-10-30)
+    !$acc update device(case_slr)
     call SNICAR_AD_RT(bounds, num_nourbanc, filter_nourbanc, cosinc_col(bounds%begc:bounds%endc), &
          ncase, case_slr, case_aer, 2, aerosol_vars, albsoi(bounds%begc:bounds%endc, :), alb_snw, abs_snw)
 
@@ -661,7 +666,7 @@ contains
        ! spel acc-sync: device data this host code uses
        !$acc update self(canopystate_vars%elai_patch, canopystate_vars%esai_patch, &
        !$acc&   canopystate_vars%tlai_patch, canopystate_vars%tsai_patch, err_can, surfalb_vars%ncan_patch, &
-       !$acc&   surfalb_vars%nrad_patch) if_present
+       !$acc&   surfalb_vars%nrad_patch) if_present if(elm_device_ready)
        !$acc update self(err_can) if(elm_device_ready)
        do fp = 1,num_nourbanp
           if (err_can(fp) /= 0) then
@@ -1560,7 +1565,7 @@ contains
 
     integer :: spel_i1  ! spel section-loop indices
     ! spel acc-sync: device data this host code uses
-    !$acc update self(coeff_dif, coeff_dir, coeff_rdif, coeff_rdir) if_present
+    !$acc update self(coeff_dif, coeff_dir, coeff_rdif, coeff_rdir) if_present if(elm_device_ready)
     data coeff_dir(:,1) /2.045E+1_r8, 6.792E-1_r8, -2.103E+1_r8/
     data coeff_dir(:,2) /1.993E+0_r8, 9.284E-1_r8, -2.911E+0_r8/
     data coeff_dir(:,3) /5.900E-2_r8, 9.863E-1_r8, -1.045E+0_r8/
@@ -1626,25 +1631,25 @@ contains
 
 
 
-     !$acc data copy(coeff_dir)
+     !$acc data copy(coeff_dir) if(elm_device_ready)
      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
      do spel_i1 = lbound(coeff_dir,1), ubound(coeff_dir,1)  ! spel section-loop
         coeff_dir(spel_i1, 0) = coeff_dir(spel_i1, 1)
      end do
      !$acc end data
-     !$acc data copy(coeff_rdir)
+     !$acc data copy(coeff_rdir) if(elm_device_ready)
      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
      do spel_i1 = lbound(coeff_rdir,1), ubound(coeff_rdir,1)  ! spel section-loop
         coeff_rdir(spel_i1, 0) = coeff_rdir(spel_i1, 1)
      end do
      !$acc end data
-     !$acc data copy(coeff_dif)
+     !$acc data copy(coeff_dif) if(elm_device_ready)
      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
      do spel_i1 = lbound(coeff_dif,1), ubound(coeff_dif,1)  ! spel section-loop
         coeff_dif(spel_i1, 0) = coeff_dif(spel_i1, 1)
      end do
      !$acc end data
-     !$acc data copy(coeff_rdif)
+     !$acc data copy(coeff_rdif) if(elm_device_ready)
      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
      do spel_i1 = lbound(coeff_rdif,1), ubound(coeff_rdif,1)  ! spel section-loop
         coeff_rdif(spel_i1, 0) = coeff_rdif(spel_i1, 1)

@@ -31,7 +31,7 @@ module dynSubgridDriverMod
   use iac2lndMod          , only : iac2lnd_type
   use dynLandunitAreaMod  , only : update_landunit_weights
   use CropType            , only : crop_type
-  use dyncropFileMod      , only : dyncrop_init, dyncrop_interp
+  use dyncropFileMod      , only : dyncrop_init, dyncrop_interp, dyncrop_will_update
   use filterMod           , only : filter, filter_inactive_and_active
 
   use GridcellDataType    , only : gridcell_carbon_state, gridcell_carbon_flux
@@ -205,6 +205,8 @@ contains
     use columndatatype, only : c13_col_cf, c14_col_cf, col_es, col_nf, col_pf, col_ws  ! spel acc-sync
     use gridcelldatatype, only : c13_grc_cf, c14_grc_cf, grc_nf, grc_pf  ! spel acc-sync
     use vegetationdatatype, only : c13_veg_cf, c14_veg_cf, veg_cf, veg_nf, veg_pf  ! spel acc-sync
+    use landunittype, only : lun_pp  ! spel acc-sync
+    use pftvarcon, only : is_pft_known_to_model  ! spel acc-sync
 
     !
     ! !ARGUMENTS:
@@ -255,6 +257,9 @@ contains
     weights_updated = get_do_transient_pfts() .or. use_fates .or. use_fates_luh .or. &
          create_glacier_mec_landunit .or. iac_present .or. &
          is_first_step() .or. is_first_restart_step()
+    ! Annual crop data: dyncrop_interp below reports the same through crop_updated, but the
+    ! weight bookkeeping in the first clump loop must know it before the weights change.
+    if (get_do_transient_crops()) weights_updated = weights_updated .or. dyncrop_will_update()
     ! ==========================================================================
     ! Do initialization, prior to land cover change
     ! ==========================================================================
@@ -278,17 +283,22 @@ contains
             filter(nc)%num_lakec, filter(nc)%lakec, &
             urbanparams_vars, soilstate_vars, soilhydrology_vars, lakestate_vars, &
             energyflux_vars)
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(col_pp%wtgcell, veg_pp%wtgcell) if_present
+       !$acc update self(col_pp%wtgcell, veg_pp%wtgcell) if_present if(elm_device_ready)
        call t_stopf('dyn_hwcontent_init')
 
-       call t_startf('dyn_prior_weights')
-       call set_prior_weights(prior_weights, bounds_clump)
-       call set_old_patch_weights  (patch_state_updater,bounds_clump)
-       !$acc update device(patch_state_updater%cwtgcell_old, patch_state_updater%pwtgcell_old, &
-       !$acc&   prior_weights%cactive, prior_weights%pwtcol) if_present
-       call set_old_column_weights (column_state_updater,bounds_clump)
-       call t_stopf('dyn_prior_weights')
+       ! The old weights, the prior active flags and the natural-veg template columns are
+       ! read only by the weight-change path below (any_changes, initialize_new_columns, the
+       ! C/N/P conservation): nothing to record when no weight changes this step.
+       if (weights_updated) then
+          call t_startf('dyn_prior_weights')
+          call set_prior_weights(prior_weights, bounds_clump)
+          call set_old_patch_weights  (patch_state_updater,bounds_clump)
+          call set_old_column_weights (column_state_updater,bounds_clump)
+          call t_stopf('dyn_prior_weights')
+          !$acc update device(column_state_updater%cwtgcell_old, column_state_updater%natveg_template_col, &
+          !$acc&   patch_state_updater%cwtgcell_old, patch_state_updater%pwtgcell_old, prior_weights%cactive, &
+          !$acc&   prior_weights%pwtcol) if_present
+       end if
     end do
     !$OMP END PARALLEL DO
 
@@ -298,11 +308,14 @@ contains
 
     if (get_do_transient_pfts()) then
        call dynpft_interp(bounds_proc)
+       !$acc update device(veg_pp%wtcol) if_present
     end if
 
     if (get_do_transient_crops()) then
        call dyncrop_interp(bounds_proc,crop_vars, data_updated=crop_updated)
        weights_updated = weights_updated .or. crop_updated
+       !$acc update device(col_pp%wtlunit, crop_vars%fertnitro_patch, crop_vars%fertphosp_patch, &
+       !$acc&   is_pft_known_to_model, lun_pp%wttopounit) if_present
     end if
     call set_subgrid_weights_updated(weights_updated)
 
@@ -364,22 +377,26 @@ contains
           call dynSubgrid_wrapup_weight_changes(bounds_clump, glc2lnd_vars)
           call t_stopf('dyn_wrapup_weights')
        end if
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(col_pp%wtgcell, veg_pp%wtgcell) if_present
-       call set_new_patch_weights (patch_state_updater ,bounds_clump)
-       call set_new_column_weights(column_state_updater,bounds_clump, nc)
-       !$acc update device(column_state_updater%any_changes, column_state_updater%area_gained_col, &
-       !$acc&   column_state_updater%cwtgcell_new, patch_state_updater%dwt, &
-       !$acc&   patch_state_updater%growing_new_fraction, patch_state_updater%growing_old_fraction, &
-       !$acc&   patch_state_updater%pwtgcell_new) if_present
+       ! New weights and the per-patch/column change records: read only under weights_updated
+       ! below (dyn_cnbal_patch/column); without a change they would equal the old ones.
+       if (weights_updated) then
+          !$acc update self(col_pp%wtgcell, veg_pp%wtgcell) if_present if(elm_device_ready)
+          call set_new_patch_weights (patch_state_updater ,bounds_clump)
+          call set_new_column_weights(column_state_updater,bounds_clump, nc)
+          !$acc update device(column_state_updater%any_changes, column_state_updater%area_gained_col, &
+          !$acc&   column_state_updater%cwtgcell_new, patch_state_updater%dwt, &
+          !$acc&   patch_state_updater%growing_new_fraction, patch_state_updater%growing_old_fraction, &
+          !$acc&   patch_state_updater%pwtgcell_new) if_present
+       end if
 
 
        if (weights_updated) then
+          ! spel acc-sync: device data this host code uses
+          !$acc update self(col_ws%h2osoi_liq) if_present if(elm_device_ready)
           call t_startf('dyn_diagnostic_fields')
           call set_subgrid_diagnostic_fields(bounds_clump)
-          ! spel acc-sync: device data this host code uses
           !$acc update self(col_es%t_soisno, col_pp%wtgcell, col_ws%h2osoi_ice, col_ws%h2osoi_liq, &
-          !$acc&   col_ws%h2osoi_vol, soilhydrology_vars%wa_col) if_present
+          !$acc&   col_ws%h2osoi_vol, soilhydrology_vars%wa_col) if_present if(elm_device_ready)
           call t_stopf('dyn_diagnostic_fields')
 
           call t_startf('dyn_init_new_columns')
@@ -400,7 +417,6 @@ contains
        call t_stopf('dyn_hwcontent_final')
 
        if (use_cn .and. weights_updated) then
-          ! spel acc-sync: device data this host code uses
           !$acc update self(c13_col_cf%core%dwt_conv_flux, c13_col_cf%core%dwt_crop_product_gain, &
           !$acc&   c13_col_cf%core%dwt_deadcroot_to_cwd, c13_col_cf%core%dwt_froot_to_litr_cel, &
           !$acc&   c13_col_cf%core%dwt_froot_to_litr_lig, c13_col_cf%core%dwt_froot_to_litr_met, &
@@ -512,7 +528,7 @@ contains
           !$acc&   veg_ps%core%livecroot_storage, veg_ps%core%livecroot_xfer, veg_ps%core%livestem, &
           !$acc&   veg_ps%core%livestem_storage, veg_ps%core%livestem_xfer, veg_ps%core%pool, &
           !$acc&   veg_ps%core%storveg, veg_ps%core%totpft, veg_ps%core%totveg, veg_ps%core%trunc_sink, &
-          !$acc&   veg_ps%retrans%pool) if_present
+          !$acc&   veg_ps%retrans%pool) if_present if(elm_device_ready)
           call t_startf('dyn_cnbal_patch')
           call dyn_cnbal_patch(bounds_clump, &
                filter_inactive_and_active(nc)%num_soilp, filter_inactive_and_active(nc)%soilp, &
@@ -805,40 +821,40 @@ contains
 
     integer :: spel_i1  ! spel section-loop indices
     ! spel acc-sync: device data this host code uses
-    !$acc update self(sumwtcol) if_present
+    !$acc update self(sumwtcol) if_present if(elm_device_ready)
     allocate(sumwtcol(bounds%begc:bounds%endc))
     !$acc update device(sumwtcol) if_present
-    !$acc data copy(sumwtcol)
+    !$acc data copy(sumwtcol) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = bounds%begc, bounds%endc  ! spel section-loop
        sumwtcol(spel_i1) = 0._r8
     end do
     ! spel acc-sync: device data this host code uses
-    !$acc update self(sumwtlunit) if_present
+    !$acc update self(sumwtlunit) if_present if(elm_device_ready)
     !$acc end data
     allocate(sumwtlunit(bounds%begl:bounds%endl))
     !$acc update device(sumwtlunit) if_present
-    !$acc data copy(sumwtlunit)
+    !$acc data copy(sumwtlunit) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = bounds%begl, bounds%endl  ! spel section-loop
        sumwtlunit(spel_i1) = 0._r8
     end do
     ! spel acc-sync: device data this host code uses
-    !$acc update self(sumwttopounit) if_present
+    !$acc update self(sumwttopounit) if_present if(elm_device_ready)
     !$acc end data
     allocate(sumwttopounit(bounds%begt:bounds%endt))
     !$acc update device(sumwttopounit) if_present
-    !$acc data copy(sumwttopounit)
+    !$acc data copy(sumwttopounit) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = bounds%begt, bounds%endt  ! spel section-loop
        sumwttopounit(spel_i1) = 0._r8
     end do
     ! spel acc-sync: device data this host code uses
-    !$acc update self(sumwtgcell) if_present
+    !$acc update self(sumwtgcell) if_present if(elm_device_ready)
     !$acc end data
     allocate(sumwtgcell(bounds%begg:bounds%endg))
     !$acc update device(sumwtgcell) if_present
-    !$acc data copy(sumwtgcell)
+    !$acc data copy(sumwtgcell) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = bounds%begg, bounds%endg  ! spel section-loop
        sumwtgcell(spel_i1) = 0._r8
@@ -849,8 +865,10 @@ contains
     ! fill bare pft value if col wtgcell is zero
     ! calculate the higher order wts
     ! spel acc-sync: device data this host code uses
+    !$acc update self(sumwtcol, sumwtgcell, sumwtlunit, sumwttopounit, &
+    !$acc&   veg_pp%wtgcell_iac) if_present if(elm_device_ready)
     !$acc update self(col_pp%wtgcell, col_pp%wttopounit, sumwtcol, sumwtgcell, sumwtlunit, sumwttopounit, &
-    !$acc&   veg_pp%wtgcell, veg_pp%wtgcell_iac, veg_pp%wtlunit, veg_pp%wttopounit) if_present
+    !$acc&   veg_pp%wtgcell, veg_pp%wtgcell_iac, veg_pp%wtlunit, veg_pp%wttopounit) if_present if(elm_device_ready)
     do p = bounds%begp, bounds%endp
        c = veg_pp%column(p)
        l = veg_pp%landunit(p)

@@ -255,7 +255,6 @@ contains
       z0qg_col => frictionvel_vars%z0qg_col
 
       kva0temp = 20._r8 + tfrz
-      !$acc update device(z0hg_col, z0mg_col, z0qg_col) if_present
 
       ! Lake columns have one patch, so these patch loops write each column once
       !$acc parallel loop gang vector default(present) private(p, c, t, g, kva, sqre0, sabg_nir, eg, degdT) if(elm_device_ready) copyin(bounds)
@@ -707,7 +706,7 @@ contains
       end do
       if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
          ! spel acc-sync: device data this host code uses
-         !$acc update self(prev_tau_diff, tau, tau_diff, wind_speed_adj) if_present
+         !$acc update self(prev_tau_diff, tau, tau_diff, wind_speed_adj) if_present if(elm_device_ready)
          fp = 1 + spel_dc_1 - 1
          p = filter_lakep(fp)
          !$acc update self(prev_tau_diff, tau_diff, tau, wind_speed_adj) if(elm_device_ready)

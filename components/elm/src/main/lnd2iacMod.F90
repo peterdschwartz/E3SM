@@ -96,23 +96,30 @@ contains
     integer :: c,p,g,pft
 
     integer :: spel_i1, spel_i2  ! spel section-loop indices
+    integer :: spel_lb1, spel_ub1  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
     begg = bounds%begg; endg = bounds%endg
     begp = bounds%begp; endp = bounds%endp
 
+    spel_lb1 = lbound(this%hr,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(this%hr,2)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(this%hr,2), ubound(this%hr,2)  ! spel section-loop
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = begg, endg
           this%hr(spel_i1, spel_i2)=0.0_r8
        end do
     end do
+    spel_lb1 = lbound(this%npp,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(this%npp,2)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(this%npp,2), ubound(this%npp,2)  ! spel section-loop
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = begg, endg
           this%npp(spel_i1, spel_i2)=0.0_r8
        end do
     end do
+    spel_lb1 = lbound(this%pftwgt,2)  ! spel collapse-bounds
+    spel_ub1 = ubound(this%pftwgt,2)  ! spel collapse-bounds
     !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i2 = lbound(this%pftwgt,2), ubound(this%pftwgt,2)  ! spel section-loop
+    do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = begg, endg
           this%pftwgt(spel_i1, spel_i2)=0.0_r8
        end do
@@ -120,7 +127,7 @@ contains
 
     ! Loop over patch index, extract fields by pft type and gridcell
     ! spel acc-sync: device data this host code uses
-    !$acc update self(col_cf%hr, this%hr, this%npp, this%pftwgt, veg_cf%npp, veg_pp%wtgcell) if_present
+    !$acc update self(col_cf%hr, this%hr, this%npp, this%pftwgt, veg_cf%npp, veg_pp%wtgcell) if_present if(elm_device_ready)
     do p = begp, endp
        g=veg_pp%gridcell(p)
        pft=veg_pp%itype(p)

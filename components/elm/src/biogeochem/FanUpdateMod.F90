@@ -240,6 +240,7 @@ contains
     def_ph_count = 0
     dt = real(get_step_size(), r8)
     do_balance_checks = balance_check_freq > 0 .and. mod(get_nstep(), balance_check_freq) == 0
+    !$acc update device(hconc_grz, hconc_slr) if_present
 
     associate(&
          forc_ndep_urea => atm2lnd_vars%forc_ndep_urea_grc, & ! Fraction of urea in fertilizer N
@@ -259,12 +260,24 @@ contains
     !$acc&   col_nf%manure_nh4_to_soil, col_nf%manure_no3_to_soil, col_nf%nh3_barns, col_nf%nh3_fert, &
     !$acc&   col_nf%nh3_grz, col_nf%nh3_manure_app, col_nf%nh3_stores) if_present if(elm_device_ready)
     if (do_balance_checks) then
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(col_nf%fert_n_appl, col_nf%fert_nh4_runoff, col_nf%fert_nh4_to_soil, &
+       !$acc&   col_nf%fert_no3_to_soil, col_nf%manure_n_barns, col_nf%manure_n_grz, col_nf%manure_n_mix, &
+       !$acc&   col_nf%manure_n_transf, col_nf%manure_nh4_runoff, col_nf%manure_nh4_to_soil, &
+       !$acc&   col_nf%manure_no3_to_soil, col_nf%nh3_barns, col_nf%nh3_fert, col_nf%nh3_grz, &
+       !$acc&   col_nf%nh3_manure_app, col_nf%nh3_stores, col_ns%fert_u1, col_ns%fert_u2, &
+       !$acc&   col_ns%manure_a_app, col_ns%manure_a_grz, col_ns%manure_n_stored, col_ns%manure_r_app, &
+       !$acc&   col_ns%manure_r_grz, col_ns%manure_u_app, col_ns%manure_u_grz, col_ns%tan_f1, col_ns%tan_f2, &
+       !$acc&   col_ns%tan_f3, col_ns%tan_f4, col_ns%tan_g1, col_ns%tan_g2, col_ns%tan_g3, col_ns%tan_s0, &
+       !$acc&   col_ns%tan_s1, col_ns%tan_s2, col_ns%tan_s3) if_present if(elm_device_ready)
        nstored_old = get_total_n('pools_storage')
        nsoilman_old = get_total_n('pools_manure')
        nsoilfert_old = get_total_n('pools_fertilizer')
     end if
 
     ! Assign the "pastoral" manure entirely to the natural vegetation column
+    ! spel acc-sync: device data this host code uses
+    !$acc update self(col_nf%manure_n_appl, col_nf%manure_n_grz) if_present if(elm_device_ready)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        l = col_pp%landunit(c)
@@ -319,6 +332,19 @@ contains
     end if
 
     ! spel acc-sync: device data this host code uses
+    !$acc update self(atm2lnd_vars%forc_q_downscaled_col, col_es%t_grnd, col_nf%fert_n_appl, &
+    !$acc&   col_nf%fert_nh4_runoff, col_nf%fert_nh4_to_soil, col_nf%fert_no3_to_soil, col_nf%manure_n_appl, &
+    !$acc&   col_nf%manure_n_grz, col_nf%manure_nh4_runoff, col_nf%manure_nh4_to_soil, &
+    !$acc&   col_nf%manure_no3_to_soil, col_nf%manure_tan_appl, col_nf%nh3_barns, col_nf%nh3_fert, &
+    !$acc&   col_nf%nh3_grz, col_nf%nh3_manure_app, col_nf%nh3_otherfert, col_nf%nh3_stores, &
+    !$acc&   col_nf%nh3_total, col_nf%otherfert_n_appl, col_ns%fan_grz_fract, col_ns%fert_u1, col_ns%fert_u2, &
+    !$acc&   col_ns%manure_a_app, col_ns%manure_a_grz, col_ns%manure_r_app, col_ns%manure_r_grz, &
+    !$acc&   col_ns%manure_u_app, col_ns%manure_u_grz, col_ns%tan_f1, col_ns%tan_f2, col_ns%tan_f3, &
+    !$acc&   col_ns%tan_f4, col_ns%tan_g1, col_ns%tan_g2, col_ns%tan_g3, col_ns%tan_s0, col_ns%tan_s1, &
+    !$acc&   col_ns%tan_s2, col_ns%tan_s3, col_wf%qflx_evap_grnd, col_wf%qflx_infl, col_wf%qflx_surf, &
+    !$acc&   col_ws%h2osoi_tend_tsl_col, col_ws%h2osoi_vol, frictionvel_vars%ram1_patch, &
+    !$acc&   frictionvel_vars%rb1_patch, soilstate_vars%soilpsi_col, tanpools, &
+    !$acc&   ureapools) if_present if(elm_device_ready)
     !$acc update self(atm2lnd_vars%forc_q_downscaled_col, col_es%t_grnd, col_nf%fert_n_appl, &
     !$acc&   col_nf%fert_nh4_runoff, col_nf%fert_nh4_to_soil, col_nf%fert_no3_to_soil, col_nf%manure_n_appl, &
     !$acc&   col_nf%manure_n_barns, col_nf%manure_n_grz, col_nf%manure_n_mix, col_nf%manure_n_transf, &
@@ -604,8 +630,27 @@ contains
           call endrun(msg='ERROR: FAN, negative total emission')
        end if
     end do
+    !$acc update device(col_nf%fert_nh4_runoff, col_nf%fert_nh4_to_soil, col_nf%fert_no3_to_soil, &
+    !$acc&   col_nf%manure_nh4_runoff, col_nf%manure_nh4_to_soil, col_nf%manure_no3_to_soil, col_nf%nh3_fert, &
+    !$acc&   col_nf%nh3_grz, col_nf%nh3_manure_app, col_nf%nh3_otherfert, col_nf%nh3_total, &
+    !$acc&   col_nf%otherfert_n_appl, col_ns%fan_grz_fract, col_ns%fert_u1, col_ns%fert_u2, &
+    !$acc&   col_ns%manure_a_app, col_ns%manure_a_grz, col_ns%manure_r_app, col_ns%manure_r_grz, &
+    !$acc&   col_ns%manure_u_app, col_ns%manure_u_grz, col_ns%tan_f1, col_ns%tan_f2, col_ns%tan_f3, &
+    !$acc&   col_ns%tan_f4, col_ns%tan_g1, col_ns%tan_g2, col_ns%tan_g3, col_ns%tan_s0, col_ns%tan_s1, &
+    !$acc&   col_ns%tan_s2, col_ns%tan_s3, fluxes, fluxes_tmp, hconc_grz, hconc_slr, ndep_org, orgpools, &
+    !$acc&   tanpools, tanprod, tanprod_from_urea, ureapools) if_present
 
     if (do_balance_checks) then
+       ! spel acc-sync: device data this host code uses
+       !$acc update self(col_nf%fert_n_appl, col_nf%fert_nh4_runoff, col_nf%fert_nh4_to_soil, &
+       !$acc&   col_nf%fert_no3_to_soil, col_nf%manure_n_barns, col_nf%manure_n_grz, col_nf%manure_n_mix, &
+       !$acc&   col_nf%manure_n_transf, col_nf%manure_nh4_runoff, col_nf%manure_nh4_to_soil, &
+       !$acc&   col_nf%manure_no3_to_soil, col_nf%nh3_barns, col_nf%nh3_fert, col_nf%nh3_grz, &
+       !$acc&   col_nf%nh3_manure_app, col_nf%nh3_stores, col_ns%fert_u1, col_ns%fert_u2, &
+       !$acc&   col_ns%manure_a_app, col_ns%manure_a_grz, col_ns%manure_n_stored, col_ns%manure_r_app, &
+       !$acc&   col_ns%manure_r_grz, col_ns%manure_u_app, col_ns%manure_u_grz, col_ns%tan_f1, col_ns%tan_f2, &
+       !$acc&   col_ns%tan_f3, col_ns%tan_f4, col_ns%tan_g1, col_ns%tan_g2, col_ns%tan_g3, col_ns%tan_s0, &
+       !$acc&   col_ns%tan_s1, col_ns%tan_s2, col_ns%tan_s3) if_present if(elm_device_ready)
        call balance_check('Storage', nstored_old, &
             get_total_n('pools_storage'), get_total_n('fluxes_storage'))
        call balance_check('Manure', nsoilman_old, &
@@ -796,6 +841,9 @@ contains
     end do
 
     ! spel acc-sync: device data this host code uses
+    !$acc update self(frictionvel_vars%u10_patch, grz_fract, manure_n_barns, manure_n_transf, n_manure_graze, &
+    !$acc&   n_manure_mixed, n_manure_spread, nh3_flux_barns, nh3_flux_stores, tan_manure_spread, &
+    !$acc&   veg_es%t_ref2m) if_present if(elm_device_ready)
     !$acc update self(frictionvel_vars%u10_patch, manure_n_barns, manure_n_transf, n_manure_graze, &
     !$acc&   n_manure_mixed, n_manure_spread, nh3_flux_barns, nh3_flux_stores, tan_manure_spread, &
     !$acc&   veg_es%t_ref2m) if_present if(elm_device_ready)
@@ -903,6 +951,8 @@ contains
        end if
 
     end do ! grid
+    !$acc update device(fluxes_nitr, fluxes_tan, grz_fract, manure_n_barns, manure_n_transf, n_manure_graze, &
+    !$acc&   n_manure_mixed, n_manure_spread, nh3_flux_barns, nh3_flux_stores, tan_manure_spread) if_present
     !$acc update device(grz_fract, manure_n_barns, manure_n_transf, n_manure_graze, n_manure_mixed, &
     !$acc&   n_manure_spread, nh3_flux_barns, nh3_flux_stores, tan_manure_spread) if_present
   end associate

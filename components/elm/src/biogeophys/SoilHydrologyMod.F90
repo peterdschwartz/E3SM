@@ -267,7 +267,7 @@ contains
          ! This will be the istsoil, istcrop, and icol_road_perv subset of urban columns
          ! First zero the topounit sum of weights. This zeros some multiple times, but no harm done.
          ! spel acc-sync: device data this host code uses
-         !$acc update self(col_pp%wttopounit) if_present
+         !$acc update self(col_pp%wttopounit) if_present if(elm_device_ready)
          do fc = 1, num_hydrologyc
             c = filter_hydrologyc(fc)
             t = col_pp%topounit(c)
@@ -2552,7 +2552,7 @@ contains
           ! spel acc-sync: device data this host code uses
           !$acc update self(col_ws%h2osoi_ice, col_ws%h2osoi_liq, col_ws%h2osoi_vol, &
           !$acc&   soilhydrology_vars%ice_col, soilhydrology_vars%moist_col, &
-          !$acc&   soilhydrology_vars%moist_vol_col) if_present
+          !$acc&   soilhydrology_vars%moist_vol_col) if_present if(elm_device_ready)
           ice(c, nlayer+1:nlayert)       = h2osoi_ice(c, nlevsoi+1:nlevgrnd)
           moist(c, nlayer+1:nlayert)     = h2osoi_liq(c, nlevsoi+1:nlevgrnd)
           moist_vol(c, nlayer+1:nlayert) = h2osoi_vol(c, nlevsoi+1:nlevgrnd)

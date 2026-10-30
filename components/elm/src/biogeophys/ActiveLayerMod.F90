@@ -194,10 +194,10 @@ contains
             c = filter_soilc(fc)
             k_frz = nlevgrnd
             ! spel acc-sync: device data this host code uses
-            !$acc update self(col_es%t_soisno) if_present
+            !$acc update self(col_es%t_soisno) if_present if(elm_device_ready)
             if (t_soisno(c,nlevgrnd) <= SHR_CONST_TKFRZ ) then
                ! spel acc-sync: device data this host code uses
-               !$acc update self(col_es%t_soisno) if_present
+               !$acc update self(col_es%t_soisno) if_present if(elm_device_ready)
                k_frz = 0
                do j=nlevgrnd-1,1,-1
                   if ( t_soisno(c,j) > SHR_CONST_TKFRZ ) then
@@ -211,7 +211,7 @@ contains
             ! changes in polygonal ground
             if (year .eq. 1989) then
                ! spel acc-sync: device data this host code uses
-               !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col) if_present
+               !$acc update self(canopystate_vars%altmax_col, canopystate_vars%altmax_indx_col) if_present if(elm_device_ready)
                altmax_1989(c) = altmax(c)
                altmax_1989_indx(c) = altmax_indx(c)
                !$acc update device(canopystate_vars%altmax_1989_col, &
@@ -225,14 +225,14 @@ contains
            ! for taliks
 
            ! initialize melt_profile as zero
-           !$acc data copy(melt_profile)
+           !$acc data copy(melt_profile) if(elm_device_ready)
            !$acc parallel loop gang vector default(present) if(elm_device_ready)
            do spel_i1 = lbound(melt_profile,1), ubound(melt_profile,1)  ! spel section-loop
               melt_profile(spel_i1) = 0._r8
            end do
            !$acc end data
 
-           !$acc data copy(melt_profile)
+           !$acc data copy(melt_profile) if(elm_device_ready)
            !$acc parallel loop gang vector default(present) private(orig_excess, old_mfrac) if(elm_device_ready)
            do j = nlevgrnd,1,-1 ! note, this will go from bottom to top
               if (j .gt. k_frz + 1) then ! all layers below k_frz + 1 remain frozen
@@ -277,10 +277,10 @@ contains
 
            ! subsidence is integral of melt profile:
            ! spel acc-sync: device data this host code uses
-           !$acc update self(canopystate_vars%altmax_ever_col) if_present
+           !$acc update self(canopystate_vars%altmax_ever_col) if_present if(elm_device_ready)
            if ((year .ge. 1989) .and. (altmax_ever(c) .ge. altmax_1989(c))) then
               ! spel acc-sync: device data this host code uses
-              !$acc update self(melt_profile) if_present
+              !$acc update self(melt_profile) if_present if(elm_device_ready)
               subsidence(c) = subsidence(c) + sum(melt_profile)
               !$acc update device(col_ws%iwp_subsidence) if_present
            end if

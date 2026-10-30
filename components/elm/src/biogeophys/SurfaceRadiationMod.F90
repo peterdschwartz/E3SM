@@ -380,6 +380,7 @@ contains
      !------------------------------------------------------------------------------
 
      integer :: spel_i1, spel_i2  ! spel section-loop indices
+     integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
      associate(                                                     &
           snl             =>    col_pp%snl                           , & ! Input:  [integer  (:)   ] negative number of snow layers [nbr]
 
@@ -490,15 +491,23 @@ contains
 
 
        if (.not. use_finetop_rad) then
+          spel_lb1 = lbound(forc_solad_pp,2)  ! spel collapse-bounds
+          spel_ub1 = ubound(forc_solad_pp,2)  ! spel collapse-bounds
+          spel_lb2 = lbound(forc_solad_pp,1)  ! spel collapse-bounds
+          spel_ub2 = ubound(forc_solad_pp,1)  ! spel collapse-bounds
           !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-          do spel_i2 = lbound(forc_solad_pp,2), ubound(forc_solad_pp,2)  ! spel section-loop
-             do spel_i1 = lbound(forc_solad_pp,1), ubound(forc_solad_pp,1)
+          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+             do spel_i1 = spel_lb2, spel_ub2
                 forc_solad_pp(spel_i1, spel_i2) = forc_solad(spel_i1, spel_i2)
              end do
           end do
+          spel_lb1 = lbound(forc_solai_pp,2)  ! spel collapse-bounds
+          spel_ub1 = ubound(forc_solai_pp,2)  ! spel collapse-bounds
+          spel_lb2 = lbound(forc_solai_pp,1)  ! spel collapse-bounds
+          spel_ub2 = ubound(forc_solai_pp,1)  ! spel collapse-bounds
           !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
-          do spel_i2 = lbound(forc_solai_pp,2), ubound(forc_solai_pp,2)  ! spel section-loop
-             do spel_i1 = lbound(forc_solai_pp,1), ubound(forc_solai_pp,1)
+          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
+             do spel_i1 = spel_lb2, spel_ub2
                 forc_solai_pp(spel_i1, spel_i2) = forc_solai(spel_i1, spel_i2)
              end do
           end do

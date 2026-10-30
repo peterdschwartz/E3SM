@@ -670,7 +670,7 @@ contains
     !-----------------------------------------------------------------------
     
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present
+    !$acc update self(rbufslp) if_present if(elm_device_ready)
     begp = bounds%begp; endp = bounds%endp
 
     dtime = get_step_size()
@@ -729,7 +729,7 @@ contains
        end if
     end do
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present
+    !$acc update self(rbufslp) if_present if(elm_device_ready)
     !$acc end data
     call update_accum_field  ('GDDTSOI', rbufslp, nstep)
     call extract_accum_field ('GDDTSOI', this%gddtsoi_patch, nstep)

@@ -62,7 +62,7 @@ contains
 
     if (.not.use_fates) then
 
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready) no_create(c13_grc_cf, c13_grc_cs, c14_grc_cf, c14_grc_cs)
        do g = bounds%begg, bounds%endg
           grc_cs%core%seed(g) = grc_cs%core%seed(g) &
                - grc_cf%core%dwt_seed_to_leaf(g)     * dt &

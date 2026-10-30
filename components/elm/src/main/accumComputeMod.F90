@@ -20,6 +20,7 @@ module accumComputeMod
   ! Inactive points are skipped, following the CLM (ctsm5.4.042) active-element fix.
   !
   ! !USES:
+  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only : r8 => shr_kind_r8
   !
   implicit none
@@ -100,6 +101,10 @@ contains
   subroutine accum_host_values(f)
     type(accum_field), intent(inout) :: f
     if (f%resident) then
+       ! unconditional: the accumulators are resident here, not in the device-data layer, and this
+       ! pull runs when the host takes over (restart write, host-mode update), i.e. with
+       ! elm_device_ready already false (an if(elm_device_ready) here lost 10 steps of every
+       ! accumulator in the GPU restart, 2026-10-30)
        !$acc update self(f%val, f%nsteps)
     end if
   end subroutine accum_host_values
