@@ -866,13 +866,14 @@ contains
     character(len=*), parameter :: subname = 'set_pct_landunit_diagnostics'
     !-----------------------------------------------------------------------
 
-    subgrid_weights_diagnostics%pct_landunit(bounds%begt:bounds%endt,:) = 0._r8
     
+    ! Note: this seems uneccessary if every landunit belongs to a topounit
+    ! subgrid_weights_diagnostics%pct_landunit(bounds%begt:bounds%endt,:) = 0._r8
+
+    !$acc parallel loop independent gang vector default(present)
     do l = bounds%begl, bounds%endl
        g = lun_pp%gridcell(l)
        t = lun_pp%topounit(l)
-       !topi = grc_pp%topi(g)
-       !ti = t - topi + 1
        ltype = lun_pp%itype(l)
        subgrid_weights_diagnostics%pct_landunit(t,ltype) = lun_pp%wttopounit(l) * 100._r8  !lun_pp%wtgcell(l) * 100._r8 TKT
     end do
@@ -946,14 +947,16 @@ contains
     character(len=*), parameter :: subname = 'set_pct_pft_diagnostics'
     !-----------------------------------------------------------------------
     
-    subgrid_weights_diagnostics%pct_nat_pft(bounds%begt:bounds%endt,:) = 0._r8
+    ! subgrid_weights_diagnostics%pct_nat_pft(bounds%begt:bounds%endt,:) = 0._r8
 
     ! Note that pct_cft will be 0-size if cft_size is 0 (which can happen if we don't
     ! have a crop landunit). But it doesn't hurt to have this line setting all elements
     ! to 0, and doing this always allows us to avoid extra logic which could be a
     ! maintenance problem.
-    subgrid_weights_diagnostics%pct_cft(bounds%begt:bounds%endt,:) = 0._r8
+    ! NOTE: this kind of thinking is not right!
+    ! subgrid_weights_diagnostics%pct_cft(bounds%begt:bounds%endt,:) = 0._r8
     
+    !$acc parallel loop independent gang vector default(present)
     do p = bounds%begp,bounds%endp
        g = veg_pp%gridcell(p)
        l = veg_pp%landunit(p)

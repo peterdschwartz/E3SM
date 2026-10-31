@@ -578,20 +578,15 @@ module elm_varctl
    ! Modified infiltration scheme in surface water storage
    !----------------------------------------------------------
    logical, public :: use_modified_infil = .false.
+  logical, public :: active_dynamic_subgrid = .false.
 
   ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(fan_to_bgc_crop, fan_to_bgc_veg)
-  ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(use_finetop_rad, use_top_solar_rad)
-  ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(use_fan)
-  ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(use_firn_percolation_and_compaction)
-  ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(use_extrasnowlayers)
-  ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(extra_gw_irr, irrigate)
-  ! spel acc-apply: module data read in device code (updated by the device data layer)
   !$acc declare create(iulog, lnd_rof_coupling_nstep, use_dust_snow_internal_mixing, use_im2_hillslope_hydrology, use_lnd_rof_two_way, use_modified_infil, use_ocn_lnd_one_way)
 contains
 

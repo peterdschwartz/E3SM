@@ -152,9 +152,6 @@ contains
     !character(len=*), parameter :: subname = 'template_col_from_natveg_array'
     !-----------------------------------------------------------------------
 
-    !SHR_ASSERT_ALL((ubound(cactive) == (/bounds%endc/)), errMsg(sourcefile, __LINE__))
-    !SHR_ASSERT_ALL((ubound(c_templates) == (/bounds%endc/)), errMsg(sourcefile, __LINE__))
-
     do c = bounds%begc, bounds%endc
        c_templates(c) = template_col_from_landunit(bounds, c, istsoil, &
             cactive(bounds%begc:bounds%endc))

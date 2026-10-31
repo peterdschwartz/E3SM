@@ -75,14 +75,18 @@ contains
     type(bounds_type)         , intent(in)    :: bounds
     !
     ! !LOCAL VARIABLES:
-    integer :: p, c   ! patch & col indices
+    integer :: p, c,begp,endp,begc,endc   ! patch & col indices
     ! ----------------------------------------------------------------------
+    begp = bounds%begp; endp = bounds%endp
+    begc = bounds%begc; endc = bounds%endc
 
-    do p = bounds%begp, bounds%endp
+    !$acc parallel loop independent gang vector default(present) async(1)
+    do p = begp, endp
        this%pwtcol(p) = veg_pp%wtcol(p)
     end do
 
-    do c = bounds%begc, bounds%endc
+    !$acc parallel loop independent gang vector default(present) async(2)
+    do c = begc, endc
        this%cactive(c) = col_pp%active(c)
     end do
   end subroutine set_prior_weights

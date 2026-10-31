@@ -257,13 +257,17 @@ contains
 
     !
     ! !LOCAL VARIABLES:
-    integer :: c
+    integer :: c, begc, endc
 
     character(len=*), parameter :: subname = 'set_new_weights'
     !-----------------------------------------------------------------------
-
+    begc = bounds%begc; endc = bounds%endc;
+    !$acc serial default(present)
     this%any_changes(clump_index) = .false.
-    do c = bounds%begc, bounds%endc
+    !$acc end serial
+
+   !$acc parallel loop independent gang vector default(present)
+    do c = begc, endc
        this%cwtgcell_new(c)     = col_pp%wtgcell(c)
        this%area_gained_col(c)  = this%cwtgcell_new(c) - this%cwtgcell_old(c)
        if (this%area_gained_col(c) /= 0._r8) then

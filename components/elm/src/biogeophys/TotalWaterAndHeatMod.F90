@@ -730,7 +730,6 @@ contains
     
     real(r8) :: sum_heat,sum_cv,sum_latent, sum_hice, sum_dry
 
-    !character(len=*), parameter :: subname = 'ComputeHeatLake'
     !-----------------------------------------------------------------------
     
     associate( &
@@ -781,11 +780,9 @@ contains
                   cv_liquid = sum_cv, &
                   heat_liquid = sum_heat, &
                   latent_heat_liquid = sum_latent)
-             
              sum_hice = sum_hice + &
                   TempToHeat(t_soisno(c,j), (h2osoi_ice(c,j)*cpice))
           end do
-          
          !  else if (h2osno(c) /= 0._r8) then
          !     ! TODO(wjs, 2017-03-16) (Copying this note from old code... I'm not positive
          !     ! it's still true.) The heat capacity (not latent heat) of snow without snow
@@ -830,15 +827,11 @@ contains
        latent_heat_liquid(fc) = latent_heat_liquid(fc) + sum_latent 
        heat_ice(fc) = heat_ice(fc) + sum_hice
 
-    end do
+       ! TODO(wjs, 2017-03-11) Include heat content of water in lakes, once we include
+       ! lake water as an explicit water state (https://github.com/NCAR/CLM/issues/2)
 
-    ! TODO(wjs, 2017-03-11) Include heat content of water in lakes, once we include
-    ! lake water as an explicit water state (https://github.com/NCAR/CLM/issues/2)
-
-    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
-    do fc = 1, num_lakec
-       c = filter_lakec(fc)
        heat(c) = heat_dry_mass(fc) + heat_ice(fc) + heat_liquid(c) + latent_heat_liquid(fc)
+
     end do
 
     !$acc exit data delete(&

@@ -160,13 +160,16 @@ contains
     type(bounds_type), intent(in) :: bounds
     !
     ! !LOCAL VARIABLES:
-    integer :: p
+    integer :: p,begp,endp
     integer :: c
 
     character(len=*), parameter :: subname = 'set_old_weights'
     !-----------------------------------------------------------------------
+    begp=bounds%begp; endp=bounds%endp
 
-    do p = bounds%begp, bounds%endp
+    !$acc parallel loop independent gang vector &
+    !$acc& present(veg_pp%column(:), this%pwtgcell_old(:),this%cwtgcell_old(:), veg_pp%wtgcell(:), col_pp%wtgcell(:))
+    do p = begp, endp
        c = veg_pp%column(p)
        this%pwtgcell_old(p) = veg_pp%wtgcell(p)
        this%cwtgcell_old(c) = col_pp%wtgcell(c)
@@ -186,12 +189,14 @@ contains
     type(bounds_type), intent(in) :: bounds
     !
     ! !LOCAL VARIABLES:
-    integer :: p
+    integer :: p,begp,endp
 
     !character(len=*), parameter :: subname = 'set_new_weights'
     !-----------------------------------------------------------------------
+    begp = bounds%begp; endp = bounds%endp;
 
-    do p = bounds%begp, bounds%endp
+    !$acc parallel loop independent gang vector default(present)
+    do p = begp, endp
        this%pwtgcell_new(p) = veg_pp%wtgcell(p)
        this%dwt(p)          = this%pwtgcell_new(p) - this%pwtgcell_old(p)
        if (this%dwt(p) > 0._r8) then

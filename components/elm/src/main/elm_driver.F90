@@ -254,9 +254,12 @@ contains
     type(bounds_type)    :: bounds_proc
     !-----------------------------------------------------------------------
 
-#ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before get_curr_time_string
-#endif
+    if(elm_device_ready) then
+        if(use_fates) call endrun(msg="FATES not supported with GPU enabled")
+        if(use_fan) call endrun(msg="FAN not supported with GPU enabled")
+        if(use_erosion) call endrun(msg="EROSION not supported with GPU enabled")
+    endif
+
     !$acc update device(atm2lnd_vars%deficit_grc, atm2lnd_vars%forc_aer_grc, atm2lnd_vars%forc_flood_grc, &
     !$acc&   atm2lnd_vars%forc_hgt_grc, atm2lnd_vars%forc_hgt_q_grc, atm2lnd_vars%forc_hgt_t_grc, &
     !$acc&   atm2lnd_vars%forc_hgt_u_grc, atm2lnd_vars%forc_lwrad_not_downscaled_grc, &
@@ -286,11 +289,10 @@ contains
     ! Determine processor bounds and clumps for this processor
 
     call get_proc_bounds(bounds_proc)
-#ifdef _OPENACC
+
     ! device copies of the bounds: kernels read them (associate names of bounds%beg/end*);
     ! get_clump_bounds updates the device copy of bounds_clump (if_present)
     !$acc enter data copyin(bounds_proc) create(bounds_clump)
-#endif
 #ifdef _OPENACC
     ! spel device-data: the whole state to the device if initialization did not (fallback)
     if (.not. elm_device_resident) then
@@ -635,12 +637,6 @@ contains
     ! ============================================================================
 
     call t_startf('dyn_subgrid')
-#ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! dynSubgrid_driver runs on the host (out of the GPU port): its kernels follow elm_device_ready
-#endif
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before dynsubgrid_driver
-#endif
     call dynSubgrid_driver(bounds_proc,                                      &
        urbanparams_vars, soilstate_vars, soilhydrology_vars, lakestate_vars, &
        energyflux_vars, canopystate_vars, photosyns_vars, cnstate_vars,                       &
@@ -648,6 +644,7 @@ contains
        col_cs, c13_col_cs, c14_col_cs, col_cf,  &
        grc_cs, grc_cf , glc2lnd_vars,  crop_vars, iac2lnd_vars)
     call t_stopf('dyn_subgrid')
+
 
     if (use_cn  .or. use_fates) then
        nstep = get_nstep()
@@ -664,39 +661,18 @@ contains
 
           !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
           do nc = 1,nclumps
+             !$acc serial
              call get_clump_bounds(nc, bounds_clump)
-             !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
-             !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, &
-             !$acc&   bounds_clump%begg_ghost, bounds_clump%begl, bounds_clump%begl_all, &
-             !$acc&   bounds_clump%begl_ghost, bounds_clump%begp, bounds_clump%begp_all, &
-             !$acc&   bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
-             !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, &
-             !$acc&   bounds_clump%endc_all, bounds_clump%endc_ghost, bounds_clump%endcohort, &
-             !$acc&   bounds_clump%endg, bounds_clump%endg_all, bounds_clump%endg_ghost, bounds_clump%endl, &
-             !$acc&   bounds_clump%endl_all, bounds_clump%endl_ghost, bounds_clump%endp, &
-             !$acc&   bounds_clump%endp_all, bounds_clump%endp_ghost, bounds_clump%endt, &
-             !$acc&   bounds_clump%endt_all, bounds_clump%endt_ghost, &
-             !$acc&   bounds_clump%level) if_present if(.not. elm_device_fullsync)
-             !$acc enter data copyin(bounds_clump)  ! the private copy of this OpenMP loop: kernels read it
+             !$acc end serial
 
              if(use_cn) then
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
                 call veg_cs%Summary(bounds_clump, &
                      filter(nc)%num_soilc, filter(nc)%soilc, &
                      filter(nc)%num_soilp, filter(nc)%soilp, col_cs)
-
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
                 call veg_ns%Summary(bounds_clump, &
                      filter(nc)%num_soilc, filter(nc)%soilc, &
                      filter(nc)%num_soilp, filter(nc)%soilp, col_ns)
 
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
                 call veg_ps%Summary(bounds_clump, &
                      filter(nc)%num_soilc, filter(nc)%soilc, &
                      filter(nc)%num_soilp, filter(nc)%soilp, col_ps)
@@ -705,60 +681,33 @@ contains
                 ! In this scenario, we simply zero all of the
                 ! column level variables that would had been upscaled
                 ! in the veg summary with p2c
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zeroforfates
-#endif
                 call col_cs%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zeroforfates
-#endif
                 call col_ns%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zeroforfates
-#endif
                 call col_ps%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
              end if
 
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
              call col_cs%Summary(bounds_clump, &
                   filter(nc)%num_soilc, filter(nc)%soilc)
 
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
              call col_ns%Summary(bounds_clump, &
                   filter(nc)%num_soilc, filter(nc)%soilc)
-
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
              call col_ps%Summary(bounds_clump, &
                   filter(nc)%num_soilc, filter(nc)%soilc)
 
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before endgridcbalanceafterdynsubgriddriver
-#endif
+            if(active_dynamic_subgrid) then
              call EndGridCBalanceAfterDynSubgridDriver(bounds_clump, &
                   filter(nc)%num_soilc, filter(nc)%soilc, &
                   col_cs, grc_cs, grc_cf)
 
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before endgridnbalanceafterdynsubgriddriver
-#endif
              call EndGridNBalanceAfterDynSubgridDriver(bounds_clump, &
                   filter(nc)%num_soilc, filter(nc)%soilc, &
                   col_ns, grc_ns, grc_nf)
 
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before endgridpbalanceafterdynsubgriddriver
-#endif
              call EndGridPBalanceAfterDynSubgridDriver(bounds_clump, &
                   filter(nc)%num_soilc, filter(nc)%soilc, &
                   col_ps, grc_ps, grc_pf)
+            endif
 
-             !$acc exit data delete(bounds_clump)
           end do
           !$OMP END PARALLEL DO
           call t_stopf('cnbalchk_at_grid')
@@ -784,23 +733,12 @@ contains
 
     !$OMP PARALLEL DO PRIVATE (nc,bounds_clump)
     do nc = 1,nclumps
+
+        !$acc serial
        call get_clump_bounds(nc, bounds_clump)
-       !$acc enter data copyin(bounds_clump)  ! the private copy of this OpenMP loop: kernels read it
+        !$acc end serial
 
        call t_startf('begwbal')
-       !$acc update device(bounds_clump%begc, bounds_clump%begc_all, bounds_clump%begc_ghost, &
-       !$acc&   bounds_clump%begcohort, bounds_clump%begg, bounds_clump%begg_all, bounds_clump%begg_ghost, &
-       !$acc&   bounds_clump%begl, bounds_clump%begl_all, bounds_clump%begl_ghost, bounds_clump%begp, &
-       !$acc&   bounds_clump%begp_all, bounds_clump%begp_ghost, bounds_clump%begt, bounds_clump%begt_all, &
-       !$acc&   bounds_clump%begt_ghost, bounds_clump%clump_index, bounds_clump%endc, bounds_clump%endc_all, &
-       !$acc&   bounds_clump%endc_ghost, bounds_clump%endcohort, bounds_clump%endg, bounds_clump%endg_all, &
-       !$acc&   bounds_clump%endg_ghost, bounds_clump%endl, bounds_clump%endl_all, bounds_clump%endl_ghost, &
-       !$acc&   bounds_clump%endp, bounds_clump%endp_all, bounds_clump%endp_ghost, bounds_clump%endt, &
-       !$acc&   bounds_clump%endt_all, bounds_clump%endt_ghost, &
-       !$acc&   bounds_clump%level) if_present if(.not. elm_device_fullsync)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before begincolwaterbalance
-#endif
        call BeginColWaterBalance(bounds_clump,                &
             filter(nc)%num_nolakec, filter(nc)%nolakec,       &
             filter(nc)%num_lakec, filter(nc)%lakec,           &
@@ -812,21 +750,12 @@ contains
        call t_startf('begcnpbal')
        ! call veg summary before col summary, for p2c
        if (use_cn) then
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
           call veg_cs%Summary(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc, &
                filter(nc)%num_soilp, filter(nc)%soilp, col_cs)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
           call veg_ns%Summary(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc, &
                filter(nc)%num_soilp, filter(nc)%soilp, col_ns)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
           call veg_ps%Summary(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc, &
                filter(nc)%num_soilp, filter(nc)%soilp, col_ps)
@@ -834,17 +763,8 @@ contains
           ! In this scenario, we simply zero all of the
           ! column level variables that would had been upscaled
           ! in the veg summary with p2c
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zeroforfates
-#endif
           call col_cs%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zeroforfates
-#endif
           call col_ns%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before zeroforfates
-#endif
           call col_ps%ZeroForFates(bounds_clump,filter(nc)%num_soilc, filter(nc)%soilc)
        end if
        call t_stopf('begcnpbal')
@@ -852,58 +772,32 @@ contains
 
        if (use_cn  .or. use_fates) then
           call t_startf('begcnpbalwf')
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
           call col_cs%Summary(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
           call col_ns%Summary(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before summary
-#endif
           call col_ps%Summary(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before begincolcbalance
-#endif
           call BeginColCBalance(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc, &
                col_cs)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before begincolnbalance
-#endif
           call BeginColNBalance(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc, &
                col_ns)
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before begincolpbalance
-#endif
           call BeginColPBalance(bounds_clump, &
                filter(nc)%num_soilc, filter(nc)%soilc, &
                col_ps)
-
           call t_stopf('begcnpbalwf')
        end if
 
 
        if (do_budgets) then
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before waterbudget_setbeginningmonthlystates
-#endif
           call WaterBudget_SetBeginningMonthlyStates(bounds_clump )
           if (use_cn) then
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before cnpbudget_setbeginningmonthlystates
-#endif
              call CNPBudget_SetBeginningMonthlyStates(bounds_clump, col_cs, grc_cs)
           endif
        endif
 
-       !$acc exit data delete(bounds_clump)
     end do
     !$OMP END PARALLEL DO
 
@@ -920,10 +814,6 @@ contains
        ! ============================================================================
 
        call t_startf('ndep_interp')
-       ! PET: switching CN timestep
-#ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before ndep_interp
-#endif
        call ndep_interp(bounds_proc, atm2lnd_vars)
        call t_stopf('ndep_interp')
        !$acc update device(atm2lnd_vars%forc_ndep_grc) if_present if(.not. elm_device_fullsync)
@@ -932,9 +822,6 @@ contains
 
     if (use_cn) then
        call t_startf('fireinterp')
-#ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before fireinterp
-#endif
        call FireInterp(bounds_proc)
        call t_stopf('fireinterp')
        !$acc update device(forc_hdm, forc_lnfm) if_present if(.not. elm_device_fullsync)
@@ -942,9 +829,6 @@ contains
        ! fates_spitfire_mode is assigned an integer value in the namelist
        ! see bld/namelist_files/namelist_definition.xml for details
        if (fates_spitfire_mode > scalar_lightning) then
-#ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before interpfileinputs
-#endif
           call alm_fates%InterpFileInputs(bounds_proc)
        end if
     end if
@@ -958,9 +842,6 @@ contains
 
        call t_startf('pdep_interp')
        ! PET: switching CN timestep
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before pdep_interp
-#endif
        call pdep_interp(bounds_proc, atm2lnd_vars)
        call t_stopf('pdep_interp')
     end if
@@ -968,9 +849,6 @@ contains
 #endif
 
     if (use_fan) then
-#ifdef _OPENACC
-    call elm_device_update(to_device=.true., line=__LINE__)  ! spel device-data: host -> device before fanstream_interp
-#endif
        call fanstream_interp(bounds_proc, atm2lnd_vars)
     end if
 
@@ -1409,22 +1287,13 @@ contains
 
        if (use_cn .and. use_erosion) then
           ! spel targeted: device data this host code uses
-          !$acc update self(canopystate_vars%hbot_patch, canopystate_vars%htop_patch, &
-          !$acc&   canopystate_vars%tlai_patch, cnstate_vars%croot_prof_patch, cnstate_vars%froot_prof_patch, &
-          !$acc&   col_cs%core%decomp_pools_vr, col_wf%qflx_qrgwl, col_wf%qflx_surf, col_ws%frac_sno, &
-          !$acc&   veg_cs%core%deadcroot, veg_cs%core%froot, veg_cs%core%livecroot, veg_wf%qflx_dirct_rain, &
-          !$acc&   veg_wf%qflx_leafdrip, &
-          !$acc&   veg_wf%qflx_real_irrig_patch) if_present if(.not. elm_device_fullsync)
           call t_startf('erosion')
-#ifdef _OPENACC
-    call elm_device_update(to_device=.false., line=__LINE__)  ! spel device-data: device -> host before soilerosion
-#endif
+          if(elm_device_ready) then
+            call endrun(msg="Erosion not supported for GPU runs")
+          endif
           call SoilErosion(bounds_clump, filter(nc)%num_soilc, filter(nc)%soilc, &
                canopystate_vars, cnstate_vars, soilstate_vars, sedflux_vars)
           call t_stopf('erosion')
-          !$acc update device(sedflux_vars%sed_crop_ero_col, sedflux_vars%sed_ero_col, &
-          !$acc&   sedflux_vars%sed_p_ero_col, sedflux_vars%sed_q_ero_col, &
-          !$acc&   sedflux_vars%sed_yld_col) if_present if(.not. elm_device_fullsync)
        end if
 
        ! ============================================================================

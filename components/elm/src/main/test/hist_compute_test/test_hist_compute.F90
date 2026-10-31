@@ -25,7 +25,7 @@ program test_hist_compute
   !-----------------------------------------------------------------------
 
   use shr_kind_mod      , only : r8 => shr_kind_r8
-  use elm_varctl        , only : elm_device_ready
+  use elm_varctl_stub        , only : elm_device_ready
   use subgridAveViewMod , only : subgrid_ave_view, p2g_range, c2g_range, l2g_range, t2g_range
   use subgridAveViewMod , only : p2g_range_unity, c2g_range_unity, scale_unity
   use CompactLayoutMod  , only : compact_groups, compact_ngroups, compact_group_new, compact_group_fill, &

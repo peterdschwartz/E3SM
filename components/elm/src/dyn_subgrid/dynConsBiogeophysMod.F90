@@ -70,8 +70,6 @@ contains
     type(lakestate_type)     , intent(in)    :: lakestate_vars
     type(energyflux_type)    , intent(inout) :: energyflux_vars
     !
-    ! !LOCAL VARIABLES:
-    integer :: g   ! grid cell index
     !-------------------------------------------------------------------------------
     associate( &
              liq1 => grc_ws%liq1 ,&
@@ -175,27 +173,6 @@ contains
           grc_ef%eflx_dynbal    (g) = delta_heat(g)/dtime
        end do
     end if
-    !call AdjustDeltaHeatForDeltaLiq( &
-    !     bounds, &
-    !     delta_liq = delta_liq(bounds%begg:bounds%endg), &
-    !     liquid_water_temp1 = temperature_vars%liquid_water_temp1_grc(bounds%begg:bounds%endg), &
-    !     liquid_water_temp2 = temperature_vars%liquid_water_temp2_grc(bounds%begg:bounds%endg), &
-    !     delta_heat = delta_heat(bounds%begg:bounds%endg))
-
-    !call grc_wf%qflx_liq_dynbal_dribbler%set_curr_delta(bounds, &
-    !     delta_liq(begg:endg))
-    !call grc_wf%qflx_liq_dynbal_dribbler%get_curr_flux(bounds, &
-    !     grc_wf%qflx_liq_dynbal(begg:endg))
-
-    !call grc_wf%qflx_ice_dynbal_dribbler%set_curr_delta(bounds, &
-    !     delta_ice(begg:endg))
-    !call grc_wf%qflx_ice_dynbal_dribbler%get_curr_flux(bounds, &
-    !     grc_wf%qflx_ice_dynbal(begg:endg))
-
-    !call energyflux_vars%eflx_dynbal_dribbler%set_curr_delta(bounds, &
-    !     delta_heat(begg:endg))
-    !call energyflux_vars%eflx_dynbal_dribbler%get_curr_flux(bounds, &
-    !     energyflux_vars%eflx_dynbal_grc(begg:endg))
     end associate
     !$acc exit data delete(delta_liq, delta_ice, delta_heat)
   end subroutine dyn_hwcontent_final
@@ -229,20 +206,17 @@ contains
     !-----------------------------------------------------------------------
     ! spel acc-locals: device storage of the local work arrays
     !$acc enter data create(liquid_mass_col, ice_mass_col)
-    !$acc data copy(ice_mass_col, liquid_mass_col) if(elm_device_ready)
+
     call ComputeLiqIceMassNonLake(bounds, num_nolakec, filter_nolakec, &
          soilhydrology_vars,  &
          liquid_mass_col(bounds%begc:bounds%endc), &
          ice_mass_col(bounds%begc:bounds%endc))
 
-    !$acc end data
-    !$acc data copy(ice_mass_col, liquid_mass_col) if(elm_device_ready)
     call ComputeLiqIceMassLake(bounds, num_lakec, filter_lakec, &
          lakestate_vars, &
          liquid_mass_col(bounds%begc:bounds%endc), &
          ice_mass_col(bounds%begc:bounds%endc))
 
-    !$acc end data
     call c2g(bounds, &
          carr = liquid_mass_col(bounds%begc:bounds%endc), &
          garr = liquid_mass(bounds%begg:bounds%endg), &
@@ -294,72 +268,52 @@ contains
     real(r8) :: heat_col(bounds%begc:bounds%endc)  ! sum of heat content for all columns [J/m^2]
     real(r8) :: heat_liquid_col(bounds%begc:bounds%endc) ! sum of heat content for all columns: liquid water, excluding latent heat [J/m^2]
     real(r8) :: cv_liquid_col(bounds%begc:bounds%endc) ! sum of liquid heat capacity for all columns [J/(m^2 K)]
-
     real(r8) :: heat_liquid_grc(bounds%begg:bounds%endg) ! heat_liquid_col averaged to grid cell [J/m^2]
     real(r8) :: cv_liquid_grc(bounds%begg:bounds%endg) ! cv_liquid_col averaged to grid cell [J/(m^2 K)]
+    integer :: spel_i1  ! spel section-loop indices
     !-------------------------------------------------------------------------------
 
-    ! Enforce expected array sizes
-    !!SHR_ASSERT_ALL((ubound(heat_grc) == (/bounds%endg/)), errMsg(__FILE__, __LINE__))
-    !!SHR_ASSERT_ALL((ubound(liquid_water_temp_grc) == (/bounds%endg/)), errMsg(__FILE__, __LINE__))
-
-    integer :: spel_i1  ! spel section-loop indices
     ! spel acc-locals: device storage of the local work arrays
-    !$acc enter data create(heat_col, heat_liquid_col, cv_liquid_col, heat_liquid_grc, &
-    !$acc&   cv_liquid_grc)
+    !$acc enter data create(heat_col(:), heat_liquid_col(:), cv_liquid_col(:), heat_liquid_grc(:), &
+    !$acc&   cv_liquid_grc(:))
+
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do spel_i1 = bounds%begc, bounds%endc  ! spel section-loop
        heat_col(spel_i1)        = spval
-    end do
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i1 = bounds%begc, bounds%endc  ! spel section-loop
        heat_liquid_col(spel_i1) = spval
-    end do
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
-    do spel_i1 = bounds%begc, bounds%endc  ! spel section-loop
        cv_liquid_col(spel_i1)   = spval
     end do
 
-    !$acc data copy(cv_liquid_col, heat_col, heat_liquid_col) if(elm_device_ready)
     call ComputeHeatNonLake(bounds, num_nolakec, filter_nolakec, &
          urbanparams_vars, soilstate_vars, soilhydrology_vars, &
          heat = heat_col(bounds%begc:bounds%endc), &
          heat_liquid = heat_liquid_col(bounds%begc:bounds%endc), &
          cv_liquid = cv_liquid_col(bounds%begc:bounds%endc))
 
-    !$acc end data
-    !$acc data copy(cv_liquid_col, heat_col, heat_liquid_col) if(elm_device_ready)
     call ComputeHeatLake(bounds, num_lakec, filter_lakec, &
          soilstate_vars, &
          heat = heat_col(bounds%begc:bounds%endc), &
          heat_liquid = heat_liquid_col(bounds%begc:bounds%endc), &
          cv_liquid = cv_liquid_col(bounds%begc:bounds%endc))
 
-    !$acc end data
-    !$acc data copy(heat_col) if(elm_device_ready)
     call c2g(bounds, &
          carr = heat_col(bounds%begc:bounds%endc), &
          garr = heat_grc(bounds%begg:bounds%endg), &
          c2l_scale_type = unity, &
          l2g_scale_type = unity)
 
-    !$acc end data
-    !$acc data copy(heat_liquid_col, heat_liquid_grc) if(elm_device_ready)
     call c2g(bounds, &
          carr = heat_liquid_col(bounds%begc:bounds%endc), &
          garr = heat_liquid_grc(bounds%begg:bounds%endg), &
          c2l_scale_type = unity, &
          l2g_scale_type = unity)
 
-    !$acc end data
-    !$acc data copy(cv_liquid_col, cv_liquid_grc) if(elm_device_ready)
     call c2g(bounds, &
          carr = cv_liquid_col(bounds%begc:bounds%endc), &
          garr = cv_liquid_grc(bounds%begg:bounds%endg), &
          c2l_scale_type = unity, &
          l2g_scale_type = unity)
 
-    !$acc end data
     !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        if (cv_liquid_grc(g) > 0._r8) then
