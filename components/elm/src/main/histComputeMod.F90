@@ -21,15 +21,25 @@ module histComputeMod
   ! Per time step (hist_compute_update)
   ! - Multi-layer snow fields are first copied into snow_values with absent
   !   layers set to the field's no-snow value (spval or 0).
-  ! - One kernel accumulates every field: one gang per field, taking the fields
-  !   in an order grouped by subgrid level (process_order). For each level of
-  !   the field, the gang decides once what to do and calls vector routines
-  !   that loop over the points: a field averaged to gridcells first gets its
-  !   averages (the x2g_range routines of subgridAveViewMod, which subgridAveMod
-  !   uses too, so the sums and results are the same) into gridcell_samples;
-  !   then accumulate_samples applies the time operation, chosen once, to all
-  !   points.
-  ! - OpenACC directives only; a build without OpenACC runs serially.
+  ! - On the device (elm_device_ready): one kernel accumulates every field,
+  !   one gang per block of block_size buffer elements. Every field starts on
+  !   a block boundary, so a block is inside one field (block_field). Each
+  !   element computes its sample, the point's value or the average of its
+  !   gridcell (the x2g_point functions of subgridAveViewMod, which
+  !   subgridAveMod's averages use too, so the sums and results are the same),
+  !   and applies the field's time operation. The kernel is parallel over
+  !   fields, levels and points at once; a gang per field left most of the
+  !   device idle with few active fields and serialized a field's levels.
+  ! - On the host (no device, or a build without OpenACC): field by field, in
+  !   an order grouped by subgrid level (process_order). For each level of the
+  !   field the code decides once what to do and calls routines that loop over
+  !   the points: a field averaged to gridcells first gets its averages (the
+  !   x2g_range routines) into gridcell_samples; then accumulate_samples
+  !   applies the time operation, chosen once, to all points. Per element this
+  !   is about twice as cheap as the device kernel's dispatch, which matters
+  !   on the CPU.
+  ! - Both paths give bit-for-bit the same buffers (the unit test checks each
+  !   against the original algorithm).
   !
   ! Time operations (avgflag in histFileMod)
   !   'I' time_inst       the sample, spval if invalid
@@ -46,16 +56,27 @@ module histComputeMod
   ! A sample is valid where its point is active (averaged fields: always) and
   ! its value isn't spval. For 'A', 'U' and 'L', nacs counts the valid samples.
   !
-  ! The kernels need the model arrays and the subgrid view on the device
-  ! before hist_compute_build (OpenACC builds); see subgrid_ave_view_attach.
+  ! OpenACC: the kernels reach the model arrays and the subgrid view through
+  ! device pointers. hist_compute_attach attaches the arrays once they are on
+  ! the device (after hist_compute_build, which may run before the model's
+  ! copy): an attach to a target that is not present does nothing, the device
+  ! pointer keeps the host address, and on a machine with unified addressing
+  ! the kernel then silently reads the (stale) host array. So the attach checks
+  ! that every target is present and aborts otherwise, and the device path
+  ! refuses to run before it. The view is attached by subgrid_ave_view_attach
+  ! under the same rule.
   !
   ! !USES:
-  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
+  use elm_varctl, only : elm_device_ready, iulog  ! compute constructs run on the host before the device copy
+  use shr_sys_mod      , only : shr_sys_abort
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use subgridAveViewMod, only : subgrid_ave_view, spval
   use subgridAveViewMod, only : p2g_range, c2g_range, l2g_range, t2g_range
   use subgridAveViewMod, only : p2g_range_unity, c2g_range_unity, scale_unity
   use subgridAveViewMod, only : p2g_range_compact, c2g_range_compact
+  use subgridAveViewMod, only : p2g_point, c2g_point, l2g_point, t2g_point
+  use subgridAveViewMod, only : p2g_point_unity, c2g_point_unity
+  use subgridAveViewMod, only : p2g_point_compact, c2g_point_compact
   use CompactLayoutMod , only : compact_groups, compact_ngroups, compact_lev_patch, compact_lev_col, &
                                 compact_cidx_p, compact_cidx_c
   !
@@ -107,6 +128,7 @@ module histComputeMod
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: hist_compute_build         ! set up buffers and the field table
+  public :: hist_compute_attach        ! attach the model arrays on the device (OpenACC, after their copy)
   public :: hist_compute_views         ! pointer views of one field's buffers
   public :: hist_compute_update        ! accumulate the current time step
   public :: hist_compute_normalize     ! divide time averages by their sample counts (one tape)
@@ -125,15 +147,21 @@ module histComputeMod
   integer , allocatable :: snow_fields(:)       ! the fields that are snow fields
   real(r8), allocatable, target :: hbuf_pool(:)
   integer , allocatable, target :: nacs_pool(:)
+  integer , allocatable :: block_field(:)       ! the field of each block of hbuf_pool (device kernel)
   real(r8), allocatable :: snow_values(:)       ! snow fields with absent layers filled in
-  real(r8), allocatable :: gridcell_samples(:)  ! averages of the averaged fields at this step
-  logical , allocatable :: all_active(:)        ! .true.: points without an active check
+  integer , allocatable :: snow_block_field(:)  ! the field of each block of snow_values
+  real(r8), allocatable :: gridcell_samples(:)  ! host path: averages of the averaged fields at this step
+  logical , allocatable :: all_active(:)        ! host path: .true. (points without an active check)
   logical :: extrasnowlayers = .false.          ! snow levels are ordered top layer first
-  !$acc declare create(fields, hbuf_pool, nacs_pool, snow_values, gridcell_samples, all_active, &
+  !$acc declare create(fields, hbuf_pool, nacs_pool, block_field, snow_values, snow_block_field, &
   !$acc                extrasnowlayers)
+  ! Every field's buffers start on a multiple of block_size elements (hbuf_pool and
+  ! snow_values are padded), so one block of the device kernel is inside one field
+  integer, parameter :: block_size = 128
 
-  ! model arrays attached on the device by hist_compute_build
+  ! model arrays attached on the device by hist_compute_attach
   integer, allocatable :: attached1(:), attached2(:)
+  logical :: sources_attached = .false.
   !-----------------------------------------------------------------------
 
 contains
@@ -159,10 +187,12 @@ contains
     ! !LOCAL VARIABLES:
     integer :: f, n, offset, snow_offset, sample_offset, num_points, num_snow, extent
     integer :: level, averaged, max_points
+    logical :: was_attached
     !-----------------------------------------------------------------------
 
     ierr = 0
     errmsg = ' '
+    was_attached = sources_attached
     call release(src1, src2)
 
     num_fields = size(field_list)
@@ -250,7 +280,7 @@ contains
 
        if (fld%no_snow_behavior /= no_snow_unset) then
           fld%snow_offset = snow_offset
-          snow_offset = snow_offset + num_points * fld%num_levels
+          snow_offset = snow_offset + padded(num_points * fld%num_levels)
           num_snow = num_snow + 1
        end if
        if (fld%average_to_gridcell) then
@@ -263,23 +293,30 @@ contains
           fld%last_point  = fld%source_last
        end if
        fld%buffer_offset = offset
-       offset = offset + (fld%last_point - fld%first_point + 1) * fld%num_levels
+       offset = offset + padded((fld%last_point - fld%first_point + 1) * fld%num_levels)
        max_levels = max(max_levels, fld%num_levels)
        max_points = max(max_points, num_points)
        end associate
     end do
 
-    allocate(hbuf_pool(offset), nacs_pool(offset), snow_values(snow_offset), snow_fields(num_snow))
+    allocate(hbuf_pool(offset), nacs_pool(offset), block_field(offset / block_size))
+    allocate(snow_values(snow_offset), snow_block_field(snow_offset / block_size), snow_fields(num_snow))
     allocate(gridcell_samples(sample_offset), all_active(max_points), process_order(num_fields))
     hbuf_pool(:) = 0._r8
     nacs_pool(:) = 0
     all_active(:) = .true.
     num_snow = 0
     do f = 1, num_fields
-       if (fields(f)%snow_offset >= 0) then
+       associate(fld => fields(f))
+       extent = (fld%last_point - fld%first_point + 1) * fld%num_levels
+       if (extent > 0) block_field(fld%buffer_offset / block_size + 1 : (fld%buffer_offset + extent - 1) / block_size + 1) = f
+       if (fld%snow_offset >= 0) then
           num_snow = num_snow + 1
           snow_fields(num_snow) = f
+          extent = (fld%source_last - fld%source_first + 1) * fld%num_levels
+          if (extent > 0) snow_block_field(fld%snow_offset / block_size + 1 : (fld%snow_offset + extent - 1) / block_size + 1) = f
        end if
+       end associate
     end do
     ! processing order: grouped by subgrid level, native fields before
     ! averaged ones, in tape order within a group
@@ -296,11 +333,19 @@ contains
        end do
     end do
 
-    !$acc update device(fields, hbuf_pool, nacs_pool, all_active, extrasnowlayers)
+    !$acc update device(fields, hbuf_pool, nacs_pool, block_field, snow_block_field, extrasnowlayers)
     !$acc enter data copyin(tape_first_field, snow_fields, process_order)
-    call attach_sources(src1, src2)
+    ! a rebuild after hist_compute_attach (the model arrays are on the device): attach again
+    if (was_attached) call hist_compute_attach(src1, src2)
 
   end subroutine hist_compute_build
+
+  !-----------------------------------------------------------------------
+  pure integer function padded(n)
+    ! n rounded up to a multiple of block_size
+    integer, intent(in) :: n
+    padded = ((n + block_size - 1) / block_size) * block_size
+  end function padded
 
   !-----------------------------------------------------------------------
   pure subroutine level_bounds(view, level, first, last)
@@ -324,11 +369,21 @@ contains
   end subroutine level_bounds
 
   !-----------------------------------------------------------------------
-  subroutine attach_sources(src1, src2)
+  subroutine hist_compute_attach(src1, src2)
     !
     ! !DESCRIPTION:
     ! Put the pointer lists on the device and attach the model arrays the
-    ! fields use (their data must already be on the device).
+    ! fields use to their device copies. Call once those copies exist (after
+    ! hist_compute_build; the model copies its state later than the history
+    ! setup). The runtime skips an attach whose target is not present, and the
+    ! kernel would then read host memory, so every target is checked and a
+    ! missing one aborts the run. A rebuild (hist_compute_build) re-attaches
+    ! by itself.
+    !
+    ! !USES:
+#ifdef _OPENACC
+    use openacc, only : acc_is_present
+#endif
     !
     ! !ARGUMENTS:
     type(hist_src1d), intent(in) :: src1(:)
@@ -337,7 +392,14 @@ contains
     ! !LOCAL VARIABLES:
     logical :: used1(size(src1)), used2(size(src2))
     integer :: f, i
+#ifdef _OPENACC
+    integer :: cg, nmissing
+    character(len=256) :: msg
+#endif
     !-----------------------------------------------------------------------
+
+    if (.not. allocated(fields)) return
+    if (sources_attached) call detach_sources(src1, src2)
 
     used1(:) = .false.
     used2(:) = .false.
@@ -353,6 +415,41 @@ contains
     attached1 = pack([(i, i = 1, size(src1))], used1)
     attached2 = pack([(i, i = 1, size(src2))], used2)
 
+#ifdef _OPENACC
+    ! report every missing target (not just the first), then abort
+    nmissing = 0
+    do i = 1, size(attached1)
+       if (.not. acc_is_present(src1(attached1(i))%ptr)) then
+          nmissing = nmissing + 1
+          write(iulog, '(a,i0,a,i0,a)') 'histComputeMod: rank-1 model array ', attached1(i), &
+               ' of history field ', first_field_of(1, attached1(i)), ' is not on the device'
+       end if
+    end do
+    do i = 1, size(attached2)
+       if (.not. acc_is_present(src2(attached2(i))%ptr)) then
+          nmissing = nmissing + 1
+          write(iulog, '(a,i0,a,i0,a)') 'histComputeMod: rank-2 model array ', attached2(i), &
+               ' of history field ', first_field_of(2, attached2(i)), ' is not on the device'
+       end if
+    end do
+    do f = 1, num_fields
+       cg = fields(f)%compact_group
+       if (cg <= 0) cycle
+       if (compact_groups(cg)%nlev > 0) then
+          if (acc_is_present(compact_groups(cg)%data3)) cycle
+       else
+          if (acc_is_present(compact_groups(cg)%data)) cycle
+       end if
+       nmissing = nmissing + 1
+       write(iulog, '(a,i0,a,i0,a)') 'histComputeMod: compact group ', cg, ' of history field ', f, &
+            ' is not on the device'
+    end do
+    if (nmissing > 0) then
+       write(msg, '(a,i0,a)') 'histComputeMod: ', nmissing, ' history source arrays are not on the device (see log)'
+       call shr_sys_abort(trim(msg))
+    end if
+#endif
+
     !$acc enter data copyin(src1, src2)
     do i = 1, size(attached1)
        !$acc enter data attach(src1(attached1(i))%ptr)
@@ -360,17 +457,33 @@ contains
     do i = 1, size(attached2)
        !$acc enter data attach(src2(attached2(i))%ptr)
     end do
+    sources_attached = .true.
 
-  end subroutine attach_sources
+  contains
+
+    integer function first_field_of(rank, index)
+      ! the first field reading model array index of the given rank (for messages)
+      integer, intent(in) :: rank, index
+      integer :: k
+      first_field_of = 0
+      do k = 1, num_fields
+         if (fields(k)%compact_group == 0 .and. fields(k)%source_rank == rank .and. &
+              fields(k)%source_index == index) then
+            first_field_of = k
+            return
+         end if
+      end do
+    end function first_field_of
+
+  end subroutine hist_compute_attach
 
   !-----------------------------------------------------------------------
-  subroutine release(src1, src2)
-    ! Discard the buffers and the field table (and their device copies).
+  subroutine detach_sources(src1, src2)
+    ! Undo hist_compute_attach.
     type(hist_src1d), intent(in) :: src1(:)
     type(hist_src2d), intent(in) :: src2(:)
     integer :: i
 
-    if (.not. allocated(fields)) return
     do i = 1, size(attached1)
        !$acc exit data detach(src1(attached1(i))%ptr)
     end do
@@ -378,9 +491,21 @@ contains
        !$acc exit data detach(src2(attached2(i))%ptr)
     end do
     !$acc exit data delete(src1, src2)
+    sources_attached = .false.
+
+  end subroutine detach_sources
+
+  !-----------------------------------------------------------------------
+  subroutine release(src1, src2)
+    ! Discard the buffers and the field table (and their device copies).
+    type(hist_src1d), intent(in) :: src1(:)
+    type(hist_src2d), intent(in) :: src2(:)
+
+    if (.not. allocated(fields)) return
+    if (sources_attached) call detach_sources(src1, src2)
     !$acc exit data delete(tape_first_field, snow_fields, process_order)
-    deallocate(fields, tape_first_field, snow_fields, process_order, hbuf_pool, nacs_pool)
-    deallocate(snow_values, gridcell_samples, all_active)
+    deallocate(fields, tape_first_field, snow_fields, process_order, hbuf_pool, nacs_pool, block_field)
+    deallocate(snow_values, snow_block_field, gridcell_samples, all_active)
     deallocate(attached1, attached2)
     num_fields = 0
 
@@ -413,7 +538,29 @@ contains
   subroutine hist_compute_update(view, src1, src2)
     !
     ! !DESCRIPTION:
-    ! Accumulate the current values of all active fields into their buffers.
+    ! Accumulate the current values of all active fields into their buffers:
+    ! on the device when the model state lives there, else on the host.
+    !
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in)  :: view
+    type(hist_src1d)      , intent(in)  :: src1(:)
+    type(hist_src2d)      , intent(in)  :: src2(:)
+    !-----------------------------------------------------------------------
+
+    if (elm_device_ready) then
+       call update_device(view, src1, src2)
+    else
+       call update_host(view, src1, src2)
+    end if
+
+  end subroutine hist_compute_update
+
+  !-----------------------------------------------------------------------
+  subroutine update_host(view, src1, src2)
+    !
+    ! !DESCRIPTION:
+    ! The host path: field by field, one level at a time, the time operation
+    ! chosen once per level (see the module header).
     !
     ! !ARGUMENTS:
     type(subgrid_ave_view), intent(in)  :: view
@@ -421,37 +568,36 @@ contains
     type(hist_src2d)      , intent(in)  :: src2(:)
     !
     ! !LOCAL VARIABLES:
-    integer :: n, f, s, lev, i
+    integer :: n, f, s, lev, i, clev
     !-----------------------------------------------------------------------
 
     ! snow fields: fill in the absent layers (the averages read plain value arrays)
-    !$acc parallel loop gang collapse(2) default(present) private(f) if(elm_device_ready)
     do s = 1, size(snow_fields)
        do lev = 1, max_levels
           f = snow_fields(s)
           if (lev > fields(f)%num_levels) cycle
-          !$acc loop vector
           do i = fields(f)%source_first, fields(f)%source_last
              snow_values(snow_index(fields(f), i, lev)) = &
-                  snow_layer_value(view, fields(f), src2(fields(f)%source_index)%ptr, i, lev)
+                  snow_layer_value(view, fields(f), src2(fields(f)%source_index)%ptr, &
+                  size(src2(fields(f)%source_index)%ptr, 1), i, lev)
           end do
        end do
     end do
 
     ! every field: one gang per field, its levels in turn
-    !$acc parallel loop gang default(present) private(f) if(elm_device_ready)
     do n = 1, num_fields
        f = process_order(n)
-       !$acc loop seq
        do lev = 1, fields(f)%num_levels
           if (fields(f)%snow_offset >= 0) then
              call field_level(view, fields(f), lev, snow_values(snow_index(fields(f), fields(f)%source_first, lev)), &
                   all_active, gridcell_samples, hbuf_pool, nacs_pool)
           else if (fields(f)%compact_group > 0) then
              if (compact_groups(fields(f)%compact_group)%nlev > 0) then
+                ! the group level this field reads (gfortran -fcheck=all misjudges the bounds of this
+                ! section when the merge is written inside the subscript)
+                clev = merge(fields(f)%compact_lev, lev, fields(f)%compact_lev > 0)
                 call field_level_compact(view, fields(f), lev, &
-                     compact_groups(fields(f)%compact_group)%data3(:, merge(fields(f)%compact_lev, lev, &
-                     fields(f)%compact_lev > 0), fields(f)%compact_slot), &
+                     compact_groups(fields(f)%compact_group)%data3(:, clev, fields(f)%compact_slot), &
                      compact_cidx_p, compact_cidx_c, compact_groups(fields(f)%compact_group)%fill, &
                      all_active, gridcell_samples, hbuf_pool, nacs_pool)
              else
@@ -470,7 +616,335 @@ contains
        end do
     end do
 
-  end subroutine hist_compute_update
+  end subroutine update_host
+
+  !-----------------------------------------------------------------------
+  subroutine update_device(view, src1, src2)
+    !
+    ! !DESCRIPTION:
+    ! The device path (see the module header). The pool is processed in blocks of block_size elements (one gang each);
+    ! every field starts on a block boundary, so a block belongs to one field
+    ! (block_field) and decodes it once. Each element then computes its own
+    ! sample (the gridcell average of the field's points for an averaged
+    ! field, the point's value otherwise) and applies the field's time
+    ! operation, so the kernel is parallel over fields, levels and points at
+    ! once; elements of a block share the field, so neighbouring threads do
+    ! the same work. Snow fields first get their absent layers filled in
+    ! (snow_values), in the same blocks.
+    !
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in)  :: view
+    type(hist_src1d)      , intent(in)  :: src1(:)
+    type(hist_src2d)      , intent(in)  :: src2(:)
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: b, e, f, first, np, extent, rel0, lev0, i0
+    integer  :: rel, lev, i, cg, clev, n1
+    real(r8) :: sample
+    logical  :: active
+    !-----------------------------------------------------------------------
+
+#ifdef _OPENACC
+    ! without the attach the kernel would read host memory (see hist_compute_attach)
+    if (.not. sources_attached) call shr_sys_abort('histComputeMod: device update before hist_compute_attach')
+#endif
+
+    ! snow fields: fill in the absent layers (the averages read plain value arrays)
+    !$acc parallel loop gang default(present) private(f, first, np, extent, rel0, lev0, i0) &
+    !$acc&   if(elm_device_ready)
+    do b = 1, size(snow_block_field)
+       f      = snow_block_field(b)
+       first  = fields(f)%snow_offset
+       np     = fields(f)%source_last - fields(f)%source_first + 1
+       extent = np * fields(f)%num_levels
+       rel0   = (b - 1) * block_size - first
+       lev0   = rel0 / np + 1
+       i0     = fields(f)%source_first + mod(rel0, np)
+       !$acc loop vector private(rel, lev, i)
+       do e = 1, block_size
+          rel = rel0 + e - 1
+          if (rel >= extent) cycle   ! padding after the field's last element
+          call element_position(fields(f)%source_first, fields(f)%source_last, np, rel, lev0, i0, e, lev, i)
+          snow_values(first + rel + 1) = &
+               snow_layer_value(view, fields(f), src2(fields(f)%source_index)%ptr, &
+                  size(src2(fields(f)%source_index)%ptr, 1), i, lev)
+       end do
+    end do
+
+    !$acc parallel loop gang default(present) private(f, first, np, extent, rel0, lev0, i0) &
+    !$acc&   if(elm_device_ready)
+    do b = 1, size(block_field)
+       f      = block_field(b)
+       first  = fields(f)%buffer_offset
+       np     = fields(f)%last_point - fields(f)%first_point + 1
+       extent = np * fields(f)%num_levels
+       rel0   = (b - 1) * block_size - first
+       lev0   = rel0 / np + 1
+       i0     = fields(f)%first_point + mod(rel0, np)
+       !$acc loop vector private(rel, lev, i, cg, clev, n1, sample, active)
+       do e = 1, block_size
+          rel = rel0 + e - 1
+          if (rel >= extent) cycle   ! padding after the field's last element
+          call element_position(fields(f)%first_point, fields(f)%last_point, np, rel, lev0, i0, e, lev, i)
+          ! the level's values: element off+1 of the (whole, contiguous) array is the first
+          ! point of the source level. Whole arrays, not sections: a section actual needs
+          ! a descriptor or a temporary inside the kernel (illegal addresses on the GPU)
+          if (fields(f)%snow_offset >= 0) then
+             sample = level_sample(view, fields(f), i, snow_values, &
+                  snow_index(fields(f), fields(f)%source_first, lev) - 1)
+          else if (fields(f)%compact_group > 0) then
+             cg = fields(f)%compact_group
+             if (compact_groups(cg)%nlev > 0) then
+                clev = merge(fields(f)%compact_lev, lev, fields(f)%compact_lev > 0)
+                n1 = size(compact_groups(cg)%data3, 1)
+                sample = compact_sample(view, fields(f), i, compact_groups(cg)%data3, &
+                     (clev - 1) * n1 + (fields(f)%compact_slot - 1) * n1 * size(compact_groups(cg)%data3, 2), &
+                     compact_groups(cg)%fill)
+             else
+                sample = compact_sample(view, fields(f), i, compact_groups(cg)%data, &
+                     (fields(f)%compact_slot - 1) * size(compact_groups(cg)%data, 1), compact_groups(cg)%fill)
+             end if
+          else if (fields(f)%source_rank == 1) then
+             sample = level_sample(view, fields(f), i, src1(fields(f)%source_index)%ptr, 0)
+          else
+             sample = level_sample(view, fields(f), i, src2(fields(f)%source_index)%ptr, &
+                  (lev - 1) * size(src2(fields(f)%source_index)%ptr, 1))
+          end if
+          active = item_active(view, fields(f), i)
+          call accumulate_one(fields(f)%time_op, fields(f)%average_to_gridcell, sample, active, &
+               hbuf_pool(first + rel + 1), nacs_pool(first + rel + 1))
+       end do
+    end do
+
+  end subroutine update_device
+
+  !-----------------------------------------------------------------------
+  pure subroutine element_position(first_point, last_point, np, rel, lev0, i0, e, lev, i)
+    !
+    ! !DESCRIPTION:
+    ! Level and point of element rel (0-based within the field, stored
+    ! [point, level]) of a block whose first element is point i0 of level
+    ! lev0 and whose e-th element this is. A block of at most np elements
+    ! wraps to the next level at most once, so no division is needed then.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    integer, intent(in)  :: first_point, last_point, np, rel, lev0, i0, e
+    integer, intent(out) :: lev, i
+    !-----------------------------------------------------------------------
+
+    if (np >= block_size) then
+       lev = lev0
+       i   = i0 + e - 1
+       if (i > last_point) then
+          i   = i - np
+          lev = lev + 1
+       end if
+    else
+       lev = rel / np + 1
+       i   = first_point + mod(rel, np)
+    end if
+
+  end subroutine element_position
+
+  !-----------------------------------------------------------------------
+  pure real(r8) function level_sample(view, fld, i, values, off)
+    !
+    ! !DESCRIPTION:
+    ! The sample of output point i from the level's values (values(off+1) is
+    ! the first point of the source level): the point's value, or the average
+    ! of gridcell i (the x2g_point functions of subgridAveViewMod, which
+    ! subgridAveMod's averages use too, so the sums and results are the same).
+    ! The x2g_point functions index values(p - beg + 1): beg = source_first - off
+    ! puts the level's first point at values(off+1).
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view) , intent(in) :: view
+    type(hist_active_field), intent(in) :: fld
+    integer                , intent(in) :: i
+    real(r8)               , intent(in) :: values(*)
+    integer                , intent(in) :: off
+    !
+    ! !LOCAL VARIABLES:
+    integer :: beg
+    !-----------------------------------------------------------------------
+
+    beg = fld%source_first - off
+    if (.not. fld%average_to_gridcell) then
+       level_sample = values(i - beg + 1)
+       return
+    end if
+    select case (fld%source_level)
+    case (lev_patch)
+       if (fld%c2l_scale == scale_unity .and. fld%l2g_scale == scale_unity) then
+          level_sample = p2g_point_unity(view, i, values, beg)
+       else
+          level_sample = p2g_point(view, i, values, beg, fld%c2l_scale, fld%l2g_scale)
+       end if
+    case (lev_col)
+       if (fld%c2l_scale == scale_unity .and. fld%l2g_scale == scale_unity) then
+          level_sample = c2g_point_unity(view, i, values, beg)
+       else
+          level_sample = c2g_point(view, i, values, beg, fld%c2l_scale, fld%l2g_scale)
+       end if
+    case (lev_lun)
+       level_sample = l2g_point(view, i, values, beg, fld%l2g_scale)
+    case (lev_topo)
+       level_sample = t2g_point(view, i, values, beg)
+    case default
+       level_sample = values(i - beg + 1)
+    end select
+
+  end function level_sample
+
+  !-----------------------------------------------------------------------
+  pure real(r8) function compact_sample(view, fld, i, values, off, fill)
+    !
+    ! !DESCRIPTION:
+    ! level_sample for a field in the compact layout: values(off+k) is compact
+    ! index k of the level; a point outside the layout reads the group's fill
+    ! value (map entry < 0) or spval (0).
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view) , intent(in) :: view
+    type(hist_active_field), intent(in) :: fld
+    integer                , intent(in) :: i
+    real(r8)               , intent(in) :: values(*)
+    integer                , intent(in) :: off
+    real(r8)               , intent(in) :: fill
+    !
+    ! !LOCAL VARIABLES:
+    integer :: k
+    !-----------------------------------------------------------------------
+
+    if (fld%average_to_gridcell) then
+       if (fld%source_level == lev_patch) then
+          compact_sample = p2g_point_compact(view, i, values, off, compact_cidx_p, fill, fld%c2l_scale, fld%l2g_scale)
+       else
+          compact_sample = c2g_point_compact(view, i, values, off, compact_cidx_c, fill, fld%c2l_scale, fld%l2g_scale)
+       end if
+    else
+       if (fld%source_level == lev_patch) then
+          k = compact_cidx_p(i)
+       else
+          k = compact_cidx_c(i)
+       end if
+       if (k > 0) then
+          compact_sample = values(off + k)
+       else if (k < 0) then
+          compact_sample = fill
+       else
+          compact_sample = spval
+       end if
+    end if
+
+  end function compact_sample
+
+  !-----------------------------------------------------------------------
+  pure logical function item_active(view, fld, i)
+    !
+    ! !DESCRIPTION:
+    ! Whether output point i counts: native output of a topounit, landunit,
+    ! column or patch field needs an active point; averaged and gridcell
+    ! fields have no active check.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view) , intent(in) :: view
+    type(hist_active_field), intent(in) :: fld
+    integer                , intent(in) :: i
+    !-----------------------------------------------------------------------
+
+    item_active = .true.
+    if (fld%average_to_gridcell) return
+    select case (fld%source_level)
+    case (lev_topo)
+       item_active = view%active_t(i)
+    case (lev_lun)
+       item_active = view%active_l(i)
+    case (lev_col)
+       item_active = view%active_c(i)
+    case (lev_patch)
+       item_active = view%active_p(i)
+    end select
+
+  end function item_active
+
+  !-----------------------------------------------------------------------
+  pure subroutine accumulate_one(time_op, gridcell_rule, sample, active, hbuf, nacs)
+    !
+    ! !DESCRIPTION:
+    ! Apply the time operation to one buffer element (the rules are in the
+    ! module header). A sample counts if its point is active and it isn't
+    ! spval.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    integer , intent(in)    :: time_op
+    logical , intent(in)    :: gridcell_rule  ! averaged to gridcells: the 'X'/'M' rule for a missing sample
+    real(r8), intent(in)    :: sample
+    logical , intent(in)    :: active
+    real(r8), intent(inout) :: hbuf
+    integer , intent(inout) :: nacs
+    !
+    ! !LOCAL VARIABLES:
+    logical :: valid
+    !-----------------------------------------------------------------------
+
+    valid = active .and. sample /= spval
+    select case (time_op)
+    case (time_inst)
+       if (valid) then
+          hbuf = sample
+       else
+          hbuf = spval
+       end if
+       nacs = 1
+    case (time_mean)
+       if (valid) then
+          if (nacs == 0) hbuf = 0._r8
+          hbuf = hbuf + sample
+          nacs = nacs + 1
+       else if (nacs == 0) then
+          hbuf = spval
+       end if
+    case (time_max)
+       if (valid) then
+          if (nacs == 0) hbuf = -big
+          hbuf = max(hbuf, sample)
+       else if (gridcell_rule .or. nacs == 0) then
+          hbuf = spval
+       end if
+       nacs = 1
+    case (time_min)
+       if (valid) then
+          if (nacs == 0) hbuf = big
+          hbuf = min(hbuf, sample)
+       else if (gridcell_rule .or. nacs == 0) then
+          hbuf = spval
+       end if
+       nacs = 1
+    case (time_max_valid)
+       if (valid) then
+          if (nacs == 0) hbuf = -big
+          hbuf = max(hbuf, sample)
+          nacs = nacs + 1
+       else if (nacs == 0) then
+          hbuf = spval
+       end if
+    case (time_min_valid)
+       if (valid) then
+          if (nacs == 0) hbuf = big
+          hbuf = min(hbuf, sample)
+          nacs = nacs + 1
+       else if (nacs == 0) then
+          hbuf = spval
+       end if
+    end select
+
+  end subroutine accumulate_one
 
   !-----------------------------------------------------------------------
   pure integer function snow_index(fld, i, lev)
@@ -483,7 +957,7 @@ contains
   end function snow_index
 
   !-----------------------------------------------------------------------
-  pure real(r8) function snow_layer_value(view, fld, model_array, i, lev)
+  pure real(r8) function snow_layer_value(view, fld, model_array, npoints, i, lev)
     !
     ! !DESCRIPTION:
     ! Value of a snow field at point i (column or patch), level lev, with the
@@ -495,8 +969,10 @@ contains
     ! !ARGUMENTS:
     type(subgrid_ave_view) , intent(in) :: view
     type(hist_active_field), intent(in) :: fld
-    real(r8)               , intent(in) :: model_array(:,:)  ! [point of the level, level from 1]
-    integer                , intent(in) :: i, lev
+    real(r8)               , intent(in) :: model_array(*)   ! [point of the level, level from 1], npoints per level
+    integer                , intent(in) :: npoints          ! (an assumed-size dummy: passing the pointer
+    integer                , intent(in) :: i, lev           !  itself as assumed-shape needs a descriptor
+                                                            !  temporary, which raced under multicore threads)
     !
     ! !LOCAL VARIABLES:
     integer  :: c, point_in_level, num_absent
@@ -517,13 +993,13 @@ contains
        if (lev <= num_absent) then
           snow_layer_value = no_snow_value
        else
-          snow_layer_value = model_array(point_in_level, lev)
+          snow_layer_value = model_array(point_in_level + (lev - 1) * npoints)
        end if
     else
        if (lev > fld%num_levels - num_absent) then
           snow_layer_value = no_snow_value
        else
-          snow_layer_value = model_array(point_in_level, lev + num_absent)
+          snow_layer_value = model_array(point_in_level + (lev + num_absent - 1) * npoints)
        end if
     end if
 
@@ -538,7 +1014,6 @@ contains
     ! The scratch and buffer pools are passed in (pure: no module state is
     ! changed); the field's part of them is found from its offsets.
     !
-    !$acc routine vector
     ! !ARGUMENTS:
     type(subgrid_ave_view) , intent(in)    :: view
     type(hist_active_field), intent(in)    :: fld
@@ -614,7 +1089,6 @@ contains
     ! has the group's fill value and a point with cidx 0 has spval, as the
     ! full layout held.
     !
-    !$acc routine vector
     ! !ARGUMENTS:
     type(subgrid_ave_view) , intent(in)    :: view
     type(hist_active_field), intent(in)    :: fld
@@ -667,7 +1141,6 @@ contains
     ! cidx(i) < 0 and spval otherwise. Kept as a separate routine so the
     ! full-array path is untouched.
     !
-    !$acc routine vector
     ! !ARGUMENTS:
     integer , intent(in)    :: time_op
     integer , intent(in)    :: n
@@ -686,7 +1159,6 @@ contains
 
     select case (time_op)
     case (time_inst)
-       !$acc loop vector private(valid, s, k)
        do i = 1, n
           k = cidx(i)
           if (k > 0) then
@@ -706,7 +1178,6 @@ contains
        end do
 
     case (time_mean)
-       !$acc loop vector private(valid, s, k)
        do i = 1, n
           k = cidx(i)
           if (k > 0) then
@@ -727,7 +1198,6 @@ contains
        end do
 
     case (time_max)
-       !$acc loop vector private(valid, s, k)
        do i = 1, n
           k = cidx(i)
           if (k > 0) then
@@ -748,7 +1218,6 @@ contains
        end do
 
     case (time_min)
-       !$acc loop vector private(valid, s, k)
        do i = 1, n
           k = cidx(i)
           if (k > 0) then
@@ -769,7 +1238,6 @@ contains
        end do
 
     case (time_max_valid)
-       !$acc loop vector private(valid, s, k)
        do i = 1, n
           k = cidx(i)
           if (k > 0) then
@@ -790,7 +1258,6 @@ contains
        end do
 
     case (time_min_valid)
-       !$acc loop vector private(valid, s, k)
        do i = 1, n
           k = cidx(i)
           if (k > 0) then
@@ -821,7 +1288,6 @@ contains
     ! description). gridcell_rule selects the 'X'/'M' rules of fields averaged
     ! to gridcells.
     !
-    !$acc routine vector
     ! !ARGUMENTS:
     integer , intent(in)    :: time_op
     logical , intent(in)    :: gridcell_rule
@@ -838,7 +1304,6 @@ contains
 
     select case (time_op)
     case (time_inst)
-       !$acc loop vector private(valid)
        do i = 1, n
           valid = active(i) .and. samples(i) /= spval
           if (valid) then
@@ -850,7 +1315,6 @@ contains
        end do
 
     case (time_mean)
-       !$acc loop vector private(valid)
        do i = 1, n
           valid = active(i) .and. samples(i) /= spval
           if (valid) then
@@ -864,7 +1328,6 @@ contains
 
     case (time_max)
        if (gridcell_rule) then
-          !$acc loop vector private(valid)
           do i = 1, n
              valid = active(i) .and. samples(i) /= spval
              if (valid) then
@@ -876,7 +1339,6 @@ contains
              nacs(i) = 1
           end do
        else
-          !$acc loop vector private(valid)
           do i = 1, n
              valid = active(i) .and. samples(i) /= spval
              if (valid) then
@@ -891,7 +1353,6 @@ contains
 
     case (time_min)
        if (gridcell_rule) then
-          !$acc loop vector private(valid)
           do i = 1, n
              valid = active(i) .and. samples(i) /= spval
              if (valid) then
@@ -903,7 +1364,6 @@ contains
              nacs(i) = 1
           end do
        else
-          !$acc loop vector private(valid)
           do i = 1, n
              valid = active(i) .and. samples(i) /= spval
              if (valid) then
@@ -917,7 +1377,6 @@ contains
        end if
 
     case (time_max_valid)
-       !$acc loop vector private(valid)
        do i = 1, n
           valid = active(i) .and. samples(i) /= spval
           if (valid) then
@@ -930,7 +1389,6 @@ contains
        end do
 
     case (time_min_valid)
-       !$acc loop vector private(valid)
        do i = 1, n
           valid = active(i) .and. samples(i) /= spval
           if (valid) then

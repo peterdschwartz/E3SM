@@ -523,7 +523,8 @@ contains
     use dynSubgridDriverMod   , only : dynSubgrid_init
     use reweightMod           , only : reweight_wrapup
     use subgridWeightsMod     , only : init_subgrid_weights_mod
-    use histFileMod           , only : hist_htapes_build, htapes_fieldlist
+    use histFileMod           , only : hist_htapes_build, htapes_fieldlist, hist_device_attach
+    use subgridAveMod         , only : subgrid_ave_device_attach
     use histFileMod           , only : hist_addfld1d, hist_addfld2d, no_snow_normal
     use restFileMod           , only : restFile_getfile, restFile_open, restFile_close
     use restFileMod           , only : restFile_read, restFile_write
@@ -1015,6 +1016,11 @@ contains
     call t_startf('device_copyin')
     call elm_device_copyin()
     call t_stopf('device_copyin')
+    ! the subgrid view (init_subgrid_ave) and the history fields (hist_htapes_build) reach the
+    ! model arrays through device pointers: attach them now that the arrays are on the device
+    ! (an attach before the copy is skipped by the runtime and the kernels read host memory)
+    call subgrid_ave_device_attach()
+    call hist_device_attach()
 #endif
     if (nsrest == nsrStartup) then
        call t_startf('init_map2gc')

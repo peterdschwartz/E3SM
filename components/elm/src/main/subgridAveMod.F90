@@ -58,6 +58,7 @@ module subgridAveMod
   !
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: init_subgrid_ave ! Build the scale lookups and child maps
+  public :: subgrid_ave_device_attach ! Put elm_subgrid_view on the device (OpenACC, after the subgrid arrays)
   public :: p2c   ! Perform an average pfts to columns
   public :: p2l   ! Perform an average pfts to landunits
   public :: p2g   ! Perform an average pfts to gridcells
@@ -172,17 +173,26 @@ contains
     ! Build the scale factor lookups, the topounit/gridcell child maps and
     ! elm_subgrid_view. Call once with the processor bounds, after the subgrid
     ! structure and lun_pp%canyon_hwr are set (call again if canyon_hwr changes).
-    ! With OpenACC, the subgrid types' arrays must be on the device first.
+    ! With OpenACC, subgrid_ave_device_attach puts the view on the device once
+    ! the subgrid types' arrays are there (a rebuild of a view that is on the
+    ! device re-attaches it).
     !
     ! !ARGUMENTS:
     type(bounds_type), intent(in) :: bounds ! processor bounds
+    !
+    ! !LOCAL VARIABLES:
+    logical :: was_on_device
     !-----------------------------------------------------------------------
 
     if (view_spval /= spval) then
        write(iulog,*) 'init_subgrid_ave error: subgridAveViewMod spval differs from elm_varcon spval'
        call endrun(msg=errMsg(__FILE__, __LINE__))
     end if
-    if (view_on_device) call subgrid_ave_view_detach(elm_subgrid_view)
+    was_on_device = view_on_device
+    if (view_on_device) then
+       call subgrid_ave_view_detach(elm_subgrid_view)
+       view_on_device = .false.
+    end if
 
     call init_scale_l2g_lookup()
     call init_scale_c2l(bounds)
@@ -211,10 +221,24 @@ contains
     !$acc               top_pft_ptr, top_pft_idx, top_col_ptr, top_col_idx, top_lun_ptr, top_lun_idx)
 
     call set_elm_subgrid_view(bounds)
+    if (was_on_device) call subgrid_ave_device_attach()
+
+  end subroutine init_subgrid_ave
+
+  !-----------------------------------------------------------------------
+  subroutine subgrid_ave_device_attach()
+    ! !DESCRIPTION:
+    ! Put elm_subgrid_view on the device with its pointers attached to the
+    ! device copies of the subgrid arrays (OpenACC). Call once those copies
+    ! exist, i.e. after the device copy of the model state: init_subgrid_ave
+    ! runs before it. The attach aborts if a target is not on the device.
+    !-----------------------------------------------------------------------
+
+    if (view_on_device) call subgrid_ave_view_detach(elm_subgrid_view)
     call subgrid_ave_view_attach(elm_subgrid_view)
     view_on_device = .true.
 
-  end subroutine init_subgrid_ave
+  end subroutine subgrid_ave_device_attach
 
   !-----------------------------------------------------------------------
   subroutine child_map(begpar, endpar, begch, endch, parent, ptr, idx)

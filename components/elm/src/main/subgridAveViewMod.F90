@@ -34,6 +34,7 @@ module subgridAveViewMod
   ! !USES:
   use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only : r8 => shr_kind_r8
+  use shr_sys_mod , only : shr_sys_abort
   !
   implicit none
   private
@@ -81,6 +82,9 @@ module subgridAveViewMod
   public :: t2g_range                ! topounit averages of a range of gridcells
   public :: p2g_range_compact        ! p2g_range of a compact field (values indexed by the cidx map)
   public :: c2g_range_compact        ! c2g_range of a compact field (values indexed by the cidx map)
+  public :: p2g_point, c2g_point     ! the same averages for one gridcell (seq routines)
+  public :: p2g_point_unity, c2g_point_unity, l2g_point, t2g_point
+  public :: p2g_point_compact, c2g_point_compact
   !-----------------------------------------------------------------------
 
 contains
@@ -129,19 +133,61 @@ contains
     !
     ! !DESCRIPTION:
     ! Copy the view to the device and attach its pointers to the device copies
-    ! of their targets, which must already be on the device (a pointer whose
-    ! target isn't present is left pointing at host memory).
+    ! of their targets, which must already be on the device: the runtime skips
+    ! the attach of a pointer whose target isn't present, the device pointer
+    ! keeps the host address, and a kernel then reads host memory (silently on
+    ! a machine with unified addressing). Every target is checked; a missing
+    ! one aborts the run.
+    !
+    ! !USES:
+#ifdef _OPENACC
+    use openacc, only : acc_is_present
+#endif
     !
     ! !ARGUMENTS:
     type(subgrid_ave_view), intent(inout) :: view
     !-----------------------------------------------------------------------
 
+#ifdef _OPENACC
+    call check(acc_is_present(view%grc_lun_ptr), 'grc_lun_ptr')
+    call check(acc_is_present(view%grc_lun_idx), 'grc_lun_idx')
+    call check(acc_is_present(view%topi), 'topi')
+    call check(acc_is_present(view%topf), 'topf')
+    call check(acc_is_present(view%coli), 'coli')
+    call check(acc_is_present(view%colf), 'colf')
+    call check(acc_is_present(view%pfti), 'pfti')
+    call check(acc_is_present(view%pftf), 'pftf')
+    call check(acc_is_present(view%col_of_pft), 'col_of_pft')
+    call check(acc_is_present(view%lun_type), 'lun_type')
+    call check(acc_is_present(view%wtgcell_t), 'wtgcell_t')
+    call check(acc_is_present(view%wtgcell_l), 'wtgcell_l')
+    call check(acc_is_present(view%wtgcell_c), 'wtgcell_c')
+    call check(acc_is_present(view%wtgcell_p), 'wtgcell_p')
+    call check(acc_is_present(view%active_t), 'active_t')
+    call check(acc_is_present(view%active_l), 'active_l')
+    call check(acc_is_present(view%active_c), 'active_c')
+    call check(acc_is_present(view%active_p), 'active_p')
+    call check(acc_is_present(view%scale_c2l), 'scale_c2l')
+    call check(acc_is_present(view%scale_l2g_lookup), 'scale_l2g_lookup')
+    call check(acc_is_present(view%snl), 'snl')
+#endif
     !$acc enter data copyin(view)
     !$acc enter data attach(view%grc_lun_ptr, view%grc_lun_idx, view%topi, view%topf, &
     !$acc    view%coli, view%colf, view%pfti, view%pftf, view%col_of_pft, view%lun_type, &
     !$acc    view%wtgcell_t, view%wtgcell_l, view%wtgcell_c, view%wtgcell_p, &
     !$acc    view%active_t, view%active_l, view%active_c, view%active_p, &
     !$acc    view%scale_c2l, view%scale_l2g_lookup, view%snl)
+
+#ifdef _OPENACC
+  contains
+
+    subroutine check(present, name)
+      logical, intent(in) :: present
+      character(len=*), intent(in) :: name
+      if (.not. present) call shr_sys_abort('subgrid_ave_view_attach: the target of view%'//name// &
+           ' is not on the device (attach after the subgrid arrays are copied)')
+    end subroutine check
+#endif
 
   end subroutine subgrid_ave_view_attach
 
@@ -183,30 +229,12 @@ contains
     real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
     !
     ! !LOCAL VARIABLES:
-    integer  :: g, k, l, p
-    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    integer :: g
     !-----------------------------------------------------------------------
 
-    !$acc loop vector private(sum_arr, sumwt)
+    !$acc loop vector
     do g = g0, g1
-       sum_arr = 0._r8
-       sumwt = 0._r8
-       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
-          l = view%grc_lun_idx(k)
-          scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
-          if (scale_l2g == spval) cycle
-          do p = view%pfti(l), view%pftf(l)
-             if (view%active_p(p) .and. view%wtgcell_p(p) /= 0._r8) then
-                scale_c2l = view%scale_c2l(view%col_of_pft(p), c2l_scale_type)
-                value = parr(p - beg + 1)
-                if (value /= spval .and. scale_c2l /= spval) then
-                   sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_p(p)
-                   sumwt = sumwt + view%wtgcell_p(p)
-                end if
-             end if
-          end do
-       end do
-       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+       garr(g - g0 + 1) = p2g_point(view, g, parr, beg, c2l_scale_type, l2g_scale_type)
     end do
 
   end subroutine p2g_range
@@ -230,30 +258,12 @@ contains
     real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
     !
     ! !LOCAL VARIABLES:
-    integer  :: g, k, l, c
-    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    integer :: g
     !-----------------------------------------------------------------------
 
-    !$acc loop vector private(sum_arr, sumwt)
+    !$acc loop vector
     do g = g0, g1
-       sum_arr = 0._r8
-       sumwt = 0._r8
-       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
-          l = view%grc_lun_idx(k)
-          scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
-          if (scale_l2g == spval) cycle
-          do c = view%coli(l), view%colf(l)
-             if (view%active_c(c) .and. view%wtgcell_c(c) /= 0._r8) then
-                scale_c2l = view%scale_c2l(c, c2l_scale_type)
-                value = carr(c - beg + 1)
-                if (value /= spval .and. scale_c2l /= spval) then
-                   sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_c(c)
-                   sumwt = sumwt + view%wtgcell_c(c)
-                end if
-             end if
-          end do
-       end do
-       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+       garr(g - g0 + 1) = c2g_point(view, g, carr, beg, c2l_scale_type, l2g_scale_type)
     end do
 
   end subroutine c2g_range
@@ -276,27 +286,12 @@ contains
     real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
     !
     ! !LOCAL VARIABLES:
-    integer  :: g, k, l, p
-    real(r8) :: value, sum_arr, sumwt
+    integer :: g
     !-----------------------------------------------------------------------
 
-    !$acc loop vector private(sum_arr, sumwt)
+    !$acc loop vector
     do g = g0, g1
-       sum_arr = 0._r8
-       sumwt = 0._r8
-       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
-          l = view%grc_lun_idx(k)
-          do p = view%pfti(l), view%pftf(l)
-             if (view%active_p(p) .and. view%wtgcell_p(p) /= 0._r8) then
-                value = parr(p - beg + 1)
-                if (value /= spval) then
-                   sum_arr = sum_arr + value * view%wtgcell_p(p)
-                   sumwt = sumwt + view%wtgcell_p(p)
-                end if
-             end if
-          end do
-       end do
-       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+       garr(g - g0 + 1) = p2g_point_unity(view, g, parr, beg)
     end do
 
   end subroutine p2g_range_unity
@@ -316,27 +311,12 @@ contains
     real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
     !
     ! !LOCAL VARIABLES:
-    integer  :: g, k, l, c
-    real(r8) :: value, sum_arr, sumwt
+    integer :: g
     !-----------------------------------------------------------------------
 
-    !$acc loop vector private(sum_arr, sumwt)
+    !$acc loop vector
     do g = g0, g1
-       sum_arr = 0._r8
-       sumwt = 0._r8
-       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
-          l = view%grc_lun_idx(k)
-          do c = view%coli(l), view%colf(l)
-             if (view%active_c(c) .and. view%wtgcell_c(c) /= 0._r8) then
-                value = carr(c - beg + 1)
-                if (value /= spval) then
-                   sum_arr = sum_arr + value * view%wtgcell_c(c)
-                   sumwt = sumwt + view%wtgcell_c(c)
-                end if
-             end if
-          end do
-       end do
-       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+       garr(g - g0 + 1) = c2g_point_unity(view, g, carr, beg)
     end do
 
   end subroutine c2g_range_unity
@@ -359,26 +339,12 @@ contains
     real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
     !
     ! !LOCAL VARIABLES:
-    integer  :: g, k, l
-    real(r8) :: value, sum_arr, sumwt, scale_l2g
+    integer :: g
     !-----------------------------------------------------------------------
 
-    !$acc loop vector private(sum_arr, sumwt)
+    !$acc loop vector
     do g = g0, g1
-       sum_arr = 0._r8
-       sumwt = 0._r8
-       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
-          l = view%grc_lun_idx(k)
-          if (view%active_l(l) .and. view%wtgcell_l(l) /= 0._r8) then
-             scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
-             value = larr(l - beg + 1)
-             if (value /= spval .and. scale_l2g /= spval) then
-                sum_arr = sum_arr + value * scale_l2g * view%wtgcell_l(l)
-                sumwt = sumwt + view%wtgcell_l(l)
-             end if
-          end if
-       end do
-       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+       garr(g - g0 + 1) = l2g_point(view, g, larr, beg, l2g_scale_type)
     end do
 
   end subroutine l2g_range
@@ -400,22 +366,12 @@ contains
     real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
     !
     ! !LOCAL VARIABLES:
-    integer  :: g, t
-    real(r8) :: value, sum_arr, sumwt
+    integer :: g
     !-----------------------------------------------------------------------
 
-    !$acc loop vector private(sum_arr, sumwt)
+    !$acc loop vector
     do g = g0, g1
-       sum_arr = 0._r8
-       sumwt = 0._r8
-       do t = view%topi(g), view%topf(g)
-          value = tarr(t - beg + 1)
-          if (view%wtgcell_t(t) /= 0._r8 .and. value /= spval) then
-             sum_arr = sum_arr + value * view%wtgcell_t(t)
-             sumwt = sumwt + view%wtgcell_t(t)
-          end if
-       end do
-       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+       garr(g - g0 + 1) = t2g_point(view, g, tarr, beg)
     end do
 
   end subroutine t2g_range
@@ -443,37 +399,12 @@ contains
     real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
     !
     ! !LOCAL VARIABLES:
-    integer  :: g, k, l, p, ci
-    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    integer :: g
     !-----------------------------------------------------------------------
 
-    !$acc loop vector private(sum_arr, sumwt)
+    !$acc loop vector
     do g = g0, g1
-       sum_arr = 0._r8
-       sumwt = 0._r8
-       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
-          l = view%grc_lun_idx(k)
-          scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
-          if (scale_l2g == spval) cycle
-          do p = view%pfti(l), view%pftf(l)
-             if (view%active_p(p) .and. view%wtgcell_p(p) /= 0._r8) then
-                scale_c2l = view%scale_c2l(view%col_of_pft(p), c2l_scale_type)
-                ci = cidx(p)
-                if (ci > 0) then
-                   value = values(ci)
-                else if (ci < 0) then
-                   value = fill
-                else
-                   value = spval
-                end if
-                if (value /= spval .and. scale_c2l /= spval) then
-                   sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_p(p)
-                   sumwt = sumwt + view%wtgcell_p(p)
-                end if
-             end if
-          end do
-       end do
-       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+       garr(g - g0 + 1) = p2g_point_compact(view, g, values, 0, cidx, fill, c2l_scale_type, l2g_scale_type)
     end do
 
   end subroutine p2g_range_compact
@@ -496,41 +427,337 @@ contains
     real(r8), intent(out) :: garr(*)          ! garr(1) is gridcell g0
     !
     ! !LOCAL VARIABLES:
-    integer  :: g, k, l, c, ci
-    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    integer :: g
     !-----------------------------------------------------------------------
 
-    !$acc loop vector private(sum_arr, sumwt)
+    !$acc loop vector
     do g = g0, g1
-       sum_arr = 0._r8
-       sumwt = 0._r8
-       do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
-          l = view%grc_lun_idx(k)
-          scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
-          if (scale_l2g == spval) cycle
-          do c = view%coli(l), view%colf(l)
-             if (view%active_c(c) .and. view%wtgcell_c(c) /= 0._r8) then
-                scale_c2l = view%scale_c2l(c, c2l_scale_type)
-                ci = cidx(c)
-                if (ci > 0) then
-                   value = values(ci)
-                else if (ci < 0) then
-                   value = fill
-                else
-                   value = spval
-                end if
-                if (value /= spval .and. scale_c2l /= spval) then
-                   sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_c(c)
-                   sumwt = sumwt + view%wtgcell_c(c)
-                end if
-             end if
-          end do
-       end do
-       garr(g - g0 + 1) = weighted_average(sum_arr, sumwt)
+       garr(g - g0 + 1) = c2g_point_compact(view, g, values, 0, cidx, fill, c2l_scale_type, l2g_scale_type)
     end do
 
   end subroutine c2g_range_compact
 
+  !-----------------------------------------------------------------------
+  pure real(r8) function p2g_point(view, g, parr, beg, c2l_scale_type, l2g_scale_type)
+    !
+    ! !DESCRIPTION:
+    ! Patch average of gridcell g; spval if nothing contributed. The per-gridcell
+    ! work of p2g_range: histComputeMod uses it one output point at a time.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in) :: view
+    integer , intent(in)  :: g
+    real(r8), intent(in)  :: parr(*)          ! patch values; parr(1) is patch beg
+    integer , intent(in)  :: beg              ! index of parr(1)
+    integer , intent(in)  :: c2l_scale_type
+    integer , intent(in)  :: l2g_scale_type
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: k, l, p
+    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    !-----------------------------------------------------------------------
+
+    sum_arr = 0._r8
+    sumwt = 0._r8
+    do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+       l = view%grc_lun_idx(k)
+       scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
+       if (scale_l2g == spval) cycle
+       do p = view%pfti(l), view%pftf(l)
+          if (view%active_p(p) .and. view%wtgcell_p(p) /= 0._r8) then
+             scale_c2l = view%scale_c2l(view%col_of_pft(p), c2l_scale_type)
+             value = parr(p - beg + 1)
+             if (value /= spval .and. scale_c2l /= spval) then
+                sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_p(p)
+                sumwt = sumwt + view%wtgcell_p(p)
+             end if
+          end if
+       end do
+    end do
+    p2g_point = weighted_average(sum_arr, sumwt)
+
+  end function p2g_point
+  !-----------------------------------------------------------------------
+  pure real(r8) function c2g_point(view, g, carr, beg, c2l_scale_type, l2g_scale_type)
+    !
+    ! !DESCRIPTION:
+    ! Column average of gridcell g; spval if nothing contributed. The per-gridcell
+    ! work of c2g_range: histComputeMod uses it one output point at a time.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in) :: view
+    integer , intent(in)  :: g
+    real(r8), intent(in)  :: carr(*)          ! column values; carr(1) is column beg
+    integer , intent(in)  :: beg              ! index of carr(1)
+    integer , intent(in)  :: c2l_scale_type
+    integer , intent(in)  :: l2g_scale_type
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: k, l, c
+    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    !-----------------------------------------------------------------------
+
+    sum_arr = 0._r8
+    sumwt = 0._r8
+    do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+       l = view%grc_lun_idx(k)
+       scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
+       if (scale_l2g == spval) cycle
+       do c = view%coli(l), view%colf(l)
+          if (view%active_c(c) .and. view%wtgcell_c(c) /= 0._r8) then
+             scale_c2l = view%scale_c2l(c, c2l_scale_type)
+             value = carr(c - beg + 1)
+             if (value /= spval .and. scale_c2l /= spval) then
+                sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_c(c)
+                sumwt = sumwt + view%wtgcell_c(c)
+             end if
+          end if
+       end do
+    end do
+    c2g_point = weighted_average(sum_arr, sumwt)
+
+  end function c2g_point
+  !-----------------------------------------------------------------------
+  pure real(r8) function p2g_point_unity(view, g, parr, beg)
+    !
+    ! !DESCRIPTION:
+    ! p2g_point for the unity scale types (no lookups); spval if nothing contributed. The per-gridcell
+    ! work of p2g_range_unity: histComputeMod uses it one output point at a time.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in) :: view
+    integer , intent(in)  :: g
+    real(r8), intent(in)  :: parr(*)          ! patch values; parr(1) is patch beg
+    integer , intent(in)  :: beg              ! index of parr(1)
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: k, l, p
+    real(r8) :: value, sum_arr, sumwt
+    !-----------------------------------------------------------------------
+
+    sum_arr = 0._r8
+    sumwt = 0._r8
+    do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+       l = view%grc_lun_idx(k)
+       do p = view%pfti(l), view%pftf(l)
+          if (view%active_p(p) .and. view%wtgcell_p(p) /= 0._r8) then
+             value = parr(p - beg + 1)
+             if (value /= spval) then
+                sum_arr = sum_arr + value * view%wtgcell_p(p)
+                sumwt = sumwt + view%wtgcell_p(p)
+             end if
+          end if
+       end do
+    end do
+    p2g_point_unity = weighted_average(sum_arr, sumwt)
+
+  end function p2g_point_unity
+  !-----------------------------------------------------------------------
+  pure real(r8) function c2g_point_unity(view, g, carr, beg)
+    !
+    ! !DESCRIPTION:
+    ! c2g_point for the unity scale types (no lookups); spval if nothing contributed. The per-gridcell
+    ! work of c2g_range_unity: histComputeMod uses it one output point at a time.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in) :: view
+    integer , intent(in)  :: g
+    real(r8), intent(in)  :: carr(*)          ! column values; carr(1) is column beg
+    integer , intent(in)  :: beg              ! index of carr(1)
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: k, l, c
+    real(r8) :: value, sum_arr, sumwt
+    !-----------------------------------------------------------------------
+
+    sum_arr = 0._r8
+    sumwt = 0._r8
+    do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+       l = view%grc_lun_idx(k)
+       do c = view%coli(l), view%colf(l)
+          if (view%active_c(c) .and. view%wtgcell_c(c) /= 0._r8) then
+             value = carr(c - beg + 1)
+             if (value /= spval) then
+                sum_arr = sum_arr + value * view%wtgcell_c(c)
+                sumwt = sumwt + view%wtgcell_c(c)
+             end if
+          end if
+       end do
+    end do
+    c2g_point_unity = weighted_average(sum_arr, sumwt)
+
+  end function c2g_point_unity
+  !-----------------------------------------------------------------------
+  pure real(r8) function l2g_point(view, g, larr, beg, l2g_scale_type)
+    !
+    ! !DESCRIPTION:
+    ! Landunit average of gridcell g; spval if nothing contributed. The per-gridcell
+    ! work of l2g_range: histComputeMod uses it one output point at a time.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in) :: view
+    integer , intent(in)  :: g
+    real(r8), intent(in)  :: larr(*)          ! landunit values; larr(1) is landunit beg
+    integer , intent(in)  :: beg              ! index of larr(1)
+    integer , intent(in)  :: l2g_scale_type
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: k, l
+    real(r8) :: value, sum_arr, sumwt, scale_l2g
+    !-----------------------------------------------------------------------
+
+    sum_arr = 0._r8
+    sumwt = 0._r8
+    do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+       l = view%grc_lun_idx(k)
+       if (view%active_l(l) .and. view%wtgcell_l(l) /= 0._r8) then
+          scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
+          value = larr(l - beg + 1)
+          if (value /= spval .and. scale_l2g /= spval) then
+             sum_arr = sum_arr + value * scale_l2g * view%wtgcell_l(l)
+             sumwt = sumwt + view%wtgcell_l(l)
+          end if
+       end if
+    end do
+    l2g_point = weighted_average(sum_arr, sumwt)
+
+  end function l2g_point
+  !-----------------------------------------------------------------------
+  pure real(r8) function t2g_point(view, g, tarr, beg)
+    !
+    ! !DESCRIPTION:
+    ! Topounit average of gridcell g; spval if nothing contributed. The per-gridcell
+    ! work of t2g_range: histComputeMod uses it one output point at a time.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in) :: view
+    integer , intent(in)  :: g
+    real(r8), intent(in)  :: tarr(*)          ! topounit values; tarr(1) is topounit beg
+    integer , intent(in)  :: beg              ! index of tarr(1)
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: t
+    real(r8) :: value, sum_arr, sumwt
+    !-----------------------------------------------------------------------
+
+    sum_arr = 0._r8
+    sumwt = 0._r8
+    do t = view%topi(g), view%topf(g)
+       value = tarr(t - beg + 1)
+       if (view%wtgcell_t(t) /= 0._r8 .and. value /= spval) then
+          sum_arr = sum_arr + value * view%wtgcell_t(t)
+          sumwt = sumwt + view%wtgcell_t(t)
+       end if
+    end do
+    t2g_point = weighted_average(sum_arr, sumwt)
+
+  end function t2g_point
+  !-----------------------------------------------------------------------
+  pure real(r8) function p2g_point_compact(view, g, values, off, cidx, fill, c2l_scale_type, l2g_scale_type)
+    !
+    ! !DESCRIPTION:
+    ! p2g_point of a compact field (values indexed by the cidx map); spval if nothing contributed. The per-gridcell
+    ! work of p2g_range_compact: histComputeMod uses it one output point at a time.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in) :: view
+    integer , intent(in)  :: g
+    real(r8), intent(in)  :: values(*)        ! compact values; values(k) is compact index k
+    integer , intent(in)  :: off              ! values(off+k) is compact index k
+    integer , intent(in)  :: cidx(view%begp:) ! compact index of each patch (>0), -1 special, 0 other
+    real(r8), intent(in)  :: fill
+    integer , intent(in)  :: c2l_scale_type
+    integer , intent(in)  :: l2g_scale_type
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: k, l, p, ci
+    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    !-----------------------------------------------------------------------
+
+    sum_arr = 0._r8
+    sumwt = 0._r8
+    do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+       l = view%grc_lun_idx(k)
+       scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
+       if (scale_l2g == spval) cycle
+       do p = view%pfti(l), view%pftf(l)
+          if (view%active_p(p) .and. view%wtgcell_p(p) /= 0._r8) then
+             scale_c2l = view%scale_c2l(view%col_of_pft(p), c2l_scale_type)
+             ci = cidx(p)
+             if (ci > 0) then
+                value = values(off + ci)
+             else if (ci < 0) then
+                value = fill
+             else
+                value = spval
+             end if
+             if (value /= spval .and. scale_c2l /= spval) then
+                sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_p(p)
+                sumwt = sumwt + view%wtgcell_p(p)
+             end if
+          end if
+       end do
+    end do
+    p2g_point_compact = weighted_average(sum_arr, sumwt)
+
+  end function p2g_point_compact
+  !-----------------------------------------------------------------------
+  pure real(r8) function c2g_point_compact(view, g, values, off, cidx, fill, c2l_scale_type, l2g_scale_type)
+    !
+    ! !DESCRIPTION:
+    ! c2g_point of a compact field (values indexed by the cidx map); spval if nothing contributed. The per-gridcell
+    ! work of c2g_range_compact: histComputeMod uses it one output point at a time.
+    !
+    !$acc routine seq
+    ! !ARGUMENTS:
+    type(subgrid_ave_view), intent(in) :: view
+    integer , intent(in)  :: g
+    real(r8), intent(in)  :: values(*)        ! compact values; values(k) is compact index k
+    integer , intent(in)  :: off              ! values(off+k) is compact index k
+    integer , intent(in)  :: cidx(view%begc:) ! compact index of each column (>0), -1 special, 0 other
+    real(r8), intent(in)  :: fill
+    integer , intent(in)  :: c2l_scale_type
+    integer , intent(in)  :: l2g_scale_type
+    !
+    ! !LOCAL VARIABLES:
+    integer  :: k, l, c, ci
+    real(r8) :: value, sum_arr, sumwt, scale_c2l, scale_l2g
+    !-----------------------------------------------------------------------
+
+    sum_arr = 0._r8
+    sumwt = 0._r8
+    do k = view%grc_lun_ptr(g), view%grc_lun_ptr(g+1)-1
+       l = view%grc_lun_idx(k)
+       scale_l2g = view%scale_l2g_lookup(l2g_scale_type, view%lun_type(l))
+       if (scale_l2g == spval) cycle
+       do c = view%coli(l), view%colf(l)
+          if (view%active_c(c) .and. view%wtgcell_c(c) /= 0._r8) then
+             scale_c2l = view%scale_c2l(c, c2l_scale_type)
+             ci = cidx(c)
+             if (ci > 0) then
+                value = values(off + ci)
+             else if (ci < 0) then
+                value = fill
+             else
+                value = spval
+             end if
+             if (value /= spval .and. scale_c2l /= spval) then
+                sum_arr = sum_arr + value * scale_c2l * scale_l2g * view%wtgcell_c(c)
+                sumwt = sumwt + view%wtgcell_c(c)
+             end if
+          end if
+       end do
+    end do
+    c2g_point_compact = weighted_average(sum_arr, sumwt)
+
+  end function c2g_point_compact
   !-----------------------------------------------------------------------
   pure real(r8) function weighted_average(sum_arr, sumwt)
     !

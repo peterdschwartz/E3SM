@@ -26,6 +26,7 @@ endif()
 add_executable(test_hist_compute
   ${E3SM_ROOT}/share/util/shr_kind_mod.F90
   shr_sys_stub.F90
+  elm_varctl_stub.F90
   ${ELM_MAIN}/CompactLayoutMod.F90
   ${ELM_MAIN}/subgridAveViewMod.F90
   ${ELM_MAIN}/histComputeMod.F90

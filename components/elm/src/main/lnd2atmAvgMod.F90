@@ -21,6 +21,8 @@ module lnd2atmAvgMod
   !
   ! !USES:
   use shr_kind_mod, only : r8 => shr_kind_r8
+  use shr_sys_mod , only : shr_sys_abort
+  use elm_varctl  , only : iulog
   use subgridAveViewMod, only : subgrid_ave_view, scale_unity, p2g_range, c2g_range, p2g_range_unity, &
        c2g_range_unity
   !
@@ -94,8 +96,34 @@ contains
   !------------------------------------------------------------------------
   subroutine device_copy()
     ! the table on the device (again, when entries were added since): metadata copied, every
-    ! entry's arrays attached
+    ! entry's arrays attached. The runtime skips the attach of a pointer whose target is not on
+    ! the device and the kernel would then read host memory: every target is checked.
+#ifdef _OPENACC
+    use openacc, only : acc_is_present
+#endif
     integer :: n
+#ifdef _OPENACC
+    character(len=128) :: msg
+    integer :: nmissing
+    ! report every missing array (not just the first), then abort
+    nmissing = 0
+    do n = 1, nentries
+       if (.not. acc_is_present(entry_src(n)%ptr)) then
+          nmissing = nmissing + 1
+          write(iulog, '(a,i0,a,i0,a,i0,a)') 'lnd2atmAvgMod: entry ', n, ' of group ', entry_group(n), &
+               ' (level ', entry_level(n), '): SOURCE array is not on the device'
+       end if
+       if (.not. acc_is_present(entry_dst(n)%ptr)) then
+          nmissing = nmissing + 1
+          write(iulog, '(a,i0,a,i0,a,i0,a)') 'lnd2atmAvgMod: entry ', n, ' of group ', entry_group(n), &
+               ' (level ', entry_level(n), '): DESTINATION array is not on the device'
+       end if
+    end do
+    if (nmissing > 0) then
+       write(msg, '(a,i0,a)') 'lnd2atmAvgMod: ', nmissing, ' averaging arrays are not on the device (see log)'
+       call shr_sys_abort(trim(msg))
+    end if
+#endif
     if (ndevice > 0) then
        do n = 1, ndevice
           !$acc exit data detach(entry_src(n)%ptr, entry_dst(n)%ptr)

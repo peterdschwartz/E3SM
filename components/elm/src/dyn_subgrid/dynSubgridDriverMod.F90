@@ -207,6 +207,7 @@ contains
     use vegetationdatatype, only : c13_veg_cf, c14_veg_cf, veg_cf, veg_nf, veg_pf  ! spel acc-sync
     use landunittype, only : lun_pp  ! spel acc-sync
     use pftvarcon, only : is_pft_known_to_model  ! spel acc-sync
+    use subgridweightsmod, only : subgrid_weights_diagnostics  ! spel acc-sync
 
     !
     ! !ARGUMENTS:
@@ -392,7 +393,8 @@ contains
 
        if (weights_updated) then
           ! spel acc-sync: device data this host code uses
-          !$acc update self(col_ws%h2osoi_liq) if_present if(elm_device_ready)
+          !$acc update self(col_es%t_soisno, col_ws%h2osoi_ice, col_ws%h2osoi_liq, col_ws%h2osoi_vol, &
+          !$acc&   soilhydrology_vars%wa_col) if_present if(elm_device_ready)
           call t_startf('dyn_diagnostic_fields')
           call set_subgrid_diagnostic_fields(bounds_clump)
           !$acc update self(col_es%t_soisno, col_pp%wtgcell, col_ws%h2osoi_ice, col_ws%h2osoi_liq, &
@@ -404,7 +406,9 @@ contains
                prior_weights%cactive(bounds_clump%begc:bounds_clump%endc), soilhydrology_vars )
           call t_stopf('dyn_init_new_columns')
           !$acc update device(col_es%t_soisno, col_ws%h2osoi_ice, col_ws%h2osoi_liq, col_ws%h2osoi_vol, &
-          !$acc&   soilhydrology_vars%wa_col) if_present
+          !$acc&   soilhydrology_vars%wa_col, subgrid_weights_diagnostics%pct_cft, &
+          !$acc&   subgrid_weights_diagnostics%pct_glc_mec, subgrid_weights_diagnostics%pct_landunit, &
+          !$acc&   subgrid_weights_diagnostics%pct_nat_pft) if_present
        end if
 
 
@@ -417,6 +421,7 @@ contains
        call t_stopf('dyn_hwcontent_final')
 
        if (use_cn .and. weights_updated) then
+          ! spel acc-sync: device data this host code uses
           !$acc update self(c13_col_cf%core%dwt_conv_flux, c13_col_cf%core%dwt_crop_product_gain, &
           !$acc&   c13_col_cf%core%dwt_deadcroot_to_cwd, c13_col_cf%core%dwt_froot_to_litr_cel, &
           !$acc&   c13_col_cf%core%dwt_froot_to_litr_lig, c13_col_cf%core%dwt_froot_to_litr_met, &

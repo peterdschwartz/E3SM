@@ -118,6 +118,9 @@ module subgridWeightsMod
   public :: set_landunit_weight           ! set the weight of a given landunit on a single grid cell
   public :: is_topo_all_ltypeX            ! determine whether a topounit is 100% covered by the given landunit type
   public :: set_subgrid_diagnostic_fields ! set all subgrid weights diagnostic fields
+  ! 2026-10-30: public so that the generated device-data layer (spel device-data) carries the PCT_* history
+  ! sources and acc-sync can push them; the history kernel reads them on the device.
+  public :: subgrid_weights_diagnostics_type, subgrid_weights_diagnostics
   !
   ! !REVISION HISTORY:
   ! Created by Bill Sacks

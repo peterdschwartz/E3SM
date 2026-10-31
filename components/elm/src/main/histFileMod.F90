@@ -134,6 +134,7 @@ module histFileMod
   public :: hist_printflds       ! Print summary of master field list
   public :: hist_htapes_build    ! Initialize history file handler for initial or continue run
   public :: hist_update_hbuf     ! Updates history buffer for all fields and tapes
+  public :: hist_device_attach   ! Attach the fields' model arrays on the device (OpenACC, after the state's copy)
   public :: hist_htapes_wrapup   ! Write history tape(s)
   public :: hist_restart_ncd     ! Read/write history file restart data
   public :: htapes_fieldlist     ! Define the contents of each history file based on namelist
@@ -1067,6 +1068,24 @@ contains
     end subroutine field_error
 
   end subroutine hist_compute_setup
+
+  !-----------------------------------------------------------------------
+  subroutine hist_device_attach()
+    !
+    ! !DESCRIPTION:
+    ! Attach the history fields' model arrays on the device (OpenACC): call
+    ! once the model state is on the device. The history setup
+    ! (hist_compute_setup) runs before that copy, and a kernel reading an
+    ! unattached pointer would read host memory; hist_compute_attach aborts
+    ! on a model array that is not on the device.
+    !
+    ! !USES:
+    use histComputeMod, only : hist_compute_attach
+    !-----------------------------------------------------------------------
+
+    call hist_compute_attach(elmptr_rs, elmptr_ra)
+
+  end subroutine hist_device_attach
 
 
   !-----------------------------------------------------------------------

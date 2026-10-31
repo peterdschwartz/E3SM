@@ -141,7 +141,11 @@ contains
        end if
        allocate(compact_soilp_clump_off(size(num)), compact_soilp_proc(max(n,1)), compact_cidx_p(beg:end))
        call build(compact_soilp_clump_off, compact_soilp_proc, compact_cidx_p)
+       ! compact_cidx_p is declare create, so the allocation already made it present and the
+       ! copyin only refreshes the device descriptor; the values need an explicit update
+       ! (without it the device map stayed uninitialized, found 2026-10-30 by the history test)
        !$acc enter data copyin(compact_cidx_p)
+       !$acc update device(compact_cidx_p)
        !$acc update device(compact_num_soilp)
     case (compact_lev_col)
        compact_num_soilc = n
@@ -152,7 +156,11 @@ contains
        end if
        allocate(compact_soilc_clump_off(size(num)), compact_soilc_proc(max(n,1)), compact_cidx_c(beg:end))
        call build(compact_soilc_clump_off, compact_soilc_proc, compact_cidx_c)
+       ! compact_cidx_c is declare create, so the allocation already made it present and the
+       ! copyin only refreshes the device descriptor; the values need an explicit update
+       ! (without it the device map stayed uninitialized, found 2026-10-30 by the history test)
        !$acc enter data copyin(compact_cidx_c)
+       !$acc update device(compact_cidx_c)
        !$acc update device(compact_num_soilc)
     case default
        call shr_sys_abort('CompactLayoutMod: compact_filters_set: unknown level')
@@ -247,6 +255,9 @@ contains
        g%data(:,:) = compact_spval
        !$acc enter data copyin(g%data)
     end if
+    ! the device copy of the group's scalars (the kernels read nlev to choose data vs data3, and n)
+    !$acc update device(compact_groups(id)%level, compact_groups(id)%nlev, compact_groups(id)%nfld, &
+    !$acc&   compact_groups(id)%n)
     end associate
   end subroutine compact_group_resize
 

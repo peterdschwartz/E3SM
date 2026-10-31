@@ -216,6 +216,16 @@ contains
   end subroutine perturb_subgrid
 
   !-----------------------------------------------------------------------
+  subroutine decoy_subgrid()
+    ! Negate the host weights and snow-layer counts and flip the active flags
+    ! (a second call restores them): a kernel reading the host copies instead
+    ! of the device's gets wrong values (test_hist_compute's decoy).
+    wt_t(:) = -wt_t(:) ; wt_l(:) = -wt_l(:) ; wt_c(:) = -wt_c(:) ; wt_p(:) = -wt_p(:)
+    act_t(:) = .not. act_t(:) ; act_l(:) = .not. act_l(:) ; act_c(:) = .not. act_c(:) ; act_p(:) = .not. act_p(:)
+    snl(:) = -snl(:)
+  end subroutine decoy_subgrid
+
+  !-----------------------------------------------------------------------
   subroutine subgrid_view(view)
     ! The subgrid_ave_view of the synthetic subgrid, with ELM's index arrays
     ! (contiguous ranges and the landunits of each gridcell) built here, its

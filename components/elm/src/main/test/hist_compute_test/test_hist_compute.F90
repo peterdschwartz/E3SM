@@ -25,9 +25,10 @@ program test_hist_compute
   !-----------------------------------------------------------------------
 
   use shr_kind_mod      , only : r8 => shr_kind_r8
+  use elm_varctl        , only : elm_device_ready
   use subgridAveViewMod , only : subgrid_ave_view, p2g_range, c2g_range, l2g_range, t2g_range
   use subgridAveViewMod , only : p2g_range_unity, c2g_range_unity, scale_unity
-  use CompactLayoutMod  , only : compact_groups, compact_group_new, compact_group_fill, &
+  use CompactLayoutMod  , only : compact_groups, compact_ngroups, compact_group_new, compact_group_fill, &
        compact_lev_patch, compact_lev_col, compact_cidx_p, compact_cidx_c, compact_report
   use histComputeMod
   use fake_subgrid_mod
@@ -55,11 +56,13 @@ program test_hist_compute
   type(ref_buffer) , allocatable :: ref(:)
   type(subgrid_ave_view) :: view
   integer :: tape_first(ntapes+1)
-  integer :: seed_size, nfail, ncase
+  integer :: seed_size, nfail, ncase, nreported = 0
+  logical, allocatable :: reported(:)
   integer, allocatable :: seed(:)
   character(len=16) :: arg
   real(r8) :: t_ref, t_new
   logical  :: bench = .false.   ! timing run: fixed missing values, fixed subgrid
+  logical  :: arrays_on_device = .false.   ! the model arrays were copied to the device (OpenACC)
   logical  :: use_compact = .true.   ! 'nocompact': no model array in the compact layout
 
   call random_seed(size=seed_size)
@@ -79,9 +82,15 @@ program test_hist_compute
      call run(nsteps=24, extrasnow=.false., check=.false.)
      write(*,'(a,i0,a,i0,a,i0,a)') 'bench: ', endg-begg+1, ' gridcells, ', endp-begp+1, &
           ' patches, ', size(fields), ' fields, 24 steps'
-     write(*,'(a,f9.3,a)') '  reference (old code): ', t_ref, ' s'
-     write(*,'(a,f9.3,a)') '  histComputeMod:       ', t_new, ' s'
-     write(*,'(a,f9.1)')   '  speedup:              ', t_ref / t_new
+     write(*,'(a,f9.3,a)') '  reference (old code):           ', t_ref, ' s'
+     write(*,'(a,f9.3,a)') '  histComputeMod (device path):   ', t_new, ' s'
+     write(*,'(a,f9.1)')   '  speedup:                        ', t_ref / t_new
+#ifndef _OPENACC
+     elm_device_ready = .false.
+     call run(nsteps=24, extrasnow=.false., check=.false.)
+     write(*,'(a,f9.3,a)') '  histComputeMod (host path):     ', t_new, ' s'
+     write(*,'(a,f9.1)')   '  speedup:                        ', t_ref / t_new
+#endif
      stop
   end if
 
@@ -98,8 +107,22 @@ program test_hist_compute
 
   nfail = 0
   ncase = 0
+  allocate(reported(size(fields)))
+  reported(:) = .false.
+  ! histComputeMod's device path (the kernel; serial here without OpenACC): elm_device_ready is the
+  ! stub's .true. As in ELM, the model arrays reach the device after the first hist_compute_build
+  ! and are attached then (hist_compute_attach); on a GPU the host copies are made wrong while the
+  ! kernel runs (decoy), so a kernel reading host memory through an unattached pointer fails.
   call run(nsteps=60, extrasnow=.false., check=.true.)
   call run(nsteps=60, extrasnow=.true.,  check=.true.)
+#ifndef _OPENACC
+  ! the host path (without OpenACC the model arrays are on the host either way)
+  elm_device_ready = .false.
+  write(*,'(a)') 'host path:'
+  call run(nsteps=60, extrasnow=.false., check=.true.)
+  call run(nsteps=60, extrasnow=.true.,  check=.true.)
+  elm_device_ready = .true.
+#endif
   if (nfail > 0) then
      write(*,'(a,i0,a)') 'FAIL: ', nfail, ' mismatches'
      error stop 1
@@ -110,8 +133,8 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine setup_fields(nsrc, nfld)
-    ! Random model arrays (on the device with OpenACC), and fields on three
-    ! tapes that use them.
+    ! Random model arrays (copied to the device by the first run, after the
+    ! history setup, as in ELM), and fields on three tapes that use them.
     integer, intent(in) :: nsrc, nfld
     integer :: i, f, t, beg, end, n, lb
 
@@ -133,7 +156,6 @@ contains
        if (m%rank == 1) then
           allocate(m%a1(lb:lb+n-1))
           m%a1(:) = 0._r8
-          !$acc enter data copyin(m%a1)
           src1(i)%ptr => m%a1
        else
           if (m%no_snow /= no_snow_unset) then
@@ -142,7 +164,6 @@ contains
              allocate(m%a2(lb:lb+n-1, m%num2d))
           end if
           m%a2(:,:) = 0._r8
-          !$acc enter data copyin(m%a2)
           src2(i)%ptr => m%a2
        end if
        end associate
@@ -245,6 +266,12 @@ contains
        write(*,*) 'build failed for field ', ierr, ': ', trim(msg)
        error stop 1
     end if
+    ! ELM's order: the model state reaches the device after the history setup; attach then
+    if (.not. arrays_on_device) then
+       call arrays_to_device()
+       arrays_on_device = .true.
+    end if
+    call hist_compute_attach(src1, src2)
     do f = 1, size(fields)
        ref(f)%hbuf(:,:) = 0._r8
        ref(f)%nacs(:,:) = 0
@@ -263,9 +290,11 @@ contains
        call system_clock(c1)
        t_ref = t_ref + real(c1 - c0, r8) / rate
 
+       call decoy_host(.true.)
        call system_clock(c0)
        call hist_compute_update(view, src1, src2)
        call system_clock(c1)
+       call decoy_host(.false.)
        t_new = t_new + real(c1 - c0, r8) / rate
        if (check) call compare('update', step)
 
@@ -285,6 +314,46 @@ contains
        end do
     end do
   end subroutine run
+
+  !-----------------------------------------------------------------------
+  subroutine arrays_to_device()
+    ! Copy the model arrays to the device (OpenACC).
+    integer :: i
+    do i = 1, size(arrays)
+       if (arrays(i)%rank == 1) then
+          !$acc enter data copyin(arrays(i)%a1)
+       else
+          !$acc enter data copyin(arrays(i)%a2)
+       end if
+    end do
+  end subroutine arrays_to_device
+
+  !-----------------------------------------------------------------------
+  subroutine decoy_host(on)
+    ! On a device with its own memory: make the host copies of everything the
+    ! kernel reads wrong (negated; off restores them exactly), so a kernel that
+    ! reads host memory through an unattached pointer fails the comparison.
+#ifdef _OPENACC
+    use openacc, only : acc_get_device_type, acc_device_nvidia
+#endif
+    logical, intent(in) :: on
+#ifdef _OPENACC
+    integer :: i, g
+    if (acc_get_device_type() /= acc_device_nvidia) return
+    do i = 1, size(arrays)
+       if (arrays(i)%rank == 1) then
+          arrays(i)%a1(:) = -arrays(i)%a1(:)
+       else
+          arrays(i)%a2(:,:) = -arrays(i)%a2(:,:)
+       end if
+    end do
+    do g = 1, compact_ngroups
+       if (associated(compact_groups(g)%data))  compact_groups(g)%data(:,:)    = -compact_groups(g)%data(:,:)
+       if (associated(compact_groups(g)%data3)) compact_groups(g)%data3(:,:,:) = -compact_groups(g)%data3(:,:,:)
+    end do
+    call decoy_subgrid()
+#endif
+  end subroutine decoy_host
 
   !-----------------------------------------------------------------------
   subroutine new_values()
@@ -477,7 +546,7 @@ contains
     integer         , intent(in) :: step
     real(r8), pointer :: hbuf(:,:)
     integer , pointer :: nacs(:,:)
-    integer :: f, t
+    integer :: f, t, lev, i, nshown
 
     do t = 1, ntapes
        call hist_compute_update_host(t)
@@ -490,7 +559,9 @@ contains
           nfail = nfail + 1
        else if (any(hbuf /= ref(f)%hbuf) .or. any(nacs /= ref(f)%nacs)) then
           nfail = nfail + 1
-          if (nfail <= 10) then
+          if (.not. reported(f)) then   ! each field once, at its first mismatch
+             reported(f) = .true.
+             nreported = nreported + 1
              write(*,'(a,a,a,i0,a,i0,a,5i3,l2,a,i0,a,i0,a,es9.2)') 'mismatch after ', what, ' step ', step, &
                   ' field ', f, ' (level rank levels time_op snow gcell):', fields(f)%source_level, &
                   fields(f)%source_rank, fields(f)%num_levels, fields(f)%time_op, &
@@ -498,6 +569,22 @@ contains
                   count(hbuf /= ref(f)%hbuf), ', counters: ', count(nacs /= ref(f)%nacs), &
                   ', max relative difference: ', &
                   maxval(abs(hbuf - ref(f)%hbuf) / max(abs(ref(f)%hbuf), tiny(1._r8)))
+             if (nreported <= 12) then   ! the first differing elements of the first fields
+                nshown = 0
+                do lev = 1, size(hbuf, 2)
+                   do i = lbound(hbuf, 1), ubound(hbuf, 1)
+                      if (hbuf(i,lev) /= ref(f)%hbuf(i-lbound(hbuf,1)+1,lev) .or. &
+                           nacs(i,lev) /= ref(f)%nacs(i-lbound(hbuf,1)+1,lev)) then
+                         nshown = nshown + 1
+                         if (nshown > 4) exit
+                         write(*,'(a,i0,a,i0,a,es14.6,a,es14.6,a,i0,a,i0)') '    point ', i, ' level ', lev, &
+                              ': got ', hbuf(i,lev), ' ref ', ref(f)%hbuf(i-lbound(hbuf,1)+1,lev), &
+                              '  nacs got ', nacs(i,lev), ' ref ', ref(f)%nacs(i-lbound(hbuf,1)+1,lev)
+                      end if
+                   end do
+                   if (nshown > 4) exit
+                end do
+             end if
           end if
        end if
     end do
