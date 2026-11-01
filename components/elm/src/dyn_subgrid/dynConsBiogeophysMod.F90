@@ -156,14 +156,14 @@ contains
          liquid_water_temp_grc = liquid_water_temp2(bounds%begg:bounds%endg))
 
     if (get_for_testing_zero_dynbal_fluxes()) then
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do g = begg, endg
           delta_liq(g) = 0._r8
           delta_ice(g) = 0._r8
           delta_heat(g) = 0._r8
       end do
     else
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do g = begg, endg
           delta_liq(g)  = liq2(g) - liq1(g)
           delta_ice(g)  = ice2(g) - ice1(g)
@@ -277,7 +277,7 @@ contains
     !$acc enter data create(heat_col(:), heat_liquid_col(:), cv_liquid_col(:), heat_liquid_grc(:), &
     !$acc&   cv_liquid_grc(:))
 
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = bounds%begc, bounds%endc  ! spel section-loop
        heat_col(spel_i1)        = spval
        heat_liquid_col(spel_i1) = spval
@@ -314,7 +314,7 @@ contains
          c2l_scale_type = unity, &
          l2g_scale_type = unity)
 
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        if (cv_liquid_grc(g) > 0._r8) then
           liquid_water_temp_grc(g) = &

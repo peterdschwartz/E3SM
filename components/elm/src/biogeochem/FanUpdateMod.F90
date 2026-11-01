@@ -832,7 +832,7 @@ contains
     totalinput = 0.0_r8
     cumflux = 0.0_r8
 
-    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do fc = 1, num_soilc
        ! Zero the manure N spread arrays because the nat veg columns receive N additively (see below)
        c = filter_soilc(fc)
@@ -1032,7 +1032,7 @@ contains
     if (.not. (fan_to_bgc_veg .or. fan_to_bgc_crop)) return
 
     !$acc parallel loop gang vector default(present) &
-    !$acc   private(c, l, flux_manure, flux_fert, manure_prod, included, p) if(elm_device_ready) copyin(bounds)
+    !$acc   private(c, l, flux_manure, flux_fert, manure_prod, included, p) if(elm_device_ready)
     do fc = 1, num_soilc
        c = filter_soilc(fc)
        l = col_pp%landunit(c)

@@ -62,7 +62,7 @@ contains
 
       if (.not.use_fates) then
 
-         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) if(elm_device_ready)
          do g = bounds%begg, bounds%endg
             grc_ps%core%seed(g) = grc_ps%core%seed(g) &
                  - grc_pf%core%dwt_seed_to_leaf(g)     * dt &
@@ -70,7 +70,7 @@ contains
                  - grc_pf%dwt_seedp_to_ppool(g)    * dt
          end do
 
-         !$acc parallel loop gang vector default(present) private(c, j) copyin(bounds) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
          do fc = 1, num_soilc_with_inactive
 
             c = filter_soilc_with_inactive(fc)

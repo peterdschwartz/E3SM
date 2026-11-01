@@ -1,5 +1,5 @@
 module elm_varctl_stub
-  ! Stub of ELM's elm_varctl for the standalone history and lnd2atm tests (the modules use elm_device_ready)
+  ! Stub of ELM's elm_varctl flag for the standalone history test (the test passes it to histComputeMod)
   implicit none
   logical, public :: elm_device_ready = .true.
   integer, public :: iulog = 6

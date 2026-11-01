@@ -3,12 +3,12 @@ module elm_initializeMod
   !-----------------------------------------------------------------------
   ! Performs land model initialization
   !
-  use ElmDeviceDataMod, only : elm_device_init, elm_device_copyin, elm_device_update  ! spel device-data
+  use ElmDeviceDataMod, only : elm_device_init, elm_device_copyin, elm_device_fullsync  ! spel device-data
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use spmdMod          , only : masterproc, iam
   use shr_sys_mod      , only : shr_sys_flush
   use shr_log_mod      , only : errMsg => shr_log_errMsg
-  use decompMod        , only : bounds_type, get_proc_bounds, get_proc_clumps, get_clump_bounds
+  use decompMod        , only : bounds_type, get_proc_bounds, get_proc_clumps, get_clump_bounds, init_global_bounds
   use abortutils       , only : endrun
   use elm_varctl       , only : nsrest, nsrStartup, nsrContinue, nsrBranch
   use elm_varctl       , only : create_glacier_mec_landunit, iulog, iac_present
@@ -359,6 +359,9 @@ contains
        call decompInit_clumps()
        call decompInit_ghosts()
     endif
+    ! the bounds of the process and of every clump, read by elm_drv's kernels (on the device
+    ! after elm_device_copyin)
+    call init_global_bounds()
 
     ! *** Get ALL processor bounds - for gridcells, landunit, columns and patches ***
 
@@ -514,7 +517,7 @@ contains
     use elm_time_manager      , only : timemgr_init, timemgr_restart_io, timemgr_restart
     use controlMod            , only : nlfilename
     use controlMod            , only : fluh_timeseries
-    use decompMod             , only : get_proc_clumps, get_proc_bounds, get_clump_bounds, bounds_type
+    use decompMod             , only : get_proc_clumps, get_clump_bounds, bounds_type, bounds_proc, bounds_by_clump
     use domainMod             , only : ldomain
     use initInterpMod         , only : initInterp
     use DaylengthMod          , only : InitDaylength, daylength
@@ -577,7 +580,6 @@ contains
     real(r8)              :: declin       ! solar declination angle in radians for nstep
     real(r8)              :: declinm1     ! solar declination angle in radians for nstep-1
     real(r8)              :: eccf         ! earth orbit eccentricity factor
-    type(bounds_type)     :: bounds_proc  ! processor bounds
     type(bounds_type)     :: bounds_clump ! clump bounds
     logical               :: lexist
     integer               :: closelatidx,closelonidx
@@ -603,10 +605,9 @@ contains
     endif
 
     ! ------------------------------------------------------------------------
-    ! Determine processor bounds and clumps for this processor
+    ! Clumps for this processor (the processor bounds are the decompMod global bounds_proc)
     ! ------------------------------------------------------------------------
 
-    call get_proc_bounds(bounds_proc)
     nclumps = get_proc_clumps()
 
     ! ------------------------------------------------------------------------
@@ -1015,6 +1016,9 @@ contains
     ! kernels that compute the initial export state
     call t_startf('device_copyin')
     call elm_device_copyin()
+    ! the run has no host/device transitions (configurations that need host code abort in
+    ! elm_drv): the targeted syncs move the data from here on
+    elm_device_fullsync = .false.
     call t_stopf('device_copyin')
     ! the subgrid view (init_subgrid_ave) and the history fields (hist_htapes_build) reach the
     ! model arrays through device pointers: attach them now that the arrays are on the device
@@ -1039,21 +1043,17 @@ contains
     !------------------------------------------------------------
 
     if (create_glacier_mec_landunit) then
-       !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
+       ! after elm_device_copyin: the kernels read the device copy of bounds_by_clump
+       !$OMP PARALLEL DO PRIVATE (nc)
        do nc = 1,nclumps
-          call get_clump_bounds(nc, bounds_clump)
-
           call t_startf('init_lnd2glc')
-          call lnd2glc_vars%update_lnd2glc(bounds_clump,       &
+          call lnd2glc_vars%update_lnd2glc(bounds_by_clump(nc),       &
                filter(nc)%num_do_smb_c, filter(nc)%do_smb_c,   &
                init=.true.)
           call t_stopf('init_lnd2glc')
        end do
        !$OMP END PARALLEL DO
     end if
-#ifdef _OPENACC
-    call elm_device_update(to_device=.false.)  ! spel device-data: the step starts on the host
-#endif
 
     !------------------------------------------------------------
     ! Deallocate wt_nat_patch

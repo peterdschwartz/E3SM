@@ -116,7 +116,7 @@ contains
          liquid_mass = liquid_mass(bounds%begc:bounds%endc), &
          ice_mass = ice_mass(bounds%begc:bounds%endc))
     
-    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
     do fc = 1, num_nolakec
        c = filter_nolakec(fc)
        water_mass(c) = liquid_mass(c) + ice_mass(c)
@@ -206,14 +206,14 @@ contains
     !$acc sum_liq, &
     !$acc sum_ice)
     
-    !$acc parallel loop gang vector default(present) private(c) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do fc = 1, num_nolakec
        c = filter_nolakec(fc)
        liquid_mass(c) = 0._r8
        ice_mass(c) = 0._r8
     end do 
 
-    !$acc parallel loop independent gang worker default(present) private(c,sum_liq,sum_ice) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(c,sum_liq,sum_ice) if(elm_device_ready)
     do fc = 1, num_nolakec
        c = filter_nolakec(fc)
        
@@ -249,7 +249,7 @@ contains
     end do
 
     ! Soil water content
-    !$acc parallel loop gang worker independent default(present) private(sum_liq,sum_ice) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang worker independent default(present) private(sum_liq,sum_ice) if(elm_device_ready)
     do fc = 1, num_nolakec
       c = filter_nolakec(fc)
       if (col_pp%itype(c) == icol_sunwall .or. col_pp%itype(c) == icol_shadewall .or. &
@@ -268,7 +268,7 @@ contains
       end if
     end do
 
-    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
     do fc = 1, num_nolakec
        c = filter_nolakec(fc)
        l = col_pp%landunit(c)
@@ -283,7 +283,7 @@ contains
 
     end do 
     
-    !$acc parallel loop gang worker independent default(present) private(sum_liq) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang worker independent default(present) private(sum_liq) if(elm_device_ready)
     do fc = 1, num_nolakec
       c = filter_nolakec(fc)
       l = col_pp%landunit(c)
@@ -342,7 +342,7 @@ contains
          )
     !$acc enter data create(sum1, sum2)
     
-    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
     do fc =1, num_lakec 
       c = filter_lakec(fc)  
       liquid_mass(c) = 0._r8 
@@ -350,7 +350,7 @@ contains
     end do 
     
     ! Snow water content
-    !$acc parallel loop gang worker independent default(present) private(sum1,sum2) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang worker independent default(present) private(sum1,sum2) if(elm_device_ready)
     do fc = 1, num_lakec
        c = filter_lakec(fc)
        sum1 = 0._r8 
@@ -372,7 +372,7 @@ contains
     end do
 
     ! Soil water content of the soil under the lake
-    !$acc parallel loop independent gang worker default(present) private(sum1, sum2) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(sum1, sum2) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
       sum1 = 0._r8
@@ -386,7 +386,7 @@ contains
        ice_mass(c)    = ice_mass(c) + sum2
     end do
 
-    !$acc parallel loop independent gang worker default(present) private(sum1,sum2) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(sum1,sum2) if(elm_device_ready)
     do fc = 1, num_lakec
        c = filter_lakec(fc)
        sum1 = 0._r8
@@ -484,7 +484,7 @@ contains
          carr = h2ocan_col(bounds%begc:bounds%endc), &
          p2c_scale_type = unity)
 
-    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
     do fc = 1, num_nolakec
        c = filter_nolakec(fc)
 
@@ -532,7 +532,7 @@ contains
          
     end do 
 
-    !$acc parallel loop independent gang worker default(present) private(sum_heat,sum_cv,sum_latent,sum_hice) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(sum_heat,sum_cv,sum_latent,sum_hice) if(elm_device_ready)
     do fc = 1, num_nolakec
       c = filter_nolakec(fc)
        !--- snow ---
@@ -572,7 +572,7 @@ contains
     end do
       
     
-    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
    do fc = 1, num_nolakec
        c = filter_nolakec(fc)
 
@@ -613,7 +613,7 @@ contains
 
     !--- below ground (soil & soil water) and related urban columns
     !$acc parallel loop independent gang worker default(present) private(c,l,sum_heat,sum_cv,sum_latent,sum_hice,sum_dry) & 
-    !$acc  present(heat_dry_mass(:),cv_liquid(:), heat_liquid(:), latent_heat_liquid(:), heat_ice(:) ) if(elm_device_ready) copyin(bounds)
+    !$acc  present(heat_dry_mass(:),cv_liquid(:), heat_liquid(:), latent_heat_liquid(:), heat_ice(:) ) if(elm_device_ready)
     do fc = 1, num_nolakec
       c = filter_nolakec(fc)
       l = col_pp%landunit(c)
@@ -675,7 +675,7 @@ contains
        heat_ice(fc) = heat_ice(fc) + sum_hice 
     end do
 
-    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
     do fc = 1, num_nolakec
        c = filter_nolakec(fc)
        heat(c) = heat_dry_mass(fc) + heat_ice(fc) + heat_liquid(c) + latent_heat_liquid(fc)
@@ -750,7 +750,7 @@ contains
     !$acc sum_dry)
 
 
-    !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
     do fc = 1, num_lakec
        c = filter_lakec(fc)
 
@@ -763,7 +763,7 @@ contains
     end do
 
     ! Snow heat content
-    !$acc parallel loop independent gang worker default(present) private(sum_heat,sum_cv,sum_latent,sum_hice) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(sum_heat,sum_cv,sum_latent,sum_hice) if(elm_device_ready)
     do fc = 1, num_lakec
        c = filter_lakec(fc)
        sum_heat = 0._r8
@@ -796,7 +796,7 @@ contains
     end do
 
     ! Soil water content of the soil under the lake
-    !$acc parallel loop independent gang worker default(present) private(sum_heat,sum_cv,sum_latent,sum_hice,sum_dry) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(sum_heat,sum_cv,sum_latent,sum_hice,sum_dry) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
       sum_heat = 0._r8

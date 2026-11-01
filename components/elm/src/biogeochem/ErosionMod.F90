@@ -122,7 +122,7 @@ contains
             labilep_erode(c)        = 0._r8
             labilep_deposit(c)      = 0._r8
             !$acc update device(col_pf%labilep_deposit, col_pf%labilep_erode) if_present
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(labilep_yield_vr,2), ubound(labilep_yield_vr,2)  ! spel section-loop
                labilep_yield_vr(c, spel_i1)   = 0._r8
             end do
@@ -131,7 +131,7 @@ contains
             secondp_erode(c)        = 0._r8
             secondp_deposit(c)      = 0._r8
             !$acc update device(col_pf%secondp_deposit, col_pf%secondp_erode) if_present
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(secondp_yield_vr,2), ubound(secondp_yield_vr,2)  ! spel section-loop
                secondp_yield_vr(c, spel_i1)   = 0._r8
             end do
@@ -140,7 +140,7 @@ contains
             occlp_erode(c)          = 0._r8
             occlp_deposit(c)        = 0._r8
             !$acc update device(col_pf%occlp_deposit, col_pf%occlp_erode) if_present
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(occlp_yield_vr,2), ubound(occlp_yield_vr,2)  ! spel section-loop
                occlp_yield_vr(c, spel_i1)     = 0._r8
             end do
@@ -149,16 +149,16 @@ contains
             primp_erode(c)          = 0._r8
             primp_deposit(c)        = 0._r8
             !$acc update device(col_pf%primp_deposit, col_pf%primp_erode) if_present
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(primp_yield_vr,2), ubound(primp_yield_vr,2)  ! spel section-loop
                primp_yield_vr(c, spel_i1)     = 0._r8
             end do
 
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(cpools_erode,2), ubound(cpools_erode,2)  ! spel section-loop
                cpools_erode(c, spel_i1)       = 0._r8
             end do
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(cpools_deposit,2), ubound(cpools_deposit,2)  ! spel section-loop
                cpools_deposit(c, spel_i1)     = 0._r8
             end do
@@ -166,18 +166,18 @@ contains
             spel_ub1 = ubound(cpools_yield_vr,3)  ! spel collapse-bounds
             spel_lb2 = lbound(cpools_yield_vr,2)  ! spel collapse-bounds
             spel_ub2 = ubound(cpools_yield_vr,2)  ! spel collapse-bounds
-            !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
             do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
                do spel_i1 = spel_lb2, spel_ub2
                   cpools_yield_vr(c, spel_i1, spel_i2)  = 0._r8
                end do
             end do
 
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(npools_erode,2), ubound(npools_erode,2)  ! spel section-loop
                npools_erode(c, spel_i1)       = 0._r8
             end do
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(npools_deposit,2), ubound(npools_deposit,2)  ! spel section-loop
                npools_deposit(c, spel_i1)     = 0._r8
             end do
@@ -185,18 +185,18 @@ contains
             spel_ub1 = ubound(npools_yield_vr,3)  ! spel collapse-bounds
             spel_lb2 = lbound(npools_yield_vr,2)  ! spel collapse-bounds
             spel_ub2 = ubound(npools_yield_vr,2)  ! spel collapse-bounds
-            !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
             do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
                do spel_i1 = spel_lb2, spel_ub2
                   npools_yield_vr(c, spel_i1, spel_i2)  = 0._r8
                end do
             end do
 
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(ppools_erode,2), ubound(ppools_erode,2)  ! spel section-loop
                ppools_erode(c, spel_i1)       = 0._r8
             end do
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(ppools_deposit,2), ubound(ppools_deposit,2)  ! spel section-loop
                ppools_deposit(c, spel_i1)     = 0._r8
             end do
@@ -204,7 +204,7 @@ contains
             spel_ub1 = ubound(ppools_yield_vr,3)  ! spel collapse-bounds
             spel_lb2 = lbound(ppools_yield_vr,2)  ! spel collapse-bounds
             spel_ub2 = ubound(ppools_yield_vr,2)  ! spel collapse-bounds
-            !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
             do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
                do spel_i1 = spel_lb2, spel_ub2
                   ppools_yield_vr(c, spel_i1, spel_i2)  = 0._r8
@@ -323,7 +323,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
-                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_cpools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -336,7 +336,7 @@ contains
                         end if
                      end do
                   else
-                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_cpools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -350,7 +350,7 @@ contains
                         end if
                      end do
                   end if
-                  !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                  !$acc parallel loop gang vector default(present) if(elm_device_ready)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         cpools_yield_vr(c,j,l) = (decomp_cpools_vr(c,j,l)-decomp_cpools_vr_new(l))/dt
@@ -379,7 +379,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
-                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_npools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -392,7 +392,7 @@ contains
                         end if
                      end do
                   else
-                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_npools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -406,7 +406,7 @@ contains
                         end if
                      end do
                   end if
-                  !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                  !$acc parallel loop gang vector default(present) if(elm_device_ready)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         npools_yield_vr(c,j,l) = (decomp_npools_vr(c,j,l)-decomp_npools_vr_new(l))/dt
@@ -435,7 +435,7 @@ contains
                      end if
                   end if
                   if (k1==k2) then
-                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_ppools_vr(c,:,l)>=0._r8) ) then
                            if (k1<=nlevdecomp) then
@@ -510,7 +510,7 @@ contains
                         primp_vr_new = primp_vr(c,j)
                      end if
                   else
-                     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                     !$acc parallel loop gang vector default(present) if(elm_device_ready)
                      do l = 1, ndecomp_pools
                         if ( all(decomp_ppools_vr(c,:,l)>=0._r8) ) then
                            if (k2<=nlevdecomp) then
@@ -597,7 +597,7 @@ contains
                         primp_vr_new = primp_vr(c,j)
                      end if
                   end if
-                  !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                  !$acc parallel loop gang vector default(present) if(elm_device_ready)
                   do l = 1, ndecomp_pools
                      if ( decomp_cascade_con%is_soil(l) ) then
                         ppools_yield_vr(c,j,l) = (decomp_ppools_vr(c,j,l)-decomp_ppools_vr_new(l))/dt

@@ -131,7 +131,7 @@ contains
 
       !NOTE: Need to separate out the vichydro only arrays
 
-      !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          nlevbed = nlev2bed(c)
@@ -154,7 +154,7 @@ contains
 
       ! Saturated fraction
       !NOTE : assuming use_vichydro is .false. 
-      !$acc parallel loop independent gang vector default(present) private(c, g, nlevbed) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c, g, nlevbed) if(elm_device_ready)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          g = col_pp%gridcell(c)
@@ -202,7 +202,7 @@ contains
          endif
       end do
 
-      !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          l = col_pp%landunit(c)
@@ -223,7 +223,7 @@ contains
       ! Determine water in excess of ponding limit for urban roof and impervious road.
       ! Excess goes to surface runoff. No surface runoff for sunwall and shadewall.
 
-      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1, num_urbanc
          c = filter_urbanc(fc)
          if (col_pp%itype(c) == icol_roof .or. col_pp%itype(c) == icol_road_imperv) then
@@ -251,7 +251,7 @@ contains
       end do
 
       ! remove stormflow and snow on h2osfc from qflx_top_soil
-      !$acc parallel loop independent gang vector default(present) private(c, t) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c, t) if(elm_device_ready)
       do fc = 1, num_hydrologyc
          c = filter_hydrologyc(fc)
          t = col_pp%topounit(c)
@@ -282,7 +282,7 @@ contains
          !$acc update device(top_pp%uphill_wt) if_present
 
          ! flow from uphill topounit goes to top of soil for soil, crop, and pervious road columns
-         !$acc parallel loop gang vector default(present) private(c, t) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(c, t) if(elm_device_ready)
          do fc = 1, num_hydrologyc
             c = filter_hydrologyc(fc)
             t = col_pp%topounit(c)
@@ -448,7 +448,7 @@ contains
      !$acc top_ice(:))
 
        ! Infiltration into surface soil layer (minus the evaporation)
-       !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -463,7 +463,7 @@ contains
 
        !NOTE : Assuming use_vichydro is .false.
        !$acc parallel loop independent gang vector default(present) private(c, g, l, pc, fsno, top_icefrac, rsurf_vic, &
-       !$acc   basis, qinmax, frac_infclust, vdep, phi_eff, swc, k_wet, h2osoi_left_vol1) no_create(moist, max_moist, ice) if(elm_device_ready) copyin(bounds)
+       !$acc   basis, qinmax, frac_infclust, vdep, phi_eff, swc, k_wet, h2osoi_left_vol1) no_create(moist, max_moist, ice) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c  = filter_hydrologyc(fc)
           g  = cgridcell(c)
@@ -754,7 +754,7 @@ contains
 
        ! No infiltration for impervious urban surfaces
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_urbanc
           c = filter_urbanc(fc)
           if (col_pp%itype(c) /= icol_road_perv) then
@@ -892,7 +892,7 @@ contains
 
        ! Convert layer thicknesses from m to mm
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           qflx_drain(c)    = 0._r8
@@ -903,7 +903,7 @@ contains
        ! The layer index of the first unsaturated layer, i.e., the layer right above
        ! the water table
 
-       !$acc parallel loop independent gang vector default(present) private(c, nlevbed, jwt_found) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, nlevbed, jwt_found) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -925,7 +925,7 @@ contains
        !============================== QCHARGE =========================================
        ! Water table changes due to qcharge
        !$acc parallel loop independent gang vector default(present) private(c, nlevbed, rous, g, l, qcharge_temp, &
-       !$acc   qcharge_tot, s_y, qcharge_layer) if(elm_device_ready) copyin(bounds)
+       !$acc   qcharge_tot, s_y, qcharge_layer) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -1008,7 +1008,7 @@ contains
 
        !==  BASEFLOW ==================================================
        ! perched water table code
-       !$acc parallel loop independent gang vector default(present) private(c, nlevbed, k_frz, sat_lev, k_perch, s1, s2, m, b) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, nlevbed, k_frz, sat_lev, k_perch, s1, s2, m, b) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -1075,7 +1075,7 @@ contains
           endif
        end do
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
 
@@ -1096,7 +1096,7 @@ contains
        end do
 
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_urbanc
           c = filter_urbanc(fc)
           ! Renew the ice and liquid mass due to condensation for urban roof and impervious road
@@ -1275,7 +1275,7 @@ contains
 
        ! Convert layer thicknesses from m to mm
 
-        !$acc parallel loop independent gang vector default(present) private(c, nlevbed, vol_ice) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop independent gang vector default(present) private(c, nlevbed, vol_ice) if(elm_device_ready)
         do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -1290,7 +1290,7 @@ contains
 
        ! Initial set
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           qflx_drain(c)    = 0._r8
@@ -1304,7 +1304,7 @@ contains
        ! The layer index of the first unsaturated layer, i.e., the layer right above
        ! the water table
 
-       !$acc parallel loop independent gang vector default(present) private(c, g, nlevbed) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, g, nlevbed) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           g = col_pp%gridcell(c)
@@ -1329,7 +1329,7 @@ contains
        ! perched water table code
        !$acc parallel loop independent gang vector default(present) present(ice(:,:),moist(:,:) ) private(c, nlevbed, &
        !$acc   q_perch_max, k_frz, wtsub, q_perch, imped, rsub_top_tot, rsub_top_layer, sat_lev, k_perch, h2osoi_vol, &
-       !$acc   s1, s2, m, b, dzsum, icefracsum, rsub_top_max, rel_moist, frac, rsub_tmp, rous, s_y, wtsub_vic) if(elm_device_ready) copyin(bounds)
+       !$acc   s1, s2, m, b, dzsum, icefracsum, rsub_top_max, rel_moist, frac, rsub_tmp, rous, s_y, wtsub_vic) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -1669,7 +1669,7 @@ contains
 
           !-- recompute jwt for following calculations  ---------------------------------
           ! allow jwt to equal zero when zwt is in top layer
-          !$acc parallel loop gang vector default(present) private(c, nlevbed, j) if(elm_device_ready) copyin(bounds)
+          !$acc parallel loop gang vector default(present) private(c, nlevbed, j) if(elm_device_ready)
           do fc = 1, num_hydrologyc
              c = filter_hydrologyc(fc)
              nlevbed = nlev2bed(c)
@@ -1694,7 +1694,7 @@ contains
        !  excessive water above saturation added to the above unsaturated layer like a bucket
        !  if column fully saturated, excess water goes to runoff
 
-       !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -1706,7 +1706,7 @@ contains
           end do
        end do
 
-       !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           l = col_pp%landunit(c)
@@ -1742,7 +1742,7 @@ contains
        ! Limit h2osoi_liq to be greater than or equal to watmin.
        ! Get water needed to bring h2osoi_liq equal watmin from lower layer.
        ! If insufficient water in soil layers, get from aquifer water
-       !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, nlevbed) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -1763,7 +1763,7 @@ contains
        end do
 
        ! Get water for bottom layer from layers above if possible
-       !$acc parallel loop independent gang vector default(present) private(c, nlevbed, j, available_h2osoi_liq) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, nlevbed, j, available_h2osoi_liq) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
           nlevbed = nlev2bed(c)
@@ -1795,7 +1795,7 @@ contains
           rsub_top(fc) = rsub_top(fc) - xs(fc)/dtime
        end do
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_hydrologyc
           c = filter_hydrologyc(fc)
             
@@ -1809,7 +1809,7 @@ contains
 
        ! No drainage for urban columns (except for pervious road as computed above)
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_urbanc
           c = filter_urbanc(fc)
           if (col_pp%itype(c) /= icol_road_perv) then
@@ -1897,7 +1897,7 @@ contains
        !$acc parallel loop gang vector default(present) &
        !$acc   private(c, g, nlevbed, j, dzsum, icefracsum, imped, t1, f, jtran) &
        !$acc   private(dz_jtran, t2, head, rous, lateral_tot, s_y, lateral_layer) &
-       !$acc   private(h2osoi_left_vol) if(elm_device_ready) copyin(bounds)
+       !$acc   private(h2osoi_left_vol) if(elm_device_ready)
        do fc = 1, num_hydrologyc !TODO: introduce a filter for coastline grid cells
           c = filter_hydrologyc(fc)
           g = col_pp%gridcell(c)
@@ -2528,7 +2528,7 @@ contains
        ! map CLM to VIC
        do fc = 1, numf
           c = filter(fc)
-          !$acc parallel loop gang vector default(present) private(j) if(elm_device_ready) copyin(bounds)
+          !$acc parallel loop gang vector default(present) private(j) if(elm_device_ready)
           do i = 1, nlayer
              ice0(i) = ice(c,i)
              moist0(i) = moist(c,i)

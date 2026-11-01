@@ -312,7 +312,7 @@ contains
     !$acc enter data create(temp,sum1,sum2,sum3, icesum)
     
     !Begin Calculations
-    !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
     do fc = 1, num_lakec
        c = filter_lakec(fc)
        ! Initialize quantities needed below
@@ -338,7 +338,7 @@ contains
     ! here because phase change will occur in this routine.
     ! Ice fraction of snow at previous time step
 
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)  !async(1)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready)  !async(1)
     do j = -nlevsno+1,0
       do fc = 1, num_lakec
          c = filter_lakec(fc)
@@ -349,7 +349,7 @@ contains
     end do
 
     ! Prepare for lake layer temperature calculations below
-    !$acc parallel loop independent gang vector default(present) private(sabg_nir, p, c, fc) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) private(sabg_nir, p, c, fc) if(elm_device_ready)
     do fp = 1, num_lakep
        p = filter_lakep(fp)
        c = veg_pp%column(p)
@@ -367,7 +367,7 @@ contains
     end do
     
     ! 2!) Lake density
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready)
     do j = 1, nlevlak
        do fc = 1, num_lakec
           c = filter_lakec(fc)
@@ -383,7 +383,7 @@ contains
        end do
     end do
     ! 3!) Diffusivity and implied thermal "conductivity" = diffusivity * cwat
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(c, drhodz, n2, num, den, ri, ke, fangkm) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(c, drhodz, n2, num, den, ri, ke, fangkm) if(elm_device_ready)
     do j = 1, nlevlak-1
        do fc = 1, num_lakec
           c = filter_lakec(fc)
@@ -434,7 +434,7 @@ contains
        end do
     end do
 
-    !$acc parallel loop independent gang vector default(present) private(c,j) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) private(c,j) if(elm_device_ready)
     do fc = 1, num_lakec
        c = filter_lakec(fc)
 
@@ -462,7 +462,7 @@ contains
 
     ! 4!) Heat source term
     !$acc parallel loop independent gang vector collapse(2) default(present) private(p, c, fc, eta, zin, zout, rsfin, &
-    !$acc   rsfout, phidum) if(elm_device_ready) copyin(bounds)
+    !$acc   rsfout, phidum) if(elm_device_ready)
     do j = 1, nlevlak
        do fp = 1, num_lakep
           p = filter_lakep(fp)
@@ -511,7 +511,7 @@ contains
 
     ! 5!) Set thermal properties and check initial energy content.
     ! For lake
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready)
     do j = 1, nlevlak
        do fc = 1, num_lakec
           c = filter_lakec(fc)
@@ -531,7 +531,7 @@ contains
 
     ! This will need to be over all soil / lake / snow layers. Lake is below.
 
-    !$acc parallel loop independent gang worker default(present) private(c,temp) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(c,temp) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
       ! start from the running totals to keep the reference's summation order
@@ -546,7 +546,7 @@ contains
       
        
     ! Now do for soil / snow layers
-    !$acc parallel loop independent gang worker default(present) private(temp,c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(temp,c) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
       ! start from the running totals to keep the reference's summation order
@@ -572,7 +572,7 @@ contains
     ! but its capacity to absorb latent heat may be used during phase change.
 
     ! Transfer sabg and sabg_lyr to column level
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(p,c,fc) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(p,c,fc) if(elm_device_ready)
     do j = -nlevsno+1,1
        do fp = 1, num_lakep
           p = filter_lakep(fp)
@@ -587,7 +587,7 @@ contains
     end do
     
    ! Set up interface depths, zx, heat capacities, cvx, solar source terms, phix, and temperatures, tx.
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(c, jprime) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(c, jprime) if(elm_device_ready)
     do j = -nlevsno+1, nlevlak+nlevgrnd
        do fc = 1,num_lakec
           c = filter_lakec(fc)
@@ -628,7 +628,7 @@ contains
     end do
 
     ! Determine interface thermal conductivities, tkix
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(c, jprime, dzp) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(c, jprime, dzp) if(elm_device_ready)
     do j = -nlevsno+1, nlevlak+nlevgrnd
        do fc = 1,num_lakec
           c = filter_lakec(fc)
@@ -663,7 +663,7 @@ contains
     ! tridiagonal matrix and set up vector r and vectors a, b, c1 that define tridiagonal
     ! matrix and solve system
    
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready)
     do j = -nlevsno+1, nlevlak+nlevgrnd
        do fc = 1,num_lakec
           if (j >= jtop(fc)) then
@@ -678,7 +678,7 @@ contains
        enddo
     end do
 
-    !$acc parallel loop independent gang vector collapse(2) default(present) private(c, dzp, dzm) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2) default(present) private(c, dzp, dzm) if(elm_device_ready)
     do j = -nlevsno+1,nlevlak+nlevgrnd
        do fc = 1,num_lakec
           c = filter_lakec(fc)
@@ -707,7 +707,7 @@ contains
        enddo
     end do
 
-    !$acc parallel loop independent gang vector  default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector  default(present) private(c) if(elm_device_ready)
     do fc = 1,num_lakec
       c = filter_lakec(fc)
 
@@ -736,7 +736,7 @@ contains
     end do
    
     ! Set t_soisno and t_lake
-    !$acc parallel loop independent gang vector  default(present) collapse(2) private(jprime, c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector  default(present) collapse(2) private(jprime, c) if(elm_device_ready)
     do j = -nlevsno+1, nlevlak + nlevgrnd
        do fc = 1, num_lakec
           c = filter_lakec(fc)
@@ -783,7 +783,7 @@ contains
 
     !Recalculate density
 
-    !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready)
     do j = 1, nlevlak
        do fc = 1, num_lakec
           c = filter_lakec(fc)
@@ -797,7 +797,7 @@ contains
     if (lakepuddling) then
     ! For sensitivity tests
        ! icesum runs over a column's layers: one column per iteration, layers in order
-       !$acc parallel loop independent gang vector default(present) private(c, icesum) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, icesum) if(elm_device_ready)
        do fc = 1, num_lakec
           c = filter_lakec(fc)
           icesum = 0._r8
@@ -819,7 +819,7 @@ contains
 
     ! First examine top nlevlak-1 layers.
     do j = 1, nlevlak-2
-       !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c) if(elm_device_ready)
       do fc = 1, num_lakec
          c = filter_lakec(fc)
          ! only levels that convect
@@ -847,7 +847,7 @@ contains
          nav(fc) = sum3 
       end do
 
-    !$acc parallel loop independent gang vector  default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector  default(present) private(c) if(elm_device_ready)
        do fc = 1, num_lakec
           c = filter_lakec(fc)
           if ( (.not. lakepuddling .or. .not. puddle(fc) ) .and. (rhow(fc,j) > rhow(fc,j+1) .or. &
@@ -869,7 +869,7 @@ contains
           end if
        end do  
 
-       !$acc parallel loop independent gang vector default(present) copyin(j) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) copyin(j) private(c) if(elm_device_ready)
        do fc = 1, num_lakec
          c = filter_lakec(fc)
 
@@ -910,7 +910,7 @@ contains
 
     ! Now check bottom layer
     j = nlevlak-1
-    !$acc parallel loop independent gang vector  default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector  default(present) private(c) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
 
@@ -925,7 +925,7 @@ contains
     ! Start mixing from bottom up. Only mix as high as the unstable density profile persists.
     do j = nlevlak-1, 1, -1
        
-      !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c) if(elm_device_ready)
       do fc = 1, num_lakec
          c = filter_lakec(fc)
          sum1 = 0._r8; sum2 = 0._r8; sum3 = 0._r8 
@@ -952,7 +952,7 @@ contains
          nav(fc) = sum3 
       end do
 
-       !$acc parallel loop independent gang vector  default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector  default(present) private(c) if(elm_device_ready)
        do fc = 1, num_lakec
           c = filter_lakec(fc)
 
@@ -976,7 +976,7 @@ contains
           end if
        end do
 
-       !$acc parallel loop independent gang vector default(present) copyin(j) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) copyin(j) private(c) if(elm_device_ready)
        do fc = 1, num_lakec
 
          c = filter_lakec(fc)
@@ -1021,7 +1021,7 @@ contains
     ! the whole lake resistance is included.
 
     if (use_lch4) then
-    !$acc parallel loop independent gang worker default(present) private(temp, c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(temp, c) if(elm_device_ready)
       do fc = 1, num_lakec
          c = filter_lakec(fc)
          temp = 0._r8 
@@ -1053,7 +1053,7 @@ contains
     !!!!!!!!!!!!!!!!!!!!!!!
     ! 11!) Re-evaluate thermal properties and sum energy content.
     ! For lake
-    !$acc parallel loop independent gang vector collapse(2)  default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector collapse(2)  default(present) private(c) if(elm_device_ready)
     do j = 1, nlevlak
        do fc = 1, num_lakec
           c = filter_lakec(fc)
@@ -1069,7 +1069,7 @@ contains
          soilstate_vars)
     
     ! Do as above to sum energy content
-    !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, c) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
       ! start from the running totals to keep the reference's summation order
@@ -1090,7 +1090,7 @@ contains
        hc_lake(c) = sum3
     end do
 
-    !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, temp, c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, temp, c) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
       ! start from the running totals to keep the reference's summation order
@@ -1125,7 +1125,7 @@ contains
        hc_soi(c) = temp
     end do
    
-    !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
       errsoi(c) = (ncvts(fc)-ocvts(fc)) / dtime_mod - fin(fc)
@@ -1133,7 +1133,7 @@ contains
 
     ! Check energy conservation.
     ! NOTE: separate this into two loops to avoid a filter to column index? 
-    !$acc parallel loop independent gang vector default(present) private(p,c,fc) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) private(p,c,fc) if(elm_device_ready)
     do fp = 1, num_lakep
        p = filter_lakep(fp)
        c = veg_pp%column(p)
@@ -1152,7 +1152,7 @@ contains
     ! This loop assumes only one point per column.
 
     ! lake_icethick diagnostic.
-    !$acc parallel loop independent gang worker default(present) private(sum1, c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang worker default(present) private(sum1, c) if(elm_device_ready)
     do fc = 1, num_lakec
       c = filter_lakec(fc)
       sum1 = 0._r8
@@ -1277,7 +1277,7 @@ contains
 
       !$acc enter data create(thk(1:num_lakec,-nlevsno+1:nlevgrnd))
        ! Thermal conductivity of soil from Farouki (1981)
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, satw, fl, dke, dksat, xicevol, bw) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c, satw, fl, dke, dksat, xicevol, bw) if(elm_device_ready)
        do j = -nlevsno+1,nlevgrnd
           do fc = 1, num_lakec
              c = filter_lakec(fc)
@@ -1335,7 +1335,7 @@ contains
        ! For the first case, the snow layer conductivity for the middle of the layer will be returned.
        ! Because the interfaces are below the soil layers, the conductivity for the top soil layer
        ! will have to be returned separately.
-       !$acc parallel loop independent collapse(2) gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent collapse(2) gang vector default(present) private(c) if(elm_device_ready)
        do j = -nlevsno+1,nlevgrnd
           do fc = 1,num_lakec
              c = filter_lakec(fc)
@@ -1354,7 +1354,7 @@ contains
 
        ! Soil heat capacity, from de Vires (1963)
 
-       !$acc parallel loop collapse(2) gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop collapse(2) gang vector default(present) private(c) if(elm_device_ready)
        do j = 1, nlevgrnd
           do fc = 1,num_lakec
              c = filter_lakec(fc)
@@ -1371,7 +1371,7 @@ contains
        end do
 
        ! Snow heat capacity
-       !$acc parallel loop collapse(2) gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop collapse(2) gang vector default(present) private(c) if(elm_device_ready)
        do j = -nlevsno+1,0
           do fc = 1,num_lakec
              c = filter_lakec(fc)
@@ -1460,7 +1460,7 @@ contains
 
 
        ! Initialization
-      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1,num_lakec
           c = filter_lakec(fc)
           qflx_snomelt(c)   = 0._r8
@@ -1468,7 +1468,7 @@ contains
           qflx_snow_melt(c) = 0._r8
        end do
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do j = -nlevsno+1,0
           do fc = 1,num_lakec
              c = filter_lakec(fc)
@@ -1480,7 +1480,7 @@ contains
        end do
 
        ! Check for case of snow without snow layers and top lake layer temp above freezing.
-       !$acc parallel loop independent gang vector default(present) private(c, melt, heatavail, heatrem) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, melt, heatavail, heatrem) if(elm_device_ready)
        do fc = 1,num_lakec
           c = filter_lakec(fc)
           if (snl(c) == 0 .and. h2osno(c) > 0._r8 .and. t_lake(c,1) > tfrz) then
@@ -1501,7 +1501,7 @@ contains
 
        ! Lake phase change
        !$acc parallel loop independent gang vector collapse(2) default(present) private(c, melt, heatrem, &
-       !$acc   dophasechangeflag, heatavail) if(elm_device_ready) copyin(bounds)
+       !$acc   dophasechangeflag, heatavail) if(elm_device_ready)
        do j = 1,nlevlak
           do fc = 1,num_lakec
              c = filter_lakec(fc)
@@ -1538,7 +1538,7 @@ contains
        ! Snow & soil phase change
        ! Currently, does not do freezing point depression.
        !$acc parallel loop independent gang vector default(present) collapse(2) private(c, melt, heatrem, &
-       !$acc   dophasechangeflag, heatavail) if(elm_device_ready) copyin(bounds)
+       !$acc   dophasechangeflag, heatavail) if(elm_device_ready)
        do j = -nlevsno+1,nlevgrnd
           do fc = 1,num_lakec
              c = filter_lakec(fc)
@@ -1591,7 +1591,7 @@ contains
 
        ! Column totals of the snow layers' melt and freezing, summed in layer order as
        ! upstream (layers without phase change add zero), then eflx_snomelt(c)
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1,num_lakec
           c = filter_lakec(fc)
           !$acc loop seq

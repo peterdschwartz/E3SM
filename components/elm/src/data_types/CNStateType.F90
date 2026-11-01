@@ -1621,7 +1621,7 @@ contains
 
     ! Accumulate and extract
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%cn_scalar(p)
     end do
@@ -1629,7 +1629,7 @@ contains
     call update_accum_field  ('nlim_m' , rbufslp             , nstep)
     call extract_accum_field ('nlim_m' , this%cn_scalar_runmean  , nstep)
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%cp_scalar(p)
     end do
@@ -1637,7 +1637,7 @@ contains
     call update_accum_field  ('plim_m' , rbufslp             , nstep)
     call extract_accum_field ('plim_m' , this%cp_scalar_runmean  , nstep)
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%water_scalar(p)
     end do

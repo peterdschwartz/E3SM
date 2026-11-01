@@ -32,7 +32,6 @@ module subgridAveViewMod
   ! are contiguous (their targets must be), so the loops need no strides.
   !
   ! !USES:
-  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only : r8 => shr_kind_r8
   use shr_sys_mod , only : shr_sys_abort
   !

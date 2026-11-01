@@ -935,6 +935,7 @@ contains
     !
     ! !USES:
     use histComputeMod, only : hist_compute_update
+    use elm_varctl    , only : elm_device_ready
     use subgridAveMod , only : elm_subgrid_view
     use decompMod     , only : BOUNDS_LEVEL_PROC
     !
@@ -947,7 +948,7 @@ contains
     SHR_ASSERT(bounds%level == BOUNDS_LEVEL_PROC, errMsg(__FILE__, __LINE__))
 
     ! (the sums of the weights are checked by reweight_wrapup when they change)
-    call hist_compute_update(elm_subgrid_view, elmptr_rs, elmptr_ra)
+    call hist_compute_update(elm_subgrid_view, elmptr_rs, elmptr_ra, elm_device_ready)
 
   end subroutine hist_update_hbuf
 
@@ -1096,12 +1097,13 @@ contains
     !
     ! !USES:
     use histComputeMod, only : hist_compute_normalize
+    use elm_varctl    , only : elm_device_ready
     !
     ! !ARGUMENTS:
     integer, intent(in) :: t       ! tape index
     !-----------------------------------------------------------------------
 
-    call hist_compute_normalize(t)
+    call hist_compute_normalize(t, elm_device_ready)
 
   end subroutine hfields_normalize
 
@@ -1113,12 +1115,13 @@ contains
     !
     ! !USES:
     use histComputeMod, only : hist_compute_zero
+    use elm_varctl    , only : elm_device_ready
     !
     ! !ARGUMENTS:
     integer, intent(in) :: t     ! tape index
     !-----------------------------------------------------------------------
 
-    call hist_compute_zero(t)
+    call hist_compute_zero(t, elm_device_ready)
 
   end subroutine hfields_zero
 

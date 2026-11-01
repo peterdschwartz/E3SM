@@ -688,7 +688,7 @@ contains
     ! Accumulate and extract GDDPLANT
     
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(ivt) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(ivt) if(elm_device_ready)
     do p = begp,endp
        if (this%croplive_patch(p)) then ! relative to planting date
           ivt = veg_pp%itype(p)
@@ -712,7 +712,7 @@ contains
     ! to 0.05 m, so here we use the top two soil layers
 
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(ivt, c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(ivt, c) if(elm_device_ready)
     do p = begp,endp
        if (this%croplive_patch(p)) then ! relative to planting date
           ivt = veg_pp%itype(p)

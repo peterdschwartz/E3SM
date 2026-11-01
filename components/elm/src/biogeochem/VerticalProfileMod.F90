@@ -122,19 +122,19 @@ contains
       if (use_vertsoilc) then
 
          ! define a single shallow surface profile for surface additions (leaves, stems, and N deposition)
-         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) if(elm_device_ready)
          do spel_i1 = lbound(surface_prof,1), ubound(surface_prof,1)  ! spel section-loop
             surface_prof(spel_i1) = 0._r8
          end do
          !$acc data copy(surface_prof) if(elm_device_ready)
-         !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) if(elm_device_ready)
          do j = 1, nlevdecomp
             surface_prof(j) = exp(-surfprof_exp * zsoi(j)) / dzsoi_decomp(j)
          end do
          !$acc end data
 
          ! initialize profiles to zero
-         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
          do j = 1, nlevdecomp_full
             do p = begp, endp
                leaf_prof(p,j) = 0._r8
@@ -144,7 +144,7 @@ contains
                cinput_rootfr(p,j) = 0._r8
             end do
          end do
-         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
          do j = 1, nlevdecomp_full
             do c = begc, endc
                nfixation_prof(c,j) = 0._r8
@@ -157,7 +157,7 @@ contains
          if ( exponential_rooting_profile ) then
             if ( .not. pftspecific_rootingprofile ) then
                ! define rooting profile from exponential parameters
-               !$acc parallel loop gang vector collapse(2) default(present) private(p) if(elm_device_ready) copyin(bounds)
+               !$acc parallel loop gang vector collapse(2) default(present) private(p) if(elm_device_ready)
                do j = 1, nlevdecomp
                   do fp = 1,num_soilp
                      p = filter_soilp(fp)
@@ -167,7 +167,7 @@ contains
             else
                ! use beta distribution parameter from Jackson et al., 1996
                !$acc parallel loop gang vector default(present) &
-               !$acc   private(p, c, nlevbed, rootfr_tot, j) if(elm_device_ready) copyin(bounds)
+               !$acc   private(p, c, nlevbed, rootfr_tot, j) if(elm_device_ready)
                do fp = 1,num_soilp
                   p = filter_soilp(fp)
                   c = veg_pp%column(p)
@@ -197,7 +197,7 @@ contains
                end do
             endif
          else
-            !$acc parallel loop gang vector collapse(2) default(present) private(p) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop gang vector collapse(2) default(present) private(p) if(elm_device_ready)
             do j = 1, nlevdecomp
                ! use standard CLM root fraction profiles
                do fp = 1,num_soilp
@@ -209,7 +209,7 @@ contains
 
          !$acc data copy(surface_prof) if(elm_device_ready)
          !$acc parallel loop gang vector default(present) &
-         !$acc   private(p, c, nlevbed, rootfr_tot, surface_prof_tot, j) if(elm_device_ready) copyin(bounds)
+         !$acc   private(p, c, nlevbed, rootfr_tot, surface_prof_tot, j) if(elm_device_ready)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
             c = veg_pp%column(p)
@@ -263,7 +263,7 @@ contains
          !      cinput_rootfr(bounds%begp:bounds%endp, :), &
          !      col_cinput_rootfr(bounds%begc:bounds%endc, :), &
          !      'unity')
-         !$acc parallel loop gang vector default(present) private(fc, c, p, j) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(fc, c, p, j) if(elm_device_ready)
          do fc = 1,num_soilc
             !$acc loop seq
             do pi = 1,maxpatch_pft
@@ -281,7 +281,7 @@ contains
          ! repeat for column-native profiles: Ndep and Nfix
          !$acc data copy(surface_prof) if(elm_device_ready)
          !$acc parallel loop gang vector default(present) &
-         !$acc   private(c, nlevbed, rootfr_tot, surface_prof_tot, alt_ind, j) if(elm_device_ready) copyin(bounds)
+         !$acc   private(c, nlevbed, rootfr_tot, surface_prof_tot, alt_ind, j) if(elm_device_ready)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             nlevbed = nlev2bed(c)
@@ -329,7 +329,7 @@ contains
       else
 
          ! for one layer decomposition model, set profiles to unity
-         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
          do j = 1, nlevdecomp_full
             do p = begp, endp
                leaf_prof(p,j) = 1._r8
@@ -338,7 +338,7 @@ contains
                stem_prof(p,j) = 1._r8
             end do
          end do
-         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
          do j = 1, nlevdecomp_full
             do c = begc, endc
                nfixation_prof(c,j) = 1._r8
@@ -353,7 +353,7 @@ contains
       ! report them on the host (the original checks) only when there are any
       nbad = 0
       !$acc parallel loop gang vector default(present) reduction(+:nbad) &
-      !$acc&   private(c, ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum) if(elm_device_ready) copyin(bounds)
+      !$acc&   private(c, ndep_prof_sum, nfixation_prof_sum, pdep_prof_sum) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          ndep_prof_sum = 0._r8
@@ -408,7 +408,7 @@ contains
 
       nbad = 0
       !$acc parallel loop gang vector default(present) reduction(+:nbad) &
-      !$acc&   private(p, froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum) if(elm_device_ready) copyin(bounds)
+      !$acc&   private(p, froot_prof_sum, croot_prof_sum, leaf_prof_sum, stem_prof_sum) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
          froot_prof_sum = 0._r8
@@ -431,7 +431,7 @@ contains
          spel_dc_1 = 0  ! spel defer-checks
          !$acc parallel loop gang vector default(present) &
          !$acc   private(p, froot_prof_sum, croot_prof_sum, leaf_prof_sum) private(stem_prof_sum, j) &
-         !$acc   reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+         !$acc   reduction(max:spel_dc_1) if(elm_device_ready)
          do fp = 1,num_soilp
             p = filter_soilp(fp)
             froot_prof_sum = 0._r8

@@ -257,7 +257,7 @@ contains
       kva0temp = 20._r8 + tfrz
 
       ! Lake columns have one patch, so these patch loops write each column once
-      !$acc parallel loop gang vector default(present) private(p, c, t, g, kva, sqre0, sabg_nir, eg, degdT) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c, t, g, kva, sqre0, sabg_nir, eg, degdT) if(elm_device_ready)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -342,7 +342,7 @@ contains
 
 
 
-      !$acc parallel loop gang vector default(present) private(p, c, t, g, dthv) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c, t, g, dthv) if(elm_device_ready)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -390,7 +390,7 @@ contains
       iter = 1
       fncopy = num_lakep
       p0 = begp
-      !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do fp = 1, num_lakep
          fpcopy(fp) = filter_lakep(fp)
          fpmap(fp) = filter_lakep(fp) - p0 + 1
@@ -416,7 +416,7 @@ contains
               fm(begp:endp), frictionvel_vars)
 
          !$acc parallel loop gang vector default(present) private(p, c, t, g, bw, ax, bx, eg, degdT, &
-         !$acc&   tstar, qstar, thvstar, zeta, wc, cur, kva, sqre0) if(elm_device_ready) copyin(bounds)
+         !$acc&   tstar, qstar, thvstar, zeta, wc, cur, kva, sqre0) if(elm_device_ready)
          do fp = 1, fncopy
             p = fpcopy(fp)
             c = veg_pp%column(p)
@@ -576,7 +576,7 @@ contains
 
             ! in order, on one device thread: only fncopy comes back for the do while test
             fnold = fncopy
-            !$acc serial default(present) copy(fncopy) copyin(fnold) if(elm_device_ready) copyin(bounds)
+            !$acc serial default(present) copy(fncopy) copyin(fnold) if(elm_device_ready)
             fncopy = 0
             !$acc loop seq
             do fp = 1, fnold
@@ -595,7 +595,7 @@ contains
       spel_dc_1 = 0  ! spel defer-checks
       check_stress = get_nstep() > 0
       !$acc parallel loop gang vector default(present) private(p, c, t, g, t_grnd_temp, e_ref2m, de2mdT, &
-      !$acc&   qsat_ref2m, dqsat2mdT, u2m) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+      !$acc&   qsat_ref2m, dqsat2mdT, u2m) reduction(max:spel_dc_1) if(elm_device_ready)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)
@@ -718,7 +718,7 @@ contains
 
       ! The following are needed for global average on history tape.
 
-      !$acc parallel loop gang vector default(present) private(p, c, t) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c, t) if(elm_device_ready)
       do fp = 1, num_lakep
          p = filter_lakep(fp)
          c = veg_pp%column(p)

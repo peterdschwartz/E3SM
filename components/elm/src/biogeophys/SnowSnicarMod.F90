@@ -374,7 +374,7 @@ contains
       !$acc enter data create(dTdz)
       !$acc parallel loop gang vector default(present) private(c_idx, snl_btm, snl_top, i, h2osno_lyr, &
       !$acc&   t_snotop, t_snobtm, rhos, T_idx, Tgrd_idx, rhos_idx, bst_tau, bst_kappa, bst_drdt0, dr_fresh, &
-      !$acc&   dr, frc_liq, dr_wet, newsnow, refrzsnow, frc_refrz, frc_newsnow, frc_oldsnow, cdz) if(elm_device_ready) copyin(bounds)
+      !$acc&   dr, frc_liq, dr_wet, newsnow, refrzsnow, frc_refrz, frc_newsnow, frc_oldsnow, cdz) if(elm_device_ready)
       do fc = 1, num_snowc
          c_idx = filter_snowc(fc)
 
@@ -548,7 +548,7 @@ contains
 
       ! Special case: snow on ground, but not enough to have defined a snow layer:
       !   set snw_rds to fresh snow grain size:
-      !$acc parallel loop gang vector default(present) private(c_idx) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c_idx) if(elm_device_ready)
       do fc = 1, num_nosnowc
          c_idx = filter_nosnowc(fc)
          if (h2osno(c_idx) > 0._r8) then
@@ -1233,7 +1233,7 @@ contains
        !$acc&   rds_bcint_lcl, rds_idx, refk, refkm1, refkp1, rupdif, rupdir, sfctype, slope_rad, &
        !$acc&   smr, smt, snl_btm, snl_btm_itf, snl_lcl, snl_top, snw_rds_lcl, ss_alb_aer_lcl, &
        !$acc&   ss_alb_snw_lcl, swt, t1, tau, tau_aer, tau_snw, tau_star, tau_sum, tdif_a, tdif_b, &
-       !$acc&   tdir, tdndif, tdr, tdrrdir, tmp1, trn, trndif, trndir, trnlay, trntdr, ts, ue, ws) if(elm_device_ready) copyin(bounds)
+       !$acc&   tdir, tdndif, tdr, tdrrdir, tmp1, trn, trndif, trndir, trnlay, trntdr, ts, ue, ws) if(elm_device_ready)
        do k = 1, ncall
        do fc = 1,num_nourbanc
        do bnd_idx = 1,numrad_snw
@@ -1912,7 +1912,7 @@ contains
 
        ! Errors found above: the first in (case, column, band) order, then abort
        nbad = 0
-       !$acc parallel loop gang vector collapse(3) default(present) reduction(+:nbad) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector collapse(3) default(present) reduction(+:nbad) if(elm_device_ready)
        do k = 1, ncall
        do fc = 1,num_nourbanc
        do bnd_idx = 1,numrad_snw
@@ -1932,7 +1932,7 @@ contains
        !$acc parallel loop gang vector collapse(2) default(present) &
        !$acc   private(fc, flg_slr_in, c_idx, h2osno_lcl, snl_top, rds_top, mu_not) &
        !$acc   private(slr_zen, flx_sum, bnd_idx, i, sza_c1, sza_c0, sza_factor) &
-       !$acc   private(flx_sza_adjust) private(flx_wgt) if(elm_device_ready) copyin(bounds)
+       !$acc   private(flx_sza_adjust) private(flx_wgt) if(elm_device_ready)
        do k = 1, ncall
        do fc = 1,num_nourbanc
           flg_slr_in = call_slr(k)

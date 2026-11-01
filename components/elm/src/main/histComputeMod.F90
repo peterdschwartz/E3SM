@@ -21,7 +21,7 @@ module histComputeMod
   ! Per time step (hist_compute_update)
   ! - Multi-layer snow fields are first copied into snow_values with absent
   !   layers set to the field's no-snow value (spval or 0).
-  ! - On the device (elm_device_ready): one kernel accumulates every field,
+  ! - On the device (on_device): one kernel accumulates every field,
   !   one gang per block of block_size buffer elements. Every field starts on
   !   a block boundary, so a block is inside one field (block_field). Each
   !   element computes its sample, the point's value or the average of its
@@ -67,7 +67,7 @@ module histComputeMod
   ! under the same rule.
   !
   ! !USES:
-  use elm_varctl, only : elm_device_ready, iulog  ! compute constructs run on the host before the device copy
+  use shr_log_mod, only : iulog => shr_log_Unit  ! ELM sets the share log unit to its iulog
   use shr_sys_mod      , only : shr_sys_abort
   use shr_kind_mod     , only : r8 => shr_kind_r8
   use subgridAveViewMod, only : subgrid_ave_view, spval
@@ -535,19 +535,20 @@ contains
   end subroutine hist_compute_views
 
   !-----------------------------------------------------------------------
-  subroutine hist_compute_update(view, src1, src2)
+  subroutine hist_compute_update(view, src1, src2, on_device)
     !
     ! !DESCRIPTION:
     ! Accumulate the current values of all active fields into their buffers:
-    ! on the device when the model state lives there, else on the host.
+    ! on the device when the model state lives there (on_device), else on the host.
     !
     ! !ARGUMENTS:
     type(subgrid_ave_view), intent(in)  :: view
     type(hist_src1d)      , intent(in)  :: src1(:)
     type(hist_src2d)      , intent(in)  :: src2(:)
+    logical               , intent(in)  :: on_device  ! the model state lives on the device
     !-----------------------------------------------------------------------
 
-    if (elm_device_ready) then
+    if (on_device) then
        call update_device(view, src1, src2)
     else
        call update_host(view, src1, src2)
@@ -650,8 +651,7 @@ contains
 #endif
 
     ! snow fields: fill in the absent layers (the averages read plain value arrays)
-    !$acc parallel loop gang default(present) private(f, first, np, extent, rel0, lev0, i0) &
-    !$acc&   if(elm_device_ready)
+    !$acc parallel loop gang default(present) private(f, first, np, extent, rel0, lev0, i0)
     do b = 1, size(snow_block_field)
        f      = snow_block_field(b)
        first  = fields(f)%snow_offset
@@ -671,8 +671,7 @@ contains
        end do
     end do
 
-    !$acc parallel loop gang default(present) private(f, first, np, extent, rel0, lev0, i0) &
-    !$acc&   if(elm_device_ready)
+    !$acc parallel loop gang default(present) private(f, first, np, extent, rel0, lev0, i0)
     do b = 1, size(block_field)
        f      = block_field(b)
        first  = fields(f)%buffer_offset
@@ -1404,19 +1403,21 @@ contains
   end subroutine accumulate_samples
 
   !-----------------------------------------------------------------------
-  subroutine hist_compute_normalize(t)
+  subroutine hist_compute_normalize(t, on_device)
     !
     ! !DESCRIPTION:
-    ! Divide the time means of tape t by their number of samples.
+    ! Divide the time means of tape t by their number of samples (on the device
+    ! when the buffers live there).
     !
     ! !ARGUMENTS:
     integer, intent(in) :: t
+    logical, intent(in) :: on_device  ! the model state lives on the device
     !
     ! !LOCAL VARIABLES:
     integer :: f, n, first, last
     !-----------------------------------------------------------------------
 
-    !$acc parallel loop gang default(present) private(first, last) if(elm_device_ready)
+    !$acc parallel loop gang default(present) private(first, last) if(on_device)
     do f = tape_first_field(t), tape_first_field(t+1) - 1
        if (fields(f)%time_op /= time_mean) cycle
        first = fields(f)%buffer_offset + 1
@@ -1430,20 +1431,22 @@ contains
   end subroutine hist_compute_normalize
 
   !-----------------------------------------------------------------------
-  subroutine hist_compute_zero(t)
+  subroutine hist_compute_zero(t, on_device)
     !
     ! !DESCRIPTION:
-    ! Zero the buffers and counters of tape t.
+    ! Zero the buffers and counters of tape t (on the device when the buffers
+    ! live there).
     !
     ! !ARGUMENTS:
     integer, intent(in) :: t
+    logical, intent(in) :: on_device  ! the model state lives on the device
     !
     ! !LOCAL VARIABLES:
     integer :: n, first, last
     !-----------------------------------------------------------------------
 
     call tape_range(t, first, last)
-    !$acc parallel loop default(present) if(elm_device_ready)
+    !$acc parallel loop default(present) if(on_device)
     do n = first, last
        hbuf_pool(n) = 0._r8
        nacs_pool(n) = 0
@@ -1451,7 +1454,7 @@ contains
     ! hist_htapes_wrapup (a host segment, flag off) zeroes the host copy; the buffers accumulate
     ! on the device (hist_compute_update), and the whole-state transitions don't carry these
     ! private pools, so push the zeros there
-    if (.not. elm_device_ready .and. last >= first) then
+    if (.not. on_device .and. last >= first) then
        !$acc update device(hbuf_pool(first:last), nacs_pool(first:last))
     end if
 

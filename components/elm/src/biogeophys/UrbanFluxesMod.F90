@@ -374,7 +374,7 @@ contains
        endp = bounds%endp
       ! Get time step
 
-      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do spel_i1 = lbound(lnd_to_urban_filter,1), ubound(lnd_to_urban_filter,1)  ! spel section-loop
          lnd_to_urban_filter(spel_i1) = -9999
       end do
@@ -382,7 +382,7 @@ contains
       erridx1 = -9999
       erridx2 = -9999
       !$acc parallel loop independent gang vector default(present) copy(erridx1,erridx2) &
-      !$acc present(lnd_to_urban_filter(:), ht_roof(:), z_d_town(:),z_0_town(:)) private(l, g, t) if(elm_device_ready) copyin(bounds)
+      !$acc present(lnd_to_urban_filter(:), ht_roof(:), z_d_town(:),z_0_town(:)) private(l, g, t) if(elm_device_ready)
       do fl = 1, num_urbanl
          l = filter_urbanl(fl)
          lnd_to_urban_filter(l) = fl
@@ -447,7 +447,7 @@ contains
       ! Compute fluxes - Follows elm approach for bare soils (Oleson et al 2004)
 
       !$acc parallel loop independent gang vector default(present) &
-      !$acc present(z_0_town(:),z_d_town(:),taf(:),qaf(:) ) private(l, t, g, dthv) if(elm_device_ready) copyin(bounds)
+      !$acc present(z_0_town(:),z_d_town(:),taf(:),qaf(:) ) private(l, t, g, dthv) if(elm_device_ready)
       do fl = 1, num_urbanl
          l = filter_urbanl(fl)
          t = lun_pp%topounit(l)
@@ -465,7 +465,7 @@ contains
       end do
 
       ! ! Initialize conductances
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do fl=1,num_urbanl
         wtus_roof(fl)              = 0._r8
         wtus_road_perv(fl)         = 0._r8
@@ -498,7 +498,7 @@ contains
       end if
       fnl = num_urbanl
       fnc = num_urbanc
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do fc = 1, num_urbanc
          iter_filterc(fc) = filter_urbanc(fc)
          iter_mapc(fc)    = fc
@@ -519,7 +519,7 @@ contains
 
          !$acc parallel loop independent gang vector default(present) &
          !$acc  present(ht_roof(:),wind_hgt_canyon(:),z_0_town(:),&
-         !$acc  z_d_town(:),canyon_hwr(:)) private(l, fl, t, g) if(elm_device_ready) copyin(bounds)
+         !$acc  z_d_town(:),canyon_hwr(:)) private(l, fl, t, g) if(elm_device_ready)
          do fa = 1, fnl
             l  = iter_filterl(fa)
             fl = iter_mapl(fa)
@@ -581,7 +581,7 @@ contains
 
          ! This is the first term in the equation solutions for urban canopy air temperature
          ! and specific humidity (numerator) and is a landunit quantity
-         !$acc parallel loop independent gang vector default(present) private(l, fl, t, g) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop independent gang vector default(present) private(l, fl, t, g) if(elm_device_ready)
          do fa = 1, fnl
             l  = iter_filterl(fa)
             fl = iter_mapl(fa)
@@ -604,7 +604,7 @@ contains
          ! equations for urban canopy air temperature and specific humidity
          !$acc parallel loop independent gang vector default(present) present(&
          !$acc wtroad_perv(:),qaf(:),lnd_to_urban_filter(:),&
-         !$acc canyon_hwr(:),wtlunit_roof(:)) private(c, fc, l, fl, fwet_roof, fwet_road_imperv) if(elm_device_ready) copyin(bounds)
+         !$acc canyon_hwr(:),wtlunit_roof(:)) private(c, fc, l, fl, fwet_roof, fwet_road_imperv) if(elm_device_ready)
           do fa = 1, fnc
             c  = iter_filterc(fa)
             fc = iter_mapc(fa)
@@ -756,7 +756,7 @@ contains
            ! qaf_denom(fl) = qaf_denom(fl) + wtuq(fc)
 
          end do
-      !$acc parallel loop independent gang worker default(present) private(sum_denom, sum_numer, l, fl, fc) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker default(present) private(sum_denom, sum_numer, l, fl, fc) if(elm_device_ready)
       do fa = 1, fnl
          l  = iter_filterl(fa)
          fl = iter_mapl(fa)
@@ -774,7 +774,7 @@ contains
          taf_numer(fl) =  sum_numer
       end do
       !$acc parallel loop independent gang worker default(present) private(sum_denom, sum_numer, l, fl, fc)&
-      !$acc present(qg(:),col_pp%active(:),lun_pp%coli(:),lun_pp%colf(:),col_to_urban_filter(:)) if(elm_device_ready) copyin(bounds)
+      !$acc present(qg(:),col_pp%active(:),lun_pp%coli(:),lun_pp%colf(:),col_to_urban_filter(:)) if(elm_device_ready)
       do fa = 1, fnl
          l  = iter_filterl(fa)
          fl = iter_mapl(fa)
@@ -797,7 +797,7 @@ contains
          !$acc parallel loop independent gang vector default(present)&
          !$acc present(wtroad_perv(:),taf(:),eflx_heat_from_ac(:),&
          !$acc eflx_traffic_factor(:),eflx_wasteheat(:),eflx_traffic(:),qaf(:), &
-         !$acc wtlunit_roof(:),canyon_hwr(:) ) private(l, fl, g) if(elm_device_ready) copyin(bounds)
+         !$acc wtlunit_roof(:),canyon_hwr(:) ) private(l, fl, g) if(elm_device_ready)
          do fa = 1, fnl
             l  = iter_filterl(fa)
             fl = iter_mapl(fa)
@@ -837,7 +837,7 @@ contains
          ! TODO: Some of these constants replicate what is in FrictionVelocity 
          !       and BareGround fluxes should consildate. EBK
          !$acc parallel loop independent gang vector default(present) &
-         !$acc present(taf(:), qaf(:)) private(l, fl, t, g, tstar, qstar, thvstar, zeta, wc) if(elm_device_ready) copyin(bounds)
+         !$acc present(taf(:), qaf(:)) private(l, fl, t, g, tstar, qstar, thvstar, zeta, wc) if(elm_device_ready)
          do fa = 1, fnl
             l  = iter_filterl(fa)
             fl = iter_mapl(fa)
@@ -875,7 +875,7 @@ contains
             ! that have NOT converged. Sequential write-index dependency on fnl.
             fnl_old = fnl
             fnl = 0
-            !$acc parallel loop seq default(present) private(l,fl) copy(fnl) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop seq default(present) private(l,fl) copy(fnl) if(elm_device_ready)
             do fa = 1, fnl_old
                l  = iter_filterl(fa)
                fl = iter_mapl(fa)
@@ -891,7 +891,7 @@ contains
             ! the associated columns.
             fnc_old = fnc
             fnc = 0
-            !$acc parallel loop seq default(present) private(c,fc,l,fl) copy(fnc) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop seq default(present) private(c,fc,l,fl) copy(fnc) if(elm_device_ready)
             do fa = 1, fnc_old
                c  = iter_filterc(fa)
                fc = iter_mapc(fa)
@@ -914,13 +914,13 @@ contains
       ! eflx_sh_grnd_scale(bounds%begp : bounds%endp) = 0._r8
       ! qflx_evap_soi_scale(bounds%begp : bounds%endp) = 0._r8
       
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do p = begp, endp 
          eflx_sh_grnd_scale(p) = 0._r8
          qflx_evap_soi_scale(p) = 0._r8
       enddo
       !$acc parallel loop independent gang vector default(present) &
-      !$acc present(qaf(:), taf(:), lnd_to_urban_filter(:)) private(p, c, g, t, l, fl, fc, dth_p, dqh_p) if(elm_device_ready) copyin(bounds)
+      !$acc present(qaf(:), taf(:), lnd_to_urban_filter(:)) private(p, c, g, t, l, fl, fc, dth_p, dqh_p) if(elm_device_ready)
       do f = 1, num_urbanp
 
          p = filter_urbanp(f)
@@ -1049,7 +1049,7 @@ contains
       ! Check to see that total sensible and latent heat equal the sum of
       ! the scaled heat fluxes above
       !$acc parallel loop independent gang worker default(present) present(qaf(:), taf(:)) &
-      !$acc private(sum_denom, sum_numer, l, t, g) if(elm_device_ready) copyin(bounds)
+      !$acc private(sum_denom, sum_numer, l, t, g) if(elm_device_ready)
       do fl = 1, num_urbanl
          l = filter_urbanl(fl)
          t = lun_pp%topounit(l)
@@ -1074,7 +1074,7 @@ contains
 
       found = .false.
       erridx1 = -9999
-      !$acc parallel loop independent gang vector default(present) copy(erridx1) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) copy(erridx1) if(elm_device_ready)
       do fl = 1, num_urbanl
          if (abs(eflx_err(fl)) > 0.01_r8) then
             erridx1 = fl
@@ -1107,7 +1107,7 @@ contains
       end if
 
       erridx1 = -9999
-      !$acc parallel loop independent gang vector default(present) copy(erridx1) private(l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) copy(erridx1) private(l) if(elm_device_ready)
       do fl = 1, num_urbanl
          l = filter_urbanl(fl)
          ! 4.e-9 kg/m**2/s = 0.01 W/m**2
@@ -1138,7 +1138,7 @@ contains
       ! Check for convergence of stress.
       if (implicit_stress) then
          spel_dc_1 = 0  ! spel defer-checks
-         !$acc parallel loop gang vector default(present) private(l) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(l) reduction(max:spel_dc_1) if(elm_device_ready)
          do fl = 1, num_urbanl
             l = filter_urbanl(fl)
             if (abs(tau_diff(fl)) > dtaumin) then
@@ -1160,7 +1160,7 @@ contains
       ! Gather terms required to determine internal building temperature
 
       !$acc parallel loop independent gang vector default(present) present(&
-      !$acc t_soisno(:,:),lnd_to_urban_filter(:) ) private(c, l, fl) if(elm_device_ready) copyin(bounds)
+      !$acc t_soisno(:,:),lnd_to_urban_filter(:) ) private(c, l, fl) if(elm_device_ready)
       do fc = 1,num_urbanc
          c = filter_urbanc(fc)
          l = col_pp%landunit(c)
@@ -1177,7 +1177,7 @@ contains
 
       ! Calculate internal building temperature
       !$acc parallel loop independent gang vector default(present) present(&
-      !$acc ht_roof(:),t_building(:),canyon_hwr(:),wtlunit_roof(:)) private(l, lngth_roof) if(elm_device_ready) copyin(bounds)
+      !$acc ht_roof(:),t_building(:),canyon_hwr(:),wtlunit_roof(:)) private(l, lngth_roof) if(elm_device_ready)
       do fl = 1, num_urbanl
          l = filter_urbanl(fl)
 
@@ -1188,7 +1188,7 @@ contains
 
       ! No roots for urban except for pervious road
 
-      !$acc parallel loop independent gang vector default(present) collapse(2) private(p, c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) collapse(2) private(p, c) if(elm_device_ready)
       do j = 1, nlevgrnd
          do f = 1, num_urbanp
             p = filter_urbanp(f)
@@ -1202,7 +1202,7 @@ contains
       end do
 
       !$acc parallel loop independent gang vector default(present) present(taf(:),qaf(:)) &
-      !$acc private(p, c, g, t, l, e_ref2m, de2mdT, qsat_ref2m, dqsat2mdT) if(elm_device_ready) copyin(bounds)
+      !$acc private(p, c, g, t, l, e_ref2m, de2mdT, qsat_ref2m, dqsat2mdT) if(elm_device_ready)
       do f = 1, num_urbanp
 
          p = filter_urbanp(f)

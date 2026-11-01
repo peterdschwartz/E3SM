@@ -696,7 +696,7 @@ contains
     deallocate(mlai, msai, mhgtt, mhgtb)
     !$acc update device(mhgtb, mhgtt, mhvb2t, mhvt2t, mlai, mlai2t, msai, msai2t) if_present
 
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        canopystate_vars%mlaidiff_patch(p) = mlai2t(p,1)-mlai2t(p,2)
     enddo

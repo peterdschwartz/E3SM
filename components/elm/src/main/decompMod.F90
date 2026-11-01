@@ -97,6 +97,18 @@ module decompMod
   end type bounds_type
   public bounds_type
 
+  ! The bounds of every clump of this process (1:get_proc_clumps()), set once by
+  ! init_global_bounds after decompInit_clumps; clumps never change during a run. The
+  ! device copy (declare create, uploaded by elm_device_copyin) lets kernels read the
+  ! bounds of the clump they are passed: call routines with bounds_by_clump(nc).
+  type(bounds_type), allocatable, public :: bounds_by_clump(:)
+  !$acc declare create(bounds_by_clump)
+  ! The bounds of this process (ghosts included), set once by init_global_bounds after
+  ! decompInit_ghosts; on the device like bounds_by_clump.
+  type(bounds_type), public :: bounds_proc
+  !$acc declare create(bounds_proc)
+  public init_global_bounds
+
   !---global information on each pe
   type processor_type
      integer         :: nclumps                          ! number of clumps for processor_type iam
@@ -275,7 +287,6 @@ contains
 
   !------------------------------------------------------------------------------
    subroutine get_clump_bounds_new (n, bounds)
-     !$acc routine seq
      ! !DESCRIPTION:
      ! Determine clump bounds
      !
@@ -285,7 +296,6 @@ contains
      !
      ! !LOCAL VARIABLES:
      character(len=32), parameter :: subname = 'get_clump_bounds'  ! Subroutine name
-     integer :: cid                                                ! clump id
 #ifdef _OPENMP
      integer, external :: OMP_GET_MAX_THREADS
      integer, external :: OMP_GET_NUM_THREADS
@@ -302,6 +312,17 @@ contains
         call shr_sys_abort( trim(subname)//' ERROR: Calling from inside a non-threaded region)')
      end if
 #endif
+
+     call fill_clump_bounds(n, bounds)
+
+   end subroutine get_clump_bounds_new
+
+   !------------------------------------------------------------------------------
+   subroutine fill_clump_bounds (n, bounds)
+     ! the bounds of clump n of this process
+     integer, intent(in)  :: n                ! processor clump index
+     type(bounds_type), intent(out) :: bounds ! clump bounds
+     integer :: cid                           ! clump id
 
      cid  = procinfo%cid(n)
      bounds%begp = clumps(cid)%begp
@@ -345,7 +366,20 @@ contains
      bounds%level = BOUNDS_LEVEL_CLUMP
      bounds%clump_index = n
 
-   end subroutine get_clump_bounds_new
+   end subroutine fill_clump_bounds
+
+   !------------------------------------------------------------------------------
+   subroutine init_global_bounds ()
+     ! bounds_proc and bounds_by_clump(1:nclumps of this process), from the decomposition
+     ! (after decompInit_clumps and decompInit_ghosts)
+     integer :: n
+     call get_proc_bounds_new(bounds_proc)
+     if (allocated(bounds_by_clump)) deallocate(bounds_by_clump)
+     allocate(bounds_by_clump(procinfo%nclumps))
+     do n = 1, procinfo%nclumps
+        call fill_clump_bounds(n, bounds_by_clump(n))
+     end do
+   end subroutine init_global_bounds
 
    !------------------------------------------------------------------------------
    subroutine get_clump_bounds_old (n, begg, endg, begt,endt, begl, endl, begc, endc, begp, endp, &

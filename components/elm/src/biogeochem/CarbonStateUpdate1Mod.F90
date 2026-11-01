@@ -62,7 +62,7 @@ contains
 
     if (.not.use_fates) then
 
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready) no_create(c13_grc_cf, c13_grc_cs, c14_grc_cf, c14_grc_cs)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready) no_create(c13_grc_cf, c13_grc_cs, c14_grc_cf, c14_grc_cs)
        do g = bounds%begg, bounds%endg
           grc_cs%core%seed(g) = grc_cs%core%seed(g) &
                - grc_cf%core%dwt_seed_to_leaf(g)     * dt &
@@ -81,7 +81,7 @@ contains
           end if
        end do
 
-       !$acc parallel loop gang vector default(present) private(c, j) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
        do fc = 1, num_soilc_with_inactive
 
           c = filter_soilc_with_inactive(fc)
@@ -214,7 +214,7 @@ contains
 
       ! column level fluxes
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -226,7 +226,7 @@ contains
 
          ! plant to litter fluxes
          if(.not.use_fates)then
-            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
             do j = 1,nlevdecomp
                ! column loop
                do fc = 1,num_soilc
@@ -245,7 +245,7 @@ contains
          ! litter and SOM HR fluxes
          ! one thread per level and column; the transitions in order (as in the loops over
          ! transitions outside): bit-for-bit
-         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -271,7 +271,7 @@ contains
       if (.not.use_fates) then
 
       ! patch loop
-      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
       do fp = 1,num_soilp
          p = filter_soilp(fp)
 

@@ -22,7 +22,7 @@ module lnd2atmAvgMod
   ! !USES:
   use shr_kind_mod, only : r8 => shr_kind_r8
   use shr_sys_mod , only : shr_sys_abort
-  use elm_varctl  , only : iulog
+  use shr_log_mod , only : iulog => shr_log_Unit  ! ELM sets the share log unit to its iulog
   use subgridAveViewMod, only : subgrid_ave_view, scale_unity, p2g_range, c2g_range, p2g_range_unity, &
        c2g_range_unity
   !

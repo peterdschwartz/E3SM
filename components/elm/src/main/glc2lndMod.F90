@@ -471,7 +471,7 @@ contains
     ! glc_dyn_runoff_routing=false scheme. This is needed to conserve water correctly in
     ! the absence of a calving flux.
 
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        if (this%icemask_coupled_fluxes_grc(g) > 0._r8) then
           this%glc_dyn_runoff_routing_grc(g) = .true.
@@ -538,7 +538,7 @@ contains
                 end if
 
                 !$acc data copy(frac_assigned) if(elm_device_ready)
-                !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+                !$acc parallel loop gang vector default(present) if(elm_device_ready)
                 do spel_i1 = 1, maxpatch_glcmec  ! spel section-loop
                    frac_assigned(spel_i1) = .false.
                 end do
@@ -614,7 +614,7 @@ contains
     ! So it seems simplest just to take the minor performance hit of setting glc_topo
     ! over all columns, even those outside the do_smb_c filter.
 
-    !$acc parallel loop gang vector default(present) private(l, g, icemec_class) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(l, g, icemec_class) if(elm_device_ready)
     do c = bounds%begc, bounds%endc
        l = col_pp%landunit(c)
        g = col_pp%gridcell(c)

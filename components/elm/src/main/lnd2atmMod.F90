@@ -119,7 +119,7 @@ contains
       sky_view_factor    => grc_pp%sky_view_factor              &
       )
 
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do g = bounds%begg,bounds%endg
        h2osno_grc(g) = h2osno_grc(g)/1000._r8
        if (use_finetop_rad) then
@@ -133,7 +133,7 @@ contains
             veg_ef%eflx_lwrad_out (bounds%begp:bounds%endp), &
             top_es%eflx_lwrad_out_topo      (bounds%begt:bounds%endt), &
             p2c_scale_type='unity', c2l_scale_type= 'urbanf', l2t_scale_type='unity')
-       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do t = bounds%begt,bounds%endt
           top_es%t_rad(t) = sqrt(sqrt(top_es%eflx_lwrad_out_topo(t)/sb))
        end do
@@ -141,7 +141,7 @@ contains
 
     ! the apparent albedos for the coupling (fine topographic radiation)
     if (use_finetop_rad) then
-       !$acc parallel loop gang vector default(present) private(ib) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(ib) if(elm_device_ready)
        do g = bounds%begg,bounds%endg
            !$acc loop seq
            do ib = 1, numrad
@@ -287,7 +287,7 @@ contains
     end if
 
     ! ice runoff includes the excess ice of capped snow
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do c = bounds%begc, bounds%endc
        col_wf%qflx_snwcp_ice(c) = col_wf%qflx_snwcp_ice(c) + col_wf%qflx_ice_runoff_xs(c)
     end do
@@ -303,7 +303,7 @@ contains
       t_soisno_grc    => lnd2atm_vars%t_soisno_grc    , &
       zwt_grc         => lnd2atm_vars%zwt_grc           &
       )
-    !$acc parallel loop gang vector default(present) reduction(+:nhot) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) reduction(+:nhot) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        lnd2atm_vars%eflx_sh_tot_grc(g) = lnd2atm_vars%eflx_sh_tot_grc(g) - grc_ef%eflx_dynbal(g)
        if (use_cn .or. use_fates) then

@@ -283,7 +283,7 @@ contains
      ! On first time-step, just set area burned to zero and exit
      !
      if ( nstep == 0 )then
-        !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
         do fc = 1,num_soilc
            c = filter_soilc(fc)
            farea_burned(c) = 0._r8
@@ -300,13 +300,13 @@ contains
      ! Calculate fraction of crop (cropf_col) and non-crop and non-bare-soil
      ! vegetation (lfwt) in vegetated column
      !
-     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         cropf_col(c) = 0._r8
         lfwt(c)      = 0._r8
      end do
-     !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,max_patch_per_col
@@ -328,12 +328,12 @@ contains
      !
      ! Calculate crop fuel
      !
-     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         fuelc_crop(c)=0._r8
      end do
-     !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,max_patch_per_col
@@ -358,7 +358,7 @@ contains
      ! 5/22/2018, PET: switched the use of column-weight-on-gridcell, to column-weight-on-topounit
      ! in the calculation of summed weight for tropical trees
      !
-     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         fsr_col(c)   = 0._r8
@@ -375,7 +375,7 @@ contains
            dtrotr_col(c)=0._r8
         end if
      end do
-     !$acc parallel loop gang vector default(present) private(fc, c, g, p, hdmlf) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(fc, c, g, p, hdmlf) if(elm_device_ready)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,max_patch_per_col
@@ -486,7 +486,7 @@ contains
      ! land cover conversion in CLM4.5 is the same for each timestep except for the beginning
 
      if (transient_landcover) then    !true when landuse data is used
-        !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
         do fc = 1,num_soilc
            c = filter_soilc(fc)
            if( dtrotr_col(c)  >  0._r8 )then
@@ -504,13 +504,13 @@ contains
      !
      ! calculate burned area fraction in cropland
      !
-     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
      do fc = 1,num_soilc
         c = filter_soilc(fc)
         baf_crop(c)=0._r8
      end do
 
-     !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
      do fp = 1,num_soilp
         p = filter_soilp(fp)
         if( kmo == 1 .and. kda == 1 .and. mcsec == 0 )then
@@ -518,7 +518,7 @@ contains
         end if
      end do
 
-     !$acc parallel loop gang vector default(present) private(fc, c, g, t, hdmlf, p, fhd, fgdp, fb) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(fc, c, g, t, hdmlf, p, fhd, fgdp, fb) if(elm_device_ready)
      do fc = 1,num_soilc
         !$acc loop seq
         do pi = 1,max_patch_per_col
@@ -556,7 +556,7 @@ contains
      !
      ! calculate peatland fire
      !
-     !$acc parallel loop gang vector default(present) private(c, t, g) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(c, t, g) if(elm_device_ready)
      do fc = 1, num_soilc
         c = filter_soilc(fc)
         t = col_pp%topounit(c)
@@ -582,7 +582,7 @@ contains
      ! find which pool is the cwd pool
      i_cwd = 0
      spel_dc_1 = 0  ! spel defer-checks
-     !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready)
      do l = 1, ndecomp_pools
         if (is_cwd(l)) spel_dc_1 = max(spel_dc_1, l - (1) + 1)  ! spel defer-checks
      end do
@@ -596,7 +596,7 @@ contains
      !
      !$acc parallel loop gang vector default(present) &
      !$acc   private(c, g, t, hdmlf, j, fb, m, fire_m, lh, fs, ig, lb_lf) &
-     !$acc   private(spread_m, cri, cli) if(elm_device_ready) copyin(bounds)
+     !$acc   private(spread_m, cri, cli) if(elm_device_ready)
      do fc = 1, num_soilc
         c = filter_soilc(fc)
         g = col_pp%gridcell(c)

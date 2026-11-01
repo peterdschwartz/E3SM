@@ -419,7 +419,7 @@ contains
     begc = bounds%begc
     endc = bounds%endc
 
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_cs%core%dyn_bal_adjustments(spel_i1) = 0._r8
     end do
@@ -436,7 +436,7 @@ contains
           !$acc update device(adjustment_one_level, col_cs%core%decomp_pools_vr) if_present
 
           !$acc data copy(adjustment_one_level) if(elm_device_ready)
-          !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
           do spel_i1 = begc, endc  ! spel section-loop
              col_cs%core%dyn_bal_adjustments(spel_i1) = col_cs%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
           end do
@@ -456,7 +456,7 @@ contains
        !$acc update device(adjustment_one_level, col_cs%core%trunc_sink_vr) if_present
 
        !$acc data copy(adjustment_one_level) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do spel_i1 = begc, endc  ! spel section-loop
           col_cs%core%dyn_bal_adjustments(spel_i1) = col_cs%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
        end do
@@ -474,7 +474,7 @@ contains
     !$acc update device(adjustment_one_level, col_cs%core%prod1) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_cs%core%dyn_bal_adjustments(spel_i1) = col_cs%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -490,7 +490,7 @@ contains
     !$acc update device(adjustment_one_level, col_cs%core%prod10) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_cs%core%dyn_bal_adjustments(spel_i1) = col_cs%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -506,7 +506,7 @@ contains
     !$acc update device(adjustment_one_level, col_cs%core%prod100) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_cs%core%dyn_bal_adjustments(spel_i1) = col_cs%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -898,7 +898,7 @@ contains
 
     begc = bounds%begc
     endc = bounds%endc
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = 0._r8
     end do
@@ -914,7 +914,7 @@ contains
           !$acc update device(adjustment_one_level, col_ns%core%decomp_pools_vr) if_present
 
           !$acc data copy(adjustment_one_level) if(elm_device_ready)
-          !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
           do spel_i1 = begc, endc  ! spel section-loop
              col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
           end do
@@ -935,7 +935,7 @@ contains
        !$acc update device(adjustment_one_level, col_ns%core%trunc_sink_vr) if_present
 
        !$acc data copy(adjustment_one_level) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do spel_i1 = begc, endc  ! spel section-loop
           col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
        end do
@@ -951,7 +951,7 @@ contains
        !$acc update device(adjustment_one_level, col_ns%mineral%smin_vr) if_present
 
        !$acc data copy(adjustment_one_level) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do spel_i1 = begc, endc  ! spel section-loop
           col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
        end do
@@ -983,7 +983,7 @@ contains
 
     
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1000,7 +1000,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%core%prod10) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1018,7 +1018,7 @@ contains
 
     
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1034,7 +1034,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%fan_totn) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1050,7 +1050,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_g1) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1066,7 +1066,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_g2) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1082,7 +1082,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_g3) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1098,7 +1098,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_s0) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1114,7 +1114,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_s1) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1130,7 +1130,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_s2) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1146,7 +1146,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_s3) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1162,7 +1162,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_f1) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1178,7 +1178,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_f2) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1194,7 +1194,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_f3) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1210,7 +1210,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%tan_f4) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1226,7 +1226,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%fert_u1) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1242,7 +1242,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%fert_u2) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1258,7 +1258,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%manure_u_grz) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1274,7 +1274,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%manure_a_grz) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1290,7 +1290,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%manure_r_grz) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1306,7 +1306,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%manure_u_app) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1322,7 +1322,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%manure_a_app) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1338,7 +1338,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%manure_r_app) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1354,7 +1354,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%manure_tan_stored) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1370,7 +1370,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%manure_n_stored) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1386,7 +1386,7 @@ contains
     !$acc update device(adjustment_one_level, col_ns%fan_grz_fract) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ns%core%dyn_bal_adjustments(spel_i1) = col_ns%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1759,7 +1759,7 @@ contains
     begc = bounds%begc
     endc = bounds%endc
 
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ps%core%dyn_bal_adjustments(spel_i1) = 0._r8
     end do
@@ -1776,7 +1776,7 @@ contains
           !$acc update device(adjustment_one_level, col_ps%core%decomp_pools_vr) if_present
 
           !$acc data copy(adjustment_one_level) if(elm_device_ready)
-          !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
           do spel_i1 = begc, endc  ! spel section-loop
              col_ps%core%dyn_bal_adjustments(spel_i1) = col_ps%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
           end do
@@ -1796,7 +1796,7 @@ contains
        !$acc update device(adjustment_one_level, col_ps%core%trunc_sink_vr) if_present
 
        !$acc data copy(adjustment_one_level) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do spel_i1 = begc, endc  ! spel section-loop
           col_ps%core%dyn_bal_adjustments(spel_i1) = col_ps%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
        end do
@@ -1812,7 +1812,7 @@ contains
        !$acc update device(adjustment_one_level, col_ps%solutionp_vr) if_present
 
        !$acc data copy(adjustment_one_level) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do spel_i1 = begc, endc  ! spel section-loop
           col_ps%core%dyn_bal_adjustments(spel_i1) = col_ps%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
        end do
@@ -1828,7 +1828,7 @@ contains
        !$acc update device(adjustment_one_level, col_ps%labilep_vr) if_present
 
        !$acc data copy(adjustment_one_level) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do spel_i1 = begc, endc  ! spel section-loop
           col_ps%core%dyn_bal_adjustments(spel_i1) = col_ps%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
        end do
@@ -1845,7 +1845,7 @@ contains
        !$acc update device(adjustment_one_level, col_ps%secondp_vr) if_present
 
        !$acc data copy(adjustment_one_level) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do spel_i1 = begc, endc  ! spel section-loop
           col_ps%core%dyn_bal_adjustments(spel_i1) = col_ps%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1) * dzsoi_decomp(j)
        end do
@@ -1877,7 +1877,7 @@ contains
     !$acc update device(adjustment_one_level, col_ps%core%prod1) if_present
 
    !$acc data copy(adjustment_one_level) if(elm_device_ready)
-   !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+   !$acc parallel loop gang vector default(present) if(elm_device_ready)
    do spel_i1 = begc, endc  ! spel section-loop
       col_ps%core%dyn_bal_adjustments(spel_i1) = col_ps%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
    end do
@@ -1893,7 +1893,7 @@ contains
     !$acc update device(adjustment_one_level, col_ps%core%prod10) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ps%core%dyn_bal_adjustments(spel_i1) = col_ps%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do
@@ -1909,7 +1909,7 @@ contains
     !$acc update device(adjustment_one_level, col_ps%core%prod100) if_present
 
     !$acc data copy(adjustment_one_level) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = begc, endc  ! spel section-loop
        col_ps%core%dyn_bal_adjustments(spel_i1) = col_ps%core%dyn_bal_adjustments(spel_i1) + adjustment_one_level(spel_i1)
     end do

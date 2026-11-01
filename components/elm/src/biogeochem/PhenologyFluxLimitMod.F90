@@ -625,7 +625,7 @@ contains
     p = filter_soilp(fp)
     !assemble state variables
     !$acc data copy(ystates) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = lbound(ystates,1), ubound(ystates,1)  ! spel section-loop
        ystates(spel_i1)=0._r8
     end do
@@ -673,7 +673,7 @@ contains
     !$acc update device(ystates) if_present
 
     !$acc data copy(rfluxes) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = lbound(rfluxes,1), ubound(rfluxes,1)  ! spel section-loop
        rfluxes(spel_i1) = 0._r8
     end do
@@ -952,7 +952,7 @@ contains
   do fp = 1,num_soilp
     p = filter_soilp(fp)
     !$acc data copy(ystates) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = lbound(ystates,1), ubound(ystates,1)  ! spel section-loop
        ystates(spel_i1) = 0._r8
     end do
@@ -999,7 +999,7 @@ contains
     !$acc update device(ystates) if_present
 
     !$acc data copy(rfluxes) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = lbound(rfluxes,1), ubound(rfluxes,1)  ! spel section-loop
        rfluxes(spel_i1) = 0._r8
     end do
@@ -1212,7 +1212,7 @@ contains
   do fp = 1,num_soilp
     p = filter_soilp(fp)
     !$acc data copy(ystates) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = lbound(ystates,1), ubound(ystates,1)  ! spel section-loop
        ystates(spel_i1) = 0._r8
     end do
@@ -1259,7 +1259,7 @@ contains
     !$acc update device(ystates) if_present
 
     !$acc data copy(rfluxes) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do spel_i1 = lbound(rfluxes,1), ubound(rfluxes,1)  ! spel section-loop
        rfluxes(spel_i1) = 0._r8
     end do

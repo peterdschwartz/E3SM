@@ -67,7 +67,7 @@ contains
       )
       dt = dtime_mod 
     ! column loop
-    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        annsum_counter_col(c) = annsum_counter_col(c) + dt
@@ -78,7 +78,7 @@ contains
       !$acc update self(cnstate_vars%annsum_counter_col) if_present if(elm_device_ready)
       if (annsum_counter_col(filter_soilc(1)) >= dayspyr_mod * secspday) then
           ! patch loop
-          !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+          !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
           do fp = 1,num_soilp
              p = filter_soilp(fp)
 
@@ -117,7 +117,7 @@ contains
     end if
 
     ! column loop
-    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do fc = 1,num_soilc
        c = filter_soilc(fc)
        if (annsum_counter_col(c) >= dayspyr_mod * secspday) then

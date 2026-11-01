@@ -131,7 +131,7 @@ contains
          frac_h2osfc =>  col_ws%frac_h2osfc  & ! Input: [real(r8) (:)] fraction of ground covered by surface water (0 to 1)
          )
 
-       !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
        do fc = 1,num_nolakec
           c = filter_nolakec(fc)
           l = col_pp%landunit(c)

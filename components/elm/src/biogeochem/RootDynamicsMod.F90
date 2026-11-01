@@ -119,45 +119,45 @@ contains
          )
 
       !initialize to 0
-      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
          w_limit(spel_i1)              = 0._r8
       end do
-      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
          sumrswa(spel_i1)              = 0._r8
       end do
-      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
          sumrsmn(spel_i1)              = 0._r8
       end do
-      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
          sumfrootc(spel_i1)            = 0._r8
       end do
-      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
       do spel_i2 = 1, nlevgrnd  ! spel section-loop
          do spel_i1 = bounds%begp, bounds%endp
             rswa(spel_i1, spel_i2)      = 0._r8
          end do
       end do
-      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
       do spel_i2 = 1, nlevgrnd  ! spel section-loop
          do spel_i1 = bounds%begp, bounds%endp
             rsmn(spel_i1, spel_i2)      = 0._r8
          end do
       end do
-      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
       do spel_i2 = 1, nlevgrnd  ! spel section-loop
          do spel_i1 = bounds%begp, bounds%endp
             frootc_dz(spel_i1, spel_i2) = 0._r8
          end do
       end do
-      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do spel_i1 = bounds%begp, bounds%endp  ! spel section-loop
          root_depth(spel_i1)           = 0._r8
       end do
-      !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
       do spel_i2 = 1, nlevgrnd  ! spel section-loop
          do spel_i1 = bounds%begp, bounds%endp
             rootfr_coarse(spel_i1, spel_i2) = 0._r8
@@ -168,7 +168,7 @@ contains
       ! Set root depth, dynamic for crops, fixed for other vegetation
       !---------------------------------------------------------------
 
-      !$acc parallel loop gang vector default(present) private(p, c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c) if(elm_device_ready)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
@@ -193,7 +193,7 @@ contains
       ! for decomposition control.
 
       !$acc data copy(rsmn, rswa, sumrsmn, sumrswa, w_limit) if(elm_device_ready)
-      !$acc parallel loop gang vector default(present) private(p, c, j, maxpsi, psi) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c, j, maxpsi, psi) if(elm_device_ready)
       do f = 1,num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
@@ -252,7 +252,7 @@ contains
 
       !$acc data copy(frootc_dz, rootfr_coarse, rsmn, rswa, sumfrootc, sumrsmn, sumrswa, w_limit) if(elm_device_ready)
       !$acc parallel loop gang vector default(present) &
-      !$acc   private(p, c, new_growth, new_croot_growth, lev) if(elm_device_ready) copyin(bounds)
+      !$acc   private(p, c, new_growth, new_croot_growth, lev) if(elm_device_ready)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)
@@ -292,7 +292,7 @@ contains
       ! normalize the root fraction for each pft
 
       !$acc data copy(frootc_dz, sumfrootc) if(elm_device_ready)
-      !$acc parallel loop gang vector default(present) private(p, c, lev) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c, lev) if(elm_device_ready)
       do f = 1, num_soilp
          p = filter_soilp(f)
          c = pcolumn(p)

@@ -2120,7 +2120,7 @@ contains
     if (use_fates) return
 
     ! patch loop
-    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -2475,7 +2475,7 @@ contains
       rr_patch => this%rr, &
       rr_col   => col_cf_input%rr &
       )
-    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
     do fp = 1,num_soilp
       p = filter_soilp(fp)
       ! root respiration (RR)
@@ -2516,7 +2516,7 @@ contains
     integer :: fp, p
     !------------------------------------------------------------
 
-    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -3059,7 +3059,7 @@ contains
       )
 
     nnan = 0
-    !$acc parallel loop gang vector default(present) private(p) reduction(+:nnan) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(p) reduction(+:nnan) if(elm_device_ready)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -3537,7 +3537,7 @@ contains
       wood_harvestp_col => col_pf%core%wood_harvest &
       )
     nnan = 0
-    !$acc parallel loop gang vector default(present) private(p) reduction(+:nnan) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(p) reduction(+:nnan) if(elm_device_ready)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 

@@ -207,7 +207,7 @@ contains
       !$acc                   cp_decomp_pools_new(:num_soilc,1:nlevdecomp,1:ndecomp_pools))
       !! calculate c:n ratios of applicable pools
 
-      !$acc parallel loop gang independent collapse(2) default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang independent collapse(2) default(present) if(elm_device_ready)
       do l = 1, ndecomp_pools
          do j = 1,nlevdecomp
             !$acc loop vector independent private(c)
@@ -248,7 +248,7 @@ contains
       ! serial code streams the column dimension and sums in the same order
       ! as the reference; each (column, layer) sum belongs to one thread.
 
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -262,7 +262,7 @@ contains
 
       do k = 1, ndecomp_cascade_transitions
          k_donor_pool = cascade_donor_pool(k)
-         !$acc parallel loop independent gang vector collapse(2) default(present) private(c,ratio) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop independent gang vector collapse(2) default(present) private(c,ratio) if(elm_device_ready)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -367,7 +367,7 @@ contains
       ! of mineralization flux.
       call t_startf('SLDA-actual')
 
-      !$acc parallel loop gang vector collapse(3) default(present) private(k_donor_pool, c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector collapse(3) default(present) private(k_donor_pool, c) if(elm_device_ready)
       do k = 1, ndecomp_cascade_transitions
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
@@ -427,7 +427,7 @@ contains
       end do
 
 
-      !$acc parallel loop independent gang worker collapse(2) private(c,sum_1,sum_2) default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker collapse(2) private(c,sum_1,sum_2) default(present) if(elm_device_ready)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -444,7 +444,7 @@ contains
       end do
 
       if (nu_com .eq. 'RD') then
-         !$acc parallel loop independent gang worker collapse(2) private(c,sum_1,sum_2) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop independent gang worker collapse(2) private(c,sum_1,sum_2) if(elm_device_ready)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -466,7 +466,7 @@ contains
       end if
 
    if (nu_com .ne. 'RD') then
-      !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
       do fc = 1,num_soilc
           c = filter_soilc(fc)
           soil_n_immob_flux(c) =0.0_r8
@@ -481,7 +481,7 @@ contains
               gross_pmin_vr(c,j) = 0.0_r8
           end do
       end do
-      !$acc parallel loop gang vector default(present) private(fc, j, c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(fc, j, c) if(elm_device_ready)
       do fc = 1,num_soilc
          !$acc loop seq
          do k = 1, ndecomp_cascade_transitions
@@ -508,7 +508,7 @@ contains
    end if
 
       if (use_lch4) then
-         !$acc parallel loop independent gang worker collapse(2) private(c,sum_1) default(present) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop independent gang worker collapse(2) private(c,sum_1) default(present) if(elm_device_ready)
          do j = 1,nlevdecomp
             do fc = 1,num_soilc
                ! Calculate total fraction of potential HR, for methane code
@@ -643,7 +643,7 @@ contains
          !$acc data copy(smin_nh4_to_plant_vr_loc) if(elm_device_ready)
          spel_lb1 = lbound(smin_nh4_to_plant_vr_loc,2)  ! spel collapse-bounds
          spel_ub1 = ubound(smin_nh4_to_plant_vr_loc,2)  ! spel collapse-bounds
-         !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
             do spel_i1 = 1, num_soilc
                smin_nh4_to_plant_vr_loc(spel_i1, spel_i2) = 0._r8
@@ -653,7 +653,7 @@ contains
          !$acc data copy(smin_no3_to_plant_vr_loc) if(elm_device_ready)
          spel_lb1 = lbound(smin_no3_to_plant_vr_loc,2)  ! spel collapse-bounds
          spel_ub1 = ubound(smin_no3_to_plant_vr_loc,2)  ! spel collapse-bounds
-         !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+         !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
          do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
             do spel_i1 = 1, num_soilc
                smin_no3_to_plant_vr_loc(spel_i1, spel_i2) = 0._r8
@@ -662,7 +662,7 @@ contains
          !$acc end data
 
          ! fpg calculation
-         !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
          do fc=1,num_soilc
             c = filter_soilc(fc)
             sminn_to_plant(c)       = 0._r8
@@ -671,7 +671,7 @@ contains
                sminn_to_plant(c)    = sminn_to_plant(c) + sminn_to_plant_vr(c,j) * dzsoi_decomp(j)
             end do
          end do
-         !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
          do fc=1,num_soilc
             c = filter_soilc(fc)
             ! calculate the fraction of potential growth that can be
@@ -685,7 +685,7 @@ contains
          end do
 
          ! fpi calculation
-         !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
          do fc=1,num_soilc
             c = filter_soilc(fc)
             potential_immob(c) = 0._r8
@@ -701,7 +701,7 @@ contains
                end if
             end do
          end do
-         !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
          do fc=1,num_soilc
             c = filter_soilc(fc)
             if (potential_immob(c) > 0.0_r8) then
@@ -718,7 +718,7 @@ contains
             ! potential hr is not available from PFLOTRAN, so here temporarily as actual hr
             ! in the end, this methane module will be moving into PFLOTRAN as well
 
-            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
             do j = 1,nlevdecomp
                do fc = 1, num_soilc
                   c = filter_soilc(fc)
@@ -727,7 +727,7 @@ contains
             end do
 
             ! Calculate total fraction of potential HR, for methane code
-            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
             do j = 1,nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -736,7 +736,7 @@ contains
             end do
 
             ! Nitrogen limitation / (low)-moisture limitation
-            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
             do j = 1,nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -756,7 +756,7 @@ contains
 
          ! save variables before updating
          !$acc data copy(smin_nh4_to_plant_vr_loc, smin_no3_to_plant_vr_loc) if(elm_device_ready)
-         !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
          do fc = 1,num_soilc
             c = filter_soilc(fc)
             !$acc loop seq
@@ -791,7 +791,7 @@ contains
     ! smin_nh4_to_plant_vr(c,j), smin_no3_to_plant_vr(c,j), sminn_to_plant_vr(c,j) may be adjusted
     ! therefore, we need to update smin_no3_vr(c,j) & smin_nh4_vr(c,j)
       !$acc data copy(smin_nh4_to_plant_vr_loc, smin_no3_to_plant_vr_loc) if(elm_device_ready)
-      !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
       do fc = 1,num_soilc
            c = filter_soilc(fc)
            !$acc loop seq
@@ -808,7 +808,7 @@ contains
       ! vertically integrate net and gross mineralization fluxes for diagnostic output
       !$acc enter data create(sum1,sum2,sum3,sum4)
 
-      !$acc parallel loop independent gang worker private(c,sum1,sum2,sum3,sum4) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker private(c,sum1,sum2,sum3,sum4) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          sum1 = 0.0_r8; sum2 =0.0_r8;
@@ -864,7 +864,7 @@ contains
    ! set zeros for those variables NOT available from PFLOTRAN
    ! (TODO) will check 'zero' or '-9999' is better.
 
-   !$acc parallel loop gang vector default(present) private(c, j, k) if(elm_device_ready) copyin(bounds)
+   !$acc parallel loop gang vector default(present) private(c, j, k) if(elm_device_ready)
    do fc = 1,num_soilc
       c = filter_soilc(fc)
       !$acc loop seq

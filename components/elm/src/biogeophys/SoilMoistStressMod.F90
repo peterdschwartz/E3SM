@@ -148,7 +148,7 @@ end subroutine normalize_test
     !------------------------------------------------------------------------------
     !main calculation loop
     !it assumes the soil layers start from 1
-    !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang default(present) if(elm_device_ready)
     do j = 1, ubj
       !$acc loop vector independent private(p,c,vol_ice)
        do fp = 1, numf
@@ -242,7 +242,7 @@ end subroutine normalize_test
     integer, parameter :: jtop = 1
     !------------------------------------------------------------------------------
     !main calculation loop
-    !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang default(present) if(elm_device_ready)
     do j = lbj, ubj
       !$acc loop vector independent private(p,c)
        do fp = 1, numf
@@ -308,7 +308,7 @@ end subroutine normalize_test
       ! if (perchroot .or. perchroot_alt) then
          if (perchroot_alt) then
             ! use total active layer (defined ass max thaw depth for current and prior year)
-            !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop independent gang default(present) if(elm_device_ready)
             do j = 1, ubj
                !$acc loop vector independent private(p,c)
                do f = 1, fn
@@ -324,7 +324,7 @@ end subroutine normalize_test
             end do
          else
             ! use instantaneous temperature
-            !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop independent gang default(present) if(elm_device_ready)
             do j = 1, ubj
                !$acc loop vector independent private(p,c)
                do f = 1, fn
@@ -346,7 +346,7 @@ end subroutine normalize_test
       !      fn, filterp, rootfr_unf(:, :))
       ! !!!
       !$acc enter data create(arr_sum(1:fn))
-      !$acc parallel loop independent gang worker default(present) private(sum1) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker default(present) private(sum1) if(elm_device_ready)
       do f = 1, fn
         sum1 = 0._r8
         !$acc loop vector reduction(+:sum1)
@@ -358,7 +358,7 @@ end subroutine normalize_test
       enddo
 
         !normalize with the total if arr_sum is non-zero
-      !$acc parallel loop independent gang default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang default(present) if(elm_device_ready)
       do j = 1, ubj
         !$acc loop vector independent
         do f = 1, fn
@@ -554,7 +554,7 @@ end subroutine normalize_test
     integer :: spel_i1, spel_i2  ! spel section-loop indices
     ! spel acc-locals: device storage of the local work arrays
     !$acc enter data create(rootfr_unf)
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do spel_i2 = 1, nlevgrnd  ! spel section-loop
        do spel_i1 = 1, fn
           rootfr_unf(spel_i1, spel_i2) = 0._r8

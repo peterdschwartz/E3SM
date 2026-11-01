@@ -784,7 +784,7 @@ contains
          )
 
       ip = p_inst
-      !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do spel_i1 = lbound(budg_stateL,1), ubound(budg_stateL,1)  ! spel section-loop
          budg_stateL(spel_i1, ip) = 0._r8
       end do
@@ -1384,7 +1384,7 @@ contains
               tcs_month_end_grc(bounds%begg:bounds%endg), &
               c2l_scale_type= 'unity', l2g_scale_type='unity' )
       else
-         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) if(elm_device_ready)
          do spel_i1 = bounds%begg, bounds%endg  ! spel section-loop
             tcs_month_end_grc(spel_i1) = spval
          end do

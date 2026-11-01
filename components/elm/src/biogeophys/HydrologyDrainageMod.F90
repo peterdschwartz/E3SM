@@ -145,7 +145,7 @@ contains
            soilhydrology_vars, soilstate_vars, ocn2lnd_vars, dtime)
 
 
-      !$acc parallel loop independent gang vector default(present) collapse(2) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) collapse(2) if(elm_device_ready)
       do j = 1, nlevgrnd
          do fc = 1, num_nolakec
             c = filter_nolakec(fc)
@@ -157,7 +157,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do fc = 1, num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)
@@ -172,7 +172,7 @@ contains
          end if
       end do
 
-      !$acc parallel loop independent gang worker default(present) private(sumtot,sumliq,sumice) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker default(present) private(sumtot,sumliq,sumice) if(elm_device_ready)
       do fc = 1, num_nolakec
          c = filter_nolakec(fc)
          ! start from the running totals to keep the reference's summation order
@@ -200,7 +200,7 @@ contains
       ! Other orthogonal modules should not need to worry about this term,
       ! and it should be zero in all other cases and all other columns.
       ! ---------------------------------------------------------------------------------
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do fc = 1, num_nolakec
          c = filter_nolakec(fc)
          endwb(c) = endwb(c) + total_plant_stored_h2o(c)
@@ -214,7 +214,7 @@ contains
       ! 2) If using glc_dyn_runoff_routing=T, zero qflx_snwcp_ice: qflx_snwcp_ice is the flux
       !    sent to ice runoff, but for glc_dyn_runoff_routing=T, we do NOT want this to be
       !    sent to ice runoff (instead it is sent to CISM).
-      !$acc parallel loop independent gang vector default(present) private(l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(l) if(elm_device_ready)
       do c = bounds%begc,bounds%endc
          l = col_pp%landunit(c)
          qflx_glcice_frz(c) = 0._r8
@@ -226,7 +226,7 @@ contains
          endif
       end do
 
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do fc = 1,num_do_smb_c
          c = filter_do_smb_c(fc)
          l = col_pp%landunit(c)
@@ -248,12 +248,12 @@ contains
 
       ! Determine wetland and land ice hydrology (must be placed here
       ! since need snow updated from CombineSnowLayers)
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do c = bounds%begc,bounds%endc
          qflx_irr_demand(c) = 0._r8
       end do
       
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds) no_create(top_ws)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) no_create(top_ws)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)

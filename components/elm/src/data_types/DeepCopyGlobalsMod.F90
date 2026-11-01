@@ -25,6 +25,7 @@ module DeepCopyGlobalsMod
   use columnfluxtypes, only : nfix_timeconst
   use daylengthmod, only : first_step
   use decompcascadebgcmod, only : normalization_tref, normalize_q10_to_century_tfunc, use_century_tfunc
+  use decompmod, only : bounds_by_clump, bounds_proc
   use dynharvestmod, only : do_cn_harvest, harvest_rates
   use ecosystembalancecheckmod, only : balance_check_tolerance
   use elm_varcon, only : ac_wasteheat_factor, ht_wasteheat_factor, wasteheat_limit, alpha_aero, bdsno, betads, betais, c13ratio, c14ratio, c_h_inv, capr, cnfac, cpair, cpice, &
@@ -647,6 +648,10 @@ contains
     !$acc update device(urban_traffic)
     !$acc update device(rootprof_exp)
     !$acc update device(surfprof_exp)
+    if (allocated(bounds_by_clump)) then
+       !$acc update device(bounds_by_clump)
+    end if
+    !$acc update device(bounds_proc)
 #endif
   end subroutine globals_copyin
 
@@ -1575,6 +1580,12 @@ contains
     !$acc update self(rootprof_exp) if(.not. to_device)
     !$acc update device(surfprof_exp) if(to_device)
     !$acc update self(surfprof_exp) if(.not. to_device)
+    if (allocated(bounds_by_clump)) then
+       !$acc update device(bounds_by_clump) if(to_device)
+       !$acc update self(bounds_by_clump) if(.not. to_device)
+    end if
+    !$acc update device(bounds_proc) if(to_device)
+    !$acc update self(bounds_proc) if(.not. to_device)
 #endif
   end subroutine globals_update
 

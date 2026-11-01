@@ -507,7 +507,7 @@ contains
 
      err_index = 0
      !$acc parallel loop gang vector default(present) &
-     !$acc private(sumwt,sum_arr) reduction(max:err_index) if(elm_device_ready) copyin(bounds) copyin(parr) copy(carr)
+     !$acc private(sumwt,sum_arr) reduction(max:err_index) if(elm_device_ready) copyin(parr) copy(carr)
      do c = bounds%begc, bounds%endc
         sumwt = 0._r8
         sum_arr = 0._r8
@@ -550,7 +550,7 @@ contains
     call check_scale_types('p2c_2d', p2c_scale_type=p2c_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
+    !$acc parallel loop gang vector collapse(2) default(present) &
     !$acc private(sumwt,sum_arr) reduction(max:err_index) if(elm_device_ready) copyin(parr) copy(carr)
     do j = 1, num2d
        do c = bounds%begc, bounds%endc
@@ -593,7 +593,7 @@ contains
     !-----------------------------------------------------------------------
 
     !$acc parallel loop gang vector default(present) &
-    !$acc private(c,sum_patch) if(elm_device_ready) copyin(bounds) copyin(filterc) copyin(pftarr) copy(colarr)
+    !$acc private(c,sum_patch) if(elm_device_ready) copyin(filterc) copyin(pftarr) copy(colarr)
     do fc = 1,numfc
        c = filterc(fc)
        sum_patch = 0._r8
@@ -632,7 +632,7 @@ contains
 
     err_index = 0
     !$acc parallel loop gang vector default(present) &
-    !$acc private(sumwt,sum_arr,scale_c2l,c) reduction(max:err_index) if(elm_device_ready) copyin(bounds) copyin(parr) copy(larr)
+    !$acc private(sumwt,sum_arr,scale_c2l,c) reduction(max:err_index) if(elm_device_ready) copyin(parr) copy(larr)
     do l = bounds%begl, bounds%endl
        sumwt = 0._r8
        sum_arr = 0._r8
@@ -680,7 +680,7 @@ contains
     call check_scale_types('p2l_2d', p2c_scale_type, c2l_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
+    !$acc parallel loop gang vector collapse(2) default(present) &
     !$acc private(sumwt,sum_arr,scale_c2l,c) reduction(max:err_index) if(elm_device_ready) copyin(parr) copy(larr)
     do j = 1, num2d
        do l = bounds%begl, bounds%endl
@@ -728,7 +728,7 @@ contains
     call check_scale_types('p2g_1d', p2c_scale_type, c2l_scale_type, l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang default(present) copyin(bounds) private(g0, g1) if(elm_device_ready) copyin(parr) copy(garr)
+    !$acc parallel loop gang default(present) private(g0, g1) if(elm_device_ready) copyin(parr) copy(garr)
     do chunk = 1, nchunk
        g0 = bounds%begg + (chunk-1) * gridcell_chunk
        g1 = min(g0 + gridcell_chunk - 1, bounds%endg)
@@ -766,7 +766,7 @@ contains
     call check_scale_types('p2g_2d', p2c_scale_type, c2l_scale_type, l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang collapse(2) default(present) copyin(bounds) private(g0, g1) if(elm_device_ready) copyin(parr) copy(garr)
+    !$acc parallel loop gang collapse(2) default(present) private(g0, g1) if(elm_device_ready) copyin(parr) copy(garr)
     do j = 1, num2d
        do chunk = 1, nchunk
           g0 = bounds%begg + (chunk-1) * gridcell_chunk
@@ -806,7 +806,7 @@ contains
 
     err_index = 0
     !$acc parallel loop gang vector default(present) &
-    !$acc private(sumwt,sum_arr,scale_c2l) reduction(max:err_index) if(elm_device_ready) copyin(bounds) copyin(carr) copy(larr)
+    !$acc private(sumwt,sum_arr,scale_c2l) reduction(max:err_index) if(elm_device_ready) copyin(carr) copy(larr)
     do l = bounds%begl, bounds%endl
        sumwt = 0._r8
        sum_arr = 0._r8
@@ -852,7 +852,7 @@ contains
     call check_scale_types('c2l_2d', c2l_scale_type=c2l_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
+    !$acc parallel loop gang vector collapse(2) default(present) &
     !$acc private(sumwt,sum_arr,scale_c2l) reduction(max:err_index) if(elm_device_ready) copyin(carr) copy(larr)
     do j = 1, num2d
        do l = bounds%begl, bounds%endl
@@ -898,7 +898,7 @@ contains
     call check_scale_types('c2g_1d', c2l_scale_type=c2l_scale_type, l2g_scale_type=l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang default(present) copyin(bounds) private(g0, g1) if(elm_device_ready) copyin(carr) copy(garr)
+    !$acc parallel loop gang default(present) private(g0, g1) if(elm_device_ready) copyin(carr) copy(garr)
     do chunk = 1, nchunk
        g0 = bounds%begg + (chunk-1) * gridcell_chunk
        g1 = min(g0 + gridcell_chunk - 1, bounds%endg)
@@ -935,7 +935,7 @@ contains
     call check_scale_types('c2g_2d', c2l_scale_type=c2l_scale_type, l2g_scale_type=l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang collapse(2) default(present) copyin(bounds) private(g0, g1) if(elm_device_ready) copyin(carr) copy(garr)
+    !$acc parallel loop gang collapse(2) default(present) private(g0, g1) if(elm_device_ready) copyin(carr) copy(garr)
     do j = 1, num2d
        do chunk = 1, nchunk
           g0 = bounds%begg + (chunk-1) * gridcell_chunk
@@ -972,7 +972,7 @@ contains
     call check_scale_types('l2g_1d', l2g_scale_type=l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang default(present) copyin(bounds) private(g0, g1) if(elm_device_ready) copyin(larr) copy(garr)
+    !$acc parallel loop gang default(present) private(g0, g1) if(elm_device_ready) copyin(larr) copy(garr)
     do chunk = 1, nchunk
        g0 = bounds%begg + (chunk-1) * gridcell_chunk
        g1 = min(g0 + gridcell_chunk - 1, bounds%endg)
@@ -1005,7 +1005,7 @@ contains
     call check_scale_types('l2g_2d', l2g_scale_type=l2g_scale_type)
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang collapse(2) default(present) copyin(bounds) private(g0, g1) if(elm_device_ready) copyin(larr) copy(garr)
+    !$acc parallel loop gang collapse(2) default(present) private(g0, g1) if(elm_device_ready) copyin(larr) copy(garr)
     do j = 1, num2d
        do chunk = 1, nchunk
           g0 = bounds%begg + (chunk-1) * gridcell_chunk
@@ -1043,7 +1043,7 @@ contains
 
     err_index = 0
     !$acc parallel loop gang vector default(present) &
-    !$acc private(sumwt,sum_arr,scale_c2l,scale_l2t,p,c,l) reduction(max:err_index) if(elm_device_ready) copyin(bounds) copyin(parr) copy(tarr)
+    !$acc private(sumwt,sum_arr,scale_c2l,scale_l2t,p,c,l) reduction(max:err_index) if(elm_device_ready) copyin(parr) copy(tarr)
     do t = bounds%begt, bounds%endt
        sumwt = 0._r8
        sum_arr = 0._r8
@@ -1095,7 +1095,7 @@ contains
     call check_scale_types('p2t_2d', p2c_scale_type, c2l_scale_type, l2t_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
+    !$acc parallel loop gang vector collapse(2) default(present) &
     !$acc private(sumwt,sum_arr,scale_c2l,scale_l2t,p,c,l) reduction(max:err_index) if(elm_device_ready) copyin(parr) copy(tarr)
     do j = 1, num2d
        do t = bounds%begt, bounds%endt
@@ -1149,7 +1149,7 @@ contains
 
     err_index = 0
     !$acc parallel loop gang vector default(present) &
-    !$acc private(sumwt,sum_arr,scale_c2l,scale_l2t,c,l) reduction(max:err_index) if(elm_device_ready) copyin(bounds) copyin(carr) copy(tarr)
+    !$acc private(sumwt,sum_arr,scale_c2l,scale_l2t,c,l) reduction(max:err_index) if(elm_device_ready) copyin(carr) copy(tarr)
     do t = bounds%begt, bounds%endt
        sumwt = 0._r8
        sum_arr = 0._r8
@@ -1199,7 +1199,7 @@ contains
     call check_scale_types('c2t_2d', c2l_scale_type=c2l_scale_type, l2g_scale_type=l2t_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
+    !$acc parallel loop gang vector collapse(2) default(present) &
     !$acc private(sumwt,sum_arr,scale_c2l,scale_l2t,c,l) reduction(max:err_index) if(elm_device_ready) copyin(carr) copy(tarr)
     do j = 1, num2d
        do t = bounds%begt, bounds%endt
@@ -1251,7 +1251,7 @@ contains
 
     err_index = 0
     !$acc parallel loop gang vector default(present) &
-    !$acc private(sumwt,sum_arr,scale_l2t,l) reduction(max:err_index) if(elm_device_ready) copyin(bounds) copyin(larr) copy(tarr)
+    !$acc private(sumwt,sum_arr,scale_l2t,l) reduction(max:err_index) if(elm_device_ready) copyin(larr) copy(tarr)
     do t = bounds%begt, bounds%endt
        sumwt = 0._r8
        sum_arr = 0._r8
@@ -1298,7 +1298,7 @@ contains
     call check_scale_types('l2t_2d', l2g_scale_type=l2t_scale_type)
 
     err_index = 0
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) &
+    !$acc parallel loop gang vector collapse(2) default(present) &
     !$acc private(sumwt,sum_arr,scale_l2t,l) reduction(max:err_index) if(elm_device_ready) copyin(larr) copy(tarr)
     do j = 1, num2d
        do t = bounds%begt, bounds%endt
@@ -1348,7 +1348,7 @@ contains
     end if
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang default(present) copyin(bounds) private(g0, g1) if(elm_device_ready) copyin(tarr) copy(garr)
+    !$acc parallel loop gang default(present) private(g0, g1) if(elm_device_ready) copyin(tarr) copy(garr)
     do chunk = 1, nchunk
        g0 = bounds%begg + (chunk-1) * gridcell_chunk
        g1 = min(g0 + gridcell_chunk - 1, bounds%endg)
@@ -1384,7 +1384,7 @@ contains
     end if
 
     nchunk = (bounds%endg - bounds%begg) / gridcell_chunk + 1
-    !$acc parallel loop gang collapse(2) default(present) copyin(bounds) private(g0, g1) if(elm_device_ready) copyin(tarr) copy(garr)
+    !$acc parallel loop gang collapse(2) default(present) private(g0, g1) if(elm_device_ready) copyin(tarr) copy(garr)
     do j = 1, num2d
        do chunk = 1, nchunk
           g0 = bounds%begg + (chunk-1) * gridcell_chunk

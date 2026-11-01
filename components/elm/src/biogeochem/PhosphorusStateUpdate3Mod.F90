@@ -80,7 +80,7 @@ contains
       ! set time steps
       !! immobilization/mineralization in litter-to-SOM and SOM-to-SOM fluxes
       !! - X.YANG
-      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = 1, nlevdecomp
          ! column loop
          do fc = 1,num_soilc
@@ -89,7 +89,7 @@ contains
          enddo
       enddo
         ! one thread per (level, column), the transitions sequential: each element keeps its order of operations
-        !$acc parallel loop gang vector collapse(2) default(present) private(c, k) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop gang vector collapse(2) default(present) private(c, k) if(elm_device_ready)
         do j = 1, nlevdecomp
            do fc = 1,num_soilc
               c = filter_soilc(fc)
@@ -107,7 +107,7 @@ contains
         end do
 
 
-        !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
         do j = 1, nlevdecomp
               ! column loop
            do fc = 1,num_soilc
@@ -119,7 +119,7 @@ contains
 
       if (nu_com .eq. 'RD') then
         !$acc parallel loop gang vector collapse(2) default(present) &
-        !$acc   private(c, smax_c, ks_sorption_c) if(elm_device_ready) copyin(bounds)
+        !$acc   private(c, smax_c, ks_sorption_c) if(elm_device_ready)
         do j = 1, nlevdecomp
           do fc = 1,num_soilc
             c = filter_soilc(fc)
@@ -158,7 +158,7 @@ contains
            end do
         else ! ECA
           !$acc parallel loop gang vector collapse(2) default(present) &
-          !$acc   private(c, smax_c, ks_sorption_c, aa, bb, cc) if(elm_device_ready) copyin(bounds)
+          !$acc   private(c, smax_c, ks_sorption_c, aa, bb, cc) if(elm_device_ready)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -220,7 +220,7 @@ contains
          end if
 
          if (nu_com .eq. 'RD') then
-          !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready) copyin(bounds)
+          !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready)
           do j = 1, nlevdecomp
              do fc = 1,num_soilc
                 c = filter_soilc(fc)
@@ -234,7 +234,7 @@ contains
           end do
          end if
 
-         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1, nlevdecomp
             do fc = 1,num_soilc
                c = filter_soilc(fc)
@@ -261,7 +261,7 @@ contains
          ! If we use observed P to initialize regular spinup, soil P pools will dramatically deplete during the spinup
          ! Then, the transient simulation will start with a much lower soil phosphorus availability that is inconsistent with obs
          if ((nu_com .ne. 'RD') .and. ECA_Pconst_RGspin ) then
-            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+            !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
             do j = 1, nlevdecomp
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
@@ -274,7 +274,7 @@ contains
             end do
          end if
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
       do j = 1, nlevdecomp
          ! column loop
          do fc = 1,num_soilc
@@ -292,7 +292,7 @@ contains
       end do
 
       ! litter and CWD losses to fire
-      !$acc parallel loop gang vector collapse(3) default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector collapse(3) default(present) private(c) if(elm_device_ready)
       do l = 1, ndecomp_pools
          do j = 1, nlevdecomp
             ! column loop
@@ -307,7 +307,7 @@ contains
     ! soil P loss due to soil erosion
     if ( ero_ccycle ) then
       ! column loop
-      !$acc parallel loop gang vector default(present) private(c, j, l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c, j, l) if(elm_device_ready)
       do fc = 1, num_soilc
          c = filter_soilc(fc)
          !$acc loop seq
@@ -330,7 +330,7 @@ contains
     ! patch-level phosphorus fluxes
 
     if(.not.use_fates) then
-       !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
        do fp = 1,num_soilp
           p = filter_soilp(fp)
 

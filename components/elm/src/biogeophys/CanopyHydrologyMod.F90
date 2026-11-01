@@ -260,12 +260,12 @@ contains
        dtime = dtime_mod
 
        !$acc enter data create(irrigated_ppg, bifall, newsnow, snowmelt)
-       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do gg = bounds%begg,bounds%endg
           irrigated_ppg(gg) = 0
        end do
          
-       !$acc parallel loop gang vector default(present) private(p, g) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(p, g) if(elm_device_ready)
        do f = 1, num_nolakep
           p = filter_nolakep(f)
           g = pgridcell(p)
@@ -277,7 +277,7 @@ contains
        ! Start pft loop
 
        !$acc parallel loop gang vector default(present) &
-       !$acc   private(p, g, t, tpu_ind, l, c, h2ocanmx, fpi, xrun) if(elm_device_ready) copyin(bounds)
+       !$acc   private(p, g, t, tpu_ind, l, c, h2ocanmx, fpi, xrun) if(elm_device_ready)
        do f = 1, num_nolakep
           p = filter_nolakep(f)
           g = pgridcell(p)
@@ -489,7 +489,7 @@ contains
             qflx_grnd_irrig_col(bounds%begc:bounds%endc))
 
        ! apply gridcell flood water flux to non-lake columns
-       !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
        do f = 1, num_nolakec
           c = filter_nolakec(f)
           g = cgridcell(c)
@@ -510,7 +510,7 @@ contains
        end if
 
        !$acc parallel loop gang vector default(present) private(c, l, t, g, j, temp_snow_depth, &
-       !$acc&   dz_snowf, smr, fsno_new, temp_intsnow, z_avg, fmelt, accum_factor, newnode) if(elm_device_ready) copyin(bounds)
+       !$acc&   dz_snowf, smr, fsno_new, temp_intsnow, z_avg, fmelt, accum_factor, newnode) if(elm_device_ready)
        do f = 1, num_nolakec
           c = filter_nolakec(f)
           l = clandunit(c)
@@ -849,7 +849,7 @@ contains
        nclose = 0
 
        !$acc parallel loop gang vector default(present) private(c, l, k, d, fd, dfdd, sigma, swc) &
-       !$acc&   reduction(+:nclose) if(elm_device_ready) copyin(bounds)
+       !$acc&   reduction(+:nclose) if(elm_device_ready)
        do f = 1, num_h2osfc
           c = filter_h2osfc(f)
           l = col_pp%landunit(c)

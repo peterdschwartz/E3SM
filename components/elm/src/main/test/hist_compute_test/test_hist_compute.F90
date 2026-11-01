@@ -292,7 +292,7 @@ contains
 
        call decoy_host(.true.)
        call system_clock(c0)
-       call hist_compute_update(view, src1, src2)
+       call hist_compute_update(view, src1, src2, elm_device_ready)
        call system_clock(c1)
        call decoy_host(.false.)
        t_new = t_new + real(c1 - c0, r8) / rate
@@ -301,12 +301,12 @@ contains
        ! end of each tape's interval: normalize, compare, zero
        do t = 1, ntapes
           if (mod(step, 4 + 3*t) /= 0) cycle
-          call hist_compute_normalize(t)
+          call hist_compute_normalize(t, elm_device_ready)
           do f = tape_first(t), tape_first(t+1) - 1
              call ref_normalize(fields(f), ref(f)%hbuf, ref(f)%nacs)
           end do
           if (check) call compare('normalize', step)
-          call hist_compute_zero(t)
+          call hist_compute_zero(t, elm_device_ready)
           do f = tape_first(t), tape_first(t+1) - 1
              ref(f)%hbuf(:,:) = 0._r8
              ref(f)%nacs(:,:) = 0

@@ -191,7 +191,7 @@ contains
 
       ! Restrict internal building temperature to between min and max
       ! and determine if heating or air conditioning is on
-      !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready)
       do fl = 1,num_urbanl
          l = filter_urbanl(fl)
          if (lun_pp%urbpoi(l)) then
@@ -211,7 +211,7 @@ contains
 
       ! set up compact matrix for band diagonal solver, requires additional
       !     sub/super diagonals (1 each), and one additional row for t_h2osfc
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          jtop(fc) = snl(c)
@@ -255,7 +255,7 @@ contains
 
       ! compute thermal properties of h2osfc
 
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          if ( (h2osfc(c) > thin_sfclayer) .and. (frac_h2osfc(c) > thin_sfclayer) ) then
@@ -270,7 +270,7 @@ contains
       ! initialize initial temperature vector
 
       call t_startf('SoilTempInit')
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          !$acc loop seq
@@ -300,7 +300,7 @@ contains
 
       ! return temperatures to original array
 
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          !$acc loop seq
@@ -322,7 +322,7 @@ contains
       call t_startf('SoilTempFn1')
       ! Melting or Freezing
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(c,l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector collapse(2) default(present) private(c,l) if(elm_device_ready)
       do j = -nlevsno+1,nlevgrnd
          do fc = 1,num_nolakec
             c = filter_nolakec(fc)
@@ -354,7 +354,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop gang vector default(present) private(c,l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c,l) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)
@@ -381,7 +381,7 @@ contains
 
       ! compute phase change of h2osfc
 
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          xmf_h2osfc(c) = 0.
@@ -393,7 +393,7 @@ contains
 
       call Phasechange_beta (num_nolakec, filter_nolakec, dhsdT, soilstate_vars, dtime)
 
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          ! this expression will (should) work whether there is snow or not
@@ -420,7 +420,7 @@ contains
       ! plus snow heat content. The layer sums run sequentially within each
       ! column so they accumulate in the same order as a serial build.
 
-      !$acc parallel loop gang vector default(present) private(c,l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c,l) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          l = col_pp%landunit(c)

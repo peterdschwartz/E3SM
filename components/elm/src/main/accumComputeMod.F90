@@ -20,7 +20,6 @@ module accumComputeMod
   ! Inactive points are skipped, following the CLM (ctsm5.4.042) active-element fix.
   !
   ! !USES:
-  use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
   use shr_kind_mod, only : r8 => shr_kind_r8
   !
   implicit none

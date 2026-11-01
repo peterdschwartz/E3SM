@@ -327,7 +327,7 @@ contains
 
     fl = 0
     fnl = 0
-    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:fl) reduction(+:fnl) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:fl) reduction(+:fnl) if(elm_device_ready)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -372,7 +372,7 @@ contains
     fnl = 0
     fnlu = 0
     !$acc parallel loop gang vector default(present) private(t, l) reduction(+:fl) reduction(+:fnl) &
-    !$acc   reduction(+:fnlu) copyin(bounds) if(elm_device_ready)
+    !$acc   reduction(+:fnlu) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -424,7 +424,7 @@ contains
     ! Create soil filter at column-level
 
     fs = 0
-    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:fs) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:fs) if(elm_device_ready)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -458,7 +458,7 @@ contains
     ! Create soil filter at pft-level
 
     fs = 0
-    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:fs) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:fs) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -493,7 +493,7 @@ contains
 
     f  = 0
     fn = 0
-    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:f) reduction(+:fn) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:f) reduction(+:fn) if(elm_device_ready)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -544,7 +544,7 @@ contains
     fpc = 0
     fnc = 0
     !$acc parallel loop gang vector default(present) private(t, l) reduction(+:fnc) reduction(+:fc) &
-    !$acc   reduction(+:fpc) copyin(bounds) if(elm_device_ready)
+    !$acc   reduction(+:fpc) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -603,7 +603,7 @@ contains
 
     f  = 0
     fn = 0
-    !$acc parallel loop gang vector default(present) private(t) reduction(+:f) reduction(+:fn) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t) reduction(+:f) reduction(+:fn) if(elm_device_ready)
     do l = bounds%begl,bounds%endl
        t =lun_pp%topounit(l)
        if (top_pp%active(t)) then
@@ -644,7 +644,7 @@ contains
 
     f  = 0
     fn = 0
-    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:f) reduction(+:fn) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:f) reduction(+:fn) if(elm_device_ready)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -687,7 +687,7 @@ contains
 
     f  = 0
     fn = 0
-    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:f) reduction(+:fn) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:f) reduction(+:fn) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        t =veg_pp%topounit(p)
        if (top_pp%active(t)) then
@@ -729,7 +729,7 @@ contains
     ! Create column-level glacier mec filter
 
     f = 0
-    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:f) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t, l) reduction(+:f) if(elm_device_ready)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -763,7 +763,7 @@ contains
     ! Create column-level glacier+bareland SMB filter
 
     f = 0
-    !$acc parallel loop gang vector default(present) private(t, l, g) reduction(+:f) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) private(t, l, g) reduction(+:f) if(elm_device_ready)
     do c = bounds%begc,bounds%endc
        t =col_pp%topounit(c)
        if (top_pp%active(t)) then
@@ -841,7 +841,7 @@ contains
 
     fbare = 0
     fveg  = 0
-    !$acc parallel loop independent gang vector default(present) private(p) reduction(+:fbare,fveg) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop independent gang vector default(present) private(p) reduction(+:fbare,fveg) if(elm_device_ready)
     do f = 1, this_filter(nc)%num_nolakeurbanp
        p = this_filter(nc)%nolakeurbanp(f)
        if (frac_veg_nosno(p) == 0) then
@@ -857,7 +857,7 @@ contains
     fveg  = 0
     ! ascending order, as the serial loops of upstream ELM (atomics gave a
     ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fbare,fveg) copyin(bounds) if(elm_device_ready)
+    !$acc serial default(present) copy(fbare,fveg) if(elm_device_ready)
     do f = 1, this_filter(nc)%num_nolakeurbanp
        p = this_filter(nc)%nolakeurbanp(f)
        if (frac_veg_nosno(p) == 0) then

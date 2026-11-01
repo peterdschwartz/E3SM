@@ -642,7 +642,7 @@ contains
     !$acc&   grc_es%end_hc_lake, grc_es%end_hc_soi, grc_es%errsoi) if_present
 
     !$acc data copy(grnd_patch) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(c, l) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(c, l) if(elm_device_ready)
     do p = bounds%begp, bounds%endp
        c = veg_pp%column(p)
        l = col_pp%landunit(c)
@@ -672,7 +672,7 @@ contains
          c_h2osfc     => col_es%c_h2osfc             &
          )
 
-      !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready)
       do c = bounds%begc, bounds%endc
          l = col_pp%landunit(c)
          if (lun_pp%urbpoi(l)) then
@@ -705,7 +705,7 @@ contains
     ! Doing this at gridcell level gives every term identical spatial
     ! support and also handles snow layers that appear or disappear.
     !$acc end data
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do c = bounds%begg, bounds%endg
        if (grc_es%beg_hc(c) /= spval .and. grc_es%end_hc(c) /= spval &
             .and. grc_ef%heat_into_grnd(c) /= spval .and. grc_ef%heat_phase_corr(c) /= spval) then

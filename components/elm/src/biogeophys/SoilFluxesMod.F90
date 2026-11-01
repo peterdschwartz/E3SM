@@ -171,7 +171,7 @@ contains
 
       dtime = dtime_mod
       call t_startf('bgp2_loop_1')
-      !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c, j) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          j = col_pp%snl(c)+1
@@ -208,7 +208,7 @@ contains
       ! greater than availability, or 1.0 otherwise.
       ! Correct fluxes to present soil temperature
 
-      !$acc parallel loop gang vector default(present) private(p, c, l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c, l) if(elm_device_ready)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          c = veg_pp%column(p)
@@ -231,14 +231,14 @@ contains
       ! Set the column-average qflx_evap_soi as the weighted average over all patches
       ! but only count the patches that are evaporating
 
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          topsoil_evap_tot(c) = 0._r8
          sumwt(c) = 0._r8
       end do
 
-      !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(fc, c, p) if(elm_device_ready)
       do fc = 1,num_nolakec
          !$acc loop seq
          do pi = 1,max_patch_per_col
@@ -256,7 +256,7 @@ contains
       call t_startf('bgp2_loop_2')
       ! Calculate ratio for rescaling pft-level fluxes to meet availability
 
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_nolakec
          c = filter_nolakec(fc)
          if (topsoil_evap_tot(c) > egsmax(c)) then
@@ -267,7 +267,7 @@ contains
       end do
 
       !$acc parallel loop gang vector default(present) &
-      !$acc   private(p, c, l, t, g, j, save_qflx_evap_soi, lw_grnd, slope_rad) if(elm_device_ready) copyin(bounds)
+      !$acc   private(p, c, l, t, g, j, save_qflx_evap_soi, lw_grnd, slope_rad) if(elm_device_ready)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          c = veg_pp%column(p)
@@ -392,7 +392,7 @@ contains
       call t_startf('bgp2_loop_3')
       ! Soil Energy balance check
 
-      !$acc parallel loop gang vector default(present) private(p, c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c) if(elm_device_ready)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          c = veg_pp%column(p)
@@ -406,7 +406,7 @@ contains
             errsoi_patch(p) = errsoi_patch(p) + eflx_building_heat(c)
          end if
       end do
-      !$acc parallel loop gang vector default(present) private(fp, p, c, temp) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(fp, p, c, temp) if(elm_device_ready)
       do fp = 1,num_nolakep
          !$acc loop seq
          do j = -nlevsno+1,nlevgrnd
@@ -439,7 +439,7 @@ contains
       ! are calculated in UrbanRadiation. The increase of ground longwave is added directly
       ! to the outgoing longwave and the net longwave.
 
-      !$acc parallel loop gang vector default(present) private(p, c, l, t, g, j, lw_grnd, slope_rad) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(p, c, l, t, g, j, lw_grnd, slope_rad) if(elm_device_ready)
       do fp = 1,num_nolakep
          p = filter_nolakep(fp)
          c = veg_pp%column(p)

@@ -94,14 +94,14 @@ contains
             h2ocan_col(bounds%begc:bounds%endc))
 
       if (use_var_soil_thick) then
-	       !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+	       !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
 	       do f = 1, num_hydrologyc
             c = filter_hydrologyc(f)
       	    wa(c) = 0._r8                ! Made 0 for variable soil thickness
 	       end do
       end if
 
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do f = 1, num_nolakec
          c = filter_nolakec(f)
          if (col_pp%itype(c) == icol_roof .or. col_pp%itype(c) == icol_sunwall &
@@ -113,7 +113,7 @@ contains
 
       end do
 
-      !$acc parallel loop gang vector default(present) private(f, c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(f, c) if(elm_device_ready)
       do f = 1, num_nolakec
          !$acc loop seq
          do j = 1, nlevgrnd
@@ -133,13 +133,13 @@ contains
       ! and it should be zero in all other cases and all other columns.
       ! (rgk 02-02-2017)
       ! ---------------------------------------------------------------------------------
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do f = 1, num_nolakec
          c = filter_nolakec(f)
          begwb(c) = begwb(c) + total_plant_stored_h2o(c)
       end do
 
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do f = 1, num_lakec
          c = filter_lakec(f)
          begwb(c) = h2osno(c)
@@ -338,7 +338,7 @@ contains
        ! Water balance check
 
        !$acc data copy(forc_rain_col, forc_snow_col) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do c = bounds%begc, bounds%endc
 
           ! add qflx_drain_perched and qflx_flood
@@ -373,7 +373,7 @@ contains
        !     has to be added back to the column, as far as the error correction is concerned, by
        !     adding back the equivalent flux*timestep.
 
-       !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
        do fc = 1,num_do_smb_c
           c = filter_do_smb_c(fc)
           g = col_pp%gridcell(c)
@@ -385,7 +385,7 @@ contains
        
        found = .false.
        spel_dc_1 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready)
        do c = bounds%begc, bounds%endc
           
           if (abs(errh2o(c)) > 1.e-7_r8) spel_dc_1 = max(spel_dc_1, c - (bounds%begc) + 1)  ! spel defer-checks
@@ -487,7 +487,7 @@ contains
        ! Snow balance check
 
        ! snow balance: one column per iteration (g and l are not used after the loop on the device)
-       !$acc parallel loop gang vector default(present) private(g, l) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(g, l) if(elm_device_ready)
        do c = bounds%begc,bounds%endc
           if (col_pp%active(c)) then
              g = col_pp%gridcell(c)
@@ -598,7 +598,7 @@ contains
 
        found = .false.
        spel_dc_2 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_2) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_2) if(elm_device_ready)
        do c = bounds%begc,bounds%endc
           if (col_pp%active(c)) then
              if (abs(errh2osno(c)) > 1.0e-7_r8) spel_dc_2 = max(spel_dc_2, c - (bounds%begc) + 1)  ! spel defer-checks
@@ -670,7 +670,7 @@ contains
 
        ! Energy balance checks
 
-       !$acc parallel loop gang vector default(present) private(c, l, t, g) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(c, l, t, g) if(elm_device_ready)
        do p = bounds%begp, bounds%endp
           if (veg_pp%active(p)) then
              c = veg_pp%column(p)
@@ -723,7 +723,7 @@ contains
 
        found = .false.
        spel_dc_3 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) private(sol_err_th) reduction(max:spel_dc_3) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(sol_err_th) reduction(max:spel_dc_3) if(elm_device_ready)
        do p = bounds%begp, bounds%endp
           if (veg_pp%active(p)) then
              ! solar radiation balance error is high when running FATES
@@ -780,7 +780,7 @@ contains
 
        found = .false.
        spel_dc_4 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_4) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_4) if(elm_device_ready)
        do p = bounds%begp, bounds%endp
           if (veg_pp%active(p)) then
              if ((errlon(p) /= spval) .and. (abs(errlon(p)) > 1.e-7_r8)) spel_dc_4 = max(spel_dc_4, p - (bounds%begp) + 1)  ! spel defer-checks
@@ -815,7 +815,7 @@ contains
 
        found = .false.
        spel_dc_5 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_5) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_5) if(elm_device_ready)
        do p = bounds%begp, bounds%endp
           if (veg_pp%active(p)) then
              if (abs(errseb(p)) > 1.e-7_r8) spel_dc_5 = max(spel_dc_5, p - (bounds%begp) + 1)  ! spel defer-checks
@@ -875,7 +875,7 @@ contains
 
        found = .false.
        spel_dc_6 = 0  ! spel defer-checks
-       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_6) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) reduction(max:spel_dc_6) if(elm_device_ready)
        do c = bounds%begc,bounds%endc
           if (col_pp%active(c)) then
              if (abs(errsoi_col(c)) > 1.0e-5_r8) spel_dc_6 = max(spel_dc_6, c - (bounds%begc) + 1)  ! spel defer-checks
@@ -976,7 +976,7 @@ contains
       endc = bounds%endc
       begp = bounds%begp
       endp = bounds%endp 
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do c = begc, endc
          begwb_col(c) = 0._r8
          h2ocan_col(c) = 0._r8
@@ -993,7 +993,7 @@ contains
             h2ocan_patch(begp:endp), &
             h2ocan_col(begc:endc))
 
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do f = 1, num_nolakec
          c = filter_nolakec(f)
          g = col_pp%gridcell(c)
@@ -1007,7 +1007,7 @@ contains
          begwb_col(c) = begwb_col(c) + total_plant_stored_h2o(c)
       end do
 
-      !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2) if(elm_device_ready)
       do f = 1, num_nolakec
          sum1 = 0._r8
          sum2 = 0._r8 
@@ -1026,7 +1026,7 @@ contains
          h2osoi_ice_depth_intg(c) = sum2 
       end do
       
-      !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker default(present) private(c,sum1,sum2) if(elm_device_ready)
       do f = 1, num_lakec
          c = filter_lakec(f)
          sum1 = 0._r8 ; sum2 = 0._r8
@@ -1180,12 +1180,12 @@ contains
 
        dtime = dtime_mod
 
-       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do c = bounds%begc, bounds%endc
           wa_local_col(c) = wa(c)
        end do
 
-       !$acc parallel loop gang vector default(present) private(g, l) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(g, l) if(elm_device_ready)
        do c = bounds%begc,bounds%endc
           g = col_pp%gridcell(c)
           l = col_pp%landunit(c)
@@ -1203,7 +1203,7 @@ contains
           end if
        end do
 
-      !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) if(elm_device_ready)
       do c = bounds%begc, bounds%endc
 
          ! add qflx_drain_perched and qflx_flood

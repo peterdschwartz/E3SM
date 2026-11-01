@@ -102,7 +102,7 @@ contains
          )
 
       ! calculate beginning column-level carbon balance, for mass conservation check
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begcb(c) = totcolc(c)
@@ -137,7 +137,7 @@ contains
          )
 
       ! calculate beginning column-level nitrogen balance, for mass conservation check
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begnb(c) = totcoln(c)
@@ -177,7 +177,7 @@ contains
          )
 
       ! calculate beginning column-level phosphorus balance, for mass conservation check
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          col_begpb(c) = totcolp(c)
@@ -240,7 +240,7 @@ contains
       err_found = .false.
       ! column loop
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) reduction(max:spel_dc_1) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
 
@@ -427,7 +427,7 @@ contains
       err_found = .false.
       ! column loop
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c, p) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c, p) reduction(max:spel_dc_1) if(elm_device_ready)
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -683,7 +683,7 @@ contains
 
       !! immobilization/mineralization in litter-to-SOM and SOM-to-SOM fluxes
       ! column loop
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          flux_mineralization_col(c) = 0._r8
@@ -692,7 +692,7 @@ contains
       do k = 1, ndecomp_cascade_transitions
          if ( cascade_receiver_pool(k) /= 0 ) then  ! skip terminal transitions
                ! column loop
-               !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+               !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                   flux_mineralization_col(c) = flux_mineralization_col(c) - &
@@ -700,7 +700,7 @@ contains
                end do
          else
                ! column loop
-               !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+               !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
                do fc = 1,num_soilc
                   c = filter_soilc(fc)
                     flux_mineralization_col(c) = flux_mineralization_col(c) + &
@@ -711,7 +711,7 @@ contains
       end do
 
       ! column loop
-      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_soilc
          c = filter_soilc(fc)
          flux_mineralization_col(c) = flux_mineralization_col(c) + &
@@ -721,7 +721,7 @@ contains
 
       ! column loop
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c, p, j) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c, p, j) reduction(max:spel_dc_1) if(elm_device_ready)
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -1042,7 +1042,7 @@ contains
       nstep = get_nstep()
 
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) reduction(max:spel_dc_1) if(elm_device_ready)
       do g = bounds%begg, bounds%endg
 
          if (.not. use_fates) then 

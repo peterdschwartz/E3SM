@@ -439,7 +439,7 @@ contains
 
       ! set time steps
       if (spinup_state == 1 .and. yr .gt. nyears_ad_carbon_only) then
-         !$acc serial present(carbon_only) if(elm_device_ready) copyin(bounds)
+         !$acc serial present(carbon_only) if(elm_device_ready)
          carbon_only = .false.
          !$acc end serial
       end if
@@ -472,7 +472,7 @@ contains
 
       ! pflotran will need an input from CN: modified 'sum_ndemand_vr' ('potential_immob' excluded).
       if (use_elm_interface.and.use_pflotran .and. pf_cmode) then
-         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector collapse(2) default(present) private(c) if(elm_device_ready)
          do j = 1, nlevdecomp
             do fc=1, num_soilc
                c = filter_soilc(fc)
@@ -1265,7 +1265,7 @@ contains
            n_pcomp = size(elm_fates%fates(1)%bc_out(1)%ft_index) ! max number of plant competitors
            allocate(filter_pcomp(n_pcomp))
            !$acc data copy(filter_pcomp) if(elm_device_ready)
-           !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+           !$acc parallel loop gang vector default(present) if(elm_device_ready)
            do spel_i1 = lbound(filter_pcomp,1), ubound(filter_pcomp,1)  ! spel section-loop
               filter_pcomp(spel_i1) = -1
            end do
@@ -1301,12 +1301,12 @@ contains
            n_pcomp = bounds%endp-bounds%begp+1   ! max number of plant competitors
            allocate(filter_pcomp(n_pcomp))
            !$acc data copy(filter_pcomp) if(elm_device_ready)
-           !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+           !$acc parallel loop gang vector default(present) if(elm_device_ready)
            do spel_i1 = lbound(filter_pcomp,1), ubound(filter_pcomp,1)  ! spel section-loop
               filter_pcomp(spel_i1) = -1
            end do
            !$acc end data
-           !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+           !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
            do fp=1,num_soilp
               p = filter_soilp(fp)
               smin_nh4_to_plant_patch(p) = 0.0_r8
@@ -1328,7 +1328,7 @@ contains
      ! ------------------------------------------------------------------------------
 
      if(use_fates) then
-        !$acc parallel loop gang vector default(present) private(c, l, ci, pci, pcf, j, f) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop gang vector default(present) private(c, l, ci, pci, pcf, j, f) if(elm_device_ready)
         do fc=1,num_soilc
 
            c = filter_soilc(fc)
@@ -1387,7 +1387,7 @@ contains
         if (nu_com .eq. 'RD') then 
             !$acc parallel loop independent gang vector collapse(2) &
             !$acc& present(filter_soilc(:),col_plant_ndemand_vr(:,:),col_plant_pdemand_vr(:,:), &
-            !$acc& plant_pdemand_col(:),plant_ndemand_col(:), nuptake_prof(:,:),puptake_prof(:,:)) private(c) if(elm_device_ready) copyin(bounds)
+            !$acc& plant_pdemand_col(:),plant_ndemand_col(:), nuptake_prof(:,:),puptake_prof(:,:)) private(c) if(elm_device_ready)
             do j = 1, nlevdecomp
                do fc=1,num_soilc
                  c = filter_soilc(fc)
@@ -1413,7 +1413,7 @@ contains
            cp_scalar_runmean_ptr => cp_scalar_runmean
            km_p_ptr      => km_plant_p
            vmax_p_ptr    => vmax_plant_p
-           !$acc parallel loop gang vector default(present) private(c, l, pci, pcf, p, j) if(elm_device_ready) copyin(bounds)
+           !$acc parallel loop gang vector default(present) private(c, l, pci, pcf, p, j) if(elm_device_ready)
            do fc=1,num_soilc
               c = filter_soilc(fc)
               l = col_pp%landunit(c)
@@ -1520,7 +1520,7 @@ contains
               km_no3_ptr             => elm_fates%fates(ci)%bc_pconst%eca_km_no3
               vmax_no3_ptr           => elm_fates%fates(ci)%bc_pconst%vmax_no3
               !$acc data copy(filter_pcomp) if(elm_device_ready)
-              !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+              !$acc parallel loop gang vector default(present) if(elm_device_ready)
               do f = 1, n_pcomp
                  filter_pcomp(f) = f
               end do
@@ -1599,7 +1599,7 @@ contains
                                    f_denit_vr(c,:))                     ! OUT
 
             !$acc end data
-            !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+            !$acc parallel loop gang vector default(present) if(elm_device_ready)
             do spel_i1 = lbound(col_plant_ndemand_vr,2), ubound(col_plant_ndemand_vr,2)  ! spel section-loop
                col_plant_ndemand_vr(c, spel_i1) = col_plant_nh4demand_vr(c, spel_i1)+col_plant_no3demand_vr(c, spel_i1)
             end do
@@ -1607,7 +1607,7 @@ contains
 
       end if
 
-     !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready)
      do j = 1, nlevdecomp
         do fc=1, num_soilc
 
@@ -1697,7 +1697,7 @@ contains
               km_p_ptr               => elm_fates%fates(ci)%bc_pconst%eca_km_p
               vmax_p_ptr             => elm_fates%fates(ci)%bc_pconst%vmax_p
               !$acc data copy(filter_pcomp) if(elm_device_ready)
-              !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+              !$acc parallel loop gang vector default(present) if(elm_device_ready)
               do f = 1, n_pcomp
                  filter_pcomp(f) = f
               end do
@@ -1767,7 +1767,7 @@ contains
            !$acc update self(carbon_only) if_present if(elm_device_ready)
            !$acc end data
            if ( carbon_only .or. carbonnitrogen_only) then
-              !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+              !$acc parallel loop gang vector default(present) if(elm_device_ready)
               do j = 1, nlevdecomp
                  sminp_to_plant_vr(c,j)      = col_plant_pdemand_vr(c,j)
                  supplement_to_sminp_vr(c,j) = col_plant_pdemand_vr(c,j)
@@ -1791,7 +1791,7 @@ contains
          !$acc enter data create(sum1,sum2,sum_immob_no3,sum_immob_nh4,sum_immob_p,sum_pot_immob_p)
            if (nu_com .eq. 'RD') then
 
-             !$acc parallel loop independent collapse(2) gang worker private(c, sum1, sum2, l) default(present) if(elm_device_ready) copyin(bounds)
+             !$acc parallel loop independent collapse(2) gang worker private(c, sum1, sum2, l) default(present) if(elm_device_ready)
               do j = 1, nlevdecomp
                  do fc=1, num_soilc
 
@@ -1841,7 +1841,7 @@ contains
         else
            ! ECA mode or MIC outcompete plant mode, be consistent with the idea
            ! apply generic flux limiter based on Tang 2016 doi:10.5194/bg-13-723-2016
-           !$acc parallel loop gang vector collapse(2) default(present) private(c, l, k) if(elm_device_ready) copyin(bounds)
+           !$acc parallel loop gang vector collapse(2) default(present) private(c, l, k) if(elm_device_ready)
            do j = 1, nlevdecomp
 
               do fc=1, num_soilc
@@ -1893,7 +1893,7 @@ contains
               end do ! col_loop
             end do
 
-           !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready) copyin(bounds)
+           !$acc parallel loop gang vector collapse(2) default(present) private(c, l) if(elm_device_ready)
            do j = 1, nlevdecomp
               do fc=1, num_soilc
                  c = filter_soilc(fc)
@@ -1912,7 +1912,7 @@ contains
      call t_stopf('phase2-colim')
 
      if(carbonnitrogen_only)then
-        !$acc parallel loop independent collapse(2) gang vector private(c, l) default(present) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop independent collapse(2) gang vector private(c, l) default(present) if(elm_device_ready)
         do j = 1, nlevdecomp
            do fc=1, num_soilc
               c = filter_soilc(fc)
@@ -1923,7 +1923,7 @@ contains
      end if
 
      if(carbonphosphorus_only)then
-        !$acc parallel loop independent collapse(2) gang vector private(c, l) default(present) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop independent collapse(2) gang vector private(c, l) default(present) if(elm_device_ready)
         do j = 1, nlevdecomp
            do fc=1, num_soilc
               c = filter_soilc(fc)
@@ -1935,7 +1935,7 @@ contains
 
      ! sum up plant N/P uptake at column level and patch level
      ! sum up N fluxes to plant after initial competition
-     !$acc parallel loop independent gang worker private(c,sum1,sum2) default(present) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop independent gang worker private(c,sum1,sum2) default(present) if(elm_device_ready)
       do fc = 1, num_soilc
         c = filter_soilc(fc)
         sum1 = 0._r8
@@ -2002,7 +2002,7 @@ contains
                  !$acc update device(cnstate_vars%fpg_p_vr_col) if_present
               end if
               if(.not.use_fates) then
-                 !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+                 !$acc parallel loop gang vector default(present) if(elm_device_ready)
                  do p = col_pp%pfti(c), col_pp%pftf(c)
                     if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
 
@@ -2031,7 +2031,7 @@ contains
         !$acc update self(filter_pcomp) if_present if(elm_device_ready)
         deallocate(filter_pcomp)
         if(.not.use_fates)then
-           !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+           !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
            do fp=1,num_soilp
               p = filter_soilp(fp)
               sminn_to_plant_patch(p) = smin_nh4_to_plant_patch(p) + smin_no3_to_plant_patch(p)
@@ -2041,7 +2041,7 @@ contains
 
      ! sum up N fluxes to immobilization
      !$acc parallel loop independent gang worker private(c,sum1,sum2,sum_immob_no3,sum_immob_nh4,sum_immob_p, &
-     !$acc   sum_pot_immob_p) default(present) if(elm_device_ready) copyin(bounds)
+     !$acc   sum_pot_immob_p) default(present) if(elm_device_ready)
      do fc=1,num_soilc
         c = filter_soilc(fc)
         sum1 = 0._r8; sum2 = 0._r8;
@@ -2064,7 +2064,7 @@ contains
         potential_immob_p(c)= sum_pot_immob_p
      end do
 
-     !$acc parallel loop independent gang vector private(c) default(present) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop independent gang vector private(c) default(present) if(elm_device_ready)
      do fc=1,num_soilc
         c = filter_soilc(fc)
         ! calculate the fraction of potential growth that can be
@@ -2083,7 +2083,7 @@ contains
         end if
      end do ! end of column loops
 
-     !$acc parallel loop independent gang vector private(c) default(present) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop independent gang vector private(c) default(present) if(elm_device_ready)
      do fc=1,num_soilc
         c = filter_soilc(fc)
         ! calculate the fraction of potential growth that can be
@@ -2106,7 +2106,7 @@ contains
      if (nu_com .ne. 'RD' .and. .not.use_fates) then
         do fc=1,num_soilc
            c = filter_soilc(fc)
-           !$acc parallel loop gang vector default(present) private(j) if(elm_device_ready) copyin(bounds)
+           !$acc parallel loop gang vector default(present) private(j) if(elm_device_ready)
            do p = col_pp%pfti(c), col_pp%pftf(c)
               pnup_pfrootc(p) =  0.0_r8
               if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
@@ -2131,7 +2131,7 @@ contains
      ! Set the FATES N and P uptake fluxes
 
      if(use_fates)then
-        !$acc parallel loop gang vector default(present) private(c, ci, f, ndemand, j, pdemand) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop gang vector default(present) private(c, ci, f, ndemand, j, pdemand) if(elm_device_ready)
         do fc=1,num_soilc
            c = filter_soilc(fc)
            ci      = bounds%clump_index
@@ -2305,7 +2305,7 @@ contains
 
       !$acc enter data create(n_uptake_sum,p_uptake_sum)
 
-      !$acc parallel loop  independent gang worker private(c, n_uptake_sum, p_uptake_sum) default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop  independent gang worker private(c, n_uptake_sum, p_uptake_sum) default(present) if(elm_device_ready)
       do fc=1,num_soilc
          n_uptake_sum=0.0_r8;p_uptake_sum=0.0_r8;
          c = filter_soilc(fc)
@@ -2475,7 +2475,7 @@ contains
 
 
       !$acc enter data create(n_uptake_sum,p_uptake_sum)
-      !$acc parallel loop  independent gang worker private(c, n_uptake_sum, p_uptake_sum) default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop  independent gang worker private(c, n_uptake_sum, p_uptake_sum) default(present) if(elm_device_ready)
 
       do fc=1,num_soilc
          n_uptake_sum=0.0_r8
@@ -2512,7 +2512,7 @@ contains
            .not. carbon_only )then
 
         !$acc enter data create(temp_sminn_to_plant(:), temp_sminp_to_plant(:))
-        !$acc parallel loop gang worker vector private(c) if(elm_device_ready) copyin(bounds)
+        !$acc parallel loop gang worker vector private(c) if(elm_device_ready)
         do fc = 1, num_soilc
           c = filter_soilc(fc)
           temp_sminn_to_plant(fc) = sminn_to_plant(c)
@@ -2525,7 +2525,7 @@ contains
         call p2c_1d_filter(bounds,num_soilc,filter_soilc, &
             sminp_to_ppool(begp:endp), sminp_to_plant(begc:endc) )
 
-         !$acc parallel loop gang vector collapse(2) independent default(present) private(c) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector collapse(2) independent default(present) private(c) if(elm_device_ready)
           do j = 1, nlevdecomp
              do fc=1,num_soilc
                 c = filter_soilc(fc)
@@ -2552,7 +2552,7 @@ contains
 
         if(  carbonnitrogen_only  )then
            !$acc enter data create(temp_sminp_to_plant(:))
-           !$acc parallel loop independent gang worker vector private(c) if(elm_device_ready) copyin(bounds)
+           !$acc parallel loop independent gang worker vector private(c) if(elm_device_ready)
            do fc = 1, num_soilc
               c = filter_soilc(fc)
               temp_sminp_to_plant(fc) = sminp_to_plant(c)
@@ -2561,7 +2561,7 @@ contains
           call p2c_1d_filter(bounds,num_soilc,filter_soilc, &
             sminp_to_ppool(begp:endp), sminp_to_plant(begc:endc) )
 
-          !$acc parallel loop gang independent default(present) private(c) if(elm_device_ready) copyin(bounds)
+          !$acc parallel loop gang independent default(present) private(c) if(elm_device_ready)
           do j = 1, nlevdecomp
              !$acc loop worker vector private(c)
              do fc=1,num_soilc

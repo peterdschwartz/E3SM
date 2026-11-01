@@ -236,12 +236,12 @@ contains
       ! surface snow layer resulting from sublimation (frost) / evaporation (condense)
 
       ! only read by the VSFM driver (Prepare_Data_for_EM_VSFM_Driver); reset every call as on master
-      !$acc parallel loop independent gang vector default(present) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) if(elm_device_ready)
       do c = 1, size(mflx_neg_snow_col_1d)
          mflx_neg_snow_col_1d(c) = 0._r8
       end do
 
-      !$acc parallel loop independent gang vector default(present) private(c, l, wgdif) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c, l, wgdif) if(elm_device_ready)
       do fc = 1,num_snowc
          c = filter_snowc(fc)
          l=col_pp%landunit(c)
@@ -281,7 +281,7 @@ contains
 
       ! Porosity and partial volume
 
-      !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready)
       do j = -nlevsno+1, 0
          do fc = 1, num_snowc
             c = filter_snowc(fc)
@@ -311,7 +311,7 @@ contains
       ! 4) update mass of aerosol in top layer, accordingly
       ! 5) update mass concentration of aerosol accordingly
 
-      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1,num_snowc
          c = filter_snowc(fc)
          qin(fc)         = 0._r8
@@ -327,7 +327,7 @@ contains
 
       !NOTE : look into qout race condition?
 
-      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1, num_snowc
          c = filter_snowc(fc)
          !$acc loop seq 
@@ -461,7 +461,7 @@ contains
       ! Layer interfaces (zi) and node depths (z) do not need adjustment here because they
       ! are adjusted in CombineSnowLayers and are not used up to that point.
 
-      !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready)
       do j = -nlevsno+1, 0
          do fc = 1, num_snowc
             c = filter_snowc(fc)
@@ -471,7 +471,7 @@ contains
          end do
       end do
 
-      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1, num_snowc
          c = filter_snowc(fc)
          ! Qout from snow bottom
@@ -483,7 +483,7 @@ contains
                        * (qflx_dew_snow(c) + qflx_dew_grnd(c) + qflx_rain_grnd(c)) * dtime_mod
       end do
 
-      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
       do fc = 1, num_nosnowc
          c = filter_nosnowc(fc)
          qflx_snow_melt(c) = qflx_snomelt(c)
@@ -500,7 +500,7 @@ contains
     ! state based on snow sublimation and re-freezing of liquid water.
     ! Re-freezing effect is inactived by default because of
     ! uncertainty in how this process operates.
-    !$acc parallel loop independent gang vector default(present) collapse(2) private(c, subsnow, frc_sub, frc_transfer, dm_int) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) collapse(2) private(c, subsnow, frc_sub, frc_transfer, dm_int) if(elm_device_ready)
     do j = -nlevsno+1, 0
        do fc = 1, num_snowc
           c = filter_snowc(fc)
@@ -679,7 +679,7 @@ contains
 
        ! Begin calculation - note that the following column loops are only invoked if snl(c) < 0
        if( use_firn_percolation_and_compaction) then 
-          !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+          !$acc parallel loop gang vector default(present) if(elm_device_ready)
           do fc = 1, num_snowc
              burden(fc) = 0._r8
              zpseudo(fc) = 0._r8
@@ -688,7 +688,7 @@ contains
 
          !$acc parallel loop gang vector default(present) &
          !$acc   private(fc, c, t, l, wx, void, bi, fi, td, dexpf, ddz1_fresh) &
-         !$acc   private(snw_ssa, ddz1, p_gls, ddz2, ddz3, wsum, fsno_melt, ddz4) private(pdzdtc) if(elm_device_ready) copyin(bounds)
+         !$acc   private(snw_ssa, ddz1, p_gls, ddz2, ddz3, wsum, fsno_melt, ddz4) private(pdzdtc) if(elm_device_ready)
          do fc = 1, num_snowc
             !$acc loop seq
             do j = -nlevsno+1, 0
@@ -799,7 +799,7 @@ contains
 
          !NOTE: revisit these loops 
          !$acc parallel loop independent gang vector default(present) private(burden_noextra, c, wx, void, l, bi, fi, &
-         !$acc   td, dexpf, ddz1, ddz2, ddz3, wsum, fsno_melt, ddz4, pdzdtc) if(elm_device_ready) copyin(bounds)
+         !$acc   td, dexpf, ddz1, ddz2, ddz3, wsum, fsno_melt, ddz4, pdzdtc) if(elm_device_ready)
          do fc = 1, num_snowc
             c = filter_snowc(fc)
             burden_noextra = 0._r8 
@@ -992,12 +992,12 @@ contains
 
        ! dzmin will stay constant between timesteps
        if (.not. use_extrasnowlayers) then
-         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) if(elm_device_ready)
          do spel_i1 = lbound(dzminloc,1), ubound(dzminloc,1)  ! spel section-loop
             dzminloc(spel_i1) = dzmin(spel_i1)
          end do
        else
-         !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+         !$acc parallel loop gang vector default(present) if(elm_device_ready)
          do spel_i1 = lbound(dzminloc16,1), ubound(dzminloc16,1)  ! spel section-loop
             dzminloc16(spel_i1) = dzmin16(spel_i1)
          end do
@@ -1013,12 +1013,12 @@ contains
           l = col_pp%landunit(c)
           if (col_pp%is_lake(c)) then ! Called from LakeHydrology
             if (.not. use_extrasnowlayers) then
-               !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+               !$acc parallel loop gang vector default(present) if(elm_device_ready)
                do spel_i1 = lbound(dzminloc,1), ubound(dzminloc,1)  ! spel section-loop
                   dzminloc(spel_i1) = dzmin(spel_i1) + lsadz
                end do
             else
-               !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+               !$acc parallel loop gang vector default(present) if(elm_device_ready)
                do spel_i1 = lbound(dzminloc16,1), ubound(dzminloc16,1)  ! spel section-loop
                   dzminloc16(spel_i1) = dzmin16(spel_i1) + lsadz
                end do
@@ -1026,7 +1026,7 @@ contains
           end if
        end if
 
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_snowc
           c = filter_snowc(fc)
 
@@ -1037,7 +1037,7 @@ contains
        end do
 
        ! The following loop is NOT VECTORIZED
-       !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready)
        do fc = 1, num_snowc
           c = filter_snowc(fc)
           l = col_pp%landunit(c)
@@ -1122,7 +1122,7 @@ contains
           end do
        end do
 
-       !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, sum4, c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang worker default(present) private(sum1, sum2, sum3, sum4, c) if(elm_device_ready)
        do fc = 1, num_snowc
          c = filter_snowc(fc)
          sum1 = 0._r8; sum2 = 0._r8; 
@@ -1145,7 +1145,7 @@ contains
        ! Check the snow depth - all snow gone
        ! The liquid water assumes ponding on soil surface.
 
-       !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c, l) if(elm_device_ready)
        do fc = 1, num_snowc
           c = filter_snowc(fc)
           l = col_pp%landunit(c)
@@ -1194,7 +1194,7 @@ contains
        ! The following loop IS NOT VECTORIZED
 
        !$acc parallel loop gang vector default(present) &
-       !$acc   private(c, i, dzminloc_mssi_c, neibor, j, l, k) if(elm_device_ready) copyin(bounds)
+       !$acc   private(c, i, dzminloc_mssi_c, neibor, j, l, k) if(elm_device_ready)
        do fc = 1, num_snowc
           c = filter_snowc(fc)
 
@@ -1296,7 +1296,7 @@ contains
 
        ! Reset the node depth and the depth of layer interface
        !NOTE: racecondition? Testing out two loop structure:
-       !$acc parallel default(present) if(elm_device_ready) copyin(bounds)
+       !$acc parallel default(present) if(elm_device_ready)
       !$acc loop independent gang vector 
       do fc = 1, num_snowc
          c = filter_snowc(fc)
@@ -1442,7 +1442,7 @@ contains
 
        if ( is_lake ) then
           ! Initialize for consistency check
-         !$acc parallel loop independent gang vector default(present) private(sum1, sum2, sum3, c) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop independent gang vector default(present) private(sum1, sum2, sum3, c) if(elm_device_ready)
          do fc = 1, num_snowc
             c = filter_snowc(fc)
             sum1 = 0._r8; sum2 = 0._r8; sum3 =0._r8  
@@ -1463,7 +1463,7 @@ contains
        ! Begin calculation - note that the following column loops are only invoked
        ! for snow-covered columns
 
-       !$acc parallel loop independent gang vector default(present) collapse(2) private(c, snl_idx) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) collapse(2) private(c, snl_idx) if(elm_device_ready)
        !!!$acc present(mss_bcphi(:,:),mss_bcpho(:,:),mss_ocphi(:,:),mss_ocpho(:,:) &
        !!!$acc ,mss_dst1(:,:),mss_dst2(:,:),mss_dst3(:,:),mss_dst4(:,:) ,snw_rds(:,:), &
        !!!$acc  h2osoi_ice(:,:),h2osoi_liq(:,:), t_soisno(:,:),dz(:,:),snl(:))
@@ -1495,7 +1495,7 @@ contains
        end do
 
        !$acc parallel loop independent gang vector default(present) private(c, msno, offset, drr, propor, zwice, &
-       !$acc   zwliq, zmbc_phi, zmbc_pho, zmoc_phi, zmoc_pho, zmdst1, zmdst2, zmdst3, zmdst4, dtdz) if(elm_device_ready) copyin(bounds)
+       !$acc   zwliq, zmbc_phi, zmbc_pho, zmoc_phi, zmoc_pho, zmdst1, zmdst2, zmdst3, zmdst4, dtdz) if(elm_device_ready)
        do fc = 1, num_snowc
            c = filter_snowc(fc)
 
@@ -1954,7 +1954,7 @@ contains
 
        end do
 
-       !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready)
        do j = -nlevsno+1,0
           do fc = 1, num_snowc
              c = filter_snowc(fc)
@@ -1986,7 +1986,7 @@ contains
 
          ! on the device; a failing column is recorded (the last one) and reported on the host
          nbad_lake = 0
-         !$acc parallel loop gang vector default(present) private(c, j) reduction(max:nbad_lake) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop gang vector default(present) private(c, j) reduction(max:nbad_lake) if(elm_device_ready)
          do fc = 1, num_snowc
             c = filter_snowc(fc)
             
@@ -2020,7 +2020,7 @@ contains
        end if
 
        ! layers in order: each interface depth comes from the one above it
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_snowc
           c = filter_snowc(fc)
           !$acc loop seq
@@ -2160,7 +2160,7 @@ contains
 
        if ( is_lake ) then
           ! Initialize for consistency check
-          !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready) copyin(bounds)
+          !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready)
           do fc = 1, num_snowc
              !$acc loop seq
              do j = -nlevsno+1,0
@@ -2184,7 +2184,7 @@ contains
        ! Begin calculation - note that the following column loops are only invoked
        ! for snow-covered columns
 
-       !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready)
        do j = 1,nlevsno
           do fc = 1, num_snowc
              c = filter_snowc(fc)
@@ -2212,7 +2212,7 @@ contains
        end do
 
        !$acc parallel loop independent gang vector default(present) private(c, msno, k, offset, dtdz, drr, propor, &
-       !$acc   zwice, zwliq, zmbc_phi, zmbc_pho, zmoc_phi, zmoc_pho, zmdst1, zmdst2, zmdst3, zmdst4) if(elm_device_ready) copyin(bounds)
+       !$acc   zwice, zwliq, zmbc_phi, zmbc_pho, zmoc_phi, zmoc_pho, zmdst1, zmdst2, zmdst3, zmdst4) if(elm_device_ready)
        loop_snowcolumns: do fc = 1, num_snowc
            c = filter_snowc(fc)
 
@@ -2346,7 +2346,7 @@ contains
 
        end do loop_snowcolumns
 
-       !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) collapse(2) private(c) if(elm_device_ready)
        do j = -nlevsno+1,0
           do fc = 1, num_snowc
              c = filter_snowc(fc)
@@ -2376,7 +2376,7 @@ contains
        ! j-outer loop), counted on the device; the report runs on the host only on a failure
        if (is_lake) then
           nbad = 0
-          !$acc parallel loop independent gang vector default(present) private(c, j) reduction(+:nbad) if(elm_device_ready) copyin(bounds)
+          !$acc parallel loop independent gang vector default(present) private(c, j) reduction(+:nbad) if(elm_device_ready)
           do fc = 1, num_snowc
              c = filter_snowc(fc)
              !$acc loop seq
@@ -2407,7 +2407,7 @@ contains
        end if
 
        ! layers in order: each interface depth comes from the one above it
-       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(c) if(elm_device_ready)
        do fc = 1, num_snowc
           c = filter_snowc(fc)
           !$acc loop seq
@@ -2600,7 +2600,7 @@ contains
      ! Determine model time step
      dtime = dtime_mod 
      ! Initialize capping fluxes for all columns in domain (lake or non-lake)
-     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
      do fc = 1, num_nolakec
         c = filter_initc(fc)
         qflx_snwcp_ice(c) = 0.0_r8
@@ -2611,7 +2611,7 @@ contains
      spel_dc_1 = 0  ! spel defer-checks
      !$acc parallel loop gang vector default(present) &
      !$acc   private(c, mss_snow_bottom_lyr, mss_snwcp_tot, icefrac, rho) private(frac_adjust) &
-     !$acc   reduction(max:spel_dc_1) if(elm_device_ready) copyin(bounds)
+     !$acc   reduction(max:spel_dc_1) if(elm_device_ready)
      loop_columns: do fc = 1, num_snowc
         c = filter_snowc(fc)
 
@@ -2700,7 +2700,7 @@ contains
                 forc_wind => top_as%windbot  & ! Input:  [real(r8) (:) ]  atmospheric wind speed (m/s)
                 )
 
-      !$acc parallel loop gang vector default(present) private(c, t, t_for_bifall_degc) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop gang vector default(present) private(c, t, t_for_bifall_degc) if(elm_device_ready)
       do fc = 1, num_c
          c = filter_c(fc)
          t = col_pp%topounit(c)

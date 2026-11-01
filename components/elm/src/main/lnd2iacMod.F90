@@ -102,7 +102,7 @@ contains
 
     spel_lb1 = lbound(this%hr,2)  ! spel collapse-bounds
     spel_ub1 = ubound(this%hr,2)  ! spel collapse-bounds
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = begg, endg
           this%hr(spel_i1, spel_i2)=0.0_r8
@@ -110,7 +110,7 @@ contains
     end do
     spel_lb1 = lbound(this%npp,2)  ! spel collapse-bounds
     spel_ub1 = ubound(this%npp,2)  ! spel collapse-bounds
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = begg, endg
           this%npp(spel_i1, spel_i2)=0.0_r8
@@ -118,7 +118,7 @@ contains
     end do
     spel_lb1 = lbound(this%pftwgt,2)  ! spel collapse-bounds
     spel_ub1 = ubound(this%pftwgt,2)  ! spel collapse-bounds
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = begg, endg
           this%pftwgt(spel_i1, spel_i2)=0.0_r8
@@ -144,7 +144,7 @@ contains
     end do
     !$acc update device(this%hr, this%npp, this%pftwgt) if_present
 
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do g = begg, endg
       ! Estimate heating and cooling degree days
       this%hdd(g) = max(t_base_K - lnd2atm_vars%t_ref2m_grc(g), 0.0_r8)

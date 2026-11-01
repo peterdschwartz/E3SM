@@ -477,7 +477,7 @@ contains
     endif
     ! Accumulate and extract fsun24 & fsun240
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%fsun_patch(p)
     end do
@@ -489,7 +489,7 @@ contains
 
     ! Accumulate and extract elai240
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%elai_patch(p)
     end do

@@ -495,7 +495,7 @@ contains
           spel_ub1 = ubound(forc_solad_pp,2)  ! spel collapse-bounds
           spel_lb2 = lbound(forc_solad_pp,1)  ! spel collapse-bounds
           spel_ub2 = ubound(forc_solad_pp,1)  ! spel collapse-bounds
-          !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
           do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
              do spel_i1 = spel_lb2, spel_ub2
                 forc_solad_pp(spel_i1, spel_i2) = forc_solad(spel_i1, spel_i2)
@@ -505,7 +505,7 @@ contains
           spel_ub1 = ubound(forc_solai_pp,2)  ! spel collapse-bounds
           spel_lb2 = lbound(forc_solai_pp,1)  ! spel collapse-bounds
           spel_ub2 = ubound(forc_solai_pp,1)  ! spel collapse-bounds
-          !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+          !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
           do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
              do spel_i1 = spel_lb2, spel_ub2
                 forc_solai_pp(spel_i1, spel_i2) = forc_solai(spel_i1, spel_i2)
@@ -514,7 +514,7 @@ contains
        end if
 
        ! Initialize fluxes
-       !$acc parallel loop independent gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(p) if(elm_device_ready)
        do fp = 1,num_nourbanp
           p = filter_nourbanp(fp)
           sabg_lyr(p,:) = 0._r8
@@ -523,14 +523,14 @@ contains
        ! zero-out fsun for the urban patches
        ! the non-urban patches were set prior to this call
        ! and split into ed and non-ed specific functions
-       !$acc parallel loop independent gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(p) if(elm_device_ready)
        do fp = 1,num_urbanp
           p = filter_urbanp(fp)
           fsun(p) = 0._r8
        end do
 
        ! Loop over nband wavebands
-       !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,p,l,t) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,p,l,t) if(elm_device_ready)
        do fp = 1,num_nourbanp
          p = filter_nourbanp(fp)
          l = veg_pp%landunit(p)
@@ -557,7 +557,7 @@ contains
          end if  
       end do  !
       
-      !$acc parallel loop independent gang vector collapse(2) default(present) private(p,t) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector collapse(2) default(present) private(p,t) if(elm_device_ready)
       do ib = 1, nband
          do fp = 1,num_nourbanp
             p = filter_nourbanp(fp)
@@ -568,7 +568,7 @@ contains
          end do 
       end do 
 
-      !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,sum4,p,t,c,l) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,sum4,p,t,c,l) if(elm_device_ready)
       do fp = 1,num_nourbanp
          p = filter_nourbanp(fp)
          t = veg_pp%topounit(p)
@@ -612,7 +612,7 @@ contains
       end do
 
       if (use_snicar_frc) then
-         !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,sum4,p,c) if(elm_device_ready) copyin(bounds)
+         !$acc parallel loop independent gang worker default(present) private(sum1,sum2,sum3,sum4,p,c) if(elm_device_ready)
          do fp = 1,num_nourbanp
             p = filter_nourbanp(fp)
             c = veg_pp%column(p)
@@ -646,7 +646,7 @@ contains
 
        !   compute absorbed flux in each snow layer and top soil layer,
        !   based on flux factors computed in the radiative transfer portion of SNICAR.
-      !$acc parallel loop independent gang worker default(present) private(sabg_snl_sum,sum1,p,c,l,ssa) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang worker default(present) private(sabg_snl_sum,sum1,p,c,l,ssa) if(elm_device_ready)
       do fp = 1,num_nourbanp
          p = filter_nourbanp(fp)
          c = veg_pp%column(p)
@@ -800,7 +800,7 @@ contains
       enddo
 
        ! Radiation diagnostics
-      !$acc parallel loop independent gang vector default(present) private(p,t,g,rvis,rnir,local_secp1) if(elm_device_ready) copyin(bounds)
+      !$acc parallel loop independent gang vector default(present) private(p,t,g,rvis,rnir,local_secp1) if(elm_device_ready)
        do fp = 1,num_nourbanp
           p = filter_nourbanp(fp)
           t = veg_pp%topounit(p)
@@ -868,7 +868,7 @@ contains
           endif
        end do
 
-       !$acc parallel loop independent gang vector default(present) private(p,t,g,local_secp1) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop independent gang vector default(present) private(p,t,g,local_secp1) if(elm_device_ready)
        do fp = 1,num_urbanp
           p = filter_urbanp(fp)
           t = veg_pp%topounit(p)

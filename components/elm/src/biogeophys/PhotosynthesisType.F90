@@ -484,7 +484,7 @@ contains
     integer :: p,c,l ! indices
     !-----------------------------------------------------------------------
 
-    !$acc parallel loop independent gang vector default(present) private(p,l) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop independent gang vector default(present) private(p,l) if(elm_device_ready)
     do p = bounds%begp, bounds%endp
        l = veg_pp%landunit(p)
        if (.not. lun_pp%lakpoi(l)) then

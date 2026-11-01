@@ -169,7 +169,7 @@ contains
     integer :: spel_lb1, spel_lb2, spel_ub1, spel_ub2  ! spel collapse-bounds: host copies of collapsed-loop inquiry bounds
     spel_lb1 = lbound(this%qice_grc,2)  ! spel collapse-bounds
     spel_ub1 = ubound(this%qice_grc,2)  ! spel collapse-bounds
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = bounds%begg, bounds%endg
           this%qice_grc(spel_i1, spel_i2) = 0._r8
@@ -177,7 +177,7 @@ contains
     end do
     spel_lb1 = lbound(this%tsrf_grc,2)  ! spel collapse-bounds
     spel_ub1 = ubound(this%tsrf_grc,2)  ! spel collapse-bounds
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = bounds%begg, bounds%endg
           this%tsrf_grc(spel_i1, spel_i2) = tfrz
@@ -185,7 +185,7 @@ contains
     end do
     spel_lb1 = lbound(this%topo_grc,2)  ! spel collapse-bounds
     spel_ub1 = ubound(this%topo_grc,2)  ! spel collapse-bounds
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = bounds%begg, bounds%endg
           this%topo_grc(spel_i1, spel_i2) = 0._r8
@@ -203,7 +203,7 @@ contains
     spel_ub1 = ubound(fields_assigned,2)  ! spel collapse-bounds
     spel_lb2 = lbound(fields_assigned,1)  ! spel collapse-bounds
     spel_ub2 = ubound(fields_assigned,1)  ! spel collapse-bounds
-    !$acc parallel loop gang vector collapse(2) default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
     do spel_i2 = spel_lb1, spel_ub1  ! spel section-loop
        do spel_i1 = spel_lb2, spel_ub2
           fields_assigned(spel_i1, spel_i2) = .false.

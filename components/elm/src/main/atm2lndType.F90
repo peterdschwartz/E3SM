@@ -760,7 +760,7 @@ contains
 
     ! Accumulate and extract forc_solad24 & forc_solad240
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
     do p = begp,endp
        g = veg_pp%gridcell(p)
        rbufslp(p) = this%forc_solad_grc(g,1)
@@ -773,7 +773,7 @@ contains
 
     ! Accumulate and extract forc_solai24 & forc_solai240
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
     do p = begp,endp
        g = veg_pp%gridcell(p)
        rbufslp(p) = this%forc_solai_grc(g,1)
@@ -785,7 +785,7 @@ contains
     call extract_accum_field ('FSI240', this%fsi240_patch     , nstep)
 
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do p = begp,endp
        c = veg_pp%column(p)
        rbufslp(p) = this%forc_rain_downscaled_col(c) + this%forc_snow_downscaled_col(c)
@@ -807,7 +807,7 @@ contains
        call extract_accum_field ('PREC24', this%prec24_patch, nstep)
 
        !$acc data copy(rbufslp) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) private(c, g) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
        do p = bounds%begp,bounds%endp
           c = veg_pp%column(p)
           g = veg_pp%gridcell(p)
@@ -818,7 +818,7 @@ contains
        call extract_accum_field ('WIND24', this%wind24_patch, nstep)
 
        !$acc data copy(rbufslp) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) private(c, g) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
        do p = bounds%begp,bounds%endp
           c = veg_pp%column(p)
           g = veg_pp%gridcell(p)

@@ -855,7 +855,7 @@ contains
     ! to 0 at the beginning of every timestep
 
     call gridcell_nutrient_flux_zerodwt(this%core, bounds)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        this%hrv_deadstemc_to_prod10c(g)  = 0._r8
        this%hrv_deadstemc_to_prod100c(g) = 0._r8
@@ -1001,7 +1001,7 @@ contains
     !-----------------------------------------------------------------------
   
     call gridcell_nutrient_flux_zerodwt(this%core, bounds)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        this%dwt_seedn_to_npool(g)    = 0._r8
     end do
@@ -1139,7 +1139,7 @@ contains
     integer  :: g          ! indices
     !-----------------------------------------------------------------------
     call gridcell_nutrient_flux_zerodwt(this%core, bounds)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do g = bounds%begg, bounds%endg
        this%dwt_seedp_to_ppool(g)    = 0._r8
     end do

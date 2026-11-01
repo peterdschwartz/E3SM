@@ -343,7 +343,7 @@ module TopounitDataType
 
      ! Accumulate 24-hour running mean of relative humidity
      !$acc data copy(rbufslt) if(elm_device_ready)
-     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) if(elm_device_ready)
      do t = begt,endt
         rbufslt(t) = this%rhbot(t)
      end do
@@ -355,7 +355,7 @@ module TopounitDataType
 
      ! Accumulate 24-hour running mean of wind speed
      !$acc data copy(rbufslt) if(elm_device_ready)
-     !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+     !$acc parallel loop gang vector default(present) if(elm_device_ready)
      do t = begt,endt
         rbufslt(t) = this%windbot(t)
      end do
@@ -603,7 +603,7 @@ module TopounitDataType
 
     ! Accumulate and extract forc_solad24 & forc_solad240
     !$acc data copy(rbufslt) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do t = begt,endt
        rbufslt(t) = this%solad(t,1)
     end do
@@ -615,7 +615,7 @@ module TopounitDataType
 
     ! Accumulate and extract forc_solai24 & forc_solai240
     !$acc data copy(rbufslt) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do t = begt,endt
        rbufslt(t) = this%solai(t,1)
     end do
@@ -627,7 +627,7 @@ module TopounitDataType
 
     ! Accumulate and extract total precip
     !$acc data copy(rbufslt) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do t = begt,endt
        rbufslt(t) = this%rain(t) + this%snow(t)
     end do

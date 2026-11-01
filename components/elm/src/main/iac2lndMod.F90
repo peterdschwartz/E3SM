@@ -141,7 +141,7 @@ contains
        ! the the weight of prev time point
        wt1 = 1.0_r8 - get_curr_yearfrac()
 
-       !$acc parallel loop gang vector default(present) private(g, pft, l, c, temp, temp_prev) copyin(bounds) if(elm_device_ready)
+       !$acc parallel loop gang vector default(present) private(g, pft, l, c, temp, temp_prev) if(elm_device_ready)
        do p = begp,endp
           g=veg_pp%gridcell(p)
           pft=veg_pp%itype(p)

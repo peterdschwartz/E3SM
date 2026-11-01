@@ -551,7 +551,7 @@ contains
     call extract_accum_field ('BTRANAVG', rbufslp, nstep)
     end_cd = is_end_curr_day()
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        if (rbufslp(p) /= spval) then
           if (this%btran_min_inst_patch(p) == spval) then

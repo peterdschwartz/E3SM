@@ -180,7 +180,7 @@ contains
     use elm_varctl           , only : use_cn, create_glacier_mec_landunit, iac_present
     use elm_varctl           , only : use_fates, use_fates_luh, fates_harvest_mode
     use elm_varctl           , only : use_fates_potentialveg
-    use decompMod            , only : bounds_type, get_proc_clumps, get_clump_bounds
+    use decompMod            , only : bounds_type, get_proc_clumps, bounds_by_clump
     use decompMod            , only : BOUNDS_LEVEL_PROC
     use dynInitColumnsMod    , only : initialize_new_columns
     use dynConsBiogeophysMod , only : dyn_hwcontent_init, dyn_hwcontent_final
@@ -233,7 +233,6 @@ contains
     ! !LOCAL VARIABLES:
     integer           :: nclumps      ! number of clumps on this processor
     integer           :: nc           ! clump index
-    type(bounds_type) :: bounds_clump ! clump-level bounds
     real(r8)          :: dt
     logical           :: weights_updated ! some provider may have changed subgrid weights this step
     logical           :: crop_updated    ! new annual crop data were applied this step
@@ -260,15 +259,11 @@ contains
     ! Do initialization, prior to land cover change
     ! ==========================================================================
 
-   !$acc enter data create(bounds_clump)
 
-    !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
+    !$OMP PARALLEL DO PRIVATE (nc)
     do nc = 1, nclumps
-      !$acc serial
-       call get_clump_bounds(nc, bounds_clump)
-      !$acc end serial
        call t_startf('dyn_hwcontent_init')
-       call dyn_hwcontent_init(bounds_clump, &
+       call dyn_hwcontent_init(bounds_by_clump(nc), &
             filter(nc)%num_nolakec, filter(nc)%nolakec, &
             filter(nc)%num_lakec, filter(nc)%lakec, &
             urbanparams_vars, soilstate_vars, soilhydrology_vars, lakestate_vars, &
@@ -280,9 +275,9 @@ contains
        ! C/N/P conservation): nothing to record when no weight changes this step.
        if (weights_updated) then
           call t_startf('dyn_prior_weights')
-          call set_prior_weights(prior_weights, bounds_clump)
-          call set_old_patch_weights  (patch_state_updater,bounds_clump)
-          call set_old_column_weights (column_state_updater,bounds_clump)
+          call set_prior_weights(prior_weights, bounds_by_clump(nc))
+          call set_old_patch_weights  (patch_state_updater,bounds_by_clump(nc))
+          call set_old_column_weights (column_state_updater,bounds_by_clump(nc))
           call t_stopf('dyn_prior_weights')
        end if
     end do
@@ -322,15 +317,14 @@ contains
     ! Do everything else related to land cover change
     ! ==========================================================================
 
-    !$OMP PARALLEL DO PRIVATE (nc, bounds_clump)
+    !$OMP PARALLEL DO PRIVATE (nc)
     do nc = 1, nclumps
-       call get_clump_bounds(nc, bounds_clump)
        if (use_fates) then
-          call dyn_ED(bounds_clump)
+          call dyn_ED(bounds_by_clump(nc))
        end if
 
        if (create_glacier_mec_landunit) then
-          call glc2lnd_vars%update_glc2lnd(bounds_clump)
+          call glc2lnd_vars%update_glc2lnd(bounds_by_clump(nc))
        end if
 
        ! Everything following this point in this loop only needs to be called if we have
@@ -344,25 +338,25 @@ contains
        ! dwt fluxes are zero (and stay as set by ZeroDWT) and no state changes.
        if (weights_updated .and. active_dynamic_subgrid) then
           call t_startf('dyn_wrapup_weights')
-          call dynSubgrid_wrapup_weight_changes(bounds_clump, glc2lnd_vars)
+          call dynSubgrid_wrapup_weight_changes(bounds_by_clump(nc), glc2lnd_vars)
           call t_stopf('dyn_wrapup_weights')
 
-          call set_new_patch_weights (patch_state_updater ,bounds_clump)
-          call set_new_column_weights(column_state_updater,bounds_clump, nc)
+          call set_new_patch_weights (patch_state_updater ,bounds_by_clump(nc))
+          call set_new_column_weights(column_state_updater,bounds_by_clump(nc), nc)
 
           call t_startf('dyn_diagnostic_fields')
-          call set_subgrid_diagnostic_fields(bounds_clump)
+          call set_subgrid_diagnostic_fields(bounds_by_clump(nc))
           call t_stopf('dyn_diagnostic_fields')
 
           call t_startf('dyn_init_new_columns')
-          call initialize_new_columns(bounds_clump, &
-               prior_weights%cactive(bounds_clump%begc:bounds_clump%endc), soilhydrology_vars )
+          call initialize_new_columns(bounds_by_clump(nc), &
+               prior_weights%cactive(bounds_by_clump(nc)%begc:bounds_by_clump(nc)%endc), soilhydrology_vars )
           call t_stopf('dyn_init_new_columns')
        end if
 
 
        call t_startf('dyn_hwcontent_final')
-       call dyn_hwcontent_final(bounds_clump, &
+       call dyn_hwcontent_final(bounds_by_clump(nc), &
             filter(nc)%num_nolakec, filter(nc)%nolakec, &
             filter(nc)%num_lakec, filter(nc)%lakec, &
             urbanparams_vars, soilstate_vars, soilhydrology_vars, lakestate_vars, &
@@ -372,7 +366,7 @@ contains
       if (use_cn .and. weights_updated .and. active_dynamic_subgrid) then
           ! spel acc-sync: device data this host code uses
           call t_startf('dyn_cnbal_patch')
-          call dyn_cnbal_patch(bounds_clump, &
+          call dyn_cnbal_patch(bounds_by_clump(nc), &
                filter_inactive_and_active(nc)%num_soilp, filter_inactive_and_active(nc)%soilp, &
                filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc, &
                prior_weights, &
@@ -384,18 +378,18 @@ contains
 
           ! Transfer root/seed litter C/N/P to decomposer pools
           call t_startf('dyn_CNPStateUpdateDynPatch')
-          call CarbonStateUpdateDynPatch(bounds_clump, &
+          call CarbonStateUpdateDynPatch(bounds_by_clump(nc), &
                filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
 
-          call NitrogenStateUpdateDynPatch(bounds_clump, &
+          call NitrogenStateUpdateDynPatch(bounds_by_clump(nc), &
                filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
 
-          call PhosphorusStateUpdateDynPatch(bounds_clump, &
+          call PhosphorusStateUpdateDynPatch(bounds_by_clump(nc), &
                filter_inactive_and_active(nc)%num_soilc, filter_inactive_and_active(nc)%soilc,dt)
           call t_stopf('dyn_CNPStateUpdateDynPatch')
 
           call t_startf('dyn_cnbal_column')
-          call dyn_cnbal_column(bounds_clump, nc, column_state_updater, &
+          call dyn_cnbal_column(bounds_by_clump(nc), nc, column_state_updater, &
                col_cs, c13_col_cs, c14_col_cs, &
                col_ns, col_ps )
           call t_stopf('dyn_cnbal_column')
@@ -403,6 +397,7 @@ contains
 
     end do
     !$OMP END PARALLEL DO
+
 
   end subroutine dynSubgrid_driver
 

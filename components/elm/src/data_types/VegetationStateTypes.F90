@@ -747,7 +747,7 @@ contains
 
     ! fill the temporary variable
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%t_veg(p)
     end do
@@ -771,7 +771,7 @@ contains
     call extract_accum_field ('TREFAV', rbufslp, nstep)
     end_cd = is_end_curr_day()
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        if (rbufslp(p) /= spval) then
           this%t_ref2m_max_inst(p) = max(rbufslp(p), this%t_ref2m_max_inst(p))
@@ -799,7 +799,7 @@ contains
     call update_accum_field  ('TREFAV_U', this%t_ref2m_u, nstep)
     call extract_accum_field ('TREFAV_U', rbufslp, nstep)
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready)
     do p = begp,endp
        l = veg_pp%landunit(p)
        if (rbufslp(p) /= spval) then
@@ -830,7 +830,7 @@ contains
     call update_accum_field  ('TREFAV_R', this%t_ref2m_r, nstep)
     call extract_accum_field ('TREFAV_R', rbufslp, nstep)
     !$acc data copy(rbufslp) if(elm_device_ready)
-    !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready)
     do p = begp,endp
        l = veg_pp%landunit(p)
        if (rbufslp(p) /= spval) then
@@ -855,7 +855,7 @@ contains
        ! Accumulate and extract TDM10
 
        !$acc data copy(rbufslp) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do p = begp,endp
           rbufslp(p) = min(this%t_ref2m_min(p),this%t_ref2m_min_inst(p))
           if (rbufslp(p) > 1.e30_r8) rbufslp(p) = SHR_CONST_TKFRZ !and were 'min'&
@@ -867,7 +867,7 @@ contains
        ! Accumulate and extract TDM5
 
        !$acc data copy(rbufslp) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do p = begp,endp
           rbufslp(p) = min(this%t_ref2m_min(p),this%t_ref2m_min_inst(p))
           if (rbufslp(p) > 1.e30_r8) rbufslp(p) = SHR_CONST_TKFRZ !and were 'min'&
@@ -879,7 +879,7 @@ contains
        ! Accumulate and extract GDD0
 
        !$acc data copy(rbufslp) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
        do p = begp,endp
           g = veg_pp%gridcell(p)
 
@@ -914,7 +914,7 @@ contains
        ! Accumulate and extract GDD8
 
        !$acc data copy(rbufslp) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
        do p = begp,endp
           g = veg_pp%gridcell(p)
           if (month==1 .and. day==1 .and. secs==int(dtime)) then
@@ -934,7 +934,7 @@ contains
        ! Accumulate and extract GDD10
 
        !$acc data copy(rbufslp) if(elm_device_ready)
-       !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready) copyin(bounds)
+       !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
        do p = begp,endp
           g = veg_pp%gridcell(p)
           if (month==1 .and. day==1 .and. secs==int(dtime)) then
@@ -2243,7 +2243,7 @@ contains
 
     if (use_fates) return
 
-    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -2658,7 +2658,7 @@ contains
      cropseedn_deficit_col    => col_ns%core%cropseed_deficit &
       )
 
-    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
@@ -2792,7 +2792,7 @@ contains
     !-----------------------------------------------------------------------
 
     call vegetation_nutrient_state_zerodwt(this%core, bounds)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        this%core%totveg(p)  = 0._r8
     end do
@@ -3119,7 +3119,7 @@ contains
     !-----------------------------------------------------------------------
 
     call vegetation_nutrient_state_zerodwt(this%core, bounds)
-    !$acc parallel loop gang vector default(present) copyin(bounds) if(elm_device_ready)
+    !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = bounds%begp,bounds%endp
        this%core%totveg(p)  = 0._r8
     end do
@@ -3151,7 +3151,7 @@ contains
      cropseedp_deficit_patch  => this%core%cropseed_deficit , &
      cropseedp_deficit_col    => col_ps%core%cropseed_deficit &
       )
-    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready) copyin(bounds)
+    !$acc parallel loop gang vector default(present) private(p) if(elm_device_ready)
     do fp = 1,num_soilp
        p = filter_soilp(fp)
 
