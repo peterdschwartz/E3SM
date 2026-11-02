@@ -75,6 +75,7 @@ module controlMod
                         budget_ann, budget_ltann, budget_ltend, &
                         use_lnd_rof_two_way, use_ocn_lnd_one_way, &
                         use_modified_infil, use_polygonal_tundra, use_arctic_init, &
+                        active_dynamic_subgrid, &
                         iundef, nsrest, rundef, scmlat, scmlon, single_column, &
                         source, version, rpntdir, rpntfil, nlfilename_in, &
                         finidat_interp_source, finidat_interp_dest, caseid, ctitle, &
@@ -387,6 +388,11 @@ contains
 
     namelist /elm_inparm/ &
          use_modified_infil
+
+    ! the land-cover change bookkeeping of dynSubgrid (weights, column states, C/N/P
+    ! conservation) runs only when it is on: off for runs whose subgrid weights never change
+    namelist /elm_inparm/ &
+         active_dynamic_subgrid
 
     namelist /elm_inparm/ &
          use_fan, fan_mode, fan_to_bgc_veg, nh4_ads_coef
@@ -1020,6 +1026,7 @@ contains
     
     ! use modified infiltration scheme in surface water storage
     call mpi_bcast (use_modified_infil, 1, MPI_LOGICAL, 0, mpicom, ier)
+    call mpi_bcast (active_dynamic_subgrid, 1, MPI_LOGICAL, 0, mpicom, ier)
 
     !NGEE Arctic options
     call mpi_bcast (use_polygonal_tundra, 1, MPI_LOGICAL, 0, mpicom, ier)
@@ -1316,6 +1323,7 @@ contains
     write(iulog,*) '    mpi_sync_nstep_freq    = ', mpi_sync_nstep_freq
     
     write(iulog,*) '    use_modified_infil = ', use_modified_infil
+    write(iulog,*) '    active_dynamic_subgrid = ', active_dynamic_subgrid
     
 
    ! FAN

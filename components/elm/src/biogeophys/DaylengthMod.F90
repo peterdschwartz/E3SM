@@ -5,7 +5,7 @@ module DaylengthMod
   ! Computes daylength
   !
   use elm_varctl, only : elm_device_ready  ! compute constructs run on the host before the device copy
-  use shr_kind_mod , only : r8 => shr_kind_r8
+  use shr_kind_mod , only : r8 => shr_kind_r8, i8 => shr_kind_i8
   use decompMod    , only : bounds_type
   use GridcellType , only : grc_pp                
   !
@@ -19,9 +19,7 @@ module DaylengthMod
   public :: UpdateDaylength   ! update daylength for all grid cells
   !
   ! !PRIVATE DATA MEMBERS:
-  logical, public :: first_step = .true.        ! is this the first step since initialization?
-
-  !$acc declare create(first_step)
+  logical, public :: first_step = .true.        ! is this the first step since initialization? (a host flag)
 
   !
   !-----------------------------------------------------------------------
@@ -30,6 +28,7 @@ contains
 
   !-----------------------------------------------------------------------
   elemental real(r8) function daylength(lat, decl)
+    !$acc routine seq
     !
     ! !DESCRIPTION:
     ! Computes daylength (in seconds)
@@ -38,8 +37,6 @@ contains
     ! be strictly less than pi/2; lat must be less than pi/2 within a small tolerance.
     !
     ! !USES:
-    use shr_infnan_mod, only : nan => shr_infnan_nan, &
-                               assignment(=)
     use shr_const_mod , only : SHR_CONST_PI
     !
     ! !ARGUMENTS:
@@ -59,6 +56,10 @@ contains
     ! Define an offset pole as slightly less than pi/2 to avoid problems with cos(lat) being negative
     real(r8), parameter :: pole = SHR_CONST_PI/2.0_r8
     real(r8), parameter :: offset_pole = pole - lat_epsilon
+
+    ! the bad value: shr_infnan_nan's bit pattern (a signaling NaN) as a constant, since its
+    ! overloaded assignment is a call device code cannot make
+    real(r8), parameter :: nan = transfer(int(Z'7FF4000000000000', i8), 1._r8)
     !-----------------------------------------------------------------------
 
     ! Can't SHR_ASSERT in an elemental function; instead, return a bad value if any
@@ -134,30 +135,34 @@ contains
     type(bounds_type), intent(in) :: bounds
     real(r8), intent(in) :: declin            ! solar declination angle (radians)
     !
+    ! !LOCAL VARIABLES:
+    integer :: g, begg, endg
     !-----------------------------------------------------------------------
 
     associate(&
     lat       => grc_pp%lat,       & ! Input:  [real(r8) (:)] latitude (radians)
     dayl      => grc_pp%dayl,      & ! InOut:  [real(r8) (:)] day length (s)
-    prev_dayl => grc_pp%prev_dayl, & ! Output: [real(r8) (:)] day length from previous time step (s)
-
-    begg      => bounds%begg  , & ! beginning grid cell index
-    endg      => bounds%endg    & ! ending grid cell index
+    prev_dayl => grc_pp%prev_dayl  & ! Output: [real(r8) (:)] day length from previous time step (s)
     )
+    begg = bounds%begg
+    endg = bounds%endg
 
     ! In the first time step, we simply use dayl & prev_dayl that were set in
     ! initialization. (We do NOT want to run the normal code in that case, because that
     ! would incorrectly set prev_dayl to be the same as the current dayl in the first
     ! time step, because of the way prev_dayl is initialized.)
+    ! (first_step is a host flag: only the host tests it.)
     if (first_step) then
        first_step = .false.
-    else 
-       prev_dayl(begg:endg) = dayl(begg:endg)
-       dayl(begg:endg) = daylength(lat(begg:endg), declin)
+    else
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
+       do g = begg, endg
+          prev_dayl(g) = dayl(g)
+          dayl(g) = daylength(lat(g), declin)
+       end do
     end if
 
     end associate
-    !$acc update device(first_step, grc_pp%dayl, grc_pp%prev_dayl) if_present
 
   end subroutine UpdateDaylength
 

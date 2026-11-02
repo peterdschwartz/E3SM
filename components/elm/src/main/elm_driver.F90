@@ -231,6 +231,7 @@ contains
     ! !LOCAL VARIABLES:
     integer              :: nstep                   ! time step number
     integer              :: nc, c, p, l, g          ! indices
+    integer              :: begc_nc, endc_nc        ! column bounds of clump nc (host scalars for kernel loop headers)
     integer              :: nclumps                 ! number of clumps on this processor
     integer              :: yrp1                    ! year (0, ...) for nstep+1
     integer              :: monp1                   ! month (1, ..., 12) for nstep+1
@@ -717,7 +718,7 @@ contains
     ! snow accumulation exceeds 10 mm.
     ! ============================================================================
 
-    !$OMP PARALLEL DO PRIVATE (nc,l,c)
+    !$OMP PARALLEL DO PRIVATE (nc,l,c,begc_nc,endc_nc)
     do nc = 1,nclumps
 
        call t_startf('drvinit')
@@ -1010,8 +1011,10 @@ contains
 
        ! on the device: SnowAge_grain before and the next routines run there (a host loop here was
        ! overwritten by the next device -> host transition)
+       begc_nc = bounds_by_clump(nc)%begc
+       endc_nc = bounds_by_clump(nc)%endc
        !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready)
-       do c = bounds_by_clump(nc)%begc,bounds_by_clump(nc)%endc
+       do c = begc_nc, endc_nc
           l = col_pp%landunit(c)
           if (lun_pp%urbpoi(l)) then
              ! Urban landunit use Bonan 1996 (LSM Technical Note)

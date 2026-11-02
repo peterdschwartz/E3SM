@@ -39,8 +39,8 @@ contains
     use filterMod         , only : setFilters
 #ifdef _OPENACC
     use openacc           , only : acc_is_present  ! spel device-data
-    use filterMod         , only : filter
-    use DeepCopySubgridMod, only : subgrid_update
+    use filterMod         , only : filter, filter_inactive_and_active
+    use DeepCopySubgridMod, only : update_clumpfilter
 #endif
     use subgridWeightsMod , only : set_active, check_weights
     use decompMod         , only : bounds_type, BOUNDS_LEVEL_CLUMP
@@ -62,9 +62,13 @@ contains
     call setFilters(bounds, icemask_grc(bounds%begg:bounds%endg))
 
 #ifdef _OPENACC
-    ! spel device-data: the filters are built on the host; once the state is on the device
-    ! (after elm_device_copyin) send the rebuilt filters and subgrid data there
-    if (acc_is_present(filter)) call subgrid_update(to_device=.true.)
+    ! spel device-data: setFilters rebuilt this clump's filters on the host; once the state is on the
+    ! device (after elm_device_copyin) send them there. Nothing else changed here: check_weights
+    ! only reads, and set_active's `active` flags are pushed above.
+    if (acc_is_present(filter)) then
+       call update_clumpfilter(filter(bounds%clump_index), to_device=.true.)
+       call update_clumpfilter(filter_inactive_and_active(bounds%clump_index), to_device=.true.)
+    end if
 #endif
   end subroutine reweight_wrapup
 

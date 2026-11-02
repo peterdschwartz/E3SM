@@ -1063,11 +1063,18 @@ contains
 
          if (abs(grc_errcb(g)) > balance_check_tolerance .and. nstep > 1) spel_dc_1 = max(spel_dc_1, g - (bounds%begg) + 1)  ! spel defer-checks
       end do
+
       if (spel_dc_1 > 0) then  ! spel defer-checks: the last element where the check held
          ! spel acc-sync: device data this host code uses
          !$acc update self(grc_cf%core%dwt_conv_flux, grc_cf%core%inputs, grc_cf%core%outputs, grc_cf%er, &
          !$acc&   grc_cf%fire_closs, grc_cf%hrv_xsmrpool_to_atm, grc_cf%prod100_loss, grc_cf%prod10_loss, &
          !$acc&   grc_cf%prod1_loss, grc_cf%som_c_leached, grc_cs%core%balance_err) if_present if(elm_device_ready)
+         ! spel acc-sync: device data this host code uses
+         !$acc update self(grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, grc_cs%beg_cwdc, &
+         !$acc&   grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, grc_cs%beg_totprodc, &
+         !$acc&   grc_cs%beg_totsomc, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, grc_cs%end_cwdc, &
+         !$acc&   grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
+         !$acc&   grc_cs%end_totsomc) if_present if(elm_device_ready)
          g = bounds%begg + spel_dc_1 - 1
             write(iulog,*)'grid cbalance error = ', grc_errcb(g), g
             write(iulog,*)'Latdeg,Londeg       = ', grc_pp%latdeg(g), grc_pp%londeg(g)
@@ -1084,17 +1091,9 @@ contains
             write(iulog,*)'dwt_conv_cflux      = ', grc_dwt_conv_cflux(g)*dt
 
             if (ero_ccycle) then
-               ! spel acc-sync: device data this host code uses
-               !$acc update self(grc_cf%somc_yield) if_present if(elm_device_ready)
                write(iulog,*)'erosion             = ',grc_som_c_yield(g)*dt
             end if
 
-            ! spel acc-sync: device data this host code uses
-            !$acc update self(grc_cs%beg_cropseedc_deficit, grc_cs%beg_ctrunc, grc_cs%beg_cwdc, &
-            !$acc&   grc_cs%beg_totc, grc_cs%beg_totlitc, grc_cs%beg_totpftc, grc_cs%beg_totprodc, &
-            !$acc&   grc_cs%beg_totsomc, grc_cs%end_cropseedc_deficit, grc_cs%end_ctrunc, grc_cs%end_cwdc, &
-            !$acc&   grc_cs%end_totc, grc_cs%end_totlitc, grc_cs%end_totpftc, grc_cs%end_totprodc, &
-            !$acc&   grc_cs%end_totsomc) if_present if(elm_device_ready)
             write(iulog,*)'begcb               = ', beg_totc(g)
             write(iulog,*)'endcb               = ', end_totc(g)
             write(iulog,*)'delta store         = ', end_totc(g) - beg_totc(g)

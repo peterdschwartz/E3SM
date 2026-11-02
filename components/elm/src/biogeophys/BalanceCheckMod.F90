@@ -38,9 +38,33 @@ module BalanceCheckMod
   public :: ColWaterBalanceCheck  ! Water and energy balance check
   public :: BeginGridWaterBalance
   public :: GridBalanceCheck
+  private :: col_precip           ! precipitation reaching a column (none on urban walls)
   !-----------------------------------------------------------------------
 
 contains
+
+  !-----------------------------------------------------------------------
+  pure real(r8) function col_precip(itype, forc)
+    !$acc routine seq
+    !
+    ! !DESCRIPTION:
+    ! The rain or snow rate reaching a column of type `itype` from its topounit's forcing `forc`:
+    ! none on urban walls (as in CanopyHydrologyMod.F90), the forcing elsewhere.
+    !
+    ! !USES:
+    use column_varcon, only : icol_sunwall, icol_shadewall
+    !
+    ! !ARGUMENTS:
+    integer , intent(in) :: itype  ! column type (col_pp%itype)
+    real(r8), intent(in) :: forc   ! topounit rain or snow rate [mm/s]
+    !-----------------------------------------------------------------------
+
+    if (itype == icol_sunwall .or. itype == icol_shadewall) then
+       col_precip = 0._r8
+    else
+       col_precip = forc
+    end if
+  end function col_precip
 
   !-----------------------------------------------------------------------
   subroutine BeginColWaterBalance(bounds, &
@@ -190,12 +214,8 @@ contains
      !
      ! !LOCAL VARIABLES:
      integer  :: p,c,l,t,g,fc                           ! indices
-     real(r8) :: dtime                                  ! land model time step (sec)
-     integer  :: nstep                                  ! time step number
      logical  :: found                                  ! flag in search loop
      integer  :: indexp,indexc,indexl,indext,indexg     ! index of first found in search loop
-     real(r8) :: forc_rain_col(bounds%begc:bounds%endc) ! column level rain rate [mm/s]
-     real(r8) :: forc_snow_col(bounds%begc:bounds%endc) ! column level snow rate [mm/s]
      real(r8) :: sol_err_th                             ! solar radiation imbalance threshold
      !-----------------------------------------------------------------------
 
@@ -298,46 +318,31 @@ contains
           netrad                     =>    veg_ef%netrad                 & ! Output: [real(r8) (:)   ]  net radiation (positive downward) (W/m**2)
           )
 
-       ! Get step size and time step
-
-       ! spel acc-sync: device data this host code uses
-       !$acc update self(col_wf%qflx_from_uphill, top_ws%from_uphill) if_present if(elm_device_ready)
-       nstep = nstep_mod
-       dtime = dtime_mod !get_step_size()
-
-       ! Determine column level incoming snow and rain.
+       ! Column-level incoming rain and snow: col_precip (no precipitation on urban walls).
        ! Assume that all columns on a topounit have the same atmospheric forcing.
-       ! Assume no incident precipitation on urban wall columns (as in CanopyHydrologyMod.F90).
 
-       do c = bounds%begc,bounds%endc
-          g = col_pp%gridcell(c)
-          t = col_pp%topounit(c)
-          l = col_pp%landunit(c)
-
-          if (col_pp%itype(c) == icol_sunwall .or.  col_pp%itype(c) == icol_shadewall) then
-             forc_rain_col(c) = 0.
-             forc_snow_col(c) = 0.
-          else
-             forc_rain_col(c) = forc_rain(t)
-             forc_snow_col(c) = forc_snow(t)
-          end if
-
+       if (use_IM2_hillslope_hydrology) then
           ! update the topounit-level from_uphill water state
           ! when using fraction_from_uphill < 1.0, this state can get very small during recession
           ! which can lead to negative state from roundoff error. Trap this with a max(), and force to zero
           ! when the state gets too small.
-          if (use_IM2_hillslope_hydrology) then
-            top_ws%from_uphill(t) = max(0._r8, top_ws%from_uphill(t) - (col_wf%qflx_from_uphill(c) * dtime))
-            if (top_ws%from_uphill(t) < 1.e-20_r8) then
-               top_ws%from_uphill(t) = 0._r8
-            endif
-          endif
-       end do
-       !$acc update device(forc_rain_col, forc_snow_col, top_ws%from_uphill) if_present
+          ! Every column of a topounit updates its state: one topounit per iteration, its columns
+          ! in order (as the column loop did), so no two iterations touch the same state.
+          !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
+          do t = bounds%begt, bounds%endt
+             !$acc loop seq
+             do c = top_pp%coli(t), top_pp%colf(t)
+                top_ws%from_uphill(t) = max(0._r8, top_ws%from_uphill(t) - (col_wf%qflx_from_uphill(c) * dtime_mod))
+                if (top_ws%from_uphill(t) < 1.e-20_r8) then
+                   top_ws%from_uphill(t) = 0._r8
+                endif
+             end do
+          end do
+       endif
 
        ! Water balance check
 
-       !$acc data copy(forc_rain_col, forc_snow_col) if(elm_device_ready)
+       
        !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do c = bounds%begc, bounds%endc
 
@@ -345,13 +350,14 @@ contains
           ! add qflx_from_uphill and qflx_to_downhill
           if (col_pp%active(c)) then
              errh2o(c) = endwb(c) - begwb(c) &
-                  - (forc_rain_col(c) + forc_snow_col(c)  + qflx_floodc(c) + qflx_from_uphill(c) &
+                  - (col_precip(col_pp%itype(c), forc_rain(col_pp%topounit(c))) &
+                  + col_precip(col_pp%itype(c), forc_snow(col_pp%topounit(c))) + qflx_floodc(c) + qflx_from_uphill(c) &
                   + qflx_surf_irrig_col(c) + qflx_over_supply_col(c) &
                   - qflx_evap_tot(c) - qflx_surf(c)  - qflx_h2osfc_surf(c) - qflx_to_downhill(c) &
                   - qflx_qrgwl(c) - qflx_drain(c) - qflx_drain_perched(c) - qflx_snwcp_ice(c) - qflx_ice_runoff_xs(c) &
-                  - qflx_lateral(c) + qflx_h2orof_drain(c) - qflx_lnd2ocn(c) + qflx_h2oocn_drain(c)) * dtime
+                  - qflx_lateral(c) + qflx_h2orof_drain(c) - qflx_lnd2ocn(c) + qflx_h2oocn_drain(c)) * dtime_mod
 
-             dwb(c) = (endwb(c)-begwb(c))/dtime
+             dwb(c) = (endwb(c)-begwb(c))/dtime_mod
 
           else
 
@@ -361,7 +367,6 @@ contains
           end if
 
        end do
-       !$acc end data
 
        ! Suppose glc_dyn_runoff_routing = T:
        ! (1) We have qflx_snwcp_ice = 0, and excess snow has been incorporated in qflx_glcice_frz.
@@ -378,8 +383,8 @@ contains
           c = filter_do_smb_c(fc)
           g = col_pp%gridcell(c)
           if (glc_dyn_runoff_routing(g)) then
-             errh2o(c) = errh2o(c) + qflx_glcice_frz(c)*dtime
-             errh2o(c) = errh2o(c) - qflx_glcice_melt(c)*dtime
+             errh2o(c) = errh2o(c) + qflx_glcice_frz(c)*dtime_mod
+             errh2o(c) = errh2o(c) - qflx_glcice_melt(c)*dtime_mod
           endif
        end do
        
@@ -401,7 +406,7 @@ contains
           ! spel acc-sync: device data this host code uses
           !$acc update self(col_ws%errh2o) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:  water balance error ',&
-               ' nstep= ',nstep, &
+               ' nstep= ',nstep_mod, &
                ' local indexc= ',indexc,&
                !' global indexc= ',GetGlobalIndex(decomp_index=indexc, elmlevel=namec), &
                ' errh2o= ',errh2o(indexc)             
@@ -411,7 +416,7 @@ contains
           if ((col_pp%itype(indexc) == icol_roof .or. &
                col_pp%itype(indexc) == icol_road_imperv .or. &
                col_pp%itype(indexc) == icol_road_perv) .and. &
-               abs(errh2o(indexc)) > 1.e-4_r8 .and. (nstep > 2) ) then
+               abs(errh2o(indexc)) > 1.e-4_r8 .and. (nstep_mod > 2) ) then
 
              ! spel acc-sync: device data this host code uses
              !$acc update self(col_wf%qflx_drain, col_wf%qflx_evap_tot, col_wf%qflx_h2oocn_drain, &
@@ -419,10 +424,10 @@ contains
              !$acc&   col_wf%qflx_lnd2ocn, col_wf%qflx_qrgwl, col_wf%qflx_snwcp_ice, col_wf%qflx_surf, &
              !$acc&   col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present if(elm_device_ready)
              write(iulog,*)'clm urban model is stopping - error is greater than 1e-4 (mm)'
-             write(iulog,*)'nstep                      = ',nstep
+             write(iulog,*)'nstep                      = ',nstep_mod
              write(iulog,*)'errh2o                     = ',errh2o(indexc)
-             write(iulog,*)'forc_rain                  = ',forc_rain_col(indexc)
-             write(iulog,*)'forc_snow                  = ',forc_snow_col(indexc)
+             write(iulog,*)'forc_rain                  = ',col_precip(col_pp%itype(indexc), forc_rain(col_pp%topounit(indexc)))
+             write(iulog,*)'forc_snow                  = ',col_precip(col_pp%itype(indexc), forc_snow(col_pp%topounit(indexc)))
              write(iulog,*)'endwb                      = ',endwb(indexc)
              write(iulog,*)'begwb                      = ',begwb(indexc)
              write(iulog,*)'qflx_evap_tot              = ',qflx_evap_tot(indexc)
@@ -441,7 +446,7 @@ contains
              write(iulog,*)'elm model is stopping'
              call endrun(decomp_index=indexc, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
 
-          else if (abs(errh2o(indexc)) > 1.e-4_r8 .and. (nstep > 2) ) then
+          else if (abs(errh2o(indexc)) > 1.e-4_r8 .and. (nstep_mod > 2) ) then
 
              ! spel acc-sync: device data this host code uses
              !$acc update self(col_wf%qflx_drain, col_wf%qflx_drain_perched, col_wf%qflx_evap_tot, &
@@ -452,10 +457,10 @@ contains
              !$acc&   col_wf%qflx_surf_irrig, col_ws%begwb, col_ws%endwb, col_ws%errh2o) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-4 (mm)'
              write(iulog,*)'colum number               = ',col_pp%gridcell(indexc)
-             write(iulog,*)'nstep                      = ',nstep
+             write(iulog,*)'nstep                      = ',nstep_mod
              write(iulog,*)'errh2o                     = ',errh2o(indexc)
-             write(iulog,*)'forc_rain                  = ',forc_rain_col(indexc)
-             write(iulog,*)'forc_snow                  = ',forc_snow_col(indexc)
+             write(iulog,*)'forc_rain                  = ',col_precip(col_pp%itype(indexc), forc_rain(col_pp%topounit(indexc)))
+             write(iulog,*)'forc_snow                  = ',col_precip(col_pp%itype(indexc), forc_snow(col_pp%topounit(indexc)))
              write(iulog,*)'endwb                      = ',endwb(indexc)
              write(iulog,*)'begwb                      = ',begwb(indexc)
              write(iulog,*)'qflx_evap_tot              = ',qflx_evap_tot(indexc)
@@ -586,7 +591,7 @@ contains
                    snow_sinks(c) = snow_sinks(c) + qflx_glcice_frz(c)
                 end if
 
-                errh2osno(c) = (h2osno(c) - h2osno_old(c)) - (snow_sources(c) - snow_sinks(c)) * dtime
+                errh2osno(c) = (h2osno(c) - h2osno_old(c)) - (snow_sources(c) - snow_sinks(c)) * dtime_mod
              else
                 snow_sources(c) = 0._r8
                 snow_sinks(c) = 0._r8
@@ -614,7 +619,7 @@ contains
           ! spel acc-sync: device data this host code uses
           !$acc update self(col_ws%errh2osno) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:  snow balance error '
-          write(iulog,*)'nstep= ',nstep, &
+          write(iulog,*)'nstep= ',nstep_mod, &
                ' local indexc= ',indexc, &
                !' global indexc= ',GetGlobalIndex(decomp_index=indexc, elmlevel=namec), &
                ' col_pp%itype= ',col_pp%itype(indexc), &
@@ -623,7 +628,7 @@ contains
 
           ! spel acc-sync: device data this host code uses
           !$acc update self(col_ws%errh2osno) if_present if(elm_device_ready)
-          if (abs(errh2osno(indexc)) > 1.e-4_r8 .and. (nstep > 2) ) then
+          if (abs(errh2osno(indexc)) > 1.e-4_r8 .and. (nstep_mod > 2) ) then
              ! spel acc-sync: device data this host code uses
              !$acc update self(col_pp%snl, col_wf%qflx_dew_grnd, col_wf%qflx_dew_snow, col_wf%qflx_evap_grnd, &
              !$acc&   col_wf%qflx_h2osfc_to_ice, col_wf%qflx_prec_grnd, col_wf%qflx_rain_grnd, &
@@ -633,7 +638,7 @@ contains
              !$acc&   col_ws%errh2osno, col_ws%frac_sno_eff, col_ws%h2osno, col_ws%h2osno_old, &
              !$acc&   glc2lnd_vars%glc_dyn_runoff_routing_grc) if_present if(elm_device_ready)
              write(iulog,*)'elm model is stopping - error is greater than 1e-4 (mm)'
-             write(iulog,*)'nstep            = ',nstep
+             write(iulog,*)'nstep            = ',nstep_mod
              write(iulog,*)'errh2osno        = ',errh2osno(indexc)
              write(iulog,*)'snl              = ',col_pp%snl(indexc)
              write(iulog,*)'h2osno           = ',h2osno(indexc)
@@ -654,13 +659,13 @@ contains
              write(iulog,*)'qflx_rain_grnd_col= ',qflx_rain_grnd_col(indexc)
              write(iulog,*)'qflx_snow_grnd_col= ',qflx_snow_grnd_col(indexc)
              write(iulog,*)'qflx_h2osfc_to_ice= ',qflx_h2osfc_to_ice(indexc)
-             write(iulog,*)'qflx_snow_h2osfc= ',qflx_snow_h2osfc(indexc)*dtime
+             write(iulog,*)'qflx_snow_h2osfc= ',qflx_snow_h2osfc(indexc)*dtime_mod
              write(iulog,*)'(glc_dyn_runoff_routing(g))',(glc_dyn_runoff_routing(g))
 
              if (create_glacier_mec_landunit) then
                 ! spel acc-sync: device data this host code uses
                 !$acc update self(col_wf%qflx_glcice_frz) if_present if(elm_device_ready)
-                write(iulog,*)'qflx_glcice_frz  = ',qflx_glcice_frz(indexc)*dtime
+                write(iulog,*)'qflx_glcice_frz  = ',qflx_glcice_frz(indexc)*dtime_mod
              end if
              write(iulog,*)'elm model is stopping'
              call endrun(decomp_index=indexc, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
@@ -748,12 +753,12 @@ contains
                 indext = veg_pp%topounit(indexp)
                 indexg = veg_pp%gridcell(indexp)
        end if
-       if ( found  .and. (nstep > 2) ) then
+       if ( found  .and. (nstep_mod > 2) ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
           !$acc update self(veg_ef%errsol) if_present if(elm_device_ready)
           write(iulog,*)'WARNING:: BalanceCheck, solar radiation balance error (W/m2)'
-          write(iulog,*)'nstep         = ',nstep
+          write(iulog,*)'nstep         = ',nstep_mod
           write(iulog,*)'errsol        = ',errsol(indexp)
           ! spel acc-sync: device data this host code uses
           !$acc update self(veg_ef%errsol) if_present if(elm_device_ready)
@@ -791,13 +796,13 @@ contains
                 found = .true.
                 indexp = p
        end if
-       if ( found  .and. (nstep > 2) ) then
+       if ( found  .and. (nstep_mod > 2) ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
           !$acc update self(top_af%lwrad, veg_ef%eflx_lwrad_net, veg_ef%eflx_lwrad_out, &
           !$acc&   veg_ef%errlon) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: longwave energy balance error (W/m2)'
-          write(iulog,*)'nstep        = ',nstep
+          write(iulog,*)'nstep        = ',nstep_mod
           write(iulog,*)'errlon       = ',errlon(indexp)
           write(iulog,*) "lwrad_out:",eflx_lwrad_out(indexp)
           write(iulog,*) "lwrad_net: ",eflx_lwrad_net(indexp)
@@ -828,12 +833,12 @@ contains
                 indexc = veg_pp%column(indexp)
                 indext = veg_pp%topounit(indexp)
        end if
-       if ( found  .and. (nstep > 2) ) then
+       if ( found  .and. (nstep_mod > 2) ) then
 #ifndef _OPENACC
           ! spel acc-sync: device data this host code uses
           !$acc update self(veg_ef%errseb) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: surface flux energy balance error (W/m2)'
-          write(iulog,*)'nstep          = ' ,nstep
+          write(iulog,*)'nstep_mod          = ' ,nstep_mod
           write(iulog,*)'errseb         = ' ,errseb(indexp)
           ! spel acc-sync: device data this host code uses
           !$acc update self(veg_ef%errseb) if_present if(elm_device_ready)
@@ -890,13 +895,13 @@ contains
           ! spel acc-sync: device data this host code uses
           !$acc update self(col_ef%errsoi) if_present if(elm_device_ready)
           write(iulog,*)'WARNING: BalanceCheck: soil balance error (W/m2)'
-          write(iulog,*)'nstep         = ',nstep
+          write(iulog,*)'nstep         = ',nstep_mod
           write(iulog,*)'errsoi_col    = ',errsoi_col(indexc)
           write(iulog,*)'gridcell number  = ',col_pp%gridcell(indexc)
           write(iulog,*)'itype         = ',col_pp%itype(indexc)
           ! spel acc-sync: device data this host code uses
           !$acc update self(col_ef%errsoi) if_present if(elm_device_ready)
-          if (abs(errsoi_col(indexc)) > 1.e-4_r8  .and. (nstep > 2) ) then
+          if (abs(errsoi_col(indexc)) > 1.e-4_r8  .and. (nstep_mod > 2) ) then
              write(iulog,*)'elm model is stopping'
              call endrun(decomp_index=indexc, elmlevel=namec, msg=errmsg(__FILE__, __LINE__))
           end if
@@ -1109,12 +1114,10 @@ contains
      integer  :: p,c,l,g,fc                             ! indices
      real(r8) :: dtime                                  ! land model time step (sec)
      real(r8) :: qflx_net_col (bounds%begc:bounds%endc)
-     real(r8) :: forc_rain_col(bounds%begc:bounds%endc) ! column level rain rate [mm/s]
-     real(r8) :: forc_snow_col(bounds%begc:bounds%endc) ! column level snow rate [mm/s]
      real(r8) :: wa_local_col(bounds%begc:bounds%endc)
 
      ! spel acc-locals: device storage of the local work arrays
-     !$acc enter data create(qflx_net_col, forc_rain_col, forc_snow_col, wa_local_col)
+     !$acc enter data create(qflx_net_col, wa_local_col)
      associate(                                                                         &
           volr                       =>    atm2lnd_vars%volr_grc                      , & ! Input:  [real(r8) (:)   ]  river water storage (m3)
           forc_solad                 =>    atm2lnd_vars%forc_solad_grc                , & ! Input:  [real(r8) (:,:) ]  direct beam radiation (vis=forc_sols , nir=forc_soll )
@@ -1185,18 +1188,9 @@ contains
           wa_local_col(c) = wa(c)
        end do
 
-       !$acc parallel loop gang vector default(present) private(g, l) if(elm_device_ready)
+       ! urban impervious columns hold no aquifer water (the incoming rain and snow: col_precip)
+       !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do c = bounds%begc,bounds%endc
-          g = col_pp%gridcell(c)
-          l = col_pp%landunit(c)
-
-          if (col_pp%itype(c) == icol_sunwall .or.  col_pp%itype(c) == icol_shadewall) then
-             forc_rain_col(c) = 0._r8
-             forc_snow_col(c) = 0._r8
-          else
-             forc_rain_col(c) = forc_rain(c)
-             forc_snow_col(c) = forc_snow(c)
-          end if
           if (col_pp%itype(c) == icol_roof .or. col_pp%itype(c) == icol_sunwall &
                .or. col_pp%itype(c) == icol_shadewall .or. col_pp%itype(c) == icol_road_imperv) then
              wa_local_col(c) = 0._r8
@@ -1210,7 +1204,8 @@ contains
          if (col_pp%active(c)) then
 
             qflx_net_col(c) = &
-                 - forc_rain_col(c) - forc_snow_col(c)  - qflx_floodc(c) - qflx_from_uphill(c) - qflx_irrig(c) &
+                 - col_precip(col_pp%itype(c), forc_rain(c)) - col_precip(col_pp%itype(c), forc_snow(c)) &
+                 - qflx_floodc(c) - qflx_from_uphill(c) - qflx_irrig(c) &
                  + qflx_evap_tot(c) + qflx_surf(c)  + qflx_h2osfc_surf(c) + qflx_to_downhill(c) &
                  + qflx_qrgwl(c) + qflx_drain(c) + qflx_drain_perched(c) + qflx_snwcp_ice(c) &
                  + qflx_lateral(c)
@@ -1257,7 +1252,7 @@ contains
 
     end associate
 
-     !$acc exit data delete(qflx_net_col, forc_rain_col, forc_snow_col, wa_local_col)
+     !$acc exit data delete(qflx_net_col, wa_local_col)
     end subroutine GridBalanceCheck
 
  end module BalanceCheckMod

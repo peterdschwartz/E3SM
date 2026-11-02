@@ -2233,6 +2233,12 @@ Toggle to turn on the soil erosion and OM pools feedback.
 Toggle to use modifed infiltration scheme in h2osfc     .
 </entry>
 
+<entry id="active_dynamic_subgrid" type="logical" category="clm_physics"
+       group="elm_inparm" valid_values="" value=".false.">
+Run the land-cover change bookkeeping of dynSubgrid (subgrid weight updates, column state
+updates, C/N/P conservation fluxes). Off for runs whose subgrid weights never change.
+</entry>
+
 <!-- ========================================================================================  -->
 <!-- Namelist options for land river coulping                                                  -->
 <!-- ========================================================================================  -->
