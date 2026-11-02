@@ -394,6 +394,8 @@ contains
                filter_inactive_and_active(nc)%soilc, &
                filter_inactive_and_active(nc)%num_soilp, &
                filter_inactive_and_active(nc)%soilp, &
+               filter_inactive_and_active(nc)%soilc_soilp_beg, &
+               filter_inactive_and_active(nc)%soilc_soilp_end, &
                soilstate_vars, canopystate_vars, cnstate_vars)
        end if
        call t_stopf("decomp_vert")
@@ -1078,6 +1080,7 @@ contains
           call EcosystemDynNoLeaching1(bounds_by_clump(nc),         &
                     filter(nc)%num_soilc, filter(nc)%soilc,  &
                     filter(nc)%num_soilp, filter(nc)%soilp,  &
+                    filter(nc)%soilc_soilp_beg, filter(nc)%soilc_soilp_end, &
                     filter(nc)%num_pcropp, filter(nc)%pcropp, &
                     filter(nc)%num_ppercropp, filter(nc)%ppercropp, &
                     cnstate_vars,            &
@@ -1131,7 +1134,8 @@ contains
                         filter(nc)%num_soilp, filter(nc)%soilp,              &
                         canopystate_vars, soilstate_vars,                    &
                         temperature_vars, waterstate_vars,                   &
-                        cnstate_vars, ch4_vars)
+                        cnstate_vars, ch4_vars,                              &
+                        soilc_soilp_beg=filter(nc)%soilc_soilp_beg, soilc_soilp_end=filter(nc)%soilc_soilp_end)
 
                  ! STEP-3: update CLM from elm_interface_data
                  call update_bgc_data_elm2elm(elm_interface_data%bgc,        &
@@ -1152,7 +1156,8 @@ contains
                 cnstate_vars,  atm2lnd_vars,          &
                 canopystate_vars, soilstate_vars, crop_vars, ch4_vars, &
                 photosyns_vars, soilhydrology_vars, energyflux_vars,   &
-                sedflux_vars, solarabs_vars)
+                sedflux_vars, solarabs_vars, &
+                     soilc_soilp_beg=filter(nc)%soilc_soilp_beg, soilc_soilp_end=filter(nc)%soilc_soilp_end)
 
           !===========================================================================================
           ! clm_interface: 'EcosystemDynNoLeaching' is divided into 2 subroutines (1 & 2): END
@@ -1310,11 +1315,13 @@ contains
 
           call ColNBalanceCheck(bounds_by_clump(nc), &
                filter(nc)%num_soilc, filter(nc)%soilc, &
-               col_ns, col_nf)
+               col_ns, col_nf, &
+                    soilc_soilp_beg=filter(nc)%soilc_soilp_beg, soilc_soilp_end=filter(nc)%soilc_soilp_end, filter_soilp=filter(nc)%soilp)
 
           call ColPBalanceCheck(bounds_by_clump(nc), &
                filter(nc)%num_soilc, filter(nc)%soilc, &
-               col_ps, col_pf)
+               col_ps, col_pf, &
+                    soilc_soilp_beg=filter(nc)%soilc_soilp_beg, soilc_soilp_end=filter(nc)%soilc_soilp_end, filter_soilp=filter(nc)%soilp)
 
           call GridCBalanceCheck(bounds_by_clump(nc), col_cs, col_cf, grc_cs, grc_cf)
 

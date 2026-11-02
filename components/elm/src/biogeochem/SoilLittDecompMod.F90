@@ -92,7 +92,7 @@ contains
   subroutine SoilLittDecompAlloc (bounds, num_soilc, filter_soilc,    &
                 num_soilp, filter_soilp,                        &
                 canopystate_vars, soilstate_vars,               &
-                cnstate_vars, ch4_vars, dtime)
+                cnstate_vars, ch4_vars, dtime, soilc_soilp_beg, soilc_soilp_end)
 
     !-----------------------------------------------------------------------------
     ! DESCRIPTION:
@@ -111,6 +111,8 @@ contains
     type(bounds_type)        , intent(in)    :: bounds 
     integer                  , intent(in)    :: num_soilc          ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:)    ! filter for soil columns
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
     integer                  , intent(in)    :: num_soilp          ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:)    ! filter for soil patches
     type(canopystate_type)   , intent(in)    :: canopystate_vars
@@ -348,7 +350,7 @@ contains
                num_soilc, filter_soilc, num_soilp, filter_soilp,    &
                cnstate_vars,                                        &
                soilstate_vars, dtime,                               &
-               alm_fates)
+               alm_fates, soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
       call t_stopf('CNAllocation - phase-2')
 
 
@@ -543,7 +545,7 @@ contains
 
   subroutine SoilLittDecompAlloc2 ( bounds, num_soilc, filter_soilc, num_soilp, filter_soilp,   &
        photosyns_vars, canopystate_vars, soilstate_vars,          &
-       cnstate_vars, ch4_vars, crop_vars, atm2lnd_vars, dt)
+       cnstate_vars, ch4_vars, crop_vars, atm2lnd_vars, dt, soilc_soilp_beg, soilc_soilp_end)
     !-----------------------------------------------------------------------------
     ! DESCRIPTION:
     ! bgc interface & pflotran:
@@ -561,6 +563,8 @@ contains
     type(bounds_type)        , intent(in)    :: bounds 
     integer                  , intent(in)    :: num_soilc          ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:)    ! filter for soil columns
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
     integer                  , intent(in)    :: num_soilp          ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:)    ! filter for soil patches
     type(photosyns_type)     , intent(in)    :: photosyns_vars
@@ -776,7 +780,7 @@ contains
            call PlantCNPAlloc_RD(bounds                      , &
                   num_soilc, filter_soilc, num_soilp, filter_soilp    , &
                   canopystate_vars                                    , &
-                  cnstate_vars, crop_vars, dt)
+                  cnstate_vars, crop_vars, dt, soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
          else
            call PlantCNPAlloc_ECAMIC(bounds                      , &
                      num_soilc, filter_soilc, num_soilp, filter_soilp    , &

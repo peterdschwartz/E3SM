@@ -80,7 +80,7 @@ contains
 
   !-----------------------------------------------------------------------
   subroutine GapMortality (num_soilc, filter_soilc, num_soilp, filter_soilp, &
-       cnstate_vars, crop_vars )
+       cnstate_vars, crop_vars , soilc_soilp_beg, soilc_soilp_end)
     !
     ! !DESCRIPTION:
     ! Gap-phase mortality routine for coupled carbon-nitrogen code (CN)
@@ -93,6 +93,8 @@ contains
     ! !ARGUMENTS:
     integer                  , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:) ! column filter for soil points
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
     integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:) ! patch filter for soil points
     type(cnstate_type)       , intent(inout) :: cnstate_vars
@@ -270,7 +272,7 @@ contains
       ! for litter C and N inputs
 
       call CNGapPftToColumn(num_soilc, filter_soilc, &
-           cnstate_vars)
+           cnstate_vars, soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end, filter_soilp=filter_soilp)
 
     end associate
   end subroutine GapMortality
@@ -278,7 +280,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine CNGapPftToColumn ( &
        num_soilc, filter_soilc, &
-       cnstate_vars)
+       cnstate_vars, soilc_soilp_beg, soilc_soilp_end, filter_soilp)
     ! !DESCRIPTION:
     ! called in the middle of CNGapMoratlity to gather all pft-level gap mortality fluxes
     ! to the column level and assign them to the three litter pools
@@ -289,6 +291,10 @@ contains
     ! !ARGUMENTS:
     integer                 , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                 , intent(in)    :: filter_soilc(:) ! soil column filter
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
+    integer, intent(in) :: filter_soilp(:)  ! filter for soil patches
+    integer :: fp_map  ! spel filter-map: position in the soil patch filter
     type(cnstate_type)      , intent(in)    :: cnstate_vars
     !
     ! !LOCAL VARIABLES:
@@ -393,15 +399,16 @@ contains
 
          )
 
-      !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p) if(elm_device_ready)
+      !$acc parallel loop gang vector collapse(2) default(present) private(pi, fc, c, p) if(elm_device_ready) &
+      !$acc&   private(fp_map)
       do j = 1,nlevdecomp
          do fc = 1,num_soilc
             !$acc loop seq
-            do pi = 1,maxpatch_pft
+            do fp_map = soilc_soilp_beg(fc), soilc_soilp_end(fc)  ! spel filter-map
                c = filter_soilc(fc)
 
-               if (pi <=  col_pp%npfts(c)) then
-                  p = col_pp%pfti(c) + pi - 1
+               ! (all patches of the range belong to the column)
+                  p = filter_soilp(fp_map)
 
                   if (veg_pp%active(p)) then
 
@@ -546,7 +553,6 @@ contains
                           (m_livecrootp_xfer_to_litter(p) + m_deadcrootp_xfer_to_litter(p)) * wtcol(p) * croot_prof(p,j)
 
                   end if
-               end if
 
             end do
          end do

@@ -695,7 +695,7 @@ contains
 
  !-----------------------------------------------------------------------
  subroutine FireFluxes (num_soilc, filter_soilc, num_soilp, filter_soilp, &
-      cnstate_vars )
+      cnstate_vars , soilc_soilp_beg, soilc_soilp_end)
    !
    ! !DESCRIPTION:
    ! Fire effects routine for coupled carbon-nitrogen code (CN).
@@ -720,6 +720,8 @@ contains
    ! !ARGUMENTS:
    integer                  , intent(in)    :: num_soilc       ! number of soil columns in filter
    integer                  , intent(in)    :: filter_soilc(:) ! filter for soil columns
+   integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+   integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
    integer                  , intent(in)    :: num_soilp       ! number of soil patches in filter
    integer                  , intent(in)    :: filter_soilp(:) ! filter for soil patches
    type(cnstate_type)       , intent(inout) :: cnstate_vars
@@ -1290,12 +1292,14 @@ contains
      ! patches of filter_soilp in a column of filter_soilc are its active patches (filterMod,
      ! both filters ascending), so each column sum adds the same terms in the same order.
      !$acc parallel loop gang vector collapse(2) default(present) &
-     !$acc&   private(c, p, wt_col, itype, lprof_pj, fr_prof_pj, cr_prof_pj, st_prof_pj) if(elm_device_ready)
+     !$acc&   private(c, p, wt_col, itype, lprof_pj, fr_prof_pj, cr_prof_pj, st_prof_pj) if(elm_device_ready) &
+     !$acc&   private(fp)
      do j = 1,nlevdecomp
        do fc = 1,num_soilc
          c = filter_soilc(fc)
          !$acc loop seq
-         do p = col_pp%pfti(c), col_pp%pftf(c)
+         do fp = soilc_soilp_beg(fc), soilc_soilp_end(fc)  ! spel filter-map
+            p = filter_soilp(fp)
          if (.not. veg_pp%active(p)) cycle
          wt_col = veg_pp%wtcol(p)
          itype = veg_pp%itype(p)

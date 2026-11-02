@@ -534,7 +534,7 @@ contains
     ! Allocate needed dynamic memory for single level pft field
 
     allocate(rbufslp(begp:endp), stat=ier)
-    !$acc update device(rbufslp) if_present
+    !$acc enter data create(rbufslp)
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbuf1dp'
        call endrun(msg=errMsg(__FILE__, __LINE__))
@@ -550,7 +550,6 @@ contains
     call update_accum_field  ('BTRANAVG', this%btran_patch, nstep)
     call extract_accum_field ('BTRANAVG', rbufslp, nstep)
     end_cd = is_end_curr_day()
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        if (rbufslp(p) /= spval) then
@@ -567,10 +566,9 @@ contains
           this%btran_min_patch(p) = spval
        endif
     end do
-    !$acc end data
 
+    !$acc exit data delete(rbufslp)
     deallocate(rbufslp)
-    !$acc update device(rbufslp) if_present
 
   end subroutine UpdateAccVars
 end module EnergyFluxType

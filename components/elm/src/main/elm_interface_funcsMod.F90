@@ -1286,7 +1286,7 @@ contains
                 num_soilp, filter_soilp,                    &
                 canopystate_vars, soilstate_vars,           &
                 temperature_vars, waterstate_vars,          &
-                cnstate_vars, ch4_vars)
+                cnstate_vars, ch4_vars, soilc_soilp_beg, soilc_soilp_end)
 
     ! USES:
     use SoilLittDecompMod          , only: SoilLittDecompAlloc
@@ -1296,6 +1296,8 @@ contains
     type(bounds_type)                   , intent(in)    :: bounds
     integer                             , intent(in)    :: num_soilc          ! number of soil columns in filter
     integer                             , intent(in)    :: filter_soilc(:)    ! filter for soil columns
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
     integer                             , intent(in)    :: num_soilp          ! number of soil patches in filter
     integer                             , intent(in)    :: filter_soilp(:)    ! filter for soil patches
     type(canopystate_type)              , intent(inout) :: canopystate_vars
@@ -1321,7 +1323,8 @@ contains
     call SoilLittDecompAlloc (bounds, num_soilc, filter_soilc,    &
                num_soilp, filter_soilp,                     &
                canopystate_vars, soilstate_vars,            &
-               cnstate_vars, ch4_vars, dt )
+               cnstate_vars, ch4_vars, dt , &
+               soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
 
     ! STEP-2: (iii) update elm_bgc_data from SoilLittDecompAlloc
     call elm_bgc_update_data(elm_interface_data%bgc, bounds, &

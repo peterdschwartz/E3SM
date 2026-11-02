@@ -1,0 +1,52 @@
+{
+ "runs": [
+  {
+   "transform": "filter-map",
+   "options": {
+    "root": "elm_driver::elm_drv",
+    "routines": []
+   },
+   "source_commit": "ca31d45a3d01d505f8a1e705e3493ca33748219e",
+   "files": [
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/AllocationMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/EcosystemBalanceCheckMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/EcosystemDynMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/FireMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/GapMortalityMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/PhenologyMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/SoilLittDecompMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/dyn_subgrid/dynHarvestMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/main/elm_driver.F90"
+   ],
+   "refused": [
+    "ch4mod::ch4_aere_columns:1942: the column filter is not a clumpfilter soil filter in every visit",
+    "ch4mod::ch4_prod:1166: the column filter is not a clumpfilter soil filter in every visit",
+    "fanupdatemod::fan_to_sminn:1051: not exact: line 1053 also runs for inactive soilp (filter has active ones only)",
+    "firemod::firearea:312: not exact: line 318 also runs for inactive soilp (filter has active ones only)",
+    "firemod::firearea:339: not exact: line 349 also runs for inactive soilp (filter has active ones only)",
+    "firemod::firearea:381: not exact: line 383 also runs for inactive soilp (filter has active ones only)",
+    "firemod::firearea:524: not exact: line 526 also runs for inactive soilp (filter has active ones only)",
+    "subgridavemod::p2c_1d_filter:601: the column filter is not a clumpfilter soil filter in every visit"
+   ],
+   "config": "/global/u2/p/pschwar3/SPEL/spel/db/app/management/commands/presets/I1850GSWCNPCROPTOP.cfg"
+  },
+  {
+   "transform": "acc-locals",
+   "options": {
+    "routines": []
+   },
+   "source_commit": "ca31d45a3d01d505f8a1e705e3493ca33748219e",
+   "files": [
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeochem/DecompCascadeCNMod.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeophys/CanopyStateType.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/biogeophys/EnergyFluxType.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/data_types/CNStateType.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/data_types/TopounitDataType.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/data_types/VegetationStateTypes.F90",
+    "/global/u2/p/pschwar3/merge/E3SM/components/elm/src/main/atm2lndType.F90"
+   ],
+   "refused": [],
+   "config": "/global/u2/p/pschwar3/SPEL/spel/db/app/management/commands/presets/I1850GSWCNPCROPTOP.cfg"
+  }
+ ]
+}

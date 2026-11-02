@@ -358,7 +358,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine ColNBalanceCheck(bounds, &
        num_soilc, filter_soilc, &
-       col_ns, col_nf)
+       col_ns, col_nf, soilc_soilp_beg, soilc_soilp_end, filter_soilp)
     !
     ! !DESCRIPTION:
     ! On the radiation time step, perform nitrogen mass conservation check
@@ -368,6 +368,10 @@ contains
     type(bounds_type)         , intent(in)    :: bounds
     integer                   , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                   , intent(in)    :: filter_soilc(:) ! filter for soil columns
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
+    integer, intent(in) :: filter_soilp(:)  ! filter for soil patches
+    integer :: fp_map  ! spel filter-map: position in the soil patch filter
     type(column_nitrogen_state) , intent(inout) :: col_ns
     type(column_nitrogen_flux)  , intent(inout) :: col_nf
     !
@@ -427,7 +431,8 @@ contains
       err_found = .false.
       ! column loop
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c, p) reduction(max:spel_dc_1) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) private(c, p) reduction(max:spel_dc_1) if(elm_device_ready) &
+      !$acc&   private(fp_map)
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -469,7 +474,8 @@ contains
             if (use_fan) col_ninputs(c) = col_ninputs(c) + fan_totnin(c)
 
             !$acc loop seq
-            do p = col_pp%pfti(c), col_pp%pftf(c)
+            do fp_map = soilc_soilp_beg(fc), soilc_soilp_end(fc)  ! spel filter-map
+               p = filter_soilp(fp_map)
                if (veg_pp%active(p) .and. (veg_pp%itype(p) .ne. noveg)) then
                   col_ninputs(c) = col_ninputs(c) + supplement_to_plantn(p) * veg_pp%wtcol(p)
                end if
@@ -594,7 +600,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine ColPBalanceCheck(bounds, &
        num_soilc, filter_soilc, &
-       col_ps, col_pf)
+       col_ps, col_pf, soilc_soilp_beg, soilc_soilp_end, filter_soilp)
     !
     ! !DESCRIPTION:
     ! On the radiation time step, perform phosphorus mass conservation check
@@ -604,6 +610,10 @@ contains
     type(bounds_type)         , intent(in)    :: bounds
     integer                   , intent(in)    :: num_soilc       ! number of soil columns in filter
     integer                   , intent(in)    :: filter_soilc(:) ! filter for soil columns
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
+    integer, intent(in) :: filter_soilp(:)  ! filter for soil patches
+    integer :: fp_map  ! spel filter-map: position in the soil patch filter
     type(column_phosphorus_state) , intent(inout) :: col_ps
     type(column_phosphorus_flux)  , intent(inout) :: col_pf
     !
@@ -721,7 +731,8 @@ contains
 
       ! column loop
       spel_dc_1 = 0  ! spel defer-checks
-      !$acc parallel loop gang vector default(present) private(c, p, j) reduction(max:spel_dc_1) if(elm_device_ready)
+      !$acc parallel loop gang vector default(present) private(c, p, j) reduction(max:spel_dc_1) if(elm_device_ready) &
+      !$acc&   private(fp_map)
       do fc = 1,num_soilc
          c=filter_soilc(fc)
 
@@ -746,7 +757,8 @@ contains
 
          else
             !$acc loop seq
-            do p = col_pp%pfti(c), col_pp%pftf(c)
+            do fp_map = soilc_soilp_beg(fc), soilc_soilp_end(fc)  ! spel filter-map
+               p = filter_soilp(fp_map)
                if (veg_pp%active(p) .and. (veg_pp%itype(p) .ne. noveg)) then
                   col_pinputs(c) = col_pinputs(c) + supplement_to_plantp(p) * veg_pp%wtcol(p)
                end if

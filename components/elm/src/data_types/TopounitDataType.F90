@@ -327,7 +327,6 @@ module TopounitDataType
      !---------------------------------------------------------------------
 
      ! spel acc-sync: device data this host code uses
-     !$acc update self(rbufslt) if_present if(elm_device_ready)
      begt = bounds%begt; endt = bounds%endt
 
       nstep = get_nstep()
@@ -335,40 +334,35 @@ module TopounitDataType
      ! Allocate needed dynamic memory for single level topounit field
 
      allocate(rbufslt(begt:endt), stat=ier)
-     !$acc update device(rbufslt) if_present
+     !$acc enter data create(rbufslt)
      if (ier/=0) then
          write(iulog,*)'update_accum_hist allocation error for rbufslt'
           call endrun(msg=errMsg(__FILE__, __LINE__))
      endif
 
      ! Accumulate 24-hour running mean of relative humidity
-     !$acc data copy(rbufslt) if(elm_device_ready)
      !$acc parallel loop gang vector default(present) if(elm_device_ready)
      do t = begt,endt
         rbufslt(t) = this%rhbot(t)
      end do
-     !$acc end data
      if (use_fates) then
         call update_accum_field  ('RH24H', rbufslt, nstep)
         call extract_accum_field ('RH24H', this%rh24h, nstep)
      end if
 
      ! Accumulate 24-hour running mean of wind speed
-     !$acc data copy(rbufslt) if(elm_device_ready)
      !$acc parallel loop gang vector default(present) if(elm_device_ready)
      do t = begt,endt
         rbufslt(t) = this%windbot(t)
      end do
-     !$acc end data
      if (use_fates) then
         call update_accum_field  ('WIND24H', rbufslt, nstep)
         call extract_accum_field ('WIND24H', this%wind24h, nstep)
      end if
 
      ! spel acc-sync: device data this host code uses
-     !$acc update self(rbufslt) if_present if(elm_device_ready)
+     !$acc exit data delete(rbufslt)
      deallocate(rbufslt)
-     !$acc update device(rbufslt) if_present
     end subroutine update_acc_vars_top_as
 
   !-----------------------------------------------------------------------
@@ -587,7 +581,6 @@ module TopounitDataType
     !---------------------------------------------------------------------
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslt) if_present if(elm_device_ready)
     begt = bounds%begt; endt = bounds%endt
 
     nstep = get_nstep()
@@ -595,43 +588,37 @@ module TopounitDataType
     ! Allocate needed dynamic memory for single level topounit field
 
     allocate(rbufslt(begt:endt), stat=ier)
-    !$acc update device(rbufslt) if_present
+    !$acc enter data create(rbufslt)
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbufslt'
        call endrun(msg=errMsg(__FILE__, __LINE__))
     endif
 
     ! Accumulate and extract forc_solad24 & forc_solad240
-    !$acc data copy(rbufslt) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do t = begt,endt
        rbufslt(t) = this%solad(t,1)
     end do
-    !$acc end data
     call update_accum_field  ('FSD240H', rbufslt              , nstep)
     call extract_accum_field ('FSD240H', this%fsd240h         , nstep)
     call update_accum_field  ('FSD24H' , rbufslt              , nstep)
     call extract_accum_field ('FSD24H' , this%fsd24h          , nstep)
 
     ! Accumulate and extract forc_solai24 & forc_solai240
-    !$acc data copy(rbufslt) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do t = begt,endt
        rbufslt(t) = this%solai(t,1)
     end do
-    !$acc end data
     call update_accum_field  ('FSI24H' , rbufslt              , nstep)
     call extract_accum_field ('FSI24H' , this%fsi24h          , nstep)
     call update_accum_field  ('FSI240H', rbufslt              , nstep)
     call extract_accum_field ('FSI240H', this%fsi240h         , nstep)
 
     ! Accumulate and extract total precip
-    !$acc data copy(rbufslt) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do t = begt,endt
        rbufslt(t) = this%rain(t) + this%snow(t)
     end do
-    !$acc end data
     if (use_cn) then
        ! Accumulate and extract PREC60D (accumulates total precipitation as 60-day running mean)
        call update_accum_field  ('PREC60D', rbufslt, nstep)
@@ -648,9 +635,8 @@ module TopounitDataType
     end if
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslt) if_present if(elm_device_ready)
+    !$acc exit data delete(rbufslt)
     deallocate(rbufslt)
-    !$acc update device(rbufslt) if_present
 
   end subroutine update_acc_vars_top_af
 

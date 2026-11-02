@@ -1603,7 +1603,6 @@ contains
     !---------------------------------------------------------------------
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present if(elm_device_ready)
     begp = bounds%begp; endp = bounds%endp
 
     dtime = get_step_size()
@@ -1613,41 +1612,34 @@ contains
     ! Allocate needed dynamic memory for single level pft field
 
     allocate(rbufslp(begp:endp), stat=ier)
-    !$acc update device(rbufslp) if_present
+    !$acc enter data create(rbufslp)
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbuf1dp'
        call endrun(msg=errMsg(__FILE__, __LINE__))
     endif
 
     ! Accumulate and extract
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%cn_scalar(p)
     end do
-    !$acc end data
     call update_accum_field  ('nlim_m' , rbufslp             , nstep)
     call extract_accum_field ('nlim_m' , this%cn_scalar_runmean  , nstep)
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%cp_scalar(p)
     end do
-    !$acc end data
     call update_accum_field  ('plim_m' , rbufslp             , nstep)
     call extract_accum_field ('plim_m' , this%cp_scalar_runmean  , nstep)
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%water_scalar(p)
     end do
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present if(elm_device_ready)
-    !$acc end data
     call update_accum_field  ('wlim_m' , rbufslp             , nstep)
     call extract_accum_field ('wlim_m' , this%water_scalar_runmean  , nstep)
+    !$acc exit data delete(rbufslp)
     deallocate(rbufslp)
-    !$acc update device(rbufslp) if_present
 
   end subroutine UpdateAccVars
 

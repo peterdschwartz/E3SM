@@ -280,6 +280,7 @@ contains
   subroutine EcosystemDynNoLeaching1(bounds,                          &
        num_soilc, filter_soilc,                                         &
        num_soilp, filter_soilp,                                         &
+       soilc_soilp_beg, soilc_soilp_end,                                &
        num_pcropp, filter_pcropp,                                       &
        num_ppercropp, filter_ppercropp,                                 &
        cnstate_vars,  atm2lnd_vars,           &
@@ -323,6 +324,8 @@ contains
     integer                  , intent(in)    :: filter_soilc(:)   ! filter for soil columns
     integer                  , intent(in)    :: num_soilp         ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:)   ! filter for soil patches
+    integer                  , intent(in)    :: soilc_soilp_beg(:) ! the soil patches of soil column fc:
+    integer                  , intent(in)    :: soilc_soilp_end(:) !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
     integer                  , intent(in)    :: num_pcropp        ! number of prog. crop patches in filter
     integer                  , intent(in)    :: filter_pcropp(:)  ! filter for prognostic crop patches
     integer                  , intent(in)    :: num_ppercropp     ! number of prog perennial crop patches in filter
@@ -491,6 +494,7 @@ contains
     ! ------------------------------------------------------------------------------------------------
     call decomp_vertprofiles(bounds,                        &
           num_soilc, filter_soilc, num_soilp, filter_soilp, &
+          soilc_soilp_beg, soilc_soilp_end,                 &
           soilstate_vars, canopystate_vars, cnstate_vars)
 
     !-------------------------------------------------------------------------------------------------
@@ -530,7 +534,7 @@ contains
        atm2lnd_vars,               &
        canopystate_vars, soilstate_vars,  crop_vars, ch4_vars, &
        photosyns_vars, soilhydrology_vars, energyflux_vars,          &
-       sedflux_vars, solarabs_vars)
+       sedflux_vars, solarabs_vars, soilc_soilp_beg, soilc_soilp_end)
     !-------------------------------------------------------------------
     ! bgc interface
     ! Phase-2 of EcosystemDynNoLeaching
@@ -572,6 +576,8 @@ contains
     type(bounds_type)        , intent(in)    :: bounds
     integer                  , intent(in)    :: num_soilc         ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:)   ! filter for soil columns
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
     integer                  , intent(in)    :: num_soilp         ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:)   ! filter for soil patches
     integer                  , intent(in)    :: num_pcropp        ! number of prog. crop patches in filter
@@ -608,7 +614,7 @@ contains
                   num_soilp, filter_soilp,                     &
                   canopystate_vars, soilstate_vars,            &
                   cnstate_vars, ch4_vars,                      &
-                  dt)
+                  dt, soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
     end if !if(.not.use_elm_interface)
 
     call t_stopf('SoilLittDecompAlloc')
@@ -622,7 +628,7 @@ contains
              photosyns_vars, canopystate_vars, soilstate_vars,         &
              cnstate_vars, ch4_vars,                  &
              crop_vars, atm2lnd_vars,                 &
-             dt )
+             dt , soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
     call t_stopf('SoilLittDecompAlloc2')
 
     !----------------------------------------------------------------
@@ -641,7 +647,7 @@ contains
         call Phenology(num_soilc, filter_soilc, num_soilp, filter_soilp, &
              num_pcropp, filter_pcropp, num_ppercropp, filter_ppercropp, doalb, atm2lnd_vars, &
              crop_vars, canopystate_vars, soilstate_vars, &
-             cnstate_vars, solarabs_vars)
+             cnstate_vars, solarabs_vars, soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
         call t_stopf('Phenology')
 
         !--------------------------------------------
@@ -700,7 +706,8 @@ contains
           call t_stopf('phenology_flux_limiter')
         endif
         call t_startf('CNLitterToColumn')
-        call CNLitterToColumn(num_soilc, filter_soilc, cnstate_vars )
+        call CNLitterToColumn(num_soilc, filter_soilc, cnstate_vars , &
+             soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end, filter_soilp=filter_soilp)
         call t_stopf('CNLitterToColumn')
 
         !--------------------------------------------
@@ -763,7 +770,7 @@ contains
    if(.not.use_fates)then
        call t_startf('CNGapMortality')
        call GapMortality( num_soilc, filter_soilc, num_soilp, filter_soilp,&
-                              cnstate_vars, crop_vars)
+                              cnstate_vars, crop_vars, soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
        call t_stopf('CNGapMortality')
 
        !--------------------------------------------
@@ -804,7 +811,7 @@ contains
 
        if (get_do_harvest() .or. iac_present) then
           call CNHarvest(num_soilc, filter_soilc, num_soilp, filter_soilp, &
-               cnstate_vars )
+               cnstate_vars , soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
        end if
 
        if ( use_c13 ) then
@@ -846,7 +853,7 @@ contains
             cnstate_vars )
 
        call FireFluxes(num_soilc, filter_soilc, num_soilp, filter_soilp, &
-            cnstate_vars)
+            cnstate_vars, soilc_soilp_beg=soilc_soilp_beg, soilc_soilp_end=soilc_soilp_end)
 
 
        call t_stopf('CNUpdate2')

@@ -807,9 +807,9 @@ contains
              frw(spel_i1) = 0._r8
           end do
           ! spel acc-sync: device data this host code uses
-          !$acc update self(fr) if_present if(elm_device_ready)
           nlev_soildecomp_standard=5
           allocate(fr(bounds%begc:bounds%endc,nlev_soildecomp_standard))
+          !$acc enter data create(fr)
           !$acc update device(fr, nlev_soildecomp_standard) if_present
           !$acc data copy(frw) if(elm_device_ready)
           !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready)
@@ -843,7 +843,6 @@ contains
           ! as part of the modifications made to improve the seasonal cycle of
           ! atmospheric CO2 concentration in global simulations. This does not impact
           ! the base rates at 25 C, which are calibrated from microcosm studies.
-          !$acc data copy(fr) if(elm_device_ready)
           !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready)
           do fc = 1,num_soilc
              !$acc loop seq
@@ -861,7 +860,6 @@ contains
                 endif
              end do
           end do
-          !$acc end data
 
           ! calculate the rate constant scalar for soil water content.
           ! Uses the log relationship with water potential given in
@@ -871,7 +869,6 @@ contains
           ! Orchard, V.A., and F.J. Cook, 1983. Relationship between soil respiration
           ! and soil moisture. Soil Biol. Biochem., 15(4):447-453.
 
-          !$acc data copy(fr) if(elm_device_ready)
           !$acc parallel loop gang vector default(present) private(fc, c, maxpsi, psi) if(elm_device_ready)
           do fc = 1,num_soilc
              !$acc loop seq
@@ -886,7 +883,6 @@ contains
                 end if
              end do
           end do
-          !$acc end data
 
           if (use_lch4) then
              if (anoxia_wtsat) then ! Adjust for saturated fraction if unfrozen.
@@ -905,7 +901,6 @@ contains
              if (anoxia) then
                 ! Check for anoxia w/o LCH4 now done in controlMod.
 
-                !$acc data copy(fr) if(elm_device_ready)
                 !$acc parallel loop gang vector default(present) private(fc, c) if(elm_device_ready)
                 do fc = 1,num_soilc
                    !$acc loop seq
@@ -923,7 +918,6 @@ contains
                       end if
                    end do
                 end do
-                !$acc end data
              else
                 !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
                 do spel_i2 = 1, nlevdecomp  ! spel section-loop
@@ -942,9 +936,8 @@ contains
           end if
 
           ! spel acc-sync: device data this host code uses
-          !$acc update self(fr) if_present if(elm_device_ready)
+          !$acc exit data delete(fr)
           deallocate(fr)
-          !$acc update device(fr) if_present
 
        else
 

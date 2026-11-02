@@ -269,6 +269,12 @@ contains
        !$acc enter data copyin(this%soilp)
     end if
     !$acc update device(this%num_soilp)
+    if (associated(this%soilc_soilp_beg)) then
+       !$acc enter data copyin(this%soilc_soilp_beg)
+    end if
+    if (associated(this%soilc_soilp_end)) then
+       !$acc enter data copyin(this%soilc_soilp_end)
+    end if
     if (associated(this%snowc)) then
        !$acc enter data copyin(this%snowc)
     end if
@@ -405,6 +411,14 @@ contains
     end if
     !$acc update device(this%num_soilp) if(to_device)
     !$acc update self(this%num_soilp) if(.not. to_device)
+    if (associated(this%soilc_soilp_beg)) then
+       !$acc update device(this%soilc_soilp_beg) if(to_device)
+       !$acc update self(this%soilc_soilp_beg) if(.not. to_device)
+    end if
+    if (associated(this%soilc_soilp_end)) then
+       !$acc update device(this%soilc_soilp_end) if(to_device)
+       !$acc update self(this%soilc_soilp_end) if(.not. to_device)
+    end if
     if (associated(this%snowc)) then
        !$acc update device(this%snowc) if(to_device)
        !$acc update self(this%snowc) if(.not. to_device)
@@ -526,6 +540,8 @@ contains
     if (associated(this%nolakec)) call dd_miss(acc_is_present(this%nolakec), label, 'nolakec', nmiss)
     if (associated(this%soilc)) call dd_miss(acc_is_present(this%soilc), label, 'soilc', nmiss)
     if (associated(this%soilp)) call dd_miss(acc_is_present(this%soilp), label, 'soilp', nmiss)
+    if (associated(this%soilc_soilp_beg)) call dd_miss(acc_is_present(this%soilc_soilp_beg), label, 'soilc_soilp_beg', nmiss)
+    if (associated(this%soilc_soilp_end)) call dd_miss(acc_is_present(this%soilc_soilp_end), label, 'soilc_soilp_end', nmiss)
     if (associated(this%snowc)) call dd_miss(acc_is_present(this%snowc), label, 'snowc', nmiss)
     if (associated(this%nosnowc)) call dd_miss(acc_is_present(this%nosnowc), label, 'nosnowc', nmiss)
     if (associated(this%lakesnowc)) call dd_miss(acc_is_present(this%lakesnowc), label, 'lakesnowc', nmiss)

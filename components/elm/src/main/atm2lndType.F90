@@ -744,7 +744,6 @@ contains
     !---------------------------------------------------------------------
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present if(elm_device_ready)
     begp = bounds%begp; endp = bounds%endp
 
     nstep = get_nstep()
@@ -752,45 +751,39 @@ contains
     ! Allocate needed dynamic memory for single level pft field
 
     allocate(rbufslp(begp:endp), stat=ier)
-    !$acc update device(rbufslp) if_present
+    !$acc enter data create(rbufslp)
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbuf1dp'
        call endrun(msg=errMsg(__FILE__, __LINE__))
     endif
 
     ! Accumulate and extract forc_solad24 & forc_solad240
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
     do p = begp,endp
        g = veg_pp%gridcell(p)
        rbufslp(p) = this%forc_solad_grc(g,1)
     end do
-    !$acc end data
     call update_accum_field  ('FSD240', rbufslp               , nstep)
     call extract_accum_field ('FSD240', this%fsd240_patch     , nstep)
     call update_accum_field  ('FSD24' , rbufslp               , nstep)
     call extract_accum_field ('FSD24' , this%fsd24_patch      , nstep)
 
     ! Accumulate and extract forc_solai24 & forc_solai240
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
     do p = begp,endp
        g = veg_pp%gridcell(p)
        rbufslp(p) = this%forc_solai_grc(g,1)
     end do
-    !$acc end data
     call update_accum_field  ('FSI24' , rbufslp               , nstep)
     call extract_accum_field ('FSI24' , this%fsi24_patch      , nstep)
     call update_accum_field  ('FSI240', rbufslp               , nstep)
     call extract_accum_field ('FSI240', this%fsi240_patch     , nstep)
 
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) private(c) if(elm_device_ready)
     do p = begp,endp
        c = veg_pp%column(p)
        rbufslp(p) = this%forc_rain_downscaled_col(c) + this%forc_snow_downscaled_col(c)
     end do
-    !$acc end data
 
     if (use_cn) then
        ! Accumulate and extract PREC60 (accumulates total precipitation as 60-day running mean)
@@ -806,33 +799,28 @@ contains
        call update_accum_field  ('PREC24', rbufslp, nstep)
        call extract_accum_field ('PREC24', this%prec24_patch, nstep)
 
-       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
        do p = bounds%begp,bounds%endp
           c = veg_pp%column(p)
           g = veg_pp%gridcell(p)
           rbufslp(p) = this%forc_wind_grc(g) 
        end do
-       !$acc end data
        call update_accum_field  ('WIND24', rbufslp, nstep)
        call extract_accum_field ('WIND24', this%wind24_patch, nstep)
 
-       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) private(c, g) if(elm_device_ready)
        do p = bounds%begp,bounds%endp
           c = veg_pp%column(p)
           g = veg_pp%gridcell(p)
           rbufslp(p) = this%forc_rh_grc(g) 
        end do
-       !$acc end data
        call update_accum_field  ('RH24', rbufslp, nstep)
        call extract_accum_field ('RH24', this%rh24_patch, nstep)
     end if
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present if(elm_device_ready)
+    !$acc exit data delete(rbufslp)
     deallocate(rbufslp)
-    !$acc update device(rbufslp) if_present
 
   end subroutine UpdateAccVars
 

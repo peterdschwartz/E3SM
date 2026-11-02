@@ -50,6 +50,10 @@ module filterMod
      integer :: num_soilc                ! number of columns in soil filter 
      integer, pointer :: soilp(:)        ! soil filter (pfts)
      integer :: num_soilp                ! number of pfts in soil filter 
+     ! the soil patches of soil column soilc(fc) are soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
+     ! (an empty range when none of its patches is in soilp)
+     integer, pointer :: soilc_soilp_beg(:)
+     integer, pointer :: soilc_soilp_end(:)
 
      integer, pointer :: snowc(:)        ! snow filter (columns) 
      integer :: num_snowc                ! number of columns in snow filter 
@@ -201,6 +205,8 @@ contains
 
        allocate(this_filter(nc)%soilc(bounds%endc-bounds%begc+1))
        allocate(this_filter(nc)%soilp(bounds%endp-bounds%begp+1))
+       allocate(this_filter(nc)%soilc_soilp_beg(bounds%endc-bounds%begc+1))
+       allocate(this_filter(nc)%soilc_soilp_end(bounds%endc-bounds%begc+1))
 
        allocate(this_filter(nc)%snowc(bounds%endc-bounds%begc+1))
        allocate(this_filter(nc)%nosnowc(bounds%endc-bounds%begc+1))
@@ -487,6 +493,24 @@ contains
              end if
           end if
        end if
+    end do
+
+    ! Map the soil column filter onto the soil patch filter: both are ascending and the
+    ! patches of a column are contiguous, so one merge pass gives each column the range of
+    ! its patches in soilp (empty when none is in the filter). f: column, fn: patch position
+    fn = 1
+    do f = 1, this_filter(nc)%num_soilc
+       c = this_filter(nc)%soilc(f)
+       do while (fn <= this_filter(nc)%num_soilp)
+          if (veg_pp%column(this_filter(nc)%soilp(fn)) >= c) exit
+          fn = fn + 1
+       end do
+       this_filter(nc)%soilc_soilp_beg(f) = fn
+       do while (fn <= this_filter(nc)%num_soilp)
+          if (veg_pp%column(this_filter(nc)%soilp(fn)) /= c) exit
+          fn = fn + 1
+       end do
+       this_filter(nc)%soilc_soilp_end(f) = fn - 1
     end do
 
     ! Create column-level hydrology filter (soil and Urban pervious road cols)
@@ -831,46 +855,85 @@ contains
     integer :: nc          ! clump index
     integer :: f, p        ! filter index, patch index
     integer :: fbare, fveg ! bare-ground / vegetated filter indices
-    integer :: idx         ! position in the filter
+    integer :: n           ! patches in nolakeurbanp
+    integer :: k, nblk     ! block index, number of blocks
+    integer :: f0, f1      ! first/last filter index of a block
+    integer :: nb, nv      ! bare-ground / vegetated patches of a block (counts, then fill positions)
+    integer, parameter :: blk = 128  ! patches per block of the ordered compaction
+    integer, allocatable :: blk_bare(:), blk_veg(:)  ! per block: counts, then offsets
     !------------------------------------------------------------------------
 
     SHR_ASSERT(bounds%level == BOUNDS_LEVEL_CLUMP, errMsg(__FILE__, __LINE__))
     SHR_ASSERT_ALL((ubound(frac_veg_nosno) == (/bounds%endp/)), errMsg(__FILE__, __LINE__))
 
     nc = bounds%clump_index
+    n = this_filter(nc)%num_nolakeurbanp
+
+    ! Ordered stream compaction, in parallel: the sub-filters keep the ascending order of
+    ! nolakeurbanp (as the serial loops of upstream ELM; atomics gave a thread-dependent order).
+    ! 1) per block of blk filter entries, count its bare-ground and vegetated patches;
+    ! 2) exclusive prefix sums of the counts give each block's first position (few hundred
+    !    blocks: one thread) and the filter sizes;
+    ! 3) per block, fill its positions in order.
+    nblk = max((n + blk - 1) / blk, 1)
+    allocate(blk_bare(nblk), blk_veg(nblk))
+    !$acc enter data create(blk_bare, blk_veg) if(elm_device_ready)
+
+    !$acc parallel loop gang vector default(present) private(f0, f1, nb, nv, f, p) if(elm_device_ready)
+    do k = 1, nblk
+       f0 = (k - 1) * blk + 1
+       f1 = min(k * blk, n)
+       nb = 0
+       nv = 0
+       !$acc loop seq
+       do f = f0, f1
+          p = this_filter(nc)%nolakeurbanp(f)
+          if (frac_veg_nosno(p) == 0) then
+             nb = nb + 1
+          else
+             nv = nv + 1
+          end if
+       end do
+       blk_bare(k) = nb
+       blk_veg(k)  = nv
+    end do
 
     fbare = 0
     fveg  = 0
-    !$acc parallel loop independent gang vector default(present) private(p) reduction(+:fbare,fveg) if(elm_device_ready)
-    do f = 1, this_filter(nc)%num_nolakeurbanp
-       p = this_filter(nc)%nolakeurbanp(f)
-       if (frac_veg_nosno(p) == 0) then
-          fbare = fbare + 1
-       else
-          fveg = fveg + 1
-       end if
+    !$acc serial default(present) copy(fbare, fveg) if(elm_device_ready)
+    do k = 1, nblk
+       nb = blk_bare(k)
+       nv = blk_veg(k)
+       blk_bare(k) = fbare
+       blk_veg(k)  = fveg
+       fbare = fbare + nb
+       fveg  = fveg + nv
     end do
+    !$acc end serial
     this_filter(nc)%num_nolakeurban_barep = fbare
     this_filter(nc)%num_nolakeurban_vegp  = fveg
 
-    fbare = 0
-    fveg  = 0
-    ! ascending order, as the serial loops of upstream ELM (atomics gave a
-    ! thread-dependent order): one thread, wherever the filters live
-    !$acc serial default(present) copy(fbare,fveg) if(elm_device_ready)
-    do f = 1, this_filter(nc)%num_nolakeurbanp
-       p = this_filter(nc)%nolakeurbanp(f)
-       if (frac_veg_nosno(p) == 0) then
-          fbare = fbare + 1
-          idx = fbare
-          this_filter(nc)%nolakeurban_barep(idx) = p
-       else
-          fveg = fveg + 1
-          idx = fveg
-          this_filter(nc)%nolakeurban_vegp(idx) = p
-       end if
+    !$acc parallel loop gang vector default(present) private(f0, f1, nb, nv, f, p) if(elm_device_ready)
+    do k = 1, nblk
+       f0 = (k - 1) * blk + 1
+       f1 = min(k * blk, n)
+       nb = blk_bare(k)
+       nv = blk_veg(k)
+       !$acc loop seq
+       do f = f0, f1
+          p = this_filter(nc)%nolakeurbanp(f)
+          if (frac_veg_nosno(p) == 0) then
+             nb = nb + 1
+             this_filter(nc)%nolakeurban_barep(nb) = p
+          else
+             nv = nv + 1
+             this_filter(nc)%nolakeurban_vegp(nv) = p
+          end if
+       end do
     end do
-    !$acc end serial
+
+    !$acc exit data delete(blk_bare, blk_veg) if(elm_device_ready)
+    deallocate(blk_bare, blk_veg)
 
   end subroutine setExposedvegpFilters
 

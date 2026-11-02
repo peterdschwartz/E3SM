@@ -1067,7 +1067,7 @@ contains
  subroutine Allocation2_ResolveNPLimit (bounds, num_soilc, filter_soilc  , &
       num_soilp, filter_soilp                         , &
       cnstate_vars                                    , &
-      soilstate_vars, dt , elm_fates)
+      soilstate_vars, dt , elm_fates, soilc_soilp_beg, soilc_soilp_end)
    ! PHASE-2 of Allocation:  resolving N/P limitation
    ! !USES:
    use elm_varctl      , only : carbon_only          !
@@ -1082,6 +1082,8 @@ contains
    type(bounds_type)        , intent(in)    :: bounds
    integer                  , intent(in)    :: num_soilc        ! number of soil columns in filter
    integer                  , intent(in)    :: filter_soilc(:)  ! filter for soil columns
+   integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+   integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
    integer                  , intent(in)    :: num_soilp        ! number of soil patches in filter
    integer                  , intent(in)    :: filter_soilp(:)  ! filter for soil patches
    type(cnstate_type)       , intent(inout) :: cnstate_vars
@@ -2002,8 +2004,10 @@ contains
                  !$acc update device(cnstate_vars%fpg_p_vr_col) if_present
               end if
               if(.not.use_fates) then
-                 !$acc parallel loop gang vector default(present) if(elm_device_ready)
-                 do p = col_pp%pfti(c), col_pp%pftf(c)
+                 !$acc parallel loop gang vector default(present) if(elm_device_ready) &
+                 !$acc&   private(fp, p)
+                 do fp = soilc_soilp_beg(fc), soilc_soilp_end(fc)  ! spel filter-map
+                    p = filter_soilp(fp)
                     if (veg_pp%active(p).and. (veg_pp%itype(p) .ne. noveg)) then
 
                        ! Convert from /m2 of the column, to /m2 of the pft
@@ -2403,7 +2407,7 @@ contains
         num_soilc, filter_soilc, num_soilp, filter_soilp    , &
         canopystate_vars                                    , &
         cnstate_vars, crop_vars , &
-        dt )
+        dt , soilc_soilp_beg, soilc_soilp_end)
     ! PHASE-3 of Allocation: start new pft loop to distribute the available N/P between the
     ! competing patches on the basis of relative demand, and allocate C/N/P to new growth and storage
 
@@ -2418,6 +2422,8 @@ contains
     type(bounds_type)        , intent(in)    :: bounds
     integer                  , intent(in)    :: num_soilc        ! number of soil columns in filter
     integer                  , intent(in)    :: filter_soilc(:)  ! filter for soil columns
+    integer, intent(in) :: soilc_soilp_beg(:)  ! the soil patches of soil column fc are
+    integer, intent(in) :: soilc_soilp_end(:)  !   filter_soilp(soilc_soilp_beg(fc):soilc_soilp_end(fc))
     integer                  , intent(in)    :: num_soilp        ! number of soil patches in filter
     integer                  , intent(in)    :: filter_soilp(:)  ! filter for soil patches
 
@@ -2475,14 +2481,16 @@ contains
 
 
       !$acc enter data create(n_uptake_sum,p_uptake_sum)
-      !$acc parallel loop  independent gang worker private(c, n_uptake_sum, p_uptake_sum) default(present) if(elm_device_ready)
+      !$acc parallel loop  independent gang worker private(c, n_uptake_sum, p_uptake_sum) default(present) if(elm_device_ready) &
+      !$acc&   private(fp, p)
 
       do fc=1,num_soilc
          n_uptake_sum=0.0_r8
          p_uptake_sum=0.0_r8
          c = filter_soilc(fc)
          !$acc loop vector reduction(+:n_uptake_sum,p_uptake_sum)
-         do p = col_pp%pfti(c), col_pp%pftf(c)
+         do fp = soilc_soilp_beg(fc), soilc_soilp_end(fc)  ! spel filter-map
+            p = filter_soilp(fp)
          if (veg_pp%active(p) .and. (veg_pp%itype(p) .ne. noveg)) then
             n_uptake_sum = n_uptake_sum + plant_ndemand(p) * fpg(c)*veg_pp%wtcol(p)
             p_uptake_sum= p_uptake_sum + plant_pdemand(p) * fpg_p(c)*veg_pp%wtcol(p)

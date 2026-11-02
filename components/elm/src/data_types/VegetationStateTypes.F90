@@ -729,7 +729,6 @@ contains
         )
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present if(elm_device_ready)
     begp = bounds%begp; endp = bounds%endp
 
     dtime = get_step_size()
@@ -739,19 +738,17 @@ contains
     ! Allocate needed dynamic memory for single level pft field
 
     allocate(rbufslp(begp:endp), stat=ier)
-    !$acc update device(rbufslp) if_present
+    !$acc enter data create(rbufslp)
     if (ier/=0) then
        write(iulog,*)'update_accum_hist allocation error for rbuf1dp'
        call endrun(msg=errMsg(__FILE__, __LINE__))
     endif
 
     ! fill the temporary variable
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        rbufslp(p) = this%t_veg(p)
     end do
-    !$acc end data
 
     call update_accum_field  ('T10', this%t_ref2m, nstep)
     call extract_accum_field ('T10', this%t_a10  , nstep)
@@ -770,7 +767,6 @@ contains
     call update_accum_field  ('TREFAV', this%t_ref2m, nstep)
     call extract_accum_field ('TREFAV', rbufslp, nstep)
     end_cd = is_end_curr_day()
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) if(elm_device_ready)
     do p = begp,endp
        if (rbufslp(p) /= spval) then
@@ -787,7 +783,6 @@ contains
           this%t_ref2m_min(p) = spval
        endif
     end do
-    !$acc end data
 
     ! Accumulate and extract TREFAV_U - hourly average urban 2m air temperature
     ! Used to compute maximum and minimum of hourly averaged 2m reference
@@ -798,7 +793,6 @@ contains
 
     call update_accum_field  ('TREFAV_U', this%t_ref2m_u, nstep)
     call extract_accum_field ('TREFAV_U', rbufslp, nstep)
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready)
     do p = begp,endp
        l = veg_pp%landunit(p)
@@ -818,7 +812,6 @@ contains
           this%t_ref2m_min_u(p) = spval
        endif
     end do
-    !$acc end data
 
     ! Accumulate and extract TREFAV_R - hourly average rural 2m air temperature
     ! Used to compute maximum and minimum of hourly averaged 2m reference
@@ -829,7 +822,6 @@ contains
 
     call update_accum_field  ('TREFAV_R', this%t_ref2m_r, nstep)
     call extract_accum_field ('TREFAV_R', rbufslp, nstep)
-    !$acc data copy(rbufslp) if(elm_device_ready)
     !$acc parallel loop gang vector default(present) private(l) if(elm_device_ready)
     do p = begp,endp
        l = veg_pp%landunit(p)
@@ -849,36 +841,30 @@ contains
           this%t_ref2m_min_r(p) = spval
        endif
     end do
-    !$acc end data
 
     if ( crop_prog )then
        ! Accumulate and extract TDM10
 
-       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do p = begp,endp
           rbufslp(p) = min(this%t_ref2m_min(p),this%t_ref2m_min_inst(p))
           if (rbufslp(p) > 1.e30_r8) rbufslp(p) = SHR_CONST_TKFRZ !and were 'min'&
        end do                                                     !'min_inst' not initialized?
-       !$acc end data
        call update_accum_field  ('TDM10', rbufslp, nstep)
        call extract_accum_field ('TDM10', this%t_a10min, nstep)
 
        ! Accumulate and extract TDM5
 
-       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) if(elm_device_ready)
        do p = begp,endp
           rbufslp(p) = min(this%t_ref2m_min(p),this%t_ref2m_min_inst(p))
           if (rbufslp(p) > 1.e30_r8) rbufslp(p) = SHR_CONST_TKFRZ !and were 'min'&
        end do                                         !'min_inst' not initialized?
-       !$acc end data
        call update_accum_field  ('TDM5', rbufslp, nstep)
        call extract_accum_field ('TDM5', this%t_a5min, nstep)
 
        ! Accumulate and extract GDD0
 
-       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
        do p = begp,endp
           g = veg_pp%gridcell(p)
@@ -907,13 +893,11 @@ contains
              end if
           end if
        end do
-       !$acc end data
        call update_accum_field  ('GDD0', rbufslp, nstep)
        call extract_accum_field ('GDD0', this%gdd0, nstep)
 
        ! Accumulate and extract GDD8
 
-       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
        do p = begp,endp
           g = veg_pp%gridcell(p)
@@ -927,13 +911,11 @@ contains
              rbufslp(p) = 0._r8      ! keeps gdd unchanged at other times (eg, through Dec in NH)
           end if
        end do
-       !$acc end data
        call update_accum_field  ('GDD8', rbufslp, nstep)
        call extract_accum_field ('GDD8', this%gdd8, nstep)
 
        ! Accumulate and extract GDD10
 
-       !$acc data copy(rbufslp) if(elm_device_ready)
        !$acc parallel loop gang vector default(present) private(g) if(elm_device_ready)
        do p = begp,endp
           g = veg_pp%gridcell(p)
@@ -947,15 +929,13 @@ contains
              rbufslp(p) = 0._r8      ! keeps gdd unchanged at other times (eg, through Dec in NH)
           end if
        end do
-       !$acc end data
        call update_accum_field  ('GDD10', rbufslp, nstep)
        call extract_accum_field ('GDD10', this%gdd10, nstep)
     end if
 
     ! spel acc-sync: device data this host code uses
-    !$acc update self(rbufslp) if_present if(elm_device_ready)
+    !$acc exit data delete(rbufslp)
     deallocate(rbufslp)
-    !$acc update device(rbufslp) if_present
     end associate
 
   end subroutine update_acc_vars_veg_es
