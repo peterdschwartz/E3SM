@@ -467,6 +467,11 @@
       <directive> --gpus-per-node=4</directive>
       <directive> --gpu-bind=none</directive>
     </directives>
+    <!-- nvidiaacc: no gpu-bind=none, so SLURM_GPUS_PER_TASK=1 binds one GPU per task (acc declare data lives on
+         the device each rank sees first; with all 4 visible, ranks 1-3 compute on another GPU than that data) -->
+    <directives compiler="nvidiaacc">
+      <directive> --gpus-per-node=4</directive>
+    </directives>
     <directives COMPSET="!.*MMF.*" compiler="intelgpu">
       <directive> --gpus-per-node=4</directive>
       <directive> --gpu-bind=none</directive>
