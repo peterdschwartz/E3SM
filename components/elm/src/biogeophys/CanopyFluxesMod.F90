@@ -289,6 +289,11 @@ contains
     integer :: iter_filterp(num_nolu_vegp), iter_filter_map(num_nolu_vegp)  ! filter for iteration loop
     integer :: next_filterp(num_nolu_vegp), next_filter_map(num_nolu_vegp)  ! the compacted filter, built in parallel
     integer :: k                                                            ! entry in the compacted filter
+    ! FATES only: patch-indexed (begp:endp) copies of the filter-compressed work arrays that
+    ! wrap_photosynthesis reads. Allocated only with use_fates and never put on the device (FATES
+    ! runs on the host; GPU builds reject use_fates), so non-FATES runs pay nothing.
+    real(r8), allocatable :: svpts_p(:), eah_p(:), o2_p(:), co2_p(:), rb_p(:), dayl_factor_p(:)
+    integer :: ifates                                                       ! entry of iter_filterp (FATES scatter)
     integer :: fn_next                                                      ! count of the compacted filter
     logical :: compact                                                      ! this iteration tests convergence
     integer :: active_index                                                ! position within the compacted iteration filter
@@ -683,6 +688,11 @@ contains
       !$acc     tlbef(:), del(:),del2(:),svpts(:),eah(:), dt_veg(:),wtg(:), &
       !$acc     wtl0(:), wtal(:), efe(:), dele(:),fm(:))
 
+      if (use_fates) then
+         allocate(svpts_p(begp:endp), eah_p(begp:endp), o2_p(begp:endp), co2_p(begp:endp), &
+                  rb_p(begp:endp), dayl_factor_p(begp:endp))
+      end if
+
       ! Begin stability iteration
       call t_startf('can_iter')
       ITERATION : do while (itlef <= itmax .and. fn > 0)
@@ -796,9 +806,20 @@ contains
         end do
 
          if ( use_fates ) then
+            ! FATES takes patch-indexed arrays: scatter the iterating patches' entries of the
+            ! filter-compressed work arrays (iter_filter_map(i) = position of iter_filterp(i))
+            do ifates = 1, fn
+               p = iter_filterp(ifates)
+               k = iter_filter_map(ifates)
+               svpts_p(p)       = svpts(k)
+               eah_p(p)         = eah(k)
+               o2_p(p)          = o2(k)
+               co2_p(p)         = co2(k)
+               rb_p(p)          = rb(k)
+               dayl_factor_p(p) = dayl_factor(k)
+            end do
             call alm_fates%wrap_photosynthesis(bounds, fn, iter_filterp(1:fn), &
-                  svpts(begp:endp), eah(begp:endp), o2(begp:endp), &
-                  co2(begp:endp), rb(begp:endp), dayl_factor(begp:endp), &
+                  svpts_p, eah_p, o2_p, co2_p, rb_p, dayl_factor_p, &
                   atm2lnd_vars, canopystate_vars, photosyns_vars)
          else ! not use_fates
 
@@ -1102,6 +1123,8 @@ contains
             end do
          end if
       end do ITERATION     ! End stability iteration
+
+      if (use_fates) deallocate(svpts_p, eah_p, o2_p, co2_p, rb_p, dayl_factor_p)
 
       call t_stopf('can_iter')
       
