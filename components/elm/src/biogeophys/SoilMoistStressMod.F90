@@ -148,12 +148,12 @@ end subroutine normalize_test
     !------------------------------------------------------------------------------
     !main calculation loop
     !it assumes the soil layers start from 1
-    !$acc parallel loop independent gang default(present) if(elm_device_ready)
-    do j = 1, ubj
-      !$acc loop vector independent private(p,c,vol_ice)
-       do fp = 1, numf
-          p = filter(fp)
-          c = veg_pp%column(p)
+    !$acc parallel loop independent gang vector default(present) private(p,c,j,vol_ice) if(elm_device_ready)
+    do fp = 1, numf
+       p = filter(fp)
+       c = veg_pp%column(p)
+       !$acc loop seq
+       do j = 1, ubj
           !compute the volumetric ice content
           vol_ice=min(watsat(c,j), h2osoi_ice(c,j)/(denice*col_pp%dz(c,j)))
           !compute the maximum soil space to fill liquid water and air
@@ -242,12 +242,12 @@ end subroutine normalize_test
     integer, parameter :: jtop = 1
     !------------------------------------------------------------------------------
     !main calculation loop
-    !$acc parallel loop independent gang default(present) if(elm_device_ready)
-    do j = lbj, ubj
-      !$acc loop vector independent private(p,c)
-       do fp = 1, numf
-          p = filter(fp)
-          c = veg_pp%column(p)
+    !$acc parallel loop independent gang vector default(present) private(p,c,j) if(elm_device_ready)
+    do fp = 1, numf
+       p = filter(fp)
+       c = veg_pp%column(p)
+       !$acc loop seq
+       do j = lbj, ubj
           if(j>=jtop)then
              !volume of liquid is no greater than effective void space
              vol_liq(c,j) = min(eff_porosity(c,j), h2osoi_liq(c,j)/(col_pp%dz(c,j)*denh2o))
@@ -286,7 +286,7 @@ end subroutine normalize_test
     !
     ! !LOCAL VARIABLES:
     integer :: p, c, j, f  !indices
-    real(r8) :: arr_sum(fn), sum1
+    real(r8) :: sum1
     !------------------------------------------------------------------------------
 
     associate(     &
@@ -306,70 +306,46 @@ end subroutine normalize_test
 
       ! Define rootfraction for unfrozen soil only
       ! if (perchroot .or. perchroot_alt) then
+      ! one kernel over the patches, layer loops sequential (the layer sum in the CPU order)
+      !$acc parallel loop independent gang vector default(present) private(p,c,j,sum1) if(elm_device_ready)
+      do f = 1, fn
+         p = filterp(f)
+         c = veg_pp%column(p)
          if (perchroot_alt) then
             ! use total active layer (defined ass max thaw depth for current and prior year)
-            !$acc parallel loop independent gang default(present) if(elm_device_ready)
+            !$acc loop seq
             do j = 1, ubj
-               !$acc loop vector independent private(p,c)
-               do f = 1, fn
-                  p = filterp(f)
-                  c = veg_pp%column(p)
-
-                  if ( j <= max(altmax_lastyear_indx(c), altmax_indx(c), 1) )then
-                     rootfr_unf(f,j) = rootfr(p,j)
-                  else
-                     rootfr_unf(f,j) = 0._r8
-                  end if
-               end do
+               if ( j <= max(altmax_lastyear_indx(c), altmax_indx(c), 1) )then
+                  rootfr_unf(f,j) = rootfr(p,j)
+               else
+                  rootfr_unf(f,j) = 0._r8
+               end if
             end do
          else
             ! use instantaneous temperature
-            !$acc parallel loop independent gang default(present) if(elm_device_ready)
+            !$acc loop seq
             do j = 1, ubj
-               !$acc loop vector independent private(p,c)
-               do f = 1, fn
-                  p = filterp(f)
-                  c = veg_pp%column(p)
-                  if (t_soisno(c,j) >= tfrz) then
-                     rootfr_unf(f,j) = rootfr(p,j)
-                  else
-                     rootfr_unf(f,j) = 0._r8
-                  end if
-               end do
+               if (t_soisno(c,j) >= tfrz) then
+                  rootfr_unf(f,j) = rootfr(p,j)
+               else
+                  rootfr_unf(f,j) = 0._r8
+               end if
             end do
-
          end if ! perchroot_alt
-      ! end if ! perchroot
-
-      !normalize the root fraction for each pft
-      ! call normalize_test( 1, ubj, &
-      !      fn, filterp, rootfr_unf(:, :))
-      ! !!!
-      !$acc enter data create(arr_sum(1:fn))
-      !$acc parallel loop independent gang worker default(present) private(sum1) if(elm_device_ready)
-      do f = 1, fn
-        sum1 = 0._r8
-        !$acc loop vector reduction(+:sum1)
-        do j = 1, ubj
-            !obtain the total
+         !normalize the root fraction for each pft
+         sum1 = 0._r8
+         !$acc loop seq
+         do j = 1, ubj
             sum1=sum1+rootfr_unf(f,j)
-        enddo
-        arr_sum(f) = sum1
-      enddo
-
-        !normalize with the total if arr_sum is non-zero
-      !$acc parallel loop independent gang default(present) if(elm_device_ready)
-      do j = 1, ubj
-        !$acc loop vector independent
-        do f = 1, fn
-         !I found I have to ensure >0._r8 because of some unknown reason, jyt May 23, 2014
-         !I will test this later with arr_sum(p)/=0._r8
-         if(arr_sum(f)>0._r8 .or. arr_sum(f)<0._r8)then
-            rootfr_unf(f,j) = rootfr_unf(f,j)/arr_sum(f)
+         enddo
+         !normalize with the total if the total is non-zero
+         if(sum1>0._r8 .or. sum1<0._r8)then
+            !$acc loop seq
+            do j = 1, ubj
+               rootfr_unf(f,j) = rootfr_unf(f,j)/sum1
+            enddo
          endif
-        enddo
-      enddo
-      !$acc exit data delete(arr_sum(:))
+      end do
     end associate
 
   end subroutine normalize_unfrozen_rootfr
@@ -430,26 +406,23 @@ end subroutine normalize_test
          h2osoi_liqvol => col_ws%h2osoi_liqvol   & ! Output: [real(r8) (:,:) ]  liquid volumetric moisture
          )
 
-      !$acc parallel loop independent gang default(present) if(elm_device_ready)
-      do j = 1,nlevgrnd
-         !$acc loop vector independent private(p,c,l,s_node,smp_node )
-         do f = 1, fn
-            p = filterp(f)
-            c = veg_pp%column(p)
-            l = veg_pp%landunit(p)
-
-            ! Root resistance factors
-            ! rootr effectively defines the active root fraction in each layer
+      ! one kernel over the patches, layer loops sequential (the layer sums in the CPU order)
+      !$acc parallel loop independent gang vector default(present) &
+      !$acc  private(p,c,l,j,s_node,smp_node,smp_node_lf,sum1,sum2) if(elm_device_ready)
+      do f = 1, fn
+         p = filterp(f)
+         c = veg_pp%column(p)
+         l = veg_pp%landunit(p)
+         ! Root resistance factors
+         ! rootr effectively defines the active root fraction in each layer
+         !$acc loop seq
+         do j = 1,nlevgrnd
             if (h2osoi_liqvol(c,j) .le. 0._r8 .or. t_soisno(c,j) .le. tfrz + tc_stress) then
-                    rootr(p,j) = 0._r8
+               rootr(p,j) = 0._r8
             else
                s_node = max(h2osoi_liqvol(c,j)/eff_porosity(c,j),0.01_r8)
-               !smp_node = max(smpsc(veg_pp%itype(p)), -sucsat(c,j)*s_node**(-bsw(c,j)))
-               !call soil_water_retention_curve%soil_suction(sucsat(c,j), s_node, bsw(c,j), smp_node)
                smp_node = -sucsat(c,j)*s_node**( -bsw(c,j) )
-
                smp_node = max(smpsc(veg_pp%itype(p)), smp_node)
-
                rresis(p,j) = min( (eff_porosity(c,j)/watsat(c,j))* &
                     (smp_node - smpsc(veg_pp%itype(p))) / (smpso(veg_pp%itype(p)) - smpsc(veg_pp%itype(p))), 1._r8)
                if (.not. (perchroot .or. perchroot_alt) ) then
@@ -458,55 +431,33 @@ end subroutine normalize_test
                   rootr(p,j) = rootfr_unf(f,j)*rresis(p,j)
                end if
             endif
-
          end do
-      end do
-
-      !calculate btran and btran2
-      if(.not. use_hydrstress) then
-         !$acc parallel loop independent gang worker default(present) private(p,c,sum1) if(elm_device_ready)
-         do f = 1, fn
-            p = filterp(f)
-            c = veg_pp%column(p)
+         !calculate btran and btran2
+         if(.not. use_hydrstress) then
             sum1 = btran(p)
-               !$acc loop reduction(+:sum1) private(s_node,smp_node_lf)
-               do j = 1, nlevgrnd
-                  if (.not. (h2osoi_liqvol(c,j) .le. 0._r8 .or. t_soisno(c,j) .le. tfrz + tc_stress)) then
-                     sum1 = sum1 + max(rootr(p,j),0._r8)
-                  end if
-               end do
-               btran(p) = sum1
-         end do
-      end if
-
-      !$acc parallel loop independent gang worker default(present) private(p,c,sum2) if(elm_device_ready)
-      do f = 1, fn
-         p = filterp(f)
-         c = veg_pp%column(p)
-         sum2 = btran2(p)
-            !$acc loop reduction(+:sum2) private(s_node,smp_node_lf)
-            do j = 1,nlevgrnd
+            !$acc loop seq
+            do j = 1, nlevgrnd
                if (.not. (h2osoi_liqvol(c,j) .le. 0._r8 .or. t_soisno(c,j) .le. tfrz + tc_stress)) then
-                  !smp_node_lf = max(smpsc(veg_pp%itype(p)), -sucsat(c,j)*(h2osoi_vol(c,j)/watsat(c,j))**(-bsw(c,j)))
-                  s_node = h2osoi_vol(c,j)/watsat(c,j)
-                  !call soil_water_retention_curve%soil_suction(sucsat(c,j), s_node, bsw(c,j), smp_node_lf)
-                  smp_node_lf = -sucsat(c,j)*s_node**( -bsw(c,j) )
-                  !smp_node_lf =  -sucsat(c,j)*(h2osoi_vol(c,j)/watsat(c,j))**(-bsw(c,j))
-                  smp_node_lf = max(smpsc(veg_pp%itype(p)), smp_node_lf)
-                  sum2  = sum2 +rootfr(p,j)*min((smp_node_lf - smpsc(veg_pp%itype(p))) / &
-                           (smpso(veg_pp%itype(p)) - smpsc(veg_pp%itype(p))), 1._r8)
+                  sum1 = sum1 + max(rootr(p,j),0._r8)
                end if
             end do
-            btran2(p) = sum2
-      end do
-      !$acc wait
-
-      ! Normalize root resistances to get layer contribution to ET
-      !$acc parallel loop independent gang default(present) if(elm_device_ready)
-      do j = 1,nlevgrnd
-         !$acc loop vector independent private(p)
-         do f = 1, fn
-            p = filterp(f)
+            btran(p) = sum1
+         end if
+         sum2 = btran2(p)
+         !$acc loop seq
+         do j = 1,nlevgrnd
+            if (.not. (h2osoi_liqvol(c,j) .le. 0._r8 .or. t_soisno(c,j) .le. tfrz + tc_stress)) then
+               s_node = h2osoi_vol(c,j)/watsat(c,j)
+               smp_node_lf = -sucsat(c,j)*s_node**( -bsw(c,j) )
+               smp_node_lf = max(smpsc(veg_pp%itype(p)), smp_node_lf)
+               sum2  = sum2 +rootfr(p,j)*min((smp_node_lf - smpsc(veg_pp%itype(p))) / &
+                        (smpso(veg_pp%itype(p)) - smpsc(veg_pp%itype(p))), 1._r8)
+            end if
+         end do
+         btran2(p) = sum2
+         ! Normalize root resistances to get layer contribution to ET
+         !$acc loop seq
+         do j = 1,nlevgrnd
             if (btran(p) > btran0) then
                rootr(p,j) = rootr(p,j)/btran(p)
             else
@@ -514,7 +465,6 @@ end subroutine normalize_test
             end if
          end do
       end do
-
     end associate
 
   end subroutine calc_root_moist_stress_clm45default
@@ -551,16 +501,8 @@ end subroutine normalize_test
     !------------------------------------------------------------------------------
 
     !define normalized rootfraction for unfrozen soil
-    integer :: spel_i1, spel_i2  ! spel section-loop indices
-    ! spel acc-locals: device storage of the local work arrays
+    ! rootfr_unf is assigned in full by normalize_unfrozen_rootfr before it is read
     !$acc enter data create(rootfr_unf)
-    !$acc parallel loop gang vector collapse(2) default(present) if(elm_device_ready)
-    do spel_i2 = 1, nlevgrnd  ! spel section-loop
-       do spel_i1 = 1, fn
-          rootfr_unf(spel_i1, spel_i2) = 0._r8
-       end do
-    end do
-    !$acc enter data copyin(rootfr_unf(1:fn,1:nlevgrnd))
 
     call normalize_unfrozen_rootfr(bounds,  &
          ubj = nlevgrnd,                    &
@@ -586,7 +528,6 @@ end subroutine normalize_test
 
     case default
     end select
-    !$acc exit data delete(rootfr_unf(:,:))
 
     !$acc exit data delete(rootfr_unf)
   end subroutine calc_root_moist_stress
